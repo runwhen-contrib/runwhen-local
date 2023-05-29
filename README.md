@@ -15,7 +15,8 @@ You can also *choose to upload* the configuration files to the RunWhen platform,
 - 📈 track and alert on service issues across multiple clusters & cloud environments
 
 ## Getting Started
-Documentation on getting started with RunWhen Local (and running the `workspace-builder` utility), can be in our public docs [https://docs.runwhen.com/public/getting-started/runwhen-local](https://docs.runwhen.com/public/getting-started/runwhen-local). 
+Documentation on getting started with RunWhen Local (and running the `workspace-builder` utility), is found here: [https://docs.runwhen.com/public/getting-started/runwhen-local](https://docs.runwhen.com/public/getting-started/runwhen-local). 
+
 
 ## Want to Contribute? Have an awesome troubleshooting command to share?
 This tool searches the following public repositories for useful commands or runbooks that match up with the resources found in your cluster or cloud environments. 
