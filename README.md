@@ -32,11 +32,6 @@ Interested in providing feedback to help improve the tool?
 - [Fill out a very short feedback form](https://docs.google.com/forms/d/e/1FAIpQLScuso8SQMdj9d-0VnxxBMcvdZrcZ2M389EbwE355flnkQOUFQ/viewform)
 - [Open up a GitHub issue](https://github.com/runwhen-contrib/runwhen-local/issues/new/choose)
 
-## Tool Feedback
-Interested in providing feedback to help improve the tool?
-
-- [Fill out a very short feedback form](https://docs.google.com/forms/d/e/1FAIpQLScuso8SQMdj9d-0VnxxBMcvdZrcZ2M389EbwE355flnkQOUFQ/viewform)  
-- [Open up a GitHub issue](https://github.com/runwhen-contrib/runwhen-local/issues/new/choose) 
   
 ## Connect with Us
 Want to connect with the RunWhen community, [join us on slack](https://runwhen.slack.com/join/shared_invite/zt-1l7t3tdzl-IzB8gXDsWtHkT8C5nufm2A)  
