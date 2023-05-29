@@ -10,7 +10,7 @@ This tool runs on your local machine, and:
 
 You can also *choose to upload* the configuration files to the RunWhen platform, which unlocks:
 
-- 🔍 visualizations of your services, components, and troubleshooting tasks
+- 🔍 navigate an **interactive map** of your services, components, and troubleshooting tasks
 - 🧑🏻‍🤝‍🧑🏿 collaborative troubleshooting with an **AI assistant and colleagues**
 - 📈 track and alert on service issues across multiple clusters & cloud environments
 
