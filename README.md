@@ -7,6 +7,7 @@ This tool runs on your local machine, and:
 - Combines **your environment** with **open source troubleshooting commands**
 - 🎉 Generates a searchable / copy pasteable cheat sheet for your environment
 
+![RunWhen Local Overview](assets/flow.png)
 
 You can also *choose to upload* the configuration files to the RunWhen platform, which unlocks:
 
