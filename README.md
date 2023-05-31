@@ -4,8 +4,8 @@
 This tool runs on your local machine, and:
 
 - **Scans** your Kubernetes-based cluster
-- Combines **your environment** with **open source troubleshooting commands**
-- 🎉 Generates a searchable / copy pasteable cheat sheet for your environment
+- Combines **your environment** with **community curated troubleshooting commands**
+- 🎉 Generates a searchable / copy pasteable cheat sheet *tailored for the workloads you are running*
 
 ![RunWhen Local Overview](assets/flow.png)
 
