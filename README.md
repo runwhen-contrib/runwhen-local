@@ -44,3 +44,6 @@ Want to connect with the RunWhen community, [join us on slack](https://runwhen.s
 - [Website](https://www.runwhen.com) 
 - [Slack](https://runwhen.slack.com/join/shared_invite/zt-1l7t3tdzl-IzB8gXDsWtHkT8C5nufm2A)
 - [LinkedIn](https://www.linkedin.com/company/runwhen/) 
+
+## Current State of Open Source
+This tool is under rapid development changes - all code will be added to this repository in a future release. Until that time, feel free to use our GitHub Issues or Slack to get in touch with us regarding changes that could support your particular use case.
