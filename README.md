@@ -47,3 +47,6 @@ Want to connect with the RunWhen community, [join us on slack](https://runwhen.s
 
 ## Current State of Open Source
 This tool is under rapid development changes - all code will be added to this repository in a future release. Until that time, feel free to use our GitHub Issues or Slack to get in touch with us regarding changes that could support your particular use case.
+
+## Release Notes
+Short release notes are posted [here](https://docs.runwhen.com/public/runwhen-local-features/release-notes) until all code is migrated to this repository. 
