@@ -34,13 +34,13 @@ spec:
         - name: configmap-volume
           mountPath: "/shared/workspaceInfo.yaml"
           subPath: "workspaceInfo.yaml"
-      readinessProbe:
-        httpGet:
-          path: /
-          port: 7687
-        initialDelaySeconds: 10
-        periodSeconds: 5
-        failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 7687
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          failureThreshold: 3
       volumes:
       - name: shared-volume
         emptyDir: {}
