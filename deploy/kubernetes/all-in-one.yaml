@@ -35,12 +35,12 @@ spec:
           mountPath: "/shared/workspaceInfo.yaml"
           subPath: "workspaceInfo.yaml"
         readinessProbe:
-          httpGet:
-            path: /
+          tcpSocket:
             port: 7687
           initialDelaySeconds: 10
           periodSeconds: 5
           failureThreshold: 3
+          initialDelaySeconds: 10
       volumes:
       - name: shared-volume
         emptyDir: {}
