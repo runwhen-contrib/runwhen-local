@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: runwhen-local
+  labels:
+    app: runwhen-local
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: runwhen-local
+  template:
+    metadata:
+      labels:
+        app: runwhen-local
+    spec:
+      containers:
+      - name: runwhen-local
+        image: ghcr.io/runwhen-contrib/runwhen-local:latest
+        imagePullPolicy: Always
+        ports:
+          - containerPort: 8081
+          - containerPort: 8000
+          - containerPort: 7687
+        env: 
+        - name: AUTORUN_WORKSPACE_BUILDER_INTERVAL
+          value: "1800"
+        volumeMounts:
+        - name: shared-volume
+          mountPath: "/shared"
+        - name: secret-volume
+          mountPath: "/shared/kubeconfig"
+          subPath: "kubeconfig"
+        - name: configmap-volume
+          mountPath: "/shared/workspaceInfo.yaml"
+          subPath: "workspaceInfo.yaml"
+      readinessProbe:
+        httpGet:
+          path: /
+          port: 7687
+        initialDelaySeconds: 10
+        periodSeconds: 5
+        failureThreshold: 3
+      volumes:
+      - name: shared-volume
+        emptyDir: {}
+      - name: secret-volume
+        secret:
+          secretName: runwhen-local-kubeconfig
+          items:
+            - key: kubeconfig
+              path: kubeconfig
+      - name: configmap-volume
+        configMap:
+          name: runwhen-local-workspaceinfo
+          items:
+            - key: workspaceInfo.yaml
+              path: workspaceInfo.yaml
