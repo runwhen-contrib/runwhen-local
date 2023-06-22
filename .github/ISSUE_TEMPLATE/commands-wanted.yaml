@@ -1,5 +1,5 @@
 name: Commands Wanted
-description: Share your favorite troubleshooting command and help improve the community's experience!
+description: Ask the community for troubleshooting commands that help in your stack. 
 title: "[new-command-request] "
 labels: ["runwhen-local", "new-command-request"] 
 assignees: 
