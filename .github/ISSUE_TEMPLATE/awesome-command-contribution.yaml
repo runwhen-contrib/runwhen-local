@@ -40,7 +40,6 @@ body:
       label: When would you run this?
       description: Please provide a description of the situations in which you would use this command.
       placeholder: Useful when trying to see ALL resources that exist in a namespace while troubleshooting issues with a non-terminating namespace.
-      value: "When namespaces are having problems terminating due to stuck resources"
     validations:
       required: false
 
