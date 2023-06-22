@@ -6,52 +6,55 @@ labels: runwhen-local, awesome-command-contribution
 assignees: 'stewartshea'
 
 ---
-<!--
-Feel free to add as much or as little detail below in the form and our team will try out best to integrate your awesome troubleshooting command. These commands help the community get better and using and navigating their complext Kubernetes and cloud environments - all contributions are appreciated! 
 
-The more context provided, the easier it will be to integrate the command. If you're open to being contacted with followup questions, please place an [x] beside 'yes please' at the end of the form. 
+<!--
+Hello there! We're excited to hear about your favorite troubleshooting command. Your contribution will make a big difference in improving the community's experience with Kubernetes and cloud environments. Feel free to add as much or as little detail below, and our team will integrate your awesome command.
+
+Remember, every contribution is highly appreciated! Let's make navigating complex environments easier together!
+
+If you're open to being contacted with follow-up questions, please place an [x] beside 'yes, please' at the end of the form. Happy sharing!
 -->
 
 **Awesome Command** 
 <!--
-Please provide a complete example of your awesome command. Most commands are focused on command line tools like kubectl, curl, gcloud, aws, argo, flux and so on. We will do our best to add all new command line binaries.   
+Please provide a complete example of your awesome command. Most commands are focused on command line tools like kubectl, curl, gcloud, aws, argo, flux, and more. We'll do our best to add all new command line binaries.
 
-example: 
+Example: 
 kubectl api-resources --verbs=list --namespaced -o name --context=sandbox-cluster-1 | xargs -n 1 kubectl get --show-kind --ignore-not-found -n jenkins --context=sandbox-cluster-1
 -->
 
 **What does it do?**
 <!--
-Please provide one sentence description of what the task does. This shows up as the "Task Title". 
+In one sentence, describe what the task accomplishes. This will show up as the "Task Title."
 
-example: 
+Example: 
 Get Listing Of Resources In Namespace
 -->
 
 
 **When would you run this?**
 <!--
-Please provide a description of when you might run this task. 
+Please provide a description of the situations in which you would use this command.
 
-example: 
-Useful when trying to see ALL resources that exist in a namespace while troubleshooting issues with a namespace that won't Terminate.
+Example: 
+Useful when trying to see ALL resources that exist in a namespace while troubleshooting issues with a non-terminating namespace.
 -->
 
 **Any other helpful context?**
 <!--
-Is there any other context surrounding this command, such as specific circumstances or dependencies that make it useful?
+Provide any additional context surrounding this command, such as specific circumstances or dependencies that make it particularly useful.
 
-example: 
-This is most useful when the user has access to list/get all possible resoures within the namespace. 
+Example: 
+This command is most effective when the user has access to list/get all possible resources within the namespace.
 -->
 
 
 **Further Contact**
-Are you willing to be contacted if there are additional questions? 
-- [ ] Yes Please
-- [ ] No Thanks
+Are you willing to be contacted for additional questions? 
+- [ ] Yes, please
+- [ ] No, thanks
 
 
 <!--
-You're done! Whohoo! Thanks for your time in sharing your awesome commands with the community!
+You're done! Woohoo! Thanks for taking the time to share your awesome commands with the community! We appreciate your contribution!
 -->
