@@ -1,0 +1,57 @@
+name: Commands Wanted
+description: Share your favorite troubleshooting command and help improve the community's experience!
+title: "[new-command-request] "
+labels: ["runwhen-local", "new-command-request"] 
+assignees: 
+  - stewartshea
+body: 
+  - type: markdown
+    attributes:
+      value: |
+        Hello there 🎉! We're excited that you're using RunWhen Local and want it to grow. Your request for a contribution will make a big difference in improving the community's experience with Kubernetes and cloud environments. Feel free to add as much or as little detail below. 
+        
+        Remember, every request is highly appreciated! Let's make navigating complex environments easier together!
+        
+        If you're open to being contacted with follow-up questions, please place an [x] beside 'yes, please' at the end of the form. Happy sharing! 😊
+
+  - type: textarea
+    id: command-request
+    attributes:
+      label: What do you need the command to do?
+      description: Please describe, as best as you can, the purpose of the command. 
+      placeholder: ex. We need a command (or commands) that help diagnose any issues with our istio configuraiton. 
+    validations:
+      required: true
+
+  - type: textarea
+    id: command-output
+    attributes:
+      label: What should the output look like?
+      description: For the command to be most useful, what output is ideal?
+      placeholder: ex. Each command should identify any errors, warnings, or possible misconfigurations across all controllers. The commands should be able to be run by a L1 support team without the need to sift through unhelpful yaml output. 
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Any other helpful context?
+      description: Provide any additional context surrounding this command, such as specific circumstances or dependencies that make it particularly useful.
+      placeholder: ex. We run a multi-cluster istio setup, so it's important to support multiple contexts/clusters. 
+    validations:
+      required: false
+
+  - type: dropdown
+    id: contact
+    attributes:
+      label: Contact
+      description: Are you willing to be contacted for additional questions? 
+      options:
+        - Yes, please
+        - No, thanks
+
+
+  - type: markdown
+    attributes:
+      value: |
+        You're done🎉! Woohoo! Thanks for taking the time to share your troubleshooting needs with the community! We appreciate your request!
