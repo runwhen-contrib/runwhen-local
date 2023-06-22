@@ -1,6 +1,5 @@
----
 name: Awesome Command Contribution
-about: Share your favorite troubleshooting command and help improve the community's experience!
+description: Share your favorite troubleshooting command and help improve the community's experience!
 title: "[awesome-command-contribution] "
 labels: ["runwhen-local", "awesome-command-contribution"] 
 assignees: 
