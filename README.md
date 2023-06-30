@@ -40,14 +40,6 @@ If you want to get involved in the community:
 ## Connect with Us
 Want to connect with the RunWhen community, [join us on slack](https://runwhen.slack.com/join/shared_invite/zt-1l7t3tdzl-IzB8gXDsWtHkT8C5nufm2A)  
 
-## Additional RunWhen Links
-
-- [YouTube - @whatdoirunwhen](https://www.youtube.com/@whatdoirunwhen)
-- [Product Documentation](https://docs.runwhen.com) 
-- [Website](https://www.runwhen.com) 
-- [Slack](https://runwhen.slack.com/join/shared_invite/zt-1l7t3tdzl-IzB8gXDsWtHkT8C5nufm2A)
-- [LinkedIn](https://www.linkedin.com/company/runwhen/) 
-
 ## What is the future of RunWhen Local?
 RunWhen Local will be officially FOSS in the next few sprints (e.g. open source licened, better contributor guides, and the main code base added to the repo). It will continue to become more useful as the open source community of troubleshooting contributions grows and as we add more indexing capabilities (such as discovering more Kubernetes resources, or cloud resources from AWS, GCP, and Azure).
 
