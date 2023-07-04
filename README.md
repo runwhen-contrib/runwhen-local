@@ -6,7 +6,7 @@
 
 
 ## What Is it?
-We all have complex CLI commands saved in a file or wiki somewhere that are helpful, but constantly need to be adpated, or are difficult to find when we need them.
+We all have complex CLI commands saved in a file or wiki somewhere that are helpful, but constantly need to be adapted, or are difficult to find when we need them.
 
 RunWhen Local is a container that provides a searchable web interface that provides helpful copy & paste CLI commands for troubleshooting apps deployed to your Kubernetes environment from an open source community of DevOps/Platform/SRE engineers. Oh yeah, and it's FOSS. 
 - You run the container
