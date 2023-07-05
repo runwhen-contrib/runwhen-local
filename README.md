@@ -34,7 +34,7 @@ If you want to get involved in the community:
 - [Report bugs or share feedback](https://github.com/runwhen-contrib/runwhen-local/issues/new?assignees=stewartshea&labels=runwhen-local&projects=&template=runwhen-local-feedback.md&title=%5Brunwhen-local-feedback%5D+)
 - [Contribute and awesome troubleshooting command](https://github.com/runwhen-contrib/runwhen-local/issues/new?assignees=stewartshea&labels=runwhen-local%2Cawesome-command-contribution&projects=&template=awesome-command-contribution.yaml&title=%5Bawesome-command-contribution%5D+)
 - [Need a new command? Ask the community for help](https://github.com/runwhen-contrib/runwhen-local/issues/new?assignees=stewartshea&labels=runwhen-local%2Cnew-command-request&projects=&template=commands-wanted.yaml&title=%5Bnew-command-request%5D+)
-- [Get involved in GitHub Discusssions](https://github.com/orgs/runwhen-contrib/discussions)
+- [Get involved in GitHub Discussions](https://github.com/orgs/runwhen-contrib/discussions)
 
   
 ## Connect with Us
