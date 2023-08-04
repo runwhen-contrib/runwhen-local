@@ -40,6 +40,18 @@ spec:
           initialDelaySeconds: 10
           periodSeconds: 5
           failureThreshold: 3
+        livenessProbe:
+          tcpSocket:
+            port: 8081
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "1024Mi"
+            cpu: "1"
       volumes:
       - name: shared-volume
         emptyDir: {}
