@@ -15,13 +15,13 @@ permissions:
 
 env:
   PROJECT_ID: runwhen-nonprod-shared
-  IMAGE: runwhen-local-test
+  IMAGE: runwhen-local
   DEFAULT_BRANCH: "origin/${{ github.event.repository.default_branch }}"
-  CONTAINER_NAME: "runwhen-local-test"
+  CONTAINER_NAME: "runwhen-local"
   SHARED_ARTIFACT_REPOSITORY_PATH: "us-docker.pkg.dev/runwhen-nonprod-shared/public-images"
   RW_LOCAL_MKDOCS_CONFIG: "src/cheat-sheet-docs/mkdocs.yml"
-  SANDBOX_DEPLOYMENT_NAME: "runwhen-local-test"
-  SANDBOX_DEPLOYMENT_NAMESPACE: "runwhen-local-test"
+  SANDBOX_DEPLOYMENT_NAME: "runwhen-local"
+  SANDBOX_DEPLOYMENT_NAMESPACE: "runwhen-local"
   APP_LABEL: "app=runwhen-local"
 
 jobs:
@@ -60,18 +60,18 @@ jobs:
             --load \
             -f Dockerfile .
 
-      # # Scan Image directory
-      # - name: Scan Image
-      #   id: scan
-      #   uses: anchore/scan-action@v3
-      #   with:
-      #     image: "${{ env.IMAGE }}:${{ env.TAG }}"
-      #     fail-build: false
+      # Scan Image directory
+      - name: Scan Image
+        id: scan
+        uses: anchore/scan-action@v3
+        with:
+          image: "${{ env.IMAGE }}:${{ env.TAG }}"
+          fail-build: false
 
-      # - name: Upload Anchore scan SARIF report
-      #   uses: github/codeql-action/upload-sarif@v2
-      #   with:
-      #     sarif_file: ${{ steps.scan.outputs.sarif }}
+      - name: Upload Anchore scan SARIF report
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: ${{ steps.scan.outputs.sarif }}
 
         
       # Build and Push Multi-Arch Images
