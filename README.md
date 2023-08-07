@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://discord.gg/es7rexdG">
+  <a href="https://discord.com/invite/Ut7Ws4rm8Q">
     <img src="https://img.shields.io/discord/1131539039665791077?label=Join%20Discord&logo=discord&logoColor=white&style=for-the-badge" alt="Join Discord">
   </a>
   <a href="https://runwhen.slack.com/join/shared_invite/zt-1l7t3tdzl-IzB8gXDsWtHkT8C5nufm2A">
