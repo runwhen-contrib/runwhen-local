@@ -7,6 +7,7 @@ changelog:
       - ignore-for-release
     authors:
       - octocat
+      - github-actions
   categories:
     - title: Breaking Changes 🛠
       labels:
