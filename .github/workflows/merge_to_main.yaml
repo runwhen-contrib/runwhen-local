@@ -42,7 +42,7 @@ jobs:
         with:
           workload_identity_provider: ${{ secrets.RUNWHEN_NONPROD_SHARED_WI_PROVIDER }}
           service_account: ${{ secrets.RUNWHEN_NONPROD_SHARED_WI_SA }}
-      - name: Set tag to branch name
+      - name: Set tag and version
         run: |-
           echo "TAG=$(echo $GITHUB_REF_NAME | sed 's/[^a-zA-Z0-9]/-/g')-${GITHUB_SHA::8}" >> $GITHUB_ENV
           echo "VERSION=$(cat src/VERSION | jq -r .version)" >> $GITHUB_ENV
@@ -65,7 +65,7 @@ jobs:
         run: |-
           cd ./src
           docker build \
-            --tag "$IMAGE:$TAG" \
+            --tag "$IMAGE:$VERSION" \
             --load \
             -f Dockerfile .
 
@@ -74,7 +74,7 @@ jobs:
         id: scan
         uses: anchore/scan-action@v3
         with:
-          image: "${{ env.IMAGE }}:${{ env.TAG }}"
+          image: "${{ env.IMAGE }}:${{ env.VERSION }}"
           fail-build: false
 
       - name: Upload Anchore scan SARIF report
@@ -85,7 +85,7 @@ jobs:
       # SBOM
       - uses: anchore/sbom-action@v0.14.3
         with:
-          image: "${{ env.IMAGE }}:${{ env.TAG }}"
+          image: "${{ env.IMAGE }}:${{ env.VERSION }}"
 
       # Build the Docker image
       - name: Build and push multi-arch image
@@ -97,9 +97,8 @@ jobs:
             --push \
             --platform linux/amd64,linux/arm64 \
             --tag "${{ env.SHARED_ARTIFACT_REPOSITORY_PATH }}/$IMAGE:$VERSION" \
-            --tag "${{ env.SHARED_ARTIFACT_REPOSITORY_PATH }}/$IMAGE:$TAG" \
             --tag "${{ env.SHARED_ARTIFACT_REPOSITORY_PATH }}/$IMAGE:latest" \
-            --tag ghcr.io/$GHCR_ORG/$IMAGE:$TAG \
+            --tag ghcr.io/$GHCR_ORG/$IMAGE:$VERSION \
             --tag ghcr.io/$GHCR_ORG/$IMAGE:latest \
             --build-arg GITHUB_SHA="$GITHUB_SHA" \
             --build-arg GITHUB_REF="$GITHUB_REF" \
