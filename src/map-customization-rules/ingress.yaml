@@ -1,0 +1,18 @@
+apiVersion: runwhen.com/v1
+kind: MapCustomizationRules
+spec:
+  groupRules:
+    - match:
+        type: pattern
+        matchType: base-name
+        pattern: "http-ok"
+        matchMode: substring
+        properties: [name]
+      group: "Public HTTP Endpoint Health"
+    - match:
+        type: pattern
+        matchType: base-name
+        pattern: "ingress-health"
+        matchMode: substring
+        properties: [name]
+      group: "{{resource.resource.metadata.namespace}}"

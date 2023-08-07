@@ -1,0 +1,94 @@
+site_name: Community Powered Troubleshooting Cheat Sheet
+site_author: RunWhen Inc.
+dev_addr: 0.0.0.0:8081
+theme:
+    name: material
+    logo: assets/white_runwhen_logo_transparent_bg.png
+    favicon: assets/icon.png
+    palette:
+      - media: "(prefers-color-scheme: blue)"
+        scheme: default
+        toggle:
+            icon: material/toggle-switch-off-outline
+            name: Switch to dark mode
+        primary: blue
+        accent: "deep-orange"
+      - media: "(prefers-color-scheme: dark)"
+        scheme: slate
+        toggle:
+            icon: material/toggle-switch
+            name: Switch to light mode
+        primary: blue
+        accent: "deep-orange"
+    font:
+        text: "Roboto"
+        code: "Roboto Mono"
+        color: "blue"
+    icon:
+        admonition:
+            note: fontawesome/solid/note-sticky
+            abstract: fontawesome/solid/book
+            info: octicons/info-16
+            tip: fontawesome/solid/bullhorn
+            success: fontawesome/solid/check
+            question: fontawesome/solid/circle-question
+            warning: fontawesome/solid/triangle-exclamation
+            failure: fontawesome/solid/bomb
+            danger: fontawesome/solid/skull
+            bug: fontawesome/solid/robot
+            example: fontawesome/solid/flask
+            quote: fontawesome/solid/quote-left
+    features:
+      - content.code.copy
+      - search.suggest
+      - search.share
+      - content.action.edit
+      - content.action.view
+    # - navigation.instant    # Disabled as it breaks search on the main page
+      - navigation.tracking
+      - toc.integrate
+    custom_dir: docs/overrides
+    demo: true
+build:
+    date: today
+    version: 0.1
+    scan_date: 2023-06-28 20:48:55
+    demo: false
+extra_css:
+  - css/custom.css
+# extra_javascript:
+#   - javascript/extra.js
+docs_dir: docs
+
+plugins:
+  - search
+  # - print-site:
+  #     add_to_navigation: true
+  #     add_full_urls: false
+  #     add_table_of_contents: true
+  #     toc_title: "Table of Contents"
+  #     toc_depth: 2
+  #     enumerate_headings: true
+  #     enumerate_figures: true
+  #     add_cover_page: true
+  # enabled: !ENV [PRINT_SITE, False]
+
+markdown_extensions:
+  # Python Markdown
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+        permalink: true
+  - pymdownx.superfences:
+        preserve_tabs: true
+  - pymdownx.tabbed:
+        alternate_style: true
+  - pymdownx.details
+  - pymdownx.inlinehilite
+  - pymdownx.tasklist
+  - pymdownx.extra
+  - codehilite

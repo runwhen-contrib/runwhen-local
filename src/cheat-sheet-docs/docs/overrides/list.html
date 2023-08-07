@@ -1,0 +1,11 @@
+{% extends "main.html" %}
+
+{% block content %}
+<h1> Site Index</h1>
+<ul>
+    {% for page in nav.pages %}
+    <li><a href="../{{ page.url }}">{{ page.title }}</a></li>
+    {% endfor %}
+  </ul>
+
+{% endblock %}

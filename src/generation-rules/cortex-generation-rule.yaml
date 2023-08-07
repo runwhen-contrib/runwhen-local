@@ -1,0 +1,18 @@
+apiVersion: runwhen.com/v1
+kind: GenerationRules
+spec:
+  generationRules:
+  - resourceTypes:
+    - namespace
+    matchRules:
+    - type: pattern
+      pattern: cortex
+      properties: [name, labels]
+      mode: substring
+    slxs:
+    - baseName: metrics-health
+      qualifiers: [namespace]
+      levelOfDetail: basic
+      baseTemplateName: cortex-metrics-ingestor-health
+      outputItems:
+        - type: slx

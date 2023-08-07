@@ -1,0 +1,3 @@
+    slx: {{slx_name}}
+    workspace: {{workspace.short_name}}
+

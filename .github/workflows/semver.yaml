@@ -1,0 +1,45 @@
+name: Semantic Versioning
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "src/VERSION"
+      - ".github/workflows/semver.yaml"
+
+jobs:
+  semver-it:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.base.ref }}
+      - name: Fetch All Tags
+        run: |
+          git fetch --tags origin
+          # show all known tags
+          git tag
+      - name: Create Semver Tag and Changelog Entry
+        run: |
+          VERSION=$(cat src/VERSION | jq -r .version)
+          git config --global user.email "${GITHUB_ACTOR}"
+          git config --global user.name "${GITHUB_ACTOR}@users.noreply.github.com"
+          git checkout -b "automatic-changelog-update-$VERSION"
+
+          # Run the semver-it script
+          ./.github/scripts/semver-it.sh VERSION CHANGELOG.md '(Feat|Add|Doc|Fix)'
+          if [ $? -eq 0 ]; then
+            most_recent_tag=$(git describe --tags --abbrev=0)
+            echo "Found most recent tag from semver it as $most_recent_tag"
+            echo "Pushing tag: $most_recent_tag"
+            git push origin "$most_recent_tag"
+            gh release create "$most_recent_tag" --generate-notes
+          else
+            echo "return code of semver-it is $?"
+            exit 1
+          fi
+
+        env:
+          GH_TOKEN: ${{ github.token }}

@@ -1,0 +1,42 @@
+apiVersion: runwhen.com/v1
+kind: GenerationRules
+spec:
+  generationRules:
+    - resourceTypes:
+        - cluster
+      matchRules:
+        - type: pattern
+          pattern: "."
+          properties: [name]
+          mode: substring
+      slxs:
+        - baseName: cpu
+          qualifiers: [cluster]
+          levelOfDetail: basic
+          baseTemplateName: gke-cluster-cpu
+          outputItems:
+            - type: slx
+            - type: sli
+            # - type: slo
+        - baseName: mem
+          qualifiers: [cluster]
+          levelOfDetail: basic
+          baseTemplateName: gke-cluster-mem
+          outputItems:
+            - type: slx
+            - type: sli
+            # - type: slo
+        - baseName: disk
+          qualifiers: [cluster]
+          levelOfDetail: basic
+          baseTemplateName: gke-cluster-disk
+          outputItems:
+            - type: slx
+            - type: sli
+            # - type: slo
+        # - baseName: platform
+        #   qualifiers: [cluster]
+        #   levelOfDetail: basic
+        #   baseTemplateName: cluster-platform
+        #   outputItems:
+        #     - type: slx

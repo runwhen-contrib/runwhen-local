@@ -1,0 +1,17 @@
+apiVersion: runwhen.com/v1
+kind: GenerationRules
+spec:
+  generationRules:
+  - resourceTypes:
+    - namespace
+    matchRules:
+    - type: pattern
+      pattern: "gmp-system"
+      properties: [name, labels]
+      mode: substring
+    slxs:
+    - baseName: gcp-quota
+      levelOfDetail: detailed
+      outputItems:
+        - type: slx
+        - type: sli

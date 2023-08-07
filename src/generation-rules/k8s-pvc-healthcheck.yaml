@@ -1,0 +1,21 @@
+apiVersion: runwhen.com/v1
+kind: GenerationRules
+spec:
+  generationRules:
+  - resourceTypes:
+  # Should this be changed to a persistent volume for matching? The codebundle works at a namespace level, but not all namespaces might have pvcs. 
+    - namespace
+    matchRules:
+    - type: pattern
+      pattern: "."
+      properties: [name]
+      mode: substring
+    slxs:
+    - baseName: pvc-health
+      levelOfDetail: detailed
+      qualifiers: [namespace]
+      baseTemplateName: k8s-pvc-healthcheck
+      outputItems:
+        - type: slx
+        - type: runbook
+          templateName: k8s-pvc-healthcheck-taskset.yaml

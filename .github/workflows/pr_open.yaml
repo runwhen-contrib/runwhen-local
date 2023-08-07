@@ -1,0 +1,100 @@
+# Build the RunWhen Local image
+name: Build and Push on PR Open
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "src/**"
+      - ".github/workflows/pr_open.yaml"
+
+permissions:
+  contents: "read"
+  id-token: "write"
+  security-events: "write"
+  actions: "read"
+
+env:
+  PROJECT_ID: runwhen-nonprod-shared
+  IMAGE: runwhen-local-test
+  DEFAULT_BRANCH: "origin/${{ github.event.repository.default_branch }}"
+  CONTAINER_NAME: "runwhen-local-test"
+  SHARED_ARTIFACT_REPOSITORY_PATH: "us-docker.pkg.dev/runwhen-nonprod-shared/public-images"
+  RW_LOCAL_MKDOCS_CONFIG: "src/cheat-sheet-docs/mkdocs.yml"
+  SANDBOX_DEPLOYMENT_NAME: "runwhen-local-test"
+  SANDBOX_DEPLOYMENT_NAMESPACE: "runwhen-local-test"
+  APP_LABEL: "app=runwhen-local"
+
+jobs:
+  ## Build and Push to shared artifact registry
+  build-and-push-to-shared-artifact-repo:
+    runs-on: ubuntu-latest
+    outputs:
+      image_path: ${{ steps.publish-beta.outputs.image_path }}
+    steps:
+      - uses: actions/checkout@v2
+      - id: "auth-runwhen"
+        name: "Authenticate to Google Cloud"
+        uses: "google-github-actions/auth@v0.4.0"
+        with:
+          workload_identity_provider: ${{ secrets.RUNWHEN_NONPROD_SHARED_WI_PROVIDER }}
+          service_account: ${{ secrets.RUNWHEN_NONPROD_SHARED_WI_SA }}
+
+      - name: Set tag to branch name
+        run: |-
+          echo "TAG=$(echo $GITHUB_REF_NAME | sed 's/[^a-zA-Z0-9]/-/g')-${GITHUB_SHA::8}" >> $GITHUB_ENV
+      - name: Set build and date details
+        run: |-
+          sed -i "s/date: today/date: $(date +'%Y-%m-%d %H:%M')/g" ${RW_LOCAL_MKDOCS_CONFIG}
+          sed -i "s/version: 0\.1/version: $TAG/g" ${RW_LOCAL_MKDOCS_CONFIG}
+      - name: Configure Docker for multi-arch builds
+        run: docker run --privileged --rm tonistiigi/binfmt --install all
+      - name: Configure Docker for GCP
+        run: gcloud --quiet auth configure-docker us-docker.pkg.dev
+
+      # Build x86 image for testing
+      - name: Build x86 image for testing
+        run: |-
+          cd ./src
+          docker build \
+            --tag "$IMAGE:$TAG" \
+            --load \
+            -f Dockerfile .
+
+      # # Scan Image directory
+      # - name: Scan Image
+      #   id: scan
+      #   uses: anchore/scan-action@v3
+      #   with:
+      #     image: "${{ env.IMAGE }}:${{ env.TAG }}"
+      #     fail-build: false
+
+      # - name: Upload Anchore scan SARIF report
+      #   uses: github/codeql-action/upload-sarif@v2
+      #   with:
+      #     sarif_file: ${{ steps.scan.outputs.sarif }}
+
+        
+      # Build and Push Multi-Arch Images
+      - name: Build and push multi-arch image
+        run: |-
+          cd ./src
+          docker buildx create --use --name=mybuilder
+          docker buildx inspect --bootstrap
+          docker buildx build \
+            --sbom=true \
+            --push \
+            --platform linux/amd64 \
+            --tag "${{ env.SHARED_ARTIFACT_REPOSITORY_PATH }}/$IMAGE:$TAG" \
+            --build-arg GITHUB_SHA="$GITHUB_SHA" \
+            --build-arg GITHUB_REF="$GITHUB_REF" \
+            -f Dockerfile .
+
+
+      - name: Notify Slack of Container Build
+        id: slack-publish-nonprod-shared-artifact-repo
+        uses: slackapi/slack-github-action@v1.19.0
+        with:
+          channel-id: "#notifications" # Slack channel id or name to post message. https://api.slack.com/methods/chat.postMessage#channels
+          slack-message: "Just Pushed to ${{env.SHARED_ARTIFACT_REPOSITORY_PATH }}/${{ env.IMAGE }}:${{ env.TAG }}"
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}

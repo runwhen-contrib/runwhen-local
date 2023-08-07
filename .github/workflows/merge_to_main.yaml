@@ -1,0 +1,143 @@
+# Build the RunWhen Local image
+name: Build and Tag Image
+on:
+  push:
+    workflow_dispatch:
+    branches:
+      - main
+    paths:
+      - "src/**"
+      - ".github/workflows/merge_to_main.yaml"
+
+permissions:
+  contents: "read"
+  id-token: "write"
+  security-events: "write"
+  actions: "read"
+
+env:
+  PROJECT_ID: runwhen-nonprod-shared
+  IMAGE: runwhen-local-test
+  DEFAULT_BRANCH: "origin/${{ github.event.repository.default_branch }}"
+  CONTAINER_NAME: "runwhen-local-test"
+  SHARED_ARTIFACT_REPOSITORY_PATH: "us-docker.pkg.dev/runwhen-nonprod-shared/public-images"
+  RW_LOCAL_MKDOCS_CONFIG: "src/cheat-sheet-docs/mkdocs.yml"
+  SANDBOX_DEPLOYMENT_NAME: "runwhen-local-test"
+  SANDBOX_DEPLOYMENT_NAMESPACE: "runwhen-local-test"
+  APP_LABEL: "app=runwhen-local"
+  GHCR_ORG: "runwhen"
+
+
+jobs:
+  ## Push to shared artifact registry
+  build-and-push-to-shared-artifact-repo:
+    runs-on: ubuntu-latest
+    outputs:
+      image_path: ${{ steps.publish-beta.outputs.image_path }}
+    steps:
+      - uses: actions/checkout@v2
+      - id: "auth-runwhen"
+        name: "Authenticate to Google Cloud"
+        uses: "google-github-actions/auth@v0.4.0"
+        with:
+          workload_identity_provider: ${{ secrets.RUNWHEN_NONPROD_SHARED_WI_PROVIDER }}
+          service_account: ${{ secrets.RUNWHEN_NONPROD_SHARED_WI_SA }}
+      - name: Set tag to branch name
+        run: |-
+          echo "TAG=$(echo $GITHUB_REF_NAME | sed 's/[^a-zA-Z0-9]/-/g')-${GITHUB_SHA::8}" >> $GITHUB_ENV
+          echo "VERSION=$(cat src/VERSION | jq -r .version)" >> $GITHUB_ENV
+      - name: Set build and date details
+        run: |-
+          sed -i "s/date: today/date: $(date +'%Y-%m-%d %H:%M')/g" ${RW_LOCAL_MKDOCS_CONFIG}
+          sed -i "s/version: 0\.1/version: $VERSION/g" ${RW_LOCAL_MKDOCS_CONFIG}
+      - name: Login to GHCR
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT }}
+        run: |-
+          echo $GITHUB_TOKEN | docker login ghcr.io -u stewartshea --password-stdin
+      - name: Configure Docker for multi-arch builds
+        run: docker run --privileged --rm tonistiigi/binfmt --install all
+      - name: Configure Docker for GCP
+        run: gcloud --quiet auth configure-docker us-docker.pkg.dev
+
+      # Build x86 image for testing
+      - name: Build x86 image for testing
+        run: |-
+          cd ./src
+          docker build \
+            --tag "$IMAGE:$TAG" \
+            --load \
+            -f Dockerfile .
+
+      # # Scan Image directory
+      # - name: Scan Image
+      #   id: scan
+      #   uses: anchore/scan-action@v3
+      #   with:
+      #     image: "${{ env.IMAGE }}:${{ env.TAG }}"
+      #     fail-build: false
+
+      # - name: Upload Anchore scan SARIF report
+      #   uses: github/codeql-action/upload-sarif@v2
+      #   with:
+      #     sarif_file: ${{ steps.scan.outputs.sarif }}
+
+      # SBOM
+      - uses: anchore/sbom-action@v0.14.3
+        with:
+          image: "${{ env.IMAGE }}:${{ env.TAG }}"
+
+      # Build the Docker image
+      - name: Build and push multi-arch image
+        run: |-
+          cd ./src
+          docker buildx create --use --name=mybuilder
+          docker buildx inspect --bootstrap
+          docker buildx build \
+            --push \
+            --platform linux/amd64,linux/arm64 \
+            --tag "${{ env.SHARED_ARTIFACT_REPOSITORY_PATH }}/$IMAGE:$VERSION" \
+            --tag "${{ env.SHARED_ARTIFACT_REPOSITORY_PATH }}/$IMAGE:$TAG" \
+            --tag "${{ env.SHARED_ARTIFACT_REPOSITORY_PATH }}/$IMAGE:latest" \
+            --tag ghcr.io/$GHCR_ORG/$IMAGE:$TAG \
+            --tag ghcr.io/$GHCR_ORG/$IMAGE:latest \
+            --build-arg GITHUB_SHA="$GITHUB_SHA" \
+            --build-arg GITHUB_REF="$GITHUB_REF" \
+            -f Dockerfile .
+
+
+      - name: Notify Slack of Container Build
+        id: slack-publish-nonprod-shared-artifact-repo
+        uses: slackapi/slack-github-action@v1.19.0
+        with:
+          channel-id: "#notifications" # Slack channel id or name to post message. https://api.slack.com/methods/chat.postMessage#channels
+          slack-message: "Just Pushed to ${{env.SHARED_ARTIFACT_REPOSITORY_PATH }}/${{ env.IMAGE }}:${{ env.VERSION }}"
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+
+      - name: Rollout new image in sandbox
+        id: rollout-new-sandbox-image
+        env:
+          KUBECONFIG_SECRET: ${{secrets.SANDBOX_KUBECONFIG}}
+        run: |-
+          echo "$KUBECONFIG_SECRET" > kubeconfig
+          KUBECONFIG=kubeconfig kubectl delete pods -l ${{ env.APP_LABEL }} -n ${{ env.SANDBOX_DEPLOYMENT_NAMESPACE }}
+
+      - name: Notify Slack of RunWhen Local Deployment
+        id: slack-deploy-nonprod-sandbox
+        uses: slackapi/slack-github-action@v1.19.0
+        with:
+          channel-id: "#env-sandbox" # Slack channel id or name to post message. https://api.slack.com/methods/chat.postMessage#channels
+          slack-message: "Just deployed latest version of RunWhen Local to sandbox at https://runwhen-local.sandbox.runwhen.com"
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+
+
+      - name: Notify Slack of RunWhen Local Deployment tp GHCR
+        id: slack-deploy-to-ghcr
+        uses: slackapi/slack-github-action@v1.19.0
+        with:
+          channel-id: "#runwhen-local" # Slack channel id or name to post message. https://api.slack.com/methods/chat.postMessage#channels
+          slack-message: "Just deployed latest version of RunWhen Local to https://github.com/orgs/runwhen-contrib/packages/container/package/runwhen-local"
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}

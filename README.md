@@ -1,3 +1,4 @@
+
 <p align="center">
   <a href="https://discord.com/invite/Ut7Ws4rm8Q">
     <img src="https://img.shields.io/discord/1131539039665791077?label=Join%20Discord&logo=discord&logoColor=white&style=for-the-badge" alt="Join Discord">
@@ -5,11 +6,13 @@
   <a href="https://runwhen.slack.com/join/shared_invite/zt-1l7t3tdzl-IzB8gXDsWtHkT8C5nufm2A">
     <img src="https://img.shields.io/badge/Join%20Slack-%23E01563.svg?&style=for-the-badge&logo=slack&logoColor=white" alt="Join Slack">
   </a>
+  <br>
+    <img src="https://github.com/runwhen/runwhen-local-pre-release/actions/workflows/merge_to_main.yaml/badge.svg" alt="Join Slack">
 </p>
 
 # Welcome to RunWhen Local
 
-> Note: RunWhen Local documentation is hosted [here](https://docs.runwhen.com/public/runwhen-local/introduction-runwhen-local)
+> Note: RunWhen Local user documentation and getting started guide is hosted [here](https://docs.runwhen.com/public/runwhen-local/introduction-runwhen-local)
 
 ![RunWhen Local Overview](assets/rw-local-product.png)
 
@@ -47,18 +50,28 @@ If you want to get involved in the community:
 
   
 ## Connect with Us
-Want to connect with the RunWhen community, [join us on slack](https://runwhen.slack.com/join/shared_invite/zt-1l7t3tdzl-IzB8gXDsWtHkT8C5nufm2A) or on [Discord](https://discord.com/invite/es7rexdG)
+Want to connect with the RunWhen community, [join us on slack](https://runwhen.slack.com/join/shared_invite/zt-1l7t3tdzl-IzB8gXDsWtHkT8C5nufm2A) or on [Discord](https://discord.com/invite/Ut7Ws4rm8Q)
 
-## What is the future of RunWhen Local?
-RunWhen Local will be officially FOSS in the next few sprints (e.g. better contributor guides, and the main code base added to the repo). 
+## Roadmap
+The following few items are currently being worked on or are in the backlog. Issues will be linked shortly. 
 
-What's the hold up? 
-- Just like we shower every day, the code could use a little cleaning
-- A major code organizational change needs to be implemented with regards to matching discovered resources with troubleshooting code. Currently these rules reside in the container image, but they need to be migrated to the code repositores and alongside the troubleshooting code itself. 
+### Big Items
+The following items are considered larger tasks on the roadmap:
+- Restructuring of where rules and templates are stored (out of this image and alongside the troubleshooting code)
+- Additional indexers for cloud resources (such as GCP, AWS, Azure)
+- Removal of Neo4J to reduce image size
 
-It will continue to become more useful as the open source community of troubleshooting contributions grows and as we add more indexing capabilities (such as discovering more Kubernetes resources, or cloud resources from AWS, GCP, and Azure).
+## Smaller Items
+The following smaller items are also on the go: 
+- High-level documentation
+- Roadmap clarity: providing a roadmap in GitHub projects
+- CI/CD: Deployment validation in a sandbox for PRs
+- More troubleshooting commands. Always more :) 
+- Better contribution guides
+- Low level documentation
 
 In the meanwhile, we continue to add new features and troubleshooting code. Please raise issues to request features or contribute commands!
 
-## Release Notes
-Short release notes are posted [here](https://docs.runwhen.com/public/runwhen-local-features/release-notes) until all code is migrated to this repository. 
+## Release Notes & Change Log
+- Release notes can be found [here](https://github.com/runwhen/runwhen-local-pre-release/releases).
+- Change log details can be found [here](CHANGELOG.md)

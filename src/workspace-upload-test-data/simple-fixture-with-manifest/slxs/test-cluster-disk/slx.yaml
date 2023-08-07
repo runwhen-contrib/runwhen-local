@@ -1,0 +1,17 @@
+apiVersion: runwhen.com/v1
+kind: ServiceLevelX
+metadata:
+  name: test-ws--test-cluster-disk
+  labels:
+    workspace: test-ws
+    slx: test-ws--test-cluster-disk
+spec:
+  imageURL: https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/stackdriver-1.svg
+  statement: Ephemeral Disk Utilization across nodes for test-cluster should be below 90%, 99% of the time
+  asMeasuredBy: Google Managed Prometheus Queries
+  owners:
+  - rob.vaterlaus@runwhen.com
+  alias: test-cluster Disk Pressure
+  configProvided:
+  - name: CLUSTER_NAME
+    value: test-cluster

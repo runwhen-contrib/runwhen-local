@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: runwhen-local-workspaceinfo
+data:
+  workspaceInfo.yaml: |
+    workspaceName: my-workspace
+    # All content with [placeholder] is only updated
+    # and auto-generated when using the RunWhen Platform
+    # leave it as [placeholder] if only using RunWhen Local
+    # See https://docs.runwhen.com/public/runwhen-local/advanced-configuration 
+    # or https://docs.runwhen.com/public/runwhen-local/features/workspace-builder
+    token: placeholder
+    workspaceOwnerEmail: tester@my-company.com
+    papiURL: placeholder
+    defaultLocation: placeholder
+    defaultLOD: 2
+    namespaceLODs:
+      kube-system: 0
+      kube-public: 0
+      kube-node-lease: 0
+    custom:
+      kubernetes_distribution: Kubernetes
+      kubernetes_distribution_binary: kubectl
+      
+      # Possible values are gcp, aws, none
+      cloud_provider: gcp
+      
+      # Possible values are gmp, promql, none
+      prometheus_provider: gmp
+
+      # If using GCP and wanting to use GCP integrations  
+      gcp_project_id: placeholder 
+      
+      # Secret names are used when integrating the RunWhen Platform
+      # with your enviornment. RunWhen has no access to this data, 
+      # as the secret name and content comes from your own configuration. 
+      kubeconfig_secret_name: kubeconfig
+      gcp_ops_suite_sa: ops-suite-sa
+
