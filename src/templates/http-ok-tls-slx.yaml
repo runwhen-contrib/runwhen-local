@@ -1,0 +1,21 @@
+apiVersion: runwhen.com/v1
+kind: ServiceLevelX
+metadata:
+  name: {{slx_name}}
+  labels:
+    {% include "common-labels.yaml" %}
+  annotations:
+    {% include "common-annotations.yaml" %}
+spec:
+  alias: {{match_resource.resource.metadata.name}} Public HTTP OK
+  asMeasuredBy: HTTP 200 returned within the desired latency. 
+  configProvided:
+  - name: OBJECT_NAME
+    value: {{match_resource.resource.metadata.name}}
+  icon: Cloud
+  owners:
+  - {{workspace.owner_email}}
+  statement: HTTP Ingress resources should respond with HTTP 200 in under 1.2s 
+  additionalContext:  
+    namespace: "{{match_resource.resource.metadata.namespace}}"
+    labelMap: "{{match_resource.resource.metadata.labels}}"  

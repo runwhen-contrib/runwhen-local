@@ -1,0 +1,196 @@
+
+<table class="invisible-table">
+  <tr>
+    <td class="icon-cell">
+      <img src="{{ slx_hints["icon"] }}" alt="Icon" />
+    </td>
+  </tr>
+</table>
+# {{ slx_hints["nice_name"] }}  
+<div class="author-block">
+  <img src="/github_profile_cache/{{ author_details["profile_icon_path"].split('/')[-1] }}" alt="Profile Avatar" class="author-avatar">
+  <div class="author-info">
+    <a href="{{ author_details["url"] }}" target="_blank">
+    <h3 class="author-name">{{ author_details["username"] }}</a></h3>
+  <p class="author-bio">
+      <img src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/terminal.svg" alt="Icon 1" class="bio-icon">
+    {{ command_count }} Troubleshooting Commands</p>
+      <p class="author-bio">
+     <img src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/calendar_month.svg" alt="Icon 1" class="bio-icon">
+    Last updated {{ commit_age }} </p>
+  </div>
+</div>
+  
+
+<p></p>
+<hr class="custom-hr">
+<div class="command-header-grid">
+  <div class="grid-item">
+    <img class="card-icon" src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/public.svg" alt="Icon">
+    <a href="{{runbook_url }}" target="_blank">Public Source Code</a>
+  </div>
+
+  <div class="grid-item">
+    <a href="#" id="configLink" onclick="return false;">
+      <img class="card-icon" src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/lock.svg" alt="Icon">
+      Private Configuration
+    </a>
+  </div>
+
+  <div class="grid-item">
+    <a href="https://github.com/orgs/runwhen-contrib/discussions?discussions_q=is%3Aopen+{{ runbook_url.split('/')[-2]|urlencode }}" target="_blank">
+      <img class="card-icon" src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/forum.svg" alt="Icon">
+      Join Discussion
+    </a>
+  </div>
+</div>
+<hr class="custom-hr">
+
+### Troubleshooting Commands
+
+{% for command in interesting_commands %}
+
+!!! note ""
+    <div class="command-title">
+    #### {{ command["name"] }}  
+    </div>
+    !!! warning ""
+    <div class="command-details">
+    What does it do?
+    </div>
+    {{ command["explanation"] | string | indent(4) }}
+    <div class="command-details">
+    Command
+    </div>
+    <div class="code-block-container">
+      <pre class="code-block"><code id="codeBlock{{ loop.index }}">```{{ command["command"]["private"] }}```</code></pre>
+    </div>
+    <div class="grid-item">
+    <a href="#" id="copyCodeBlock{{ loop.index }}" onclick="return false;"><img class="card-icon" src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/content_copy.svg" alt="Icon">Copy to clipboard</a>
+    <span id="copiedMessage{{ loop.index }}" class="copied-message">Copied to clipboard</span>
+    </div>
+    ???- abstract "Learn more"
+          This multi-line command is auto-generated and used for educational purposes. Copying and pasting the multi-line text might not function as expected.
+            
+            {{ command["multi_line_details"] | string | indent(12) }}
+
+<script>
+
+document.getElementById('copyCodeBlock{{ loop.index }}').addEventListener('click', function() {
+    copyCodeBlock{{ loop.index }}();
+});
+
+function copyCodeBlock{{ loop.index }}() {
+  var codeBlock = document.getElementById('codeBlock{{ loop.index }}');
+  var text = codeBlock.textContent;
+
+  navigator.clipboard.writeText(text)
+    .then(() => {
+      console.log('Code block copied to clipboard:', text);
+      showCopiedMessage();
+    })
+    .catch((error) => {
+      console.error('Error copying code block to clipboard:', error);
+    });
+}
+
+function showCopiedMessage() {
+  var copiedMessage = document.getElementById('copiedMessage{{ loop.index }}');
+  copiedMessage.classList.add('show');
+
+  setTimeout(function() {
+    copiedMessage.classList.remove('show');
+  }, 2000);
+}
+</script>
+
+
+{% endfor %}
+
+<script>
+document.getElementById('configLink').addEventListener('click', function() {
+    showConfig('/output{{ runbook }}');
+});
+
+function showConfig(path) {
+    const serverPath = window.location.origin; // Get the current server path dynamically
+    const popupContainer = document.createElement("div"); // Container for the popup
+    const popup = document.createElement("div");
+    popup.classList.add("popup");
+
+    const loadingMessage = document.createElement("h1");
+    loadingMessage.innerText = "Please wait...";
+
+    popup.appendChild(loadingMessage);
+    popupContainer.appendChild(popup); // Append the popup to the container
+    document.body.appendChild(popupContainer); // Append the container to the document body
+
+    fetch(serverPath + '/' + encodeURIComponent(path))
+        .then(response => response.text())
+        .then(data => {
+            popup.removeChild(loadingMessage);
+
+            const closeButton = document.createElement("span");
+            closeButton.classList.add("close");
+            closeButton.innerHTML = "&times;";
+            closeButton.style.fontSize = "24px"; // Increase the font size for better visibility
+            closeButton.style.position = "absolute";
+            closeButton.style.top = "10px";
+            closeButton.style.right = "10px";
+
+            const title = document.createElement("p");
+            title.innerText = "Private configuration for: " + '{{ slx_hints["nice_name"] }}';
+            const configPath = document.createElement("p");
+            configPath.innerText = "Local filesystem path: " + path;
+
+            const image = document.createElement("img");
+            image.src = "https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/lock.svg"; // Replace with the actual image path
+            image.alt = "Icon";
+
+            const codeBlock = document.createElement("pre");
+            codeBlock.classList.add("code-block");
+            codeBlock.innerText = data;
+
+            popup.appendChild(closeButton);
+            popup.appendChild(image); // Append the image to the popup
+            popup.appendChild(title);
+            popup.appendChild(configPath);
+            popup.appendChild(codeBlock);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert(error);
+        });
+
+    // Event delegation for close button click
+    popupContainer.addEventListener("click", (event) => {
+        const target = event.target;
+        if (target.classList.contains("close")) {
+            event.stopPropagation(); // Stop event propagation
+            document.body.removeChild(popupContainer); // Remove the container instead of the popup
+        }
+    });
+}
+
+</script>
+<style>
+  .multiline {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+.popup .code-block {
+    background-color: #333;
+    color: #f8f8f8;
+    padding: 10px;
+    font-family: Consolas, Monaco, 'Andale Mono', monospace;
+    font-size: 14px;
+    line-height: 1.4;
+    overflow: auto;
+}
+
+
+</style>
+
+
+
+---

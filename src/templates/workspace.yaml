@@ -1,0 +1,40 @@
+kind: Workspace
+apiVersion: runwhen.com/v1
+metadata:
+  name: {{workspace.short_name}}
+  labels:
+    workspace: {{workspace.short_name}}
+spec:
+  permissions:
+  - user: {{workspace.owner_email}}
+    role: admin
+  enabledLocation: []
+  configProvided:
+  - name: WORKSPACE_PLACEHOLDER
+    value: {{workspace.short_name}}-placeholder
+  {% if groups %}
+  slxGroups:
+  {% for group in groups.values() %}
+  - name: "{{group.name}}"
+    {% if group.slxs %}
+    slxs:
+    {% for slx in group.slxs %}
+    - "{{slx}}"
+    {% endfor %}
+    {% endif %}
+    {% if groups.dependencies %}
+    dependsOn:
+    {% for dependency in group.dependencies %}
+    - {{dependency}}
+    {% endfor %}
+    {% endif %}
+  {% endfor %}
+  {% endif %}
+  {% if slx_relationships %}
+  slxRelationships:
+  {% for slx_relationship in slx_relationships %}
+  - subject: {{slx_relationship.subject}}
+    verb: {{slx_relationship.verb}}
+    directObject: {{slx_relationship.object}}
+  {% endfor %}
+  {% endif %}

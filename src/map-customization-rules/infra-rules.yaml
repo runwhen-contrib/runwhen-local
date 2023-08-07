@@ -1,0 +1,35 @@
+apiVersion: runwhen.com/v1
+kind: MapCustomizationRules
+spec:
+  groupRules:
+    - match:
+        type: pattern
+        matchType: base-name
+        pattern: "certs-notready"
+        matchMode: exact
+      group: "Network Infrastructure"
+    - match:
+        type: pattern
+        matchType: base-name
+        pattern: "flux-reconcile"
+        matchMode: exact
+      group: "GitOps Infrastructure"
+    - match:
+        type: pattern
+        matchType: cluster
+        pattern: ".+"
+        matchMode: substring
+      group: "Cluster Resources"
+    - match:
+        type: pattern
+        matchType: base-name
+        pattern: "node-preempt"
+        matchMode: exact
+      group: "Cluster Resources"
+
+    - match:
+        type: pattern
+        matchType: base-name
+        pattern: "gcp-quota"
+        matchMode: exact
+      group: "Cloud Provider Services"

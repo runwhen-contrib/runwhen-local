@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "runwhenlocal"
+version = "1.0.0"
+description = "RunWhen Local"
+authors = ["Kyle Forster <kyle.forster@runwhen.com>",
+           "Rob Vaterlaus <rob.vaterlaus@runwhen.com",
+           "Shea Stewart <shea.stewart@runwhen.com"]
+
+[tool.poetry.dependencies]
+python = ">=3.8,<3.12"
+Django = "4.2.4"
+django-extensions = "^3.1.3"
+djangorestframework = "^3.12.4"
+neo4j = "^5.3"
+neomodel = "^4.0"
+google-cloud-monitoring = "^2.11"
+google-cloud-asset = "^3.14"
+kubernetes = "^25.3"
+robotframework = "==6.0.2"
+GitPython = "^3.1.27"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

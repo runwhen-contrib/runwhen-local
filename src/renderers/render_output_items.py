@@ -1,0 +1,36 @@
+import logging
+from typing import Any
+
+from component import Context, SettingDependency, WORKSPACE_NAME_SETTING, \
+    DEFAULT_LOCATION_SETTING, WORKSPACE_OUTPUT_PATH_SETTING
+from template import render_template_file
+
+logger = logging.getLogger(__name__)
+
+DOCUMENTATION = "Render templated output items"
+
+SETTINGS = (
+    SettingDependency(DEFAULT_LOCATION_SETTING, True),
+    SettingDependency(WORKSPACE_NAME_SETTING, True),
+    SettingDependency(WORKSPACE_OUTPUT_PATH_SETTING, True),
+)
+OUTPUT_ITEMS_PROPERTY = "output_items"
+
+
+class OutputItem:
+    path: str
+    template_name: str
+    template_variables: dict[str, Any]
+
+    def __init__(self, path: str, template_name: str, template_variables: dict[str, Any]):
+        self.path = path
+        self.template_name = template_name
+        self.template_variables = template_variables
+
+
+def render(context: Context):
+    output_items: dict[str, OutputItem] = context.get_property(OUTPUT_ITEMS_PROPERTY, [])
+    for output_item in output_items.values():
+        logger.info(f"Rendering output item: {output_item.path}")
+        output_text = render_template_file(output_item.template_name, output_item.template_variables)
+        context.write_file(output_item.path, output_text)

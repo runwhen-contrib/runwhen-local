@@ -1,0 +1,15 @@
+  <div class="md-copyright">
+    {% if config.copyright %}
+      <div class="md-copyright__highlight">
+        {{ config.copyright }}
+      </div>
+    {% endif %}
+    {% if not config.extra.generator == false %}
+      Content created by <a href="https://www.runwhen.com">RunWhen</a> <a href="https://github.com/runwhen-contrib/">& the Open Source community</a>
+      <br>
+      Docs rendered with
+      <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+        Material for MkDocs
+      </a>
+    {% endif %}
+  </div>

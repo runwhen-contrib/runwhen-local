@@ -1,0 +1,10 @@
+apiVersion: runwhen.com/v1
+kind: MapCustomizationRules
+spec:
+  groupRules:
+    - match:
+        type: pattern
+        matchType: base-name
+        pattern: "flux-kstmz"
+        matchMode: substring
+      group: "{{resource.resource.metadata.namespace}}"

@@ -1,0 +1,19 @@
+apiVersion: runwhen.com/v1
+kind: ServiceLevelX
+metadata:
+  name: test-ws--test-cluster-mem
+  labels:
+    workspace: test-ws
+    slx: test-ws--test-cluster-mem
+  annotations:
+    fullSlxName: full-test-cluster-mem
+spec:
+  imageURL: https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/stackdriver-1.svg
+  statement: Memory Utilization across nodes for test-cluster should be below 90%, 99% of the time
+  asMeasuredBy: Google Managed Prometheus Queries
+  owners:
+  - rob.vaterlaus@runwhen.com
+  alias: test-cluster Memory Pressure
+  configProvided:
+  - name: CLUSTER_NAME
+    value: test-cluster

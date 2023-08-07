@@ -1,0 +1,20 @@
+apiVersion: runwhen.com/v1
+kind: GenerationRules
+spec:
+  generationRules:
+    - resourceTypes:
+        - daemonset
+      matchRules:
+        - type: pattern
+          pattern: ".+"
+          properties: [name]
+          mode: substring
+      slxs:
+        - baseName: ds-health
+          levelOfDetail: detailed
+          qualifiers: [resource]
+          baseTemplateName: k8s-daemonset-health
+          outputItems:
+            - type: slx
+            - type: runbook
+              templateName: k8s-daemonset-health-taskset.yaml

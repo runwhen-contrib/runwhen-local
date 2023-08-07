@@ -1,0 +1,20 @@
+apiVersion: runwhen.com/v1
+kind: GenerationRules
+spec:
+  generationRules:
+    - resourceTypes:
+        - statefulset
+      matchRules:
+        - type: pattern
+          pattern: "jenkins"
+          properties: [name]
+          mode: substring
+      slxs:
+        - baseName: jenkins-health
+          levelOfDetail: detailed
+          qualifiers: [resource]
+          baseTemplateName: k8s-jenkins-health
+          outputItems:
+            - type: slx
+            - type: runbook
+              templateName: k8s-jenkins-health-taskset.yaml

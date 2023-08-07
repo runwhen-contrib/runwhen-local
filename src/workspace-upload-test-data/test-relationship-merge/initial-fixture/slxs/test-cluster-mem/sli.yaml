@@ -1,0 +1,40 @@
+apiVersion: runwhen.com/v1
+kind: ServiceLevelIndicator
+metadata:
+  name: test-ws--test-cluster-mem
+  labels:
+    workspace: test-ws
+    slx: test-ws--test-cluster-mem
+  annotations:
+    fullSlxName: full-test-cluster-mem
+spec:
+  displayUnitsLong: Util
+  displayUnitsShort: '%'
+  locations:
+    - northamerica-northeast2-01
+  description: Measures the max cpu utilization across all nodes.
+  codeBundle:
+    repoUrl: https://github.com/runwhen-contrib/rw-public-codecollection.git
+    ref: main
+    pathToRobot: codebundles/gcp-opssuite-promql/sli.robot
+  intervalStrategy: intermezzo
+  intervalSeconds: 30
+  configProvided:
+    - name: TRANSFORM
+      value: Raw
+    - name: DATA_COLUMN
+      value: '1'
+    - name: NO_RESULT_OVERWRITE
+      value: 'Yes'
+    - name: PROMQL_STATEMENT
+      value: max(kubernetes_io:node_memory_allocatable_utilization)
+    - name: PROJECT_ID
+      value: runwhen-nonprod-sandbox
+    - name: NO_RESULT_VALUE
+      value: '0'
+  secretsProvided:
+    - name: ops-suite-sa
+      workspaceKey: ops-suite-sa
+  servicesProvided:
+    - name: curl
+      locationServiceName: curl-service.shared

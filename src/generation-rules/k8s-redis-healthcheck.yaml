@@ -1,0 +1,20 @@
+apiVersion: runwhen.com/v1
+kind: GenerationRules
+spec:
+  generationRules:
+    - resourceTypes:
+        - deployment
+      matchRules:
+        - type: pattern
+          pattern: "redis"
+          properties: [name]
+          mode: substring
+      slxs:
+        - baseName: redis-health
+          levelOfDetail: detailed
+          qualifiers: [resource]
+          baseTemplateName: k8s-redis-health
+          outputItems:
+            - type: slx
+            - type: runbook
+              templateName: k8s-redis-health-taskset.yaml

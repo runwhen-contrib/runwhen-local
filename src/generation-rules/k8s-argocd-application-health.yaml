@@ -1,0 +1,20 @@
+apiVersion: runwhen.com/v1
+kind: GenerationRules
+spec:
+  generationRules:
+    - resourceTypes:
+        - applications.argoproj.io
+      matchRules:
+        - type: pattern
+          pattern: ".+"
+          properties: [name]
+          mode: substring
+      slxs:
+        - baseName: argocd-app
+          qualifiers: [resource]
+          baseTemplateName: k8s-argocd-application-health
+          levelOfDetail: detailed
+          outputItems:
+            - type: slx
+            - type: runbook
+              templateName: k8s-argocd-application-health-cli-taskset.yaml
