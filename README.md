@@ -61,7 +61,7 @@ The following items are considered larger tasks on the roadmap:
 - Additional indexers for cloud resources (such as GCP, AWS, Azure)
 - Removal of Neo4J to reduce image size
 
-## Smaller Items
+### Smaller Items
 The following smaller items are also on the go: 
 - High-level documentation
 - Roadmap clarity: providing a roadmap in GitHub projects
@@ -73,5 +73,4 @@ The following smaller items are also on the go:
 In the meanwhile, we continue to add new features and troubleshooting code. Please raise issues to request features or contribute commands!
 
 ## Release Notes & Change Log
-- Release notes can be found [here](https://github.com/runwhen/runwhen-local-pre-release/releases).
-- Change log details can be found [here](CHANGELOG.md)
+- Release notes can be found [here](https://github.com/runwhen-contrib/runwhen-local/releases).
