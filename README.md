@@ -7,7 +7,7 @@
     <img src="https://img.shields.io/badge/Join%20Slack-%23E01563.svg?&style=for-the-badge&logo=slack&logoColor=white" alt="Join Slack">
   </a>
   <br>
-    <img src="https://github.com/runwhen/runwhen-local-pre-release/actions/workflows/merge_to_main.yaml/badge.svg" alt="Join Slack">
+    <img src="https://github.com/runwhen-contrib/runwhen-local/actions/workflows/merge_to_main.yaml/badge.svg" alt="Join Slack">
 </p>
 
 # Welcome to RunWhen Local
