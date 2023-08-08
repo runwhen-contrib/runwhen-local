@@ -14,10 +14,31 @@
 
 > Note: RunWhen Local user documentation and getting started guide is hosted [here](https://docs.runwhen.com/public/runwhen-local/introduction-runwhen-local)
 
+<!-- TOC -->
+
+- [Welcome to RunWhen Local](#welcome-to-runwhen-local)
+    - [What is it?](#what-is-it)
+    - [Who is it for?](#who-is-it-for)
+    - [Where can I see it?](#where-can-i-see-it)
+    - [Contributing!](#contributing)
+        - [Growing the troubleshooting library](#growing-the-troubleshooting-library)
+            - [Contribute to existing libraries](#contribute-to-existing-libraries)
+            - [Build your own library](#build-your-own-library)
+            - [Share new commands or improve existing ones](#share-new-commands-or-improve-existing-ones)
+        - [Making RunWhen Local Better](#making-runwhen-local-better)
+    - [Connect with us](#connect-with-us)
+    - [Documentation](#documentation)
+    - [Roadmap](#roadmap)
+        - [Big Items](#big-items)
+        - [Smaller Items](#smaller-items)
+    - [Release Notes & Change Log](#release-notes--change-log)
+
+<!-- /TOC -->
+
 ![RunWhen Local Overview](assets/rw-local-product.png)
 
 
-## What Is it?
+## What is it?
 We all have complex CLI commands saved in a file or wiki somewhere that are helpful, but constantly need to be adapted, or are difficult to find when we need them.
 
 RunWhen Local is a container that provides a searchable web interface that provides helpful copy & paste CLI commands for troubleshooting apps deployed to your Kubernetes environment from an open source community of DevOps/Platform/SRE engineers. Oh yeah, and it's FOSS. 

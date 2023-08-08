@@ -1,5 +1,5 @@
 # Developing RunWhen Local
-RunWhen Local is packaged up in a single container image which encompasses all components required to function properly. While you may be able to set up your environment to support testing your changes without the need to build the container image, this documentation currently only covers building and testing the container image. 
+RunWhen Local is packaged in a single container image which encompasses all components required to function properly. While you may be able to set up your environment to support testing your changes without the need to build the container image, this documentation currently only covers building and testing the container image. 
 
 For a high-level overview of the internal components, please see the [ARCHITECTURE](./ARCHITECTURE.md) docs. 
 
