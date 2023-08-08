@@ -56,7 +56,7 @@ def check_rest_service_error(response: requests.Response, command: str, verbose:
             print("Request data:")
             print(response_data["originalRequestData"])
         fatal(f'Error {response.status_code} from {SERVICE_NAME} service for command "{command}": '
-              f'{response_data.get("detail")}')
+              f'{response_data.get("message")}')
 
 
 def call_rest_service_with_retries(rest_call_proc, max_attempts=10, retry_delay=5) -> requests.Response:
