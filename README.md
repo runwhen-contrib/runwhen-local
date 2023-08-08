@@ -33,7 +33,7 @@
     - [Roadmap](#roadmap)
         - [Big Items](#big-items)
         - [Smaller Items](#smaller-items)
-    - [Release Notes & Change Log](#release-notes--change-log)
+    - [Release notes](#release-notes)
 
 <!-- /TOC -->
 
@@ -122,5 +122,5 @@ The following smaller items are also on the go:
 
 In the meanwhile, we continue to add new features and troubleshooting code. Please raise issues to request features or contribute commands!
 
-## Release Notes & Change Log
+## Release notes
 - Release notes can be found [here](https://github.com/runwhen-contrib/runwhen-local/releases).
