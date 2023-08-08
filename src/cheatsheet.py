@@ -214,6 +214,7 @@ def search_keywords(parsed_robot, parsed_runbook_config, search_list, meta):
                             if cmd_meta['name'] == name_snake_case:
                                 command['explanation'] = cmd_meta['explanation']
                                 command['multi_line_details'] = cmd_meta['multi_line_details']
+                                command['doc_links'] = cmd_meta['doc_links']
                                 break  # Break out of the loop once a match is found
                         else:
                             command['explanation'] = "No command explanation available"  # Executed if no match is found
