@@ -67,7 +67,10 @@ If you want to get involved in the community:
 If you have ideas on how the tool could be improved, please feel free to: 
 - [Report bugs or share feedback](https://github.com/runwhen-contrib/runwhen-local/issues/new?assignees=stewartshea&labels=runwhen-local&projects=&template=runwhen-local-feedback.md&title=%5Brunwhen-local-feedback%5D+)
 
-
+If you'd like to build and test your own changes
+- [Read the CONTRIBUTING documentation](./CONTRIBUTING.md)
+- [Fork the repo](https://github.com/runwhen-contrib/runwhen-local/fork) 
+- [Read the DEVELOPMENT documentation](docs/DEVELOPMENT.md)
 
 
 ## Connect with us
@@ -76,6 +79,7 @@ Want to connect with the RunWhen community, [join us on slack](https://runwhen.s
 ## Documentation
 Documentation will be stored in the [docs](docs/) folder. Available documentation currently contains: 
 - [Architecture](docs/ARCHITECTURE.md)
+- [Development](docs/DEVELOPMENT.md)
 
 ## Roadmap
 The following few items are currently being worked on or are in the backlog. Issues will be linked shortly. 
