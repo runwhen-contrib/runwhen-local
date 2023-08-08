@@ -14,6 +14,8 @@
 
 > Note: RunWhen Local user documentation and getting started guide is hosted [here](https://docs.runwhen.com/public/runwhen-local/introduction-runwhen-local)
 
+![RunWhen Local Overview](assets/rw-local-product.png)
+
 <!-- TOC -->
 
 - [Welcome to RunWhen Local](#welcome-to-runwhen-local)
@@ -34,8 +36,6 @@
     - [Release Notes & Change Log](#release-notes--change-log)
 
 <!-- /TOC -->
-
-![RunWhen Local Overview](assets/rw-local-product.png)
 
 
 ## What is it?
