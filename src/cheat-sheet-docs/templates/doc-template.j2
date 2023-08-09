@@ -69,10 +69,14 @@
     <a href="#" id="copyCodeBlock{{ loop.index }}" onclick="return false;"><img class="card-icon" src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/content_copy.svg" alt="Icon">Copy to clipboard</a>
     <span id="copiedMessage{{ loop.index }}" class="copied-message">Copied to clipboard</span>
     </div>
-    ???- abstract "Learn more"
+    ???- info "Learn more"
           This multi-line command is auto-generated and used for educational purposes. Copying and pasting the multi-line text might not function as expected.
             
             {{ command["multi_line_details"] | string | indent(12) }}
+
+    ???- abstract "Helpful Links"
+
+            {{ command["doc_links"] | string | indent(8) }}
 
 <script>
 
