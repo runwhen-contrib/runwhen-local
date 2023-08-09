@@ -32,7 +32,7 @@ def handle(e, context):
             response = Response(str(e), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         ed = dict()
         ed["drf"] = str(response)
-        ed["msg"] = f"{e}"
+        ed["message"] = f"{e}"
         ed["exceptionType"] = str(type(e))
         ed["stackTrace"] = stack_trace
         ed["context"] = str(context)

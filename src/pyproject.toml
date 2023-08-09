@@ -18,6 +18,7 @@ google-cloud-asset = "^3.14"
 kubernetes = "^25.3"
 robotframework = "==6.0.2"
 GitPython = "^3.1.27"
+jinja2 = "^3.1"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
