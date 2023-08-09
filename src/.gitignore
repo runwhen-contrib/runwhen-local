@@ -9,3 +9,4 @@ dummyoutput
 cheat-sheet-sample
 *.pyc
 .DS_Store
+rw-cli-codecollection-cache
