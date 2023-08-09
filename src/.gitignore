@@ -7,3 +7,5 @@ generation-rules-test
 templates-test
 dummyoutput
 cheat-sheet-sample
+*.pyc
+.DS_Store
