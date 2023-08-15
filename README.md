@@ -116,21 +116,22 @@ We've got exciting plans ahead! Here's a sneak peek at what's coming:
 
 ### Major Goals
 
-- Organizing rules and templates for easier access
+- [Organizing rules and templates for easier access](https://github.com/runwhen-contrib/runwhen-local/issues/247)
 - Introducing indexers for various cloud resources (GCP, AWS, Azure)
-- Streamlining the tool's size by removing Neo4j
+- [Streamlining the tool's size & complexity by removing Neo4j](https://github.com/runwhen-contrib/runwhen-local/issues/249)
 
 ### Ongoing Enhancements
 
 We're also working on:
 
-- Clearer roadmap documentation in GitHub projects
 - Robust CI/CD: Sandbox deployment validation for PRs
 - Expanding our library of troubleshooting commands (always more to come!)
 - Improved contribution guides
 - Detailed low-level documentation
 
 In the meantime, we're constantly adding features and troubleshooting code. Feel free to raise issues for new features or contribute your own commands!
+
+Check out the [GitHub Project](https://github.com/orgs/runwhen-contrib/projects/2) for ongoing roadmap updates. 
 
 ## Stay Updated with Release Notes
 
