@@ -46,6 +46,8 @@ Are you tired of searching through files and wikis for those elusive CLI command
 3. It identifies the perfect troubleshooting commands tailored to your resources.
 4. You simply copy and paste the commands to help solve your issues!
 
+![](assets/trouble-town-ingress.gif)
+
 ## Who Can Benefit?
 
 If you're involved with Kubernetes environments, RunWhen Local could be for you. It's designed for:
