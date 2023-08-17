@@ -74,7 +74,6 @@ We love when the community gets involved! There are two main ways you can contri
 
 Our troubleshooting library is fully open-source and welcomes contributions. You can contribute directly to these repositories:
 
-- [RunWhen Public Codecollection](https://github.com/runwhen-contrib/rw-public-codecollection)
 - [RunWhen CLI Codecollection](https://github.com/runwhen-contrib/rw-cli-codecollection)
 
 For more details, check out the contribution guides within each repo.
