@@ -120,7 +120,7 @@ jobs:
           KUBECONFIG_SECRET: ${{secrets.SANDBOX_KUBECONFIG}}
         run: |-
           echo "$KUBECONFIG_SECRET" > kubeconfig
-          KUBECONFIG=kubeconfig kubectl delete pods -l ${{ env.APP_LABEL }} -n ${{ env.SANDBOX_DEPLOYMENT_NAMESPACE }}
+          KUBECONFIG=kubeconfig kubectl rollout restart statefulset runwhen-local -n ${{ env.SANDBOX_DEPLOYMENT_NAMESPACE }}
 
       - name: Notify Slack of RunWhen Local Deployment
         id: slack-deploy-nonprod-sandbox
