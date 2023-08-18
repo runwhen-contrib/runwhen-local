@@ -271,8 +271,10 @@ def fetch_robot_source(parsed_runbook_config):
             return None
     else:
         # If not, then clone the repository
+        # GIT_SSL_NO_VERIFY on clone was set to overcome an SSL issue when testing
+        # the container running in OpenShift
         try:
-            Repo.clone_from(robot_baseurl, local_path)
+            Repo.clone_from(robot_baseurl, local_path, env={'GIT_SSL_NO_VERIFY': '1'})
         except GitCommandError as e:
             print(f"Failed to clone the repository due to: {e}")
             return None
@@ -527,8 +529,10 @@ def get_last_commit_age(owner, repo, path):
             return None
     else:
         # If not, then clone the repository
+        # GIT_SSL_NO_VERIFY on clone was set to overcome an SSL issue when testing
+        # the container running in OpenShift
         try:
-            Repo.clone_from(url, local_path)
+            Repo.clone_from(url, local_path, env={'GIT_SSL_NO_VERIFY': '1'})
         except GitCommandError as e:
             print(f"Failed to clone the repository due to: {e}")
             return None
