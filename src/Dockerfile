@@ -18,7 +18,7 @@ ENV PYTHONUNBUFFERED=1 \
     POETRY_NO_INTERACTION=1 \
     PYSETUP_PATH="/opt/pysetup" \
     VENV_PATH="/opt/pysetup/.venv" \
-    NEO4J_AUTH='neo4j/thisisnotalongrunningdb'
+    NEO4J_AUTH='neo4j/thisisnotalongrunningdb' 
 
 ENV PATH="$POETRY_HOME/bin:$VENV_PATH/bin:$PATH"
 
@@ -59,14 +59,14 @@ FROM neo4j-base AS app
 LABEL org.opencontainers.image.description The RunWhen Local container image is a local tool to scan your Kubernetes based clusters and provide human readable and searchable troubleshooting documentation and commands.
 RUN groupadd -r runwhen && useradd --no-log-init -r -g runwhen runwhen
 
+ENV RUNWHEN_HOME='/workspace-builder' \
+    RUNWHEN_SHARED='/shared'
 
 # Copy Poetry to final image
 COPY --from=builder-base $POETRY_HOME $POETRY_HOME
 
 # Copy Virtual Environment to final image
 COPY --from=builder-base $PYSETUP_PATH $PYSETUP_PATH
-
-WORKDIR /workspace-builder
 
 # Add tools for live tool documentation
 RUN wget -q -O - https://deb.nodesource.com/setup_19.x | bash - \
@@ -76,20 +76,22 @@ RUN wget -q -O - https://deb.nodesource.com/setup_19.x | bash - \
 
 RUN pip install --no-cache-dir mkdocs mkdocs-material mkdocs-print-site-plugin pymdown-extensions ruamel.yaml gitpython
 
+WORKDIR $RUNWHEN_HOME
+
 # RunWhen customizations
-ADD . /workspace-builder
+ADD . $RUNWHEN_HOME
 
 
 # Copy over the neo4j config file and gds plugin jar
 COPY --from=builder-base /plugins/* /plugins
 COPY ./neo4j.conf /conf
 
-RUN mkdir /shared
-
-RUN chown -R runwhen:runwhen /shared \ 
-    && chown -R runwhen:runwhen /workspace-builder 
-
-RUN chmod 755 /workspace-builder 
+RUN mkdir $RUNWHEN_SHARED \
+    && usermod -g 0 runwhen -G 0  \
+    &&  chown -R runwhen:0 $RUNWHEN_HOME $RUNWHEN_SHARED \ 
+    # && chmod -755 $RUNWHEN_HOME \ 
+    && chmod g=u /etc/passwd \
+    && chmod -R g+w ${RUNWHEN_HOME} ${RUNWHEN_SHARED}  
 
 USER runwhen
 EXPOSE 8081

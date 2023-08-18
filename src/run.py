@@ -5,6 +5,7 @@ import os
 import sys
 import tarfile
 import time
+import shutil
 from argparse import ArgumentParser
 from http import HTTPStatus
 from typing import Union
@@ -314,6 +315,9 @@ def main():
         if namespaces:
             request_data['namespaces'] = namespaces
 
+        # Update cheat sheet status by copying index
+        shutil.copyfile("cheat-sheet-docs/templates/index-status-discovery.md", "cheat-sheet-docs/docs/index.md")
+        print("Discovering resources...")
         # Invoke the workspace builder /run REST endpoint
         run_url = f"http://{rest_service_host}:{rest_service_port}/run/"
         response = call_rest_service_with_retries(lambda: requests.post(run_url, json=request_data))
@@ -350,7 +354,11 @@ def main():
         # command assist stuff to a separate command line tool and then have the
         # run.sh script handle calling it after invoking this tool.
         if cheat_sheet_enabled:
+            # Update cheat sheet status by copying index
+            shutil.copyfile("cheat-sheet-docs/templates/index-status-rendering.md", "cheat-sheet-docs/docs/index.md")
+            print("Starting cheat sheet rendering...")
             cheatsheet.cheat_sheet(output_path)
+            print("Cheat sheet rending completed.")
 
         # Note: Handling of the upload flag is done below, so that the code can be shared
         # with the upload command
