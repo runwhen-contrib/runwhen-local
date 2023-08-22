@@ -3,7 +3,20 @@ import os
 import tempfile
 import tarfile
 
+from exceptions import (
+    WorkspaceBuilderException,
+    WorkspaceBuilderUserException,
+    InvalidGitRepoURLException,
+    INVALID_GIT_REPO_MESSAGE
+)
 from name_utils import make_qualified_slx_name, make_slx_name, shorten_name
+from git_utils import (
+    get_repo_name,
+    get_repo_url_with_auth,
+    create_repo_directory,
+    CREATE_REPO_DIRECTORY_NO_AVAILABLE_NAME_MESSAGE
+)
+
 from unittest import TestCase
 from outputter import *
 
@@ -91,4 +104,52 @@ class NameUtilsTest(TestCase):
         self.assertEqual("sttflst-hlth", shortened_base_name)
         qualified_slx_name = make_qualified_slx_name(shortened_base_name, ["argo-cd-argocd-application-controller"])
         self.assertEqual("acaac-sttflst-hlth", qualified_slx_name)
+
+class RepoUtilsTest(TestCase):
+
+    def setUp(self):
+        self.output_dir = tempfile.TemporaryDirectory()
+
+    def tearDown(self):
+        self.output_dir.cleanup()
+
+    def test_get_repo_name(self):
+        name = get_repo_name("https://github.com/foo/bar.git")
+        self.assertEqual("bar", name)
+        name = get_repo_name("https://github.com/foo/bar")
+        self.assertEqual("bar", name)
+
+    def test_get_repo_name_error(self):
+        invalid_repo_url = "invalid_repo_url"
+        with self.assertRaises(WorkspaceBuilderUserException) as context:
+            name = get_repo_name(invalid_repo_url)
+        message = str(context.exception)
+        self.assertIn(INVALID_GIT_REPO_MESSAGE, message)
+        self.assertIn(invalid_repo_url, message)
+
+    def test_get_repo_with_auth(self):
+        repo_url = "https://github.com/foo/bar.git"
+        auth_url = get_repo_url_with_auth("https://github.com/foo/bar.git", "", "")
+        self.assertEqual("https://github.com/foo/bar.git", auth_url)
+        auth_url = get_repo_url_with_auth("https://github.com/foo/bar.git", "", "abc")
+        self.assertEqual("https://abc@github.com/foo/bar.git", auth_url)
+        auth_url = get_repo_url_with_auth("https://github.com/foo/bar.git", "admin", "abc")
+        self.assertEqual("https://admin:abc@github.com/foo/bar.git", auth_url)
+
+    def test_create_repo_directory(self):
+        repo_name = "myrepo"
+        path1 = create_repo_directory(self.output_dir.name, repo_name)
+        self.assertTrue(os.path.exists(path1))
+        self.assertIn(self.output_dir.name, path1)
+        self.assertIn(repo_name, path1)
+        path2 = create_repo_directory(self.output_dir.name, repo_name)
+        self.assertTrue(os.path.exists(path1))
+        self.assertIn(self.output_dir.name, path1)
+        self.assertIn(repo_name, path1)
+        self.assertNotEqual(path1, path2)
+        with self.assertRaises(WorkspaceBuilderException) as context:
+            path3 = create_repo_directory(self.output_dir.name, repo_name, 2)
+        message = str(context.exception)
+        self.assertIn(CREATE_REPO_DIRECTORY_NO_AVAILABLE_NAME_MESSAGE, message)
+        self.assertIn(repo_name, message)
 

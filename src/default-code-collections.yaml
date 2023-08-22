@@ -1,0 +1,4 @@
+version: "0.1"
+codeCollections:
+- https://github.com/runwhen-contrib/rw-public-codecollection.git
+- https://github.com/runwhen-contrib/rw-cli-codecollection.git

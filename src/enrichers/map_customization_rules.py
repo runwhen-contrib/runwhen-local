@@ -38,10 +38,11 @@ class SLXInfo:
     full_name: str
     qualified_name: str
     resource: KubernetesBase
+
     # FIXME: Problem with circular import detail with type annotation for LOD
     # level_of_detail: LevelOfDetail
 
-    def __init__(self, slx, resource: KubernetesBase, level_of_detail):
+    def __init__(self, slx, resource: KubernetesBase, level_of_detail, generation_rule_info):
         # FIXME: Currently, it doesn't work to specify the type hint for the
         # slx member due to circular import dependencies with generation_rules.
         # Should be able to resolve by refactoring some of the class definitions
@@ -56,7 +57,20 @@ class SLXInfo:
         self.full_name = make_qualified_slx_name(slx.base_name, self.qualifier_values, None)
         self.resource = resource
         self.level_of_detail = level_of_detail
-
+        # FIXME: It's a little kludgy to have this in the the SLX info, since it's
+        # not really related to map customization rules and the evaluation of match
+        # predicates on the SLX info. But we need to pass it around with the SLX info
+        # to be able to have the info we need to find/load the associated templates
+        # when we get to the template rendering phase. If we didn't put it here we
+        # would have had to have another layer of data structure in the generation
+        # rules code (possibly just a tuple) that's passed around as a unit when
+        # we're working with the SLXs, which seemed like it would just be more confusing.
+        # At some point, it makes sense to revisit some of the data structure
+        # decisions based on how the code has evolved.
+        # Also, note that we don't have a type hint for this member to avoid circular
+        # dependencies between this moulde and generation_rules, which is also
+        # a smell that the data structures aren't as clean as they should be...
+        self.generation_rule_info = generation_rule_info
 
 class MatchProperty(Enum):
     NAME = "name"

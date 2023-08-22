@@ -9,10 +9,15 @@ import yaml
 import models
 from component import Context, Setting, SettingDependency, WORKSPACE_NAME_SETTING, WORKSPACE_OUTPUT_PATH_SETTING
 from exceptions import WorkspaceBuilderException
+from name_utils import shorten_name, make_qualified_slx_name, make_slx_name
 from renderers.render_output_items import OUTPUT_ITEMS_PROPERTY
 from renderers.render_output_items import OutputItem as RendererOutputItem
 from template import render_template_string
-from name_utils import shorten_name, make_qualified_slx_name, make_slx_name
+from .code_collection import (
+    CodeCollection,
+    get_request_code_collections,
+    get_code_collection,
+)
 from .map_customization_rules import MapCustomizationRules, SLXInfo, RelationshipVerb
 from .match_predicate import MatchPredicate, AndMatchPredicate, StringMatchMode, \
     base_construct_match_predicate_from_config, match_resource_path, matches_pattern
@@ -36,12 +41,19 @@ PERSONAS_SETTING = Setting("PERSONAS",
                            Setting.Type.DICT,
                            "Persona data used to initialize persona files")
 
+CODE_COLLECTIONS_SETTING = Setting("CODE_COLLECTIONS",
+                                   "codeCollections",
+                                   Setting.Type.DICT,
+                                   "List of information about which code collections "
+                                   "to scan for generation rules")
+
 SETTINGS = (
     SettingDependency(WORKSPACE_NAME_SETTING, True),
     SettingDependency(WORKSPACE_OUTPUT_PATH_SETTING, True),
     SettingDependency(MAP_CUSTOMIZATION_RULES_SETTING, False),
     SettingDependency(CUSTOM_DEFINITIONS_SETTING, False),
     SettingDependency(PERSONAS_SETTING, False),
+    SettingDependency(CODE_COLLECTIONS_SETTING, False)
 )
 
 GROUPS_PROPERTY = "groups"
@@ -408,6 +420,9 @@ class OutputItem:
     generation rules info (which includes this class) and if there's a matching rule,
     then it generates an instance of render_output_items.OutputFile and appends it to
     a list in the context for later processing in the render phase by render_output_items.
+
+    FIXME: The name conflict between this and the renderer OutputItem is a bit confusing.
+    Should probably rename this one to something else, maybe OutputItemConfig?
     """
     type: str
     path: str
@@ -616,7 +631,33 @@ def should_emit_output_item(output_item: OutputItem, level_of_detail: LevelOfDet
     return output_item and output_item.level_of_detail.value <= level_of_detail.value
 
 
-def generate_output_item(output_item: OutputItem,
+class GenerationRuleInfo:
+    """
+    Collects the information that's obtained during the load phase that will later
+    be needed to execute the generation rule in the enrich phase. Mostly, this is
+    just the state that we need to access/load the templates that are referenced
+    in the generation rule.
+    """
+    code_collection: CodeCollection
+    ref_name: str
+    code_bundle: str
+    generation_rule_name: str
+    generation_rule: GenerationRule
+
+    def __init__(self, generation_rule: GenerationRule,
+                 generation_rule_name: str,
+                 code_collection: CodeCollection = None,
+                 ref_name: str = None,
+                 code_bundle: str = None):
+        self.generation_rule = generation_rule
+        self.generation_rule_name = generation_rule_name
+        self.code_collection = code_collection
+        self.ref_name = ref_name
+        self.code_bundle = code_bundle
+
+
+def generate_output_item(generation_rule_info: GenerationRuleInfo,
+                         output_item: OutputItem,
                          resource: models.KubernetesBase,
                          renderer_output_items: dict[str, RendererOutputItem],
                          base_template_variables: dict[str, Any]) -> bool:
@@ -631,15 +672,23 @@ def generate_output_item(output_item: OutputItem,
     if path in renderer_output_items:
         return False
 
-    output_item = RendererOutputItem(path, output_item.template_name, template_variables)
+    code_collection = generation_rule_info.code_collection
+    if code_collection:
+        ref_name = generation_rule_info.ref_name
+        code_bundle_name = generation_rule_info.code_bundle
+        template_loader_func = lambda name: code_collection.get_template_text(ref_name, code_bundle_name, name)
+    else:
+        template_loader_func = None
+    output_item = RendererOutputItem(path, output_item.template_name, template_variables, template_loader_func)
     renderer_output_items[path] = output_item
     return True
 
 
-def collect_emitted_slxs(generation_rule: GenerationRule,
+def collect_emitted_slxs(generation_rule_info: GenerationRuleInfo,
                          resource: models.KubernetesBase,
                          level_of_detail: LevelOfDetail,
                          slxs: dict[str, SLXInfo]):
+    generation_rule = generation_rule_info.generation_rule
     for slx in generation_rule.slxs:
         # See if the SLX has anything to output, i.e. has some output item that's not
         # filtered out by the level of detail
@@ -650,7 +699,7 @@ def collect_emitted_slxs(generation_rule: GenerationRule,
                 break
 
         if emit_slx:
-            slx_info = SLXInfo(slx, resource, level_of_detail)
+            slx_info = SLXInfo(slx, resource, level_of_detail, generation_rule_info)
             slxs[slx_info.full_name] = slx_info
 
 
@@ -704,6 +753,7 @@ def generate_slx_output_items(slx_info: SLXInfo,
     resource = slx_info.resource
     namespace = resource.get_namespace()
     cluster = resource.get_cluster()
+    generation_rule_info = slx_info.generation_rule_info
 
     slx_base_template_variables = base_template_variables.copy()
     slx_base_template_variables['base_name'] = slx_info.base_name
@@ -716,7 +766,11 @@ def generate_slx_output_items(slx_info: SLXInfo,
 
     for output_item in slx_info.slx.output_items:
         if should_emit_output_item(output_item, slx_info.level_of_detail):
-            generate_output_item(output_item, resource, renderer_output_items, slx_base_template_variables)
+            generate_output_item(generation_rule_info,
+                                 output_item,
+                                 resource,
+                                 renderer_output_items,
+                                 slx_base_template_variables)
 
     customization_variables = {
         "resource": resource,
@@ -747,10 +801,59 @@ def generate_slx_output_items(slx_info: SLXInfo,
 
 
 def load(context: Context) -> None:
-    # FIXME: Should probably pull this initialization code out to somewhere
-    # where it's only executed once, at least if we switch to a model
-    # where the base generation rules aren't something that's specified
-    # by the caller in a request param
+
+    # Once we have support for user-configured code collections (i.e. supplementing the default
+    # code collections with additional ones or suppressing some of the default ones), then here's
+    # where we would add the logic to handle those customizations to construct the complete list
+    # of code collection configs.
+    request_code_collections = context.get_setting("CODE_COLLECTIONS")
+    code_collection_configs = get_request_code_collections(request_code_collections)
+
+    slxs_by_shortened_base_name = dict()
+    generation_rules = list()
+    custom_resource_type_specs = list()
+
+    for code_collection_config in code_collection_configs:
+        code_collection = get_code_collection(code_collection_config)
+        ref_name = code_collection_config.ref_name
+        code_collection.update_repo(ref_name)
+        code_bundle_names = code_collection.get_code_bundle_names(ref_name)
+        for code_bundle_name in code_bundle_names:
+            if code_bundle_name == "k8s-kubectl-namespace-healthcheck":
+                x = 0
+            generation_rules_configs = code_collection.get_generation_rules_configs(ref_name, code_bundle_name)
+            for generation_rules_name, generation_rules_config_text in generation_rules_configs:
+                generation_rules_config = yaml.safe_load(generation_rules_config_text)
+                generation_rule_config_list = generation_rules_config["spec"]["generationRules"]
+                for generation_rule_config in generation_rule_config_list:
+                    generation_rule = GenerationRule.construct_from_config(generation_rule_config)
+                    generation_rule_info = GenerationRuleInfo(generation_rule,
+                                                              generation_rules_name,
+                                                              code_collection,
+                                                              ref_name,
+                                                              code_bundle_name)
+                    generation_rules.append(generation_rule_info)
+                    for slx in generation_rule.slxs:
+                        shortened_base_name = slx.shortened_base_name
+                        slx_list = slxs_by_shortened_base_name.get(shortened_base_name)
+                        if not slx_list:
+                            slx_list = []
+                            slxs_by_shortened_base_name[shortened_base_name] = slx_list
+                        slx_list.append(slx)
+                    for resource_type_spec in generation_rule.resource_type_specs:
+                        if (resource_type_spec.resource_type == ResourceType.CUSTOM and
+                                resource_type_spec not in custom_resource_type_specs):
+                            custom_resource_type_specs.append(resource_type_spec)
+                    generation_rule.match_predicate.collect_custom_resource_type_specs(custom_resource_type_specs)
+
+    # FIXME: For now we enable the old code that loads the generation rules from the
+    # workspace builder code tree. This enables us to incrementally move the gen rules
+    # over to the code bundles, although there aren't a ton of them, so we should be
+    # able to get them all moved over soon. Once that's done we can get rid of this
+    # backward compatibility code.
+    # Update: All of the gen rules have been moved over except for the cortex one,
+    # which didn't specify a code bundle so I wasn't sure which one it was
+    # associated with. Once that one has been moved, we can get rid of this code.
     generation_rules_path_config = os.environ.get("GENERATION_RULES_PATH")
     if not generation_rules_path_config:
         generation_rules_path_config = "generation-rules"
@@ -761,20 +864,18 @@ def load(context: Context) -> None:
     if not os.path.isdir(generation_rules_path_config):
         raise WorkspaceBuilderException("Specified generation rules path must be a directory")
 
-    child_names = os.listdir(generation_rules_path_config)
-    generation_rules_paths = [os.path.join(generation_rules_path_config, child_name) for child_name in child_names]
+    generation_rules_file_names = os.listdir(generation_rules_path_config)
 
-    slxs_by_shortened_base_name = dict()
-    generation_rules = list()
-    custom_resource_type_specs = list()
-    for generation_rules_path in generation_rules_paths:
+    for generation_rules_file_name in generation_rules_file_names:
+        generation_rules_path = os.path.join(generation_rules_path_config, generation_rules_file_name)
         with open(generation_rules_path, "r") as f:
             generation_rules_config_str = f.read()
         generation_rules_config = yaml.safe_load(generation_rules_config_str)
         generation_rule_config_list = generation_rules_config["spec"]["generationRules"]
         for generation_rule_config in generation_rule_config_list:
             generation_rule = GenerationRule.construct_from_config(generation_rule_config)
-            generation_rules.append(generation_rule)
+            generation_rule_info = GenerationRuleInfo(generation_rule, generation_rules_file_name)
+            generation_rules.append(generation_rule_info)
             for slx in generation_rule.slxs:
                 shortened_base_name = slx.shortened_base_name
                 slx_list = slxs_by_shortened_base_name.get(shortened_base_name)
@@ -787,6 +888,7 @@ def load(context: Context) -> None:
                         resource_type_spec not in custom_resource_type_specs):
                     custom_resource_type_specs.append(resource_type_spec)
             generation_rule.match_predicate.collect_custom_resource_type_specs(custom_resource_type_specs)
+    # >>>> End of backward compatibility code
 
     # Check for collisions in the generation of the shortened SLX base names
     # Collision are resolved by appending with an incrementing integer
@@ -856,7 +958,8 @@ def enrich(context: Context) -> None:
     }
 
     generation_rules = context.get_property(GENERATION_RULES_PROPERTY)
-    for generation_rule in generation_rules:
+    for generation_rule_info in generation_rules:
+        generation_rule = generation_rule_info.generation_rule
         for resource_type_spec in generation_rule.resource_type_specs:
             resources = get_resources(resource_type_spec, base_template_variables)
             for resource in resources:
@@ -894,9 +997,13 @@ def enrich(context: Context) -> None:
                     # things a bit.
                     for output_item in generation_rule.output_items:
                         if should_emit_output_item(output_item, level_of_detail):
-                            generate_output_item(output_item, resource, renderer_output_items, base_template_variables)
+                            generate_output_item(generation_rule_info,
+                                                 output_item,
+                                                 resource,
+                                                 renderer_output_items,
+                                                 base_template_variables)
 
-                    collect_emitted_slxs(generation_rule, resource, level_of_detail, slxs)
+                    collect_emitted_slxs(generation_rule_info, resource, level_of_detail, slxs)
 
     # Assign the shortened names to the enabled SLXs, including detecting and resolving any name conflicts.
     assign_slx_names(slxs, workspace.short_name)

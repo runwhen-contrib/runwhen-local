@@ -15,6 +15,12 @@ from exceptions import WorkspaceBuilderException
 
 TEST_OUTPUT_DIRECTORY = "TestOutput"
 
+git_repo_root = os.getenv("WB_GIT_REPO_ROOT")
+if not git_repo_root:
+    print("The WB_GIT_REPO_ROOT environment variable must be set to directory where the "
+          "code collection repos are cloned.")
+
+
 BASE_REQUEST_DATA = {
     "namespaceLODs": {"kube-system": 0, "kube-public": 0},
     "defaultLOD": 2,
@@ -48,6 +54,10 @@ BASE_REQUEST_DATA = {
     #         }
     #     }
     # }
+    "codeCollections": [
+        {"repoURL": f"file://{git_repo_root}/rw-public-codecollection", "branch": "main"},
+        {"repoURL": f"file://{git_repo_root}/rw-cli-codecollection", "branch": "main"}
+    ]
 }
 
 
