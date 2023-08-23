@@ -235,7 +235,7 @@ def get_all_settings() -> list[Setting]:
 def get_component(name: str) -> Component:
     component = all_components.get(name)
     if not component:
-        raise WorkspaceBuilderObjectNotFoundException(f'"{name}" is not a valid component name')
+        raise WorkspaceBuilderObjectNotFoundException("component", name)
     return component
 
 
