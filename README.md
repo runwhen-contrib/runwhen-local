@@ -117,7 +117,6 @@ We've got exciting plans ahead! Here's a sneak peek at what's coming:
 
 ### Major Goals
 
-- [Organizing rules and templates for easier access](https://github.com/runwhen-contrib/runwhen-local/issues/247)
 - Introducing indexers for various cloud resources (GCP, AWS, Azure)
 - [Streamlining the tool's size & complexity by removing Neo4j](https://github.com/runwhen-contrib/runwhen-local/issues/249)
 
