@@ -61,7 +61,7 @@ If you're involved with Kubernetes environments, RunWhen Local could be for you.
 Curious to see it in action? We've got a few options for you:
 
 - Check out our live demo instance [here](https://runwhen-local.sandbox.runwhen.com/). Please note that it's linked to our sandbox cluster, so the commands are suited for that environment.
-- Explore our [YouTube Channel](https://www.youtube.com/@whatdoirunwhen) with short demo videos.
+- Explore our [YouTube Channel](https://www.youtube.com/@whatdoirunwhen) with short demo videos in this [playlist](https://www.youtube.com/playlist?list=PLq37As8dgg_C0wFaPQLVUFQ79YiQjzHGU)
 - Ready to dive in? [Run it yourself](https://docs.runwhen.com/public/runwhen-local/getting-started).
 
 ## How You Can Contribute
