@@ -19,6 +19,7 @@
 - [Welcome to RunWhen Local!](#welcome-to-runwhen-local)
 - [Who Can Benefit?](#who-can-benefit)
 - [Where Can You See It in Action?](#where-can-you-see-it-in-action)
+- [How Can I Get It?](#how-can-i-get-it)
 - [How You Can Contribute](#how-you-can-contribute)
     - [Expanding the Troubleshooting Library](#expanding-the-troubleshooting-library)
         - [Contribute to Existing Libraries](#contribute-to-existing-libraries)
@@ -62,7 +63,9 @@ Curious to see it in action? We've got a few options for you:
 
 - Check out our live demo instance [here](https://runwhen-local.sandbox.runwhen.com/). Please note that it's linked to our sandbox cluster, so the commands are suited for that environment.
 - Explore our [YouTube Channel](https://www.youtube.com/@whatdoirunwhen) with short demo videos in this [playlist](https://www.youtube.com/playlist?list=PLq37As8dgg_C0wFaPQLVUFQ79YiQjzHGU)
-- Ready to dive in? [Run it yourself](https://docs.runwhen.com/public/runwhen-local/getting-started).
+
+## How Can I Get It?
+Ready to dive in? [Run it yourself](https://docs.runwhen.com/public/runwhen-local/getting-started).
 
 ## How You Can Contribute
 
