@@ -1,6 +1,9 @@
+from dataclasses import dataclass
+from fnmatch import fnmatch
 import logging
 import os
 from enum import Enum
+import re
 from tempfile import TemporaryDirectory
 from typing import Any, Optional, Union
 
@@ -12,6 +15,7 @@ from exceptions import (
     WorkspaceBuilderUserException,
     WorkspaceBuilderObjectNotFoundException
 )
+from .match_predicate import StringMatchMode
 from git_utils import get_repo_name, create_repo_directory
 
 logger = logging.getLogger(__name__)
@@ -19,9 +23,95 @@ logger = logging.getLogger(__name__)
 DEFAULT_CODE_COLLECTIONS_FILE_NAME = "default-code-collections.yaml"
 
 class CodeCollectionAction(Enum):
-    INCLUDE ="include"
+    INCLUDE = "include"
     EXCLUDE = "exclude"
 
+class PatternType(Enum):
+    LITERAL = "literal"
+    REGEX = "regex"
+    GLOB = "glob"
+
+PATTERN_TYPE_FIELD_NAME = "patternType"
+PATTERN_FIELD_NAME = "pattern"
+IGNORE_CASE_FIELD_VALUE = "ignoreCase"
+MATCH_MODE_FIELD_NAME = "matchMode"
+ACTION_FIELD_NAME = "action"
+
+@dataclass
+class CodeBundleConfig:
+    pattern_type: PatternType
+    pattern_string: Optional[str]
+    ignore_case: bool
+    pattern: Optional[re.Pattern]
+    match_mode: StringMatchMode
+    action: CodeCollectionAction
+
+    @staticmethod
+    def construct_from_config(code_bundle_config: Union[str, dict[str, str]],
+                              defaults: "CodeBundleConfig" = None, pattern_required = True) -> "CodeBundleConfig":
+        if not defaults:
+            defaults = CODE_BUNDLE_CONFIG_DEFAULTS
+
+        if isinstance(code_bundle_config, str):
+            pattern_type = defaults.pattern_type
+            ignore_case = True
+            pattern_string = code_bundle_config
+            match_mode = defaults.match_mode
+            action = defaults.action
+            # If the config string starts with a !, then we reverse the sense of the action
+            # This is a convenience to make it easier to do a blacklist-style config that
+            # starts with a * inclusion and then a list of excluded bundle patterns without
+            # having to use the wordier dict-style config (which is parsed below in the
+            # else block).
+            if pattern_string[0] == '!':
+                pattern_string = pattern_string[1:]
+                action = CodeCollectionAction.EXCLUDE \
+                    if action == CodeCollectionAction.INCLUDE else CodeCollectionAction.INCLUDE
+        else:
+            pattern_type_string = code_bundle_config.get(PATTERN_TYPE_FIELD_NAME)
+            pattern_type = PatternType(pattern_type_string.lower()) if pattern_type_string else defaults.pattern_type
+            ignore_case = code_bundle_config.get(IGNORE_CASE_FIELD_VALUE, True)
+            pattern_string = code_bundle_config.get("pattern")
+            if pattern_required and pattern_string is None:
+                raise WorkspaceBuilderUserException('A code bundle config must include a "pattern" field to match')
+            match_mode_string = code_bundle_config.get(MATCH_MODE_FIELD_NAME)
+            match_mode = StringMatchMode(match_mode_string.lower()) if match_mode_string else defaults.match_mode
+            action_string = code_bundle_config.get(ACTION_FIELD_NAME)
+            action = CodeCollectionAction(action_string.lower()) if action_string else defaults.action
+
+        if pattern_type == PatternType.REGEX and pattern_string is not None:
+            pattern_flags = re.RegexFlag.IGNORECASE if ignore_case else 0
+            pattern = re.compile(pattern_string, pattern_flags)
+        else:
+            pattern = None
+
+        return CodeBundleConfig(pattern_type, pattern_string, ignore_case, pattern, match_mode, action)
+
+    def matches_code_bundle_name(self, code_bundle_name: str) -> bool:
+        if self.pattern_type == PatternType.REGEX:
+            match = self.pattern.search(code_bundle_name) if self.match_mode == StringMatchMode.SUBSTRING \
+                else self.pattern.match(code_bundle_name)
+            return match is not None
+        else:
+            pattern_string = self.pattern_string
+            if self.ignore_case:
+                pattern_string = pattern_string.lower()
+                code_bundle_name = code_bundle_name.lower()
+            if self.pattern_type == PatternType.GLOB:
+                if self.match_mode == StringMatchMode.SUBSTRING:
+                    pattern_string = f"*{pattern_string}*"
+                return fnmatch(code_bundle_name, pattern_string)
+            elif self.pattern_type == PatternType.LITERAL:
+                return pattern_string in code_bundle_name if self.match_mode == StringMatchMode.SUBSTRING \
+                    else code_bundle_name == pattern_string
+            else:
+                raise WorkspaceBuilderException(f"Unexpected/unsupported pattern type: {self.pattern_type}")
+
+
+CODE_BUNDLE_CONFIG_DEFAULTS = CodeBundleConfig(PatternType.GLOB, None, True, None,
+                                               StringMatchMode.SUBSTRING, CodeCollectionAction.INCLUDE)
+
+@dataclass
 class CodeCollectionConfig:
     """
     Configuration information for a single code collection.
@@ -34,17 +124,7 @@ class CodeCollectionConfig:
     auth_token: Optional[str]
     ref_name: str
     action: CodeCollectionAction
-
-    def __init__(self, repo_url: str,
-                 auth_user: Optional[str],
-                 auth_token: Optional[str],
-                 ref_name: str,
-                 action: CodeCollectionAction):
-        self.repo_url = repo_url
-        self.auth_user = auth_user
-        self.auth_token = auth_token
-        self.ref_name = ref_name
-        self.action = action
+    code_bundle_configs: list[CodeBundleConfig]
 
     @staticmethod
     def construct_from_config(code_collection_config: Union[str, dict[str, Any]]) -> "CodeCollectionConfig":
@@ -54,6 +134,7 @@ class CodeCollectionConfig:
             auth_token = None
             ref_name = "main"
             action = CodeCollectionAction.INCLUDE
+            code_bundle_configs = ["*"]
         else:
             repo_url = code_collection_config.get("repoURL")
             if repo_url is None:
@@ -66,7 +147,23 @@ class CodeCollectionConfig:
                 if not ref_name:
                     ref_name = code_collection_config.get("branch", "main")
             action = code_collection_config.get("action", CodeCollectionAction.INCLUDE)
-        return CodeCollectionConfig(repo_url, auth_user, auth_token, ref_name, action)
+            code_bundle_match_defaults_data = code_collection_config.get("codeBundleMatchDefaults")
+            if code_bundle_match_defaults_data:
+                code_bundle_match_defaults = CodeBundleConfig.construct_from_config(code_bundle_match_defaults_data,
+                                                                                    CODE_BUNDLE_CONFIG_DEFAULTS, False)
+            else:
+                code_bundle_match_defaults = CODE_BUNDLE_CONFIG_DEFAULTS
+            code_bundle_configs_data = code_collection_config.get("codeBundles", ["*"])
+            code_bundle_configs = [CodeBundleConfig.construct_from_config(data, code_bundle_match_defaults)
+                                   for data in code_bundle_configs_data]
+
+        return CodeCollectionConfig(repo_url, auth_user, auth_token, ref_name, action, code_bundle_configs)
+
+    def is_included_code_bundle(self, code_bundle_name):
+        for code_bundle_config in self.code_bundle_configs:
+            if code_bundle_config.matches_code_bundle_name(code_bundle_name):
+                return code_bundle_config.action == CodeCollectionAction.INCLUDE
+        return False
 
 
 class CodeCollection:
@@ -135,12 +232,14 @@ class CodeCollection:
         root = ref.commit.tree
         return self.resolve_path(root, "codebundles")
 
-    def get_code_bundle_names(self, ref_name: str) -> list[str]:
+    def get_code_bundle_names(self, ref_name: str, code_collection_config: CodeCollectionConfig) -> list[str]:
         code_bundles_tree = self.get_code_bundles_tree(ref_name)
         code_bundle_names = []
         for item in code_bundles_tree:
             if isinstance(item, Tree):
-                code_bundle_names.append(item.name)
+                code_bundle_name = item.name
+                if code_collection_config.is_included_code_bundle(code_bundle_name):
+                    code_bundle_names.append(code_bundle_name)
         return code_bundle_names
 
     def get_runwhen_tree(self, ref_name: str, code_bundle_name: str) -> Optional[Tree]:

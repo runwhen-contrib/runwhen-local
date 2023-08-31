@@ -55,7 +55,7 @@ BASE_REQUEST_DATA = {
     #     }
     # }
     "codeCollections": [
-        {"repoURL": f"file://{git_repo_root}/rw-public-codecollection", "branch": "main"},
+        {"repoURL": f"file://{git_repo_root}/rw-public-codecollection", "branch": "main", "codeBundles": ["*"]},
         {"repoURL": f"file://{git_repo_root}/rw-cli-codecollection", "branch": "main"}
     ]
 }
