@@ -110,7 +110,8 @@ class CodeBundleConfig:
 
 CODE_BUNDLE_CONFIG_DEFAULTS = CodeBundleConfig(PatternType.GLOB, None, True, None,
                                                StringMatchMode.SUBSTRING, CodeCollectionAction.INCLUDE)
-
+CODE_BUNDLE_CONFIG_INCLUDE_ALL = CodeBundleConfig(PatternType.GLOB, "*", True, None,
+                                                  StringMatchMode.EXACT, CodeCollectionAction.INCLUDE)
 @dataclass
 class CodeCollectionConfig:
     """
@@ -134,7 +135,7 @@ class CodeCollectionConfig:
             auth_token = None
             ref_name = "main"
             action = CodeCollectionAction.INCLUDE
-            code_bundle_configs = ["*"]
+            code_bundle_configs = [CODE_BUNDLE_CONFIG_INCLUDE_ALL]
         else:
             repo_url = code_collection_config.get("repoURL")
             if repo_url is None:
@@ -342,17 +343,11 @@ def init_code_collections():
     # Load in the default/built-in code collections
     with open(DEFAULT_CODE_COLLECTIONS_FILE_NAME, "r") as f:
         code_collections_config_text = f.read()
-    code_collections_config = yaml.safe_load(code_collections_config_text)
-    version = code_collections_config.get("version")
-    if version != CURRENT_CODE_COLLECTIONS_CONFIG_VERSION:
-        # If/when we change the format/version we could do conversion from older versions here
-        raise WorkspaceBuilderException(f"Unsupported code collection config version: {version}. "
-                                        f"Current/supported version is {CURRENT_CODE_COLLECTIONS_CONFIG_VERSION}")
-    code_collection_config_list = code_collections_config.get("codeCollections", [])
+    code_collections_configs_data = yaml.safe_load(code_collections_config_text)
 
     global default_code_collection_configs
     default_code_collection_configs = []
-    for ccc in code_collection_config_list:
+    for ccc in code_collections_configs_data:
         code_collection_config = CodeCollectionConfig.construct_from_config(ccc)
         # NB: It's not a normal case that one of the default code collection
         # entries would be set to EXCLUDE (i.e. instead of just removing it),
