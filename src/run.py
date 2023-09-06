@@ -192,11 +192,13 @@ def main():
         namespace_lods = workspace_info.get('namespaceLODs')
         custom_definitions = workspace_info.get("custom", dict())
         personas = workspace_info.get("personas", dict())
+        code_collections = workspace_info.get("codeCollections")
     else:
         upload_token = None
         namespace_lods = None
         custom_definitions = dict()
         personas = dict()
+        code_collections = None
 
     # If a setting has still not been set, try an environment variable as a last resort
     # FIXME: With the switch to having default values for the command line args, these
@@ -314,6 +316,8 @@ def main():
             request_data['personas'] = personas
         if namespaces:
             request_data['namespaces'] = namespaces
+        if code_collections:
+            request_data['codeCollections'] = code_collections
 
         # Update cheat sheet status by copying index
         shutil.copyfile("cheat-sheet-docs/templates/index-status-discovery.md", "cheat-sheet-docs/docs/index.md")

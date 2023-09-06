@@ -817,7 +817,7 @@ def load(context: Context) -> None:
         code_collection = get_code_collection(code_collection_config)
         ref_name = code_collection_config.ref_name
         code_collection.update_repo(ref_name)
-        code_bundle_names = code_collection.get_code_bundle_names(ref_name)
+        code_bundle_names = code_collection.get_code_bundle_names(ref_name, code_collection_config)
         for code_bundle_name in code_bundle_names:
             if code_bundle_name == "k8s-kubectl-namespace-healthcheck":
                 x = 0
