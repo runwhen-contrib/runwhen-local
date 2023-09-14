@@ -52,7 +52,7 @@ theme:
 build:
     date: today
     version: 0.1
-    scan_date: 2023-06-28 20:48:55
+    scan_date: today
     demo: false
 extra_css:
   - css/custom.css
