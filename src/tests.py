@@ -18,6 +18,7 @@ from git_utils import (
     create_repo_directory,
     CREATE_REPO_DIRECTORY_NO_AVAILABLE_NAME_MESSAGE
 )
+from enrichers import match_predicate
 from enrichers.code_collection import (
     CodeCollectionConfig,
     CodeBundleConfig,
@@ -99,6 +100,21 @@ class OutputterTest(TestCase):
             self.assertIsInstance(item, FileItem)
             return item.data
         self.common_check_output(get_data)
+
+
+class PathTest(TestCase):
+
+    def test_simple_path(self):
+        components = match_predicate.path_to_components("foo/bar/abc")
+        self.assertListEqual(["foo", "bar", "abc"], components)
+
+    def test_path_with_escaped_slashes(self):
+        components = match_predicate.path_to_components("foo/bar/abc//def")
+        self.assertListEqual(["foo", "bar", "abc/def"], components)
+
+    def test_path_with_custom_separator_char(self):
+        components = match_predicate.path_to_components("foo|bar|abc/def", separator_char='|')
+        self.assertListEqual(["foo", "bar", "abc/def"], components)
 
 
 class NameUtilsTest(TestCase):

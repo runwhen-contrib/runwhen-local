@@ -140,8 +140,17 @@ def base_construct_match_predicate_from_config(predicate_config: dict[str, Any],
     return match_predicate
 
 
-def path_to_components(path: str) -> list[str]:
-    return path.split('/')
+def path_to_components(path: str, separator_char=None) -> list[str]:
+    if separator_char:
+        components = path.split(separator_char)
+    elif path.find('//') >= 0:
+        slash_replacement = "!$^]"
+        path = path.replace('//', slash_replacement)
+        components = path.split('/')
+        components = [component.replace(slash_replacement, '/') for component in components]
+    else:
+        components = path.split('/')
+    return components
 
 
 def _match_resource_path(data, path_components: list[str], match_func) -> bool:
