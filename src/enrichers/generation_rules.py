@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import logging
 import os
 import re
@@ -569,9 +570,35 @@ class Group:
         self.dependencies.append(dependency)
 
 
+class GenerationRuleInfo:
+    """
+    Collects the information that's obtained during the load phase that will later
+    be needed to execute the generation rule in the enrich phase. Mostly, this is
+    just the state that we need to access/load the templates that are referenced
+    in the generation rule.
+    """
+    generation_rule: GenerationRule
+    generation_rule_name: str
+    code_collection: CodeCollection
+    ref_name: str
+    code_bundle: str
+
+    def __init__(self, generation_rule: GenerationRule,
+                 generation_rule_name: str,
+                 code_collection: CodeCollection = None,
+                 ref_name: str = None,
+                 code_bundle: str = None):
+        self.generation_rule = generation_rule
+        self.generation_rule_name = generation_rule_name
+        self.code_collection = code_collection
+        self.ref_name = ref_name
+        self.code_bundle = code_bundle
+
+
 def get_template_variables(output_item: OutputItem,
                            resource: Any,
-                           base_template_variables: dict[str, Any]) -> dict[str, Any]:
+                           base_template_variables: dict[str, Any],
+                           generation_rule_info: GenerationRuleInfo) -> dict[str, Any]:
     """
     Convert the template variables configuration from a generation rule into
     a corresponding dictionary with the values of the template variables.
@@ -619,6 +646,9 @@ def get_template_variables(output_item: OutputItem,
         raise WorkspaceBuilderException(f"Unsupported output item type: {output_item.type}")
     template_variables['kind'] = kind
 
+    template_variables['repo_url'] = generation_rule_info.code_collection.repo_url
+    template_variables['ref'] = generation_rule_info.ref_name
+
     for name, template_string in output_item.template_variables.items():
         value = render_template_string(template_string, template_variables)
         template_variables[name] = value
@@ -631,37 +661,12 @@ def should_emit_output_item(output_item: OutputItem, level_of_detail: LevelOfDet
     return output_item and output_item.level_of_detail.value <= level_of_detail.value
 
 
-class GenerationRuleInfo:
-    """
-    Collects the information that's obtained during the load phase that will later
-    be needed to execute the generation rule in the enrich phase. Mostly, this is
-    just the state that we need to access/load the templates that are referenced
-    in the generation rule.
-    """
-    code_collection: CodeCollection
-    ref_name: str
-    code_bundle: str
-    generation_rule_name: str
-    generation_rule: GenerationRule
-
-    def __init__(self, generation_rule: GenerationRule,
-                 generation_rule_name: str,
-                 code_collection: CodeCollection = None,
-                 ref_name: str = None,
-                 code_bundle: str = None):
-        self.generation_rule = generation_rule
-        self.generation_rule_name = generation_rule_name
-        self.code_collection = code_collection
-        self.ref_name = ref_name
-        self.code_bundle = code_bundle
-
-
 def generate_output_item(generation_rule_info: GenerationRuleInfo,
                          output_item: OutputItem,
                          resource: models.KubernetesBase,
                          renderer_output_items: dict[str, RendererOutputItem],
                          base_template_variables: dict[str, Any]) -> bool:
-    template_variables = get_template_variables(output_item, resource, base_template_variables)
+    template_variables = get_template_variables(output_item, resource, base_template_variables, generation_rule_info)
     path_template = output_item.path
     path = render_template_string(path_template, template_variables)
     # Only emit the output item if it's a path we haven't seen/emitted yet.
