@@ -35,6 +35,34 @@ extract_oci_command() {
     echo "$cmd $args"
 }
 
+#######################################
+# Extract OIDC command function by combining command and args
+#
+# Arguments: 
+#   path to shared kubeconfig which has parameters to build up the command
+# Returns: 
+#   full command to be executed
+#######################################
+extract_oidc_command() {
+    kubeconfig_file=$1
+
+    # Check if the command is 'kubectl' with 'oidc-login' in the args
+    oidc_exists=$(yq e '.users[] | select(.user.exec.command == "kubectl" and .user.exec.args[] == "oidc-login")' "$kubeconfig_file")
+
+    # If it doesn't exist, return nothing
+    if [ -z "$oidc_exists" ]; then
+        echo ""
+        return
+    fi
+
+    # Extract args
+    args=$(yq e '.users[] | select(.user.exec.command == "kubectl" and .user.exec.args[] == "oidc-login").user.exec.args[]' "$kubeconfig_file" | tr '\n' ' ')
+
+    # Construct full command
+    echo "kubectl $args"
+}
+
+
 
 # Set the working directory
 workdir="$workdir"
@@ -53,8 +81,23 @@ cp ~/.kube/config "$workdir/shared/kubeconfig"
 # Convert YAML to JSON
 kubeconfig_json=$(yq eval -o=json "$workdir/shared/kubeconfig")
 
+# Check existence of each command in kubeconfig
+gke_exists=$(yq e '.users[] | select(.user.exec.command == "gke-gcloud-auth-plugin")' "$workdir/shared/kubeconfig")
+oci_exists=$(yq e '.users[] | select(.user.exec.command == "oci")' "$workdir/shared/kubeconfig")
+oidc_exists=$(yq e '.users[] | select(.user.exec.command == "kubectl").user.exec.args[]' "$workdir/shared/kubeconfig" | grep "oidc-login")
+
+# Generate tokens only if commands exist in kubeconfig
+gke_token=""
+[ ! -z "$gke_exists" ] && gke_token=$(gke-gcloud-auth-plugin generate-token "$user" | jq -r .status.token)
+
+oci_token=""
+[ ! -z "$oci_exists" ] && oci_token=$($(extract_oci_command $workdir/shared/kubeconfig) | jq -r .status.token)
+
+oidc_token=""
+[ ! -z "$oidc_exists" ] && oidc_token=$($(extract_oidc_command $workdir/shared/kubeconfig) | jq -r .status.token)
+
 # Process the JSON
-processed_json=$(echo "$kubeconfig_json" | jq --arg gke_token "$(gke-gcloud-auth-plugin generate-token "$user" | jq -r .status.token)" --arg oci_token "$($(extract_oci_command $workdir/shared/kubeconfig) | jq -r .status.token)" '
+processed_json=$(echo "$kubeconfig_json" | jq --arg gke_token "$gke_token" --arg oci_token "$oci_token" --arg oidc_token "$oidc_token" '
   .users[] |= 
     if .user.exec.command == "gke-gcloud-auth-plugin" then 
       .user.token = $gke_token 
@@ -62,6 +105,9 @@ processed_json=$(echo "$kubeconfig_json" | jq --arg gke_token "$(gke-gcloud-auth
     elif .user.exec.command == "oci" then 
       .user.token = $oci_token 
       | del(.user.exec) 
+    elif .user.exec.command == "kubectl" and (.user.exec.args | contains(["oidc-login"])) then 
+      .user.token = $oidc_token 
+      | del(.user.exec)
     else 
       . 
     end

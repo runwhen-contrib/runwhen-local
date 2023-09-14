@@ -317,8 +317,8 @@ def update_last_scan_time():
 
         updated_content = []
         for line in content:
-            if line.startswith("  scan_date:"):
-                line = f"  scan_date: {current_date}\n"
+            if line.startswith("    scan_date:"):
+                line = f"    scan_date: {current_date}\n"
             updated_content.append(line)
 
         with open(file_path, "w") as file:
@@ -574,15 +574,21 @@ def fetch_meta(runbook_url, repo):
 
     Args:
         runbook_url (str): The GitHub URL of the runbook file to infer the meta.yaml.
-        local_path (str): The local path of the cached repository.
+        repo (str): The repository in the format "owner/repo_name".
 
     Returns:
         The meta.yaml content as a dictionary, or None if the request failed.
     """
+    # Derive the cache directory name from the repo parameter
+    cache_dir_name = repo.replace('/', '-')
+    
     meta_yaml_url = runbook_url.rsplit('/', 1)[0] + '/meta.yaml'
     meta_yaml_url = meta_yaml_url.replace('github.com', 'raw.githubusercontent.com').replace("/tree/", "/")
-    local_path = os.path.join(os.getcwd(), f'{repo}-cache')
-    meta_path=meta_yaml_url.split('/main/', 1)[-1] if '/main/' in meta_yaml_url else ''
+    
+    # Update the local_path to include the cache directory name
+    local_path = os.path.join(os.getcwd(), f'{cache_dir_name}-cache')
+    meta_path = meta_yaml_url.split('/main/', 1)[-1] if '/main/' in meta_yaml_url else ''
+    
     # Check if the meta.yaml file exists in the local cache
     local_meta_path = os.path.join(local_path, meta_path)
     if os.path.exists(local_meta_path):
@@ -600,6 +606,7 @@ def fetch_meta(runbook_url, repo):
             yaml_data = yaml.safe_load(response.text)
 
             # Save the fetched meta.yaml file to the local cache
+            os.makedirs(os.path.dirname(local_meta_path), exist_ok=True)  # Ensure directory exists
             try:
                 with open(local_meta_path, 'w') as f:
                     yaml.dump(yaml_data, f)
@@ -613,6 +620,51 @@ def fetch_meta(runbook_url, repo):
         print(f"Request failed: {str(e)}")
 
     return None
+# def fetch_meta(runbook_url, repo):
+#     """
+#     Fetches the meta.yaml file for the given runbook URL.
+
+#     Args:
+#         runbook_url (str): The GitHub URL of the runbook file to infer the meta.yaml.
+#         local_path (str): The local path of the cached repository.
+
+#     Returns:
+#         The meta.yaml content as a dictionary, or None if the request failed.
+#     """
+#     meta_yaml_url = runbook_url.rsplit('/', 1)[0] + '/meta.yaml'
+#     meta_yaml_url = meta_yaml_url.replace('github.com', 'raw.githubusercontent.com').replace("/tree/", "/")
+#     local_path = os.path.join(os.getcwd(), f'{repo}-cache')
+#     meta_path=meta_yaml_url.split('/main/', 1)[-1] if '/main/' in meta_yaml_url else ''
+#     # Check if the meta.yaml file exists in the local cache
+#     local_meta_path = os.path.join(local_path, meta_path)
+#     if os.path.exists(local_meta_path):
+#         try:
+#             with open(local_meta_path, 'r') as f:
+#                 yaml_data = yaml.safe_load(f)
+#             return yaml_data
+#         except IOError as e:
+#             print(f"Failed to read local meta.yaml file due to: {str(e)}")
+
+#     # If the meta.yaml file doesn't exist in the cache, fetch it from the internet
+#     try:
+#         response = requests.get(meta_yaml_url)
+#         if response.status_code == 200:
+#             yaml_data = yaml.safe_load(response.text)
+
+#             # Save the fetched meta.yaml file to the local cache
+#             try:
+#                 with open(local_meta_path, 'w') as f:
+#                     yaml.dump(yaml_data, f)
+#             except IOError as e:
+#                 print(f"Failed to write meta.yaml to local cache due to: {str(e)}")
+
+#             return yaml_data
+#         else:
+#             print(f"Request failed with status code: {response.status_code}")
+#     except requests.RequestException as e:
+#         print(f"Request failed: {str(e)}")
+
+#     return None
 
 def cheat_sheet(directory_path):
     """
