@@ -317,8 +317,8 @@ def update_last_scan_time():
 
         updated_content = []
         for line in content:
-            if line.startswith("  scan_date:"):
-                line = f"  scan_date: {current_date}\n"
+            if line.startswith("    scan_date:"):
+                line = f"    scan_date: {current_date}\n"
             updated_content.append(line)
 
         with open(file_path, "w") as file:
