@@ -34,8 +34,33 @@ docker exec -w /workspace-builder -- RunWhenLocal ./run.sh
 git_repo_path=[FULL PATH TO GIT REPO BASE]
 cd $workdir; docker run --name RunWhenLocal -p 8081:8081 -v $workdir/shared:/shared -v $git_repo_path/src/generation-rules:/workspace-builder/generation-rules -v $git_repo_path/src/templates:/workspace-builder/templates  -v $git_repo_path/src/map-customization-rules:/workspace-builder/map-customization-rules -d runwhen-local:test 
 ```
-> Note: We are actively working on moving the generation rules and possibly customization rules out of the container image and alongside the troubleshooting libraries. 
 
+### Quick test script with verbose output
+For quick testing, the following script could be used or extended when making changes. It will clean up the old artifacts, rebuild the container, and run the discovery process. It does require a `$workdir` to be set along with a `kubeconfig` and `workspaceInfo.yaml` file to be present. 
+
+```
+#!/bin/bash
+
+if [[ "$workdir" ]];then
+        cd $workdir
+        echo "Kill and remove RunWhenLocal Container"
+        docker kill RunWhenLocal; docker rm RunWhenLocal
+        echo "Remocing shared output dir"
+        sudo rm -rf $workdir/shared/output
+        echo "Creating clean shared output dir"
+        mkdir $workdir/shared/output
+        chmod 777 $workdir/shared/output
+        echo "rebuild image" 
+        docker build -t runwhen-local:test -f ../runwhen-local/src/Dockerfile ../runwhen-local/src/
+        echo "Running RunWhenLocal container"
+        docker run --name RunWhenLocal -p 8081:8081 -v $workdir/shared:/shared -d runwhen-local:test
+        sleep 5
+        echo "Running discovery"
+        docker exec -w /workspace-builder -- RunWhenLocal ./run.sh --verbose
+else
+        echo "workdir variable/path not set"
+fi
+```
 
 ## Cleanup
 In order to clean up the docker image and files; 
