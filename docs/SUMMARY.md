@@ -1,6 +1,7 @@
 # Summary​
 
 ## User Guide
+* [Introduction](User_Guide-Introduction.md)
 * Getting Started
     * [Running Locally](Getting_Started-Running_Locally.md) 
     * [Running in Kubernetes](Getting_Started-Running_in_Kubernetes.md) 
