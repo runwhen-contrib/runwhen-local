@@ -568,27 +568,31 @@ def get_last_commit_age(owner, repo, path):
     if age_in_weeks >= 2:
         return f"{int(age_in_weeks)} weeks ago"  # using int() to round down
 
-def fetch_meta(runbook_url, repo):
+def fetch_meta(runbook_url, repo, ref="main"):
     """
     Fetches the meta.yaml file for the given runbook URL.
 
     Args:
         runbook_url (str): The GitHub URL of the runbook file to infer the meta.yaml.
         repo (str): The repository in the format "owner/repo_name".
+        branch (str, optional): The branch name. Defaults to "main".
 
     Returns:
         The meta.yaml content as a dictionary, or None if the request failed.
     """
-    # Derive the cache directory name from the repo parameter
-    cache_dir_name = repo.replace('/', '-')
-    
+    # Extract the owner from the runbook_url
+    owner = runbook_url.split('/')[3] if 'github.com' in runbook_url else ''
+
+    # Derive the cache directory name from the repo and owner parameters
+    cache_dir_name = f"{owner}-{repo.replace('/', '-')}-{ref}-cache"
+
     meta_yaml_url = runbook_url.rsplit('/', 1)[0] + '/meta.yaml'
-    meta_yaml_url = meta_yaml_url.replace('github.com', 'raw.githubusercontent.com').replace("/tree/", "/")
+    meta_yaml_url = meta_yaml_url.replace('github.com', 'raw.githubusercontent.com').replace(f"/tree/{ref}/", f"/{ref}/")
     
     # Update the local_path to include the cache directory name
-    local_path = os.path.join(os.getcwd(), f'{cache_dir_name}-cache')
-    meta_path = meta_yaml_url.split('/main/', 1)[-1] if '/main/' in meta_yaml_url else ''
-    
+    local_path = os.path.join(os.getcwd(), cache_dir_name)
+    meta_path = meta_yaml_url.split(f'/{ref}/', 1)[-1] if f'/{ref}/' in meta_yaml_url else ''
+
     # Check if the meta.yaml file exists in the local cache
     local_meta_path = os.path.join(local_path, meta_path)
     if os.path.exists(local_meta_path):
@@ -620,51 +624,6 @@ def fetch_meta(runbook_url, repo):
         print(f"Request failed: {str(e)}")
 
     return None
-# def fetch_meta(runbook_url, repo):
-#     """
-#     Fetches the meta.yaml file for the given runbook URL.
-
-#     Args:
-#         runbook_url (str): The GitHub URL of the runbook file to infer the meta.yaml.
-#         local_path (str): The local path of the cached repository.
-
-#     Returns:
-#         The meta.yaml content as a dictionary, or None if the request failed.
-#     """
-#     meta_yaml_url = runbook_url.rsplit('/', 1)[0] + '/meta.yaml'
-#     meta_yaml_url = meta_yaml_url.replace('github.com', 'raw.githubusercontent.com').replace("/tree/", "/")
-#     local_path = os.path.join(os.getcwd(), f'{repo}-cache')
-#     meta_path=meta_yaml_url.split('/main/', 1)[-1] if '/main/' in meta_yaml_url else ''
-#     # Check if the meta.yaml file exists in the local cache
-#     local_meta_path = os.path.join(local_path, meta_path)
-#     if os.path.exists(local_meta_path):
-#         try:
-#             with open(local_meta_path, 'r') as f:
-#                 yaml_data = yaml.safe_load(f)
-#             return yaml_data
-#         except IOError as e:
-#             print(f"Failed to read local meta.yaml file due to: {str(e)}")
-
-#     # If the meta.yaml file doesn't exist in the cache, fetch it from the internet
-#     try:
-#         response = requests.get(meta_yaml_url)
-#         if response.status_code == 200:
-#             yaml_data = yaml.safe_load(response.text)
-
-#             # Save the fetched meta.yaml file to the local cache
-#             try:
-#                 with open(local_meta_path, 'w') as f:
-#                     yaml.dump(yaml_data, f)
-#             except IOError as e:
-#                 print(f"Failed to write meta.yaml to local cache due to: {str(e)}")
-
-#             return yaml_data
-#         else:
-#             print(f"Request failed with status code: {response.status_code}")
-#     except requests.RequestException as e:
-#         print(f"Request failed: {str(e)}")
-
-#     return None
 
 def cheat_sheet(directory_path):
     """
@@ -735,13 +694,14 @@ def cheat_sheet(directory_path):
         runbook_url=f'{parsed_runbook_config["spec"]["codeBundle"]["repoUrl"].rstrip(".git")}/tree/{parsed_runbook_config["spec"]["codeBundle"]["ref"]}/{parsed_runbook_config["spec"]["codeBundle"]["pathToRobot"]}'
         repo = parsed_runbook_config["spec"]["codeBundle"]["repoUrl"].rstrip(".git").split("/")[-1]
         path = parsed_runbook_config["spec"]["codeBundle"]["pathToRobot"].rstrip('runbook.robot')
+        ref = parsed_runbook_config["spec"]["codeBundle"]["ref"]
         commit_age=get_last_commit_age("runwhen-contrib",repo, path)
         parsed_robot = parse_robot_file(robot_file)
         slx_hints = generate_slx_hints(runbook)
         doc = ''.join(parsed_robot["doc"].split('\n'))
         author = ''.join(parsed_robot["author"].split('\n'))
         group_name = find_group_name(groups, slx_hints["slx_short_name"])
-        meta=fetch_meta(runbook_url, repo)
+        meta=fetch_meta(runbook_url, repo, ref)
         interesting_commands = search_keywords(parsed_robot, parsed_runbook_config, search_list, meta)
         command_generation_summary_stats["total_interesting_commands"] += len(interesting_commands)
         author_details=fetch_github_profile_icon(author)
