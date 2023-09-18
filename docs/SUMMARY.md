@@ -1,7 +1,7 @@
 # Summary​
 
 ## User Guide
-* [Getting Started]()
+* Getting Started
     * [Running Locally](Getting_Started-Running_Locally.md) 
     * [Running in Kubernetes](Getting_Started-Running_in_Kubernetes.md) 
 * [Feature Overview](User_Guide-Feature_Overview.md)
