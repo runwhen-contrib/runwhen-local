@@ -94,6 +94,9 @@ def main():
     parser.add_argument('-w', '--workspace-info', action='store', dest="workspace_info", default="workspaceInfo.yaml",
                         help="Location of the workspace info file that was downloaded from the RunWhen GUI "
                              "after creating a new workspace. The path is relative to the base directory.")
+    parser.add_argument('--upload-info', action='store', dest="upload_info", default="uploadInfo.yaml",
+                        help="Location of the uploadInfo.yaml file that was downloaded from the RunWhen GUI "
+                             "after creating a new workspace. The path is relative to the base directory.")
     parser.add_argument('--rest-service-host', action='store', dest="rest_service_host",
                         default="localhost:8000",
                         help=f'Host/port info for where the {SERVICE_NAME} REST service is running. '
@@ -169,36 +172,77 @@ def main():
     if not os.path.exists(base_directory):
         fatal(f'Base directory not found: {base_directory}')
 
+    # Initialize the settings that don't have corresponding command line arguments
+    upload_token = None
+    namespace_lods = None
+    custom_definitions = dict()
+    personas = dict()
+    code_collections = None
+
+    # Read the information from the uploadInfo.yaml file.
+    # In theory, we should only need to do this if we're going to try to upload
+    # to the platform (i.e. upload subcommand or --upload flag), but currently
+    # there is other information in uploadInfo.yamll (e.g. workspaceName,
+    # workspaceOwnerEmail, defaultLocation) that affect the workspace generation
+    # process, so we need to parse the file even just for generation.
+    # We currently give precedence to the settings in uploadInfo.yaml over
+    # what's in workspaceInfo.yaml, so if a user has been operating in pure
+    # RunWhen Local mode and then wants to upload to the platform and downloads
+    # the uploadInfo.yaml the workspace name there will override whatever they
+    # had been using in the workspaceInfo.yaml setting.
+    upload_info_path = os.path.join(base_directory, args.upload_info)
+    try:
+        upload_info_text = read_file(upload_info_path)
+        upload_info = yaml.safe_load(upload_info_text)
+        upload_token = upload_info.get('token')
+        if not papi_url:
+            papi_url = upload_info.get('papiURL')
+        if not workspace_name:
+            workspace_name = upload_info.get('workspaceName')
+        if not workspace_owner_email:
+            workspace_owner_email = upload_info.get('workspaceOwnerEmail')
+        if not default_location:
+            default_location = upload_info.get("defaultLocation")
+    except FileNotFoundError:
+        # Don't treat this as a fatal error, to handle untethered, pure
+        # RunWhen Local operation. In this case we assume that the workspace name
+        # and the other fields are specified in workspaceInfo.yaml (or specified
+        # as command line arguments, but I don't think that's a feature that
+        # anyone is really using at this point).
+        pass
+
+
     # Parse the settings info for calling the REST service
     if args.workspace_info:
         workspace_info_path = os.path.join(base_directory, args.workspace_info)
-        workspace_info_str = read_file(workspace_info_path)
-        workspace_info = yaml.safe_load(workspace_info_str)
-        # FIXME: Should probably tweak the field in the workspace info from the GUI/PAPI
-        # to name this just "workspace"
-        if not workspace_name:
-            workspace_name = workspace_info.get('workspaceName')
-        upload_token = workspace_info.get('token')
-        if not workspace_owner_email:
-            workspace_owner_email = workspace_info.get('workspaceOwnerEmail')
-        if not default_location:
-            default_location = workspace_info.get("defaultLocation")
-        if not papi_url:
-            papi_url = workspace_info.get('papiURL')
-        if default_lod is None:
-            default_lod = workspace_info.get("defaultLOD")
-        if not namespaces:
-            namespaces = workspace_info.get("namespaces")
-        namespace_lods = workspace_info.get('namespaceLODs')
-        custom_definitions = workspace_info.get("custom", dict())
-        personas = workspace_info.get("personas", dict())
-        code_collections = workspace_info.get("codeCollections")
-    else:
-        upload_token = None
-        namespace_lods = None
-        custom_definitions = dict()
-        personas = dict()
-        code_collections = None
+        if os.path.exists(workspace_info_path):
+            workspace_info_str = read_file(workspace_info_path)
+            workspace_info = yaml.safe_load(workspace_info_str)
+            # FIXME: Should probably tweak the field in the workspace info from the GUI/PAPI
+            # to name this just "workspace"
+            if not workspace_name:
+                workspace_name = workspace_info.get('workspaceName')
+            # We've moved the upload token and PAPI URL settings to the uploadInfo.yaml file,
+            # but we'll keep support for the old way of putting it in the workspaceInfo.yaml file for
+            # a little while to avoid breaking existing setups.
+            # FIXME: Should remove this eventually after we think it's safe to assume everybody has
+            # switched over to using the uploadInfo.yaml file.
+            if not upload_token:
+                upload_token = workspace_info.get('token')
+            if not papi_url:
+                papi_url = workspace_info.get('papiURL')
+            if not workspace_owner_email:
+                workspace_owner_email = workspace_info.get('workspaceOwnerEmail')
+            if not default_location:
+                default_location = workspace_info.get("defaultLocation")
+            if default_lod is None:
+                default_lod = workspace_info.get("defaultLOD")
+            if not namespaces:
+                namespaces = workspace_info.get("namespaces")
+            namespace_lods = workspace_info.get('namespaceLODs')
+            custom_definitions = workspace_info.get("custom", dict())
+            personas = workspace_info.get("personas", dict())
+            code_collections = workspace_info.get("codeCollections")
 
     # If a setting has still not been set, try an environment variable as a last resort
     # FIXME: With the switch to having default values for the command line args, these
@@ -352,6 +396,8 @@ def main():
         archive = tarfile.open(fileobj=archive_file_obj, mode="r")
         archive.extractall(output_path)
 
+        print("Workspace data generated successfully.")
+
         # Add cheat-sheet integration, which points at the output items and
         # generates the list of local commands that exist in the TaskSet.
         # FIXME: I think it would probably be cleaner and more decoupled to move the
@@ -381,8 +427,6 @@ def main():
         # about possibly uninitialized variables, e.g. archive_text
         return
 
-    print("Workspace builder data generated successfully.")
-
     if args.upload_data or args.command == UPLOAD_COMMAND:
         # For uploading we only send the workload subdirectory not the entire
         # contents of the output directory. So access the workload directory
@@ -407,9 +451,9 @@ def main():
         archive_text = base64.b64encode(archive_bytes).decode('utf-8')
 
         if not upload_token:
-            fatal('An upload token value named "token" must be specified in the workspace info file to '
-                  'enable upload of the generated workspace content. This token is set when the '
-                  'workspace info is first downloaded from the workspace info web page.')
+            fatal('An uploadInfo.yaml file corresponding to an existing workspace in the '
+                  'platform must be downloaded from the workspace info page and put in the '
+                  'base directory to enable upload of the generated workspace content.')
         merge_mode = "keepexisting" if args.upload_merge_mode.lower() == "keep-existing" else "keepuploaded"
         upload_request_data = {
             "output": archive_text,
