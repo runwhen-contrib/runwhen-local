@@ -12,7 +12,7 @@ The following steps allow you to safely run RunWhen from your own laptop, with t
 {% endhint %}
 
 {% hint style="info" %}
-If you have any issues with this process, have a look at [stuck-read-this.md](../stuck-read-this.md "mention") or feel free to reach out on [Slack](https://runwhen.slack.com/join/shared\_invite/zt-1l7t3tdzl-IzB8gXDsWtHkT8C5nufm2A),  [GitHub](https://github.com/runwhen-contrib/runwhen-local) or [Discord](https://discord.com/invite/Ut7Ws4rm8Q)
+If you have any issues with this process, have a look at [**Generating Service Accounts and Kubeconfigs**](https://docs.runwhen.com/public/runwhen-platform/guides/kubernetes-environments/generating-service-accounts-and-kubeconfigs),  or feel free to reach out on [Slack](https://runwhen.slack.com/join/shared\_invite/zt-1l7t3tdzl-IzB8gXDsWtHkT8C5nufm2A), [GitHub](https://github.com/runwhen-contrib/runwhen-local) or [Discord](https://discord.com/invite/Ut7Ws4rm8Q)
 {% endhint %}
 
 ### Pull the RunWhen Local Container Image
@@ -46,8 +46,6 @@ podman pull ghcr.io/runwhen-contrib/runwhen-local:latest
 {% endtab %}
 {% endtabs %}
 
-
-
 ### Prepare a Working Directory
 
 * Create the working directory: _**changing this path as desired**_
@@ -63,9 +61,9 @@ The working directory is used to share files with the map builder container, whi
 * The **output directory** is set with **open permissions** so that the container can write the output to it - there is no sensitive data (such as secrets/kubeconfigs/etc) in the _output folder_
 
 {% hint style="info" %}
-The **output directory** is shared so that you can easily review the generated configuration files without needing to exec into the container.&#x20;
+The **output directory** is shared so that you can easily review the generated configuration files without needing to exec into the container.
 
-If using Podman with macOS, make sure`$workdir/output` resides in `/Users`.&#x20;
+If using Podman with macOS, make sure`$workdir/output` resides in `/Users`.
 {% endhint %}
 
 {% hint style="warning" %}
@@ -175,17 +173,17 @@ The good thing is, if you've regularly used a Kubernetes cluster, you most likel
 {% tabs %}
 {% tab title="Simple: Generate From Existing Kubeconfig" %}
 {% hint style="info" %}
-These step uses [**yq**](https://github.com/mikefarah/yq)  and [**jq**](https://jqlang.github.io/jq/) to create a new kubeconfig for RunWhen Local to use. See the [yq install documentation](https://github.com/mikefarah/yq#install) to obtain the tool. It currently supports creating a kubeconfig with a short lived token for GKE and OKE clusters.&#x20;
+These step uses [**yq**](https://github.com/mikefarah/yq) and [**jq**](https://jqlang.github.io/jq/) to create a new kubeconfig for RunWhen Local to use. See the [yq install documentation](https://github.com/mikefarah/yq#install) to obtain the tool. It currently supports creating a kubeconfig with a short lived token for GKE and OKE clusters.
 {% endhint %}
 
 {% hint style="warning" %}
 This script _will not modify your existing kubeconfig._ It will copy the contents (defaulted from \~/.kube/config) into a file that is usable by RunWhen Local. It is still on your local machine and safe to use.
 {% endhint %}
 
-* Fetch the _gen\_rw\_kubeconfig.sh_ from [GitHub](https://github.com/runwhen-contrib/runwhen-local/blob/main/deploy/scripts/gen\_rw\_kubeconfig.sh)
+* Fetch the _gen\_rw\_kubeconfig.sh_ from [GitHub](../deploy/scripts/gen\_rw\_kubeconfig.sh)
 
-<pre><code><strong>
-</strong><strong>curl -o- https://raw.githubusercontent.com/runwhen-contrib/runwhen-local/main/deploy/scripts/gen_rw_kubeconfig.sh > gen_rw_kubeconfig.sh
+<pre><code>
+<strong>curl -o- https://raw.githubusercontent.com/runwhen-contrib/runwhen-local/main/deploy/scripts/gen_rw_kubeconfig.sh > gen_rw_kubeconfig.sh
 </strong>
 </code></pre>
 
@@ -205,7 +203,7 @@ If temporary tokens are generated through this process (such as with GKE or OKE)
 {% endtab %}
 
 {% tab title="Advanced: Service Account kubeconfig" %}
-If you already have a service account in your cluster, or wish to use a service account with a standard kubeconfig, see [generating-service-accounts-and-kubeconfigs.md](../../runwhen-platform/guides/kubernetes-environments/generating-service-accounts-and-kubeconfigs.md "mention") - and come back here when you're done!
+If you already have a service account in your cluster, or wish to use a service account with a standard kubeconfig, see [generating-service-accounts-and-kubeconfigs.md](../runwhen-platform/guides/kubernetes-environments/generating-service-accounts-and-kubeconfigs.md "mention") - and come back here when you're done!
 
 Based on how you created the kubeconfig in the above step, you will want to copy it to `~/runwhen-local/shared/kubeconfig`
 
@@ -224,7 +222,7 @@ With the working directory in place, there are two more steps to generate the yo
 * Run the container image
 
 {% hint style="info" %}
-Run this command within the same terminal that was used to prepare $workdir.&#x20;
+Run this command within the same terminal that was used to prepare $workdir.
 {% endhint %}
 
 {% tabs %}
