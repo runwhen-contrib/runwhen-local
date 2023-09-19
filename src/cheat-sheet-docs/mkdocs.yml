@@ -57,7 +57,7 @@ build:
 extra_css:
   - css/custom.css
 # extra_javascript:
-#   - javascript/extra.js
+#   - javascript/server.js
 docs_dir: docs
 
 plugins:
