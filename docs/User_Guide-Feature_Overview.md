@@ -1,14 +1,12 @@
 ---
-description: This page higlhlights some of the features of RunWhen Local
+description: This page highlights some of the features of RunWhen Local
 ---
 
 # Feature Overview
 
-
-
 ## Your Troubleshooting Home Page
 
-When discovery is complete, the RunWhen Local home page provides a main search bar to help you find useful troubleshooting commands, along with some details about the discovery process, such as:&#x20;
+When discovery is complete, the RunWhen Local home page provides a main search bar to help you find useful troubleshooting commands, along with some details about the discovery process, such as:
 
 * The number of commands generated
 * The number of clusters scanned
@@ -19,11 +17,9 @@ When discovery is complete, the RunWhen Local home page provides a main search b
 
 ###
 
-
-
 #### Home Page Quick Links
 
-Within the home page, you will also notice some quick links that will allow you to easily navigate through your tailored troubleshooting commands, or interact with the open source community. &#x20;
+Within the home page, you will also notice some quick links that will allow you to easily navigate through your tailored troubleshooting commands, or interact with the open source community.
 
 <figure><img src="assets/feature_overview_2.png" alt=""><figcaption><p>Home Page Quick Links</p></figcaption></figure>
 
@@ -39,13 +35,13 @@ Search bars are everywhere! The home page sports a large search bar to help find
 
 ## Command Details
 
-Each page is generated based on a particular resource that was discovered and combines troubleshooting commands from the open source community that best match the resource.&#x20;
+Each page is generated based on a particular resource that was discovered and combines troubleshooting commands from the open source community that best match the resource.
 
 <figure><img src="assets/feature_overview_5.png" alt=""><figcaption><p>Example List of Troiubleshooting Commands for the Argo Namespace</p></figcaption></figure>
 
 ### Links/Resources
 
-At the top of this page, we see a few additional resources to learn more about the commands, such as:&#x20;
+At the top of this page, we see a few additional resources to learn more about the commands, such as:
 
 * The GitHub user that authored the commands
 * How many troubleshooting commands the page includes
@@ -56,11 +52,9 @@ At the top of this page, we see a few additional resources to learn more about t
 
 <figure><img src="assets/feature_overview_6.png" alt=""><figcaption><p>Example Page Hearder with Communtiy Resources</p></figcaption></figure>
 
-
-
 ### Commands
 
-The list of commands in a copy & paste format, ready to be used in your terminal:&#x20;
+The list of commands in a copy & paste format, ready to be used in your terminal:
 
 <figure><img src="assets/feature_overview_7.png" alt=""><figcaption></figcaption></figure>
 
@@ -70,13 +64,11 @@ If you want to understand what each command does, click the **What does it do? t
 
 <figure><img src="assets/feature_overview_8.png" alt=""><figcaption></figcaption></figure>
 
-
-
 ###
 
 ## Feedback <a href="#tool-feedback" id="tool-feedback"></a>
 
-This tool get's better with feedback and contributions from a growing community. If you are passionte about sharing your best troubleshooting commands or finding other commands that suit your needs, please consider sharing your experience in any of the following avenues:&#x20;
+This tool get's better with feedback and contributions from a growing community. If you are passionte about sharing your best troubleshooting commands or finding other commands that suit your needs, please consider sharing your experience in any of the following avenues:
 
 * [Fill out a very short feedback form](https://docs.google.com/forms/d/e/1FAIpQLScuso8SQMdj9d-0VnxxBMcvdZrcZ2M389EbwE355flnkQOUFQ/viewform)
 * [Open up a GitHub issue](https://github.com/runwhen-contrib/runwhen-local/issues/new/choose)
