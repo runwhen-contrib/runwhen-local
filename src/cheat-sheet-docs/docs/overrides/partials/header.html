@@ -94,6 +94,7 @@
           </div>
           <script src="https://cdn.jsdelivr.net/npm/xterm/lib/xterm.js"></script>
           <script src="https://cdn.jsdelivr.net/npm/xterm-addon-attach/lib/xterm-addon-attach.js"></script>
+          <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit/lib/xterm-addon-fit.js"></script>
           <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm/css/xterm.css" />
           
           <script>
@@ -122,6 +123,10 @@
                       terminal.write('\n');
                   }
               });
+
+              const fitAddon = new FitAddon.FitAddon();
+              terminal.loadAddon(fitAddon);
+              window.terminalFitAddon = fitAddon;  // Store it for later use
           });
           
           // Use the button only to show or hide the terminal container
@@ -138,15 +143,11 @@
             const terminalContainer = document.getElementById('terminalContainer');
             terminalContainer.style.height = size;
 
-            // Calculate the new number of rows and columns
-            const rowHeight = window.terminal._core._renderService.dimensions.actualCellHeight;
-            const colWidth = window.terminal._core._renderService.dimensions.actualCellWidth;
-            const rows = Math.floor(terminalContainer.clientHeight / rowHeight);
-            const cols = Math.floor(terminalContainer.clientWidth / colWidth);
-
-            // Resize the terminal
-            window.terminal.resize(cols, rows);
-        }
+            // Add a slight delay before fitting to ensure the container has been resized
+            setTimeout(() => {
+                window.terminalFitAddon.fit();
+            }, 100); // 100ms delay
+          }
           
           </script>
         {% endif %}
