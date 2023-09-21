@@ -36,6 +36,7 @@ fi
 ln -s /shared/output cheat-sheet-docs/docs/output
 mkdocs serve -f cheat-sheet-docs/mkdocs.yml &
 node server.js &
+nginx & 
 
 # Run neo4j in the background
 echo Starting up neo4j

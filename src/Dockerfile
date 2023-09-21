@@ -118,6 +118,20 @@ RUN mkdir $RUNWHEN_SHARED \
     && chmod g=u /etc/passwd \
     && chmod -R g+w ${RUNWHEN_HOME} ${RUNWHEN_SHARED}  
 
+
+# Reverse Proxy Bits
+RUN apt-get update && apt-get install -y nginx && apt-get clean && rm -rf /var/lib/apt/lists/*
+COPY nginx.conf /etc/nginx/sites-enabled/default
+
+# Set ownership for Nginx directories and files
+RUN chown -R runwhen:runwhen /etc/nginx/ \
+    && chown -R runwhen:runwhen /var/log/nginx/ \
+    && chown -R runwhen:runwhen /usr/share/nginx/html \
+    && touch /run/nginx.pid \
+    && chown runwhen:runwhen /run/nginx.pid \
+    && chown -R runwhen:runwhen /var/lib/nginx/
+
+
 USER runwhen
 EXPOSE 8081
 ENTRYPOINT ["/bin/sh", "-c", "./entrypoint.sh"]

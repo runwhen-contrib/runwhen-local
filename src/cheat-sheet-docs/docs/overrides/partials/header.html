@@ -82,6 +82,74 @@
           <!-- Place this tag where you want the button to render. -->
           <a class="github-button" href="https://github.com/runwhen-contrib/runwhen-local" data-icon="octicon-star" data-size="large" data-show-count="true" aria-label="Star runwhen-contrib/runwhen-local on GitHub">Star</a>
           </div>
+          {% if config.build.terminal %}
+          <button id="toggleTerminal"><img src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/terminal.svg"></button>
+          <div id="terminalContainer">
+            <div id="terminalControls">
+              <button onclick="resizeTerminal('30%')">30%</button>
+              <button onclick="resizeTerminal('50%')">50%</button>
+              <button onclick="resizeTerminal('80%')">80%</button>
+          </div>
+              <div id="terminal"></div>
+          </div>
+          <script src="https://cdn.jsdelivr.net/npm/xterm/lib/xterm.js"></script>
+          <script src="https://cdn.jsdelivr.net/npm/xterm-addon-attach/lib/xterm-addon-attach.js"></script>
+          <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm/css/xterm.css" />
+          
+          <script>
+          // Initialize the terminal when the page loads
+          document.addEventListener("DOMContentLoaded", function() {
+              var terminal = new Terminal();
+              terminal.open(document.getElementById('terminal'));
+              
+              const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+              const wsUrl = `${wsProtocol}//${window.location.host}/xterm`;
+              const socket = new WebSocket(wsUrl);
+          
+              // Use the attach add-on to link xterm.js with the WebSocket
+              const attachAddon = new AttachAddon.AttachAddon(socket);
+              terminal.loadAddon(attachAddon);
+              
+              terminal.focus();
+              // Handle input and display it in the terminal
+              terminal.onData(data => {
+                  terminal.write(data);
+              });
+          
+              // Handle the 'Enter' key
+              terminal.onKey(({ key, domEvent }) => {
+                  if (domEvent.keyCode === 13) {
+                      terminal.write('\n');
+                  }
+              });
+          });
+          
+          // Use the button only to show or hide the terminal container
+          document.getElementById("toggleTerminal").addEventListener("click", function() {
+              const container = document.getElementById("terminalContainer");
+              if (container.style.display === "none" || !container.style.display) {
+                  container.style.display = "block";
+              } else {
+                  container.style.display = "none";
+              }
+          });
+
+          function resizeTerminal(size) {
+            const terminalContainer = document.getElementById('terminalContainer');
+            terminalContainer.style.height = size;
+
+            // Calculate the new number of rows and columns
+            const rowHeight = window.terminal._core._renderService.dimensions.actualCellHeight;
+            const colWidth = window.terminal._core._renderService.dimensions.actualCellWidth;
+            const rows = Math.floor(terminalContainer.clientHeight / rowHeight);
+            const cols = Math.floor(terminalContainer.clientWidth / colWidth);
+
+            // Resize the terminal
+            window.terminal.resize(cols, rows);
+        }
+          
+          </script>
+        {% endif %}
       {% if config.repo_url %}
         <div class="md-header__source">
           {% include "partials/source.html" %}

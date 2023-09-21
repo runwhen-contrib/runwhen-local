@@ -1,6 +1,6 @@
 site_name: Community Powered Troubleshooting Cheat Sheet
 site_author: RunWhen Inc.
-dev_addr: 0.0.0.0:8081
+dev_addr: 0.0.0.0:8082
 theme:
     name: material
     logo: assets/white_runwhen_logo_transparent_bg.png
@@ -54,6 +54,7 @@ build:
     version: 0.1
     scan_date: today
     demo: false
+    terminal: true
 extra_css:
   - css/custom.css
 # extra_javascript:
