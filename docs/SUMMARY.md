@@ -1,8 +1,9 @@
 # Table of contents
 
+* [Introduction](README.md)
+
 ## User Guide
 
-* [Introduction](README.md)
 * [Getting Started](user-guide/getting-started/README.md)
   * [Running Locally](Getting\_Started-Running\_Locally.md)
   * [Running in Kubernetes](Getting\_Started-Running\_in\_Kubernetes.md)

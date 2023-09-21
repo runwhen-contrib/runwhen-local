@@ -55,7 +55,7 @@ Curious to see it in action? We've got a few options for you:
 
 ### How Can I Get It?
 
-Ready to dive in? [Run it yourself](https://docs.runwhen.com/public/runwhen-local/getting-started).
+Ready to dive in? [Run it yourself](https://docs.runwhen.com/public/v/runwhen-local/user-guide/getting-started).
 
 ### How You Can Contribute
 
@@ -99,10 +99,11 @@ We're a friendly bunch! Connect with us on:
 
 ### Check Out Our Documentation
 
-For more details, dive into our [documentation](./):
+All documention is stored in [/docs](https://github.com/runwhen-contrib/runwhen-local/tree/main/docs), but is also rendered by GitBook [here](https://docs.runwhen.com/public/v/runwhen-local/). 
 
-* [Architecture](ARCHITECTURE.md)
-* [Development](DEVELOPMENT.md)
+* [User Guide](https://docs.runwhen.com/public/v/runwhen-local/user-guide/)
+* [Architecture](https://docs.runwhen.com/public/v/runwhen-local/architecture)
+* [Development](https://docs.runwhen.com/public/v/runwhen-local/development/)
 
 ### What's on the Horizon?
 
