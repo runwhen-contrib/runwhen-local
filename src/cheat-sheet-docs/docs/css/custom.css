@@ -776,3 +776,8 @@ hr.custom-hr {
 #terminalControls button {
   margin: 0 5px;
 }
+
+#terminal {
+  width: 100%;
+  height: 100%;
+}
