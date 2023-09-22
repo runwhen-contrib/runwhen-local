@@ -100,6 +100,7 @@ RUN echo "$(cat kubectl.sha256) kubectl" | sha256sum --check
 RUN rm kubectl.sha256
 RUN chmod +x kubectl
 RUN mv kubectl /usr/local/bin/
+ENV KUBECONFIG=/shared/kubeconfig
 
 
 WORKDIR $RUNWHEN_HOME

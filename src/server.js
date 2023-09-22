@@ -18,6 +18,22 @@ const wss = new WebSocket.Server({ server });
 wss.on('connection', (ws) => {
     console.log('Client connected');
 
+    let isAlive = true;
+    ws.on('pong', () => {
+        isAlive = true;
+    });
+
+    const interval = setInterval(() => {
+        if (isAlive === false) return ws.terminate();
+
+        isAlive = false;
+        ws.ping(() => {});
+    }, 30000);  // 30 seconds
+
+    ws.on('close', () => {
+        clearInterval(interval);
+    });
+
     // Spawn a new shell process for each WebSocket connection
     const shell = spawn('bash');
 

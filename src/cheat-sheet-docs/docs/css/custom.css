@@ -724,7 +724,7 @@ hr.custom-hr {
 
 #terminalContainer {
   display: none;
-  border: 1px solid #000;
+  border: 1px solid #fff;
   position: fixed;
   background-color: #fff;
   z-index: 1000;
@@ -734,50 +734,33 @@ hr.custom-hr {
   width: 100%;
   height: 30%; /* or whatever default height you want */
   z-index: 1000;
-}
-
-#terminalContainer::after {
-  content: "";
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  width: 20px;
-  height: 20px;
-  background: radial-gradient(circle, #000, transparent);
-  cursor: nwse-resize; /* Diagonal resize cursor */
-  z-index: 9999;
+  overflow: hidden;
 }
 
 #toggleTerminal img {
   filter: invert(1);
 }
 
-#terminalContainer .grabber {
-  width: 15px;
-  height: 15px;
-  position: absolute;
-  top: 0;
-  right: 0;
-  cursor: nwse-resize; /* diagonal double-arrow cursor */
-  background-color: rgba(0,0,0,0.2); /* semi-transparent black; adjust as needed */
-  z-index: 10;
-}
 
 #terminalControls {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  background-color: rgba(0, 0, 0, 0.7); /* Optional background for better visibility */
+  background-color: #3f3f3f; /* Optional background for better visibility */
   padding: 5px 10px;
   border-bottom: 1px solid #ccc;
-  color: #ccc;
 }
 
 #terminalControls button {
   margin: 0 5px;
+  font-family: "Roboto", "Helvetica", "Arial", sans-serif;
+  color: #ffffff;
 }
 
 #terminal {
+  padding: 0;
+  margin: 0;
+  overflow: scroll;
   width: 100%;
   height: 100%;
 }

@@ -86,6 +86,7 @@
           <button id="toggleTerminal"><img src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/terminal.svg"></button>
           <div id="terminalContainer">
             <div id="terminalControls">
+              <button onclick="resizeTerminal('0%')">Hide</button>
               <button onclick="resizeTerminal('30%')">30%</button>
               <button onclick="resizeTerminal('50%')">50%</button>
               <button onclick="resizeTerminal('80%')">80%</button>
@@ -98,55 +99,57 @@
           <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm/css/xterm.css" />
           
           <script>
-          // Initialize the terminal when the page loads
-          document.addEventListener("DOMContentLoaded", function() {
-              var terminal = new Terminal();
-              terminal.open(document.getElementById('terminal'));
-              
-              const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-              const wsUrl = `${wsProtocol}//${window.location.host}/xterm`;
-              const socket = new WebSocket(wsUrl);
-          
-              // Use the attach add-on to link xterm.js with the WebSocket
-              const attachAddon = new AttachAddon.AttachAddon(socket);
-              terminal.loadAddon(attachAddon);
-              
-              terminal.focus();
-              // Handle input and display it in the terminal
-              terminal.onData(data => {
-                  terminal.write(data);
-              });
-          
-              // Handle the 'Enter' key
-              terminal.onKey(({ key, domEvent }) => {
-                  if (domEvent.keyCode === 13) {
-                      terminal.write('\n');
-                  }
-              });
+            var terminalInitialized = false;
 
-              const fitAddon = new FitAddon.FitAddon();
-              terminal.loadAddon(fitAddon);
-              window.terminalFitAddon = fitAddon;  // Store it for later use
-          });
-          
-          // Use the button only to show or hide the terminal container
-          document.getElementById("toggleTerminal").addEventListener("click", function() {
-              const container = document.getElementById("terminalContainer");
-              if (container.style.display === "none" || !container.style.display) {
-                  container.style.display = "block";
-              } else {
-                  container.style.display = "none";
-              }
-          });
+            document.getElementById("toggleTerminal").addEventListener("click", function() {
+                const container = document.getElementById("terminalContainer");
+                if (container.style.display === "none" || !container.style.display) {
+                    container.style.display = "block";
+                    
+                    if (!terminalInitialized) {
+                        initializeTerminal();
+                        terminalInitialized = true;
+                    }
+                } else {
+                    container.style.display = "none";
+                }
+            });
 
+            function initializeTerminal() {
+                terminal = new Terminal();
+                terminal.open(document.getElementById('terminal'));
+
+                const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${wsProtocol}//${window.location.host}/xterm`;
+                const socket = new WebSocket(wsUrl);
+
+                const attachAddon = new AttachAddon.AttachAddon(socket);
+                terminal.loadAddon(attachAddon);
+
+                const fitAddon = new FitAddon.FitAddon();
+                terminal.loadAddon(fitAddon);
+                window.terminalFitAddon = fitAddon;
+
+                // Ensure the terminal fits its container
+                window.terminalFitAddon.fit();
+
+                terminal.refresh(0, terminal.rows - 1);
+
+            }
           function resizeTerminal(size) {
             const terminalContainer = document.getElementById('terminalContainer');
+            if (size === "0%") {
+              terminalContainer.style.display = "none";
+            }
+            else {
             terminalContainer.style.height = size;
+            }
 
             // Add a slight delay before fitting to ensure the container has been resized
             setTimeout(() => {
                 window.terminalFitAddon.fit();
             }, 100); // 100ms delay
+
           }
           
           </script>
