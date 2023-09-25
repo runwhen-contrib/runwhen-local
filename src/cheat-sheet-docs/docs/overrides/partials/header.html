@@ -145,24 +145,39 @@
                 }
                 });
                 terminal.open(document.getElementById('terminal'));
-
                 const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
                 const wsUrl = `${wsProtocol}//${window.location.host}/xterm`;
                 socket = new WebSocket(wsUrl);
+                socket.onopen = function(event) {
+                    const attachAddon = new AttachAddon.AttachAddon(socket);
+                    terminal.loadAddon(attachAddon);
 
-                const attachAddon = new AttachAddon.AttachAddon(socket);
-                terminal.loadAddon(attachAddon);
+                    const fitAddon = new FitAddon.FitAddon();
+                    terminal.loadAddon(fitAddon);
+                    window.terminalFitAddon = fitAddon;
 
-                const fitAddon = new FitAddon.FitAddon();
-                terminal.loadAddon(fitAddon);
-                window.terminalFitAddon = fitAddon;
+                    // Ensure the terminal fits its container
+                    window.terminalFitAddon.fit();
 
-                // Ensure the terminal fits its container
-                window.terminalFitAddon.fit();
-                socket.send(`resize:${terminal.cols},${terminal.rows}`);
-  
+                    // Now that the socket is open and ready, call the resizeTerminal function
+                    resizeTerminal('30%');
 
-                terminal.refresh(0, terminal.rows - 1);
+                    terminal.refresh(0, terminal.rows - 1);
+                };
+
+                // const attachAddon = new AttachAddon.AttachAddon(socket);
+                // terminal.loadAddon(attachAddon);
+
+                // const fitAddon = new FitAddon.FitAddon();
+                // terminal.loadAddon(fitAddon);
+                // window.terminalFitAddon = fitAddon;
+
+                // // Ensure the terminal fits its container
+                // window.terminalFitAddon.fit();
+
+                // resizeTerminal('30%');
+
+                // terminal.refresh(0, terminal.rows - 1);
             }
 
             window.addEventListener('resize', function() {
@@ -189,6 +204,7 @@
                     }, 100); // 100ms delay
                 }
             }
+
 
 
           </script>
