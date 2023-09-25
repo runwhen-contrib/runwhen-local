@@ -84,6 +84,7 @@
           </div>
           {% if config.build.terminal %}
           <button id="toggleTerminal"><img src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/terminal.svg"></button>
+          <div id="terminalDivider" class="divider-bar"></div>
           <div id="terminalContainer">
             <div id="terminalControls">
               <button onclick="resizeTerminal('0%')">Hide</button>
@@ -100,15 +101,17 @@
           
           <script>
             var terminalInitialized = false;
-
+            var socket; 
             document.getElementById("toggleTerminal").addEventListener("click", function() {
                 const container = document.getElementById("terminalContainer");
                 if (container.style.display === "none" || !container.style.display) {
                     container.style.display = "block";
-                    
                     if (!terminalInitialized) {
                         initializeTerminal();
                         terminalInitialized = true;
+                    } else {
+                        // Refresh the terminal every time it's shown, just to ensure its display is accurate
+                        terminal.refresh(0, terminal.rows - 1);
                     }
                 } else {
                     container.style.display = "none";
@@ -116,12 +119,36 @@
             });
 
             function initializeTerminal() {
-                terminal = new Terminal();
+                terminal = new Terminal({
+                  fontSize: 13,
+                  fontFamily: '"Menlo for Powerline", Menlo, Consolas, "Liberation Mono", Courier, monospace',
+                  theme: {
+                    foreground: '#d2d2d2',
+                    background: '#2b2b2b',
+                    cursor: '#adadad',
+                    black: '#000000',
+                    red: '#d81e00',
+                    green: '#5ea702',
+                    yellow: '#cfae00',
+                    blue: '#427ab3',
+                    magenta: '#89658e',
+                    cyan: '#00a7aa',
+                    white: '#dbded8',
+                    brightBlack: '#686a66',
+                    brightRed: '#f54235',
+                    brightGreen: '#99e343',
+                    brightYellow: '#fdeb61',
+                    brightBlue: '#84b0d8',
+                    brightMagenta: '#bc94b7',
+                    brightCyan: '#37e6e8',
+                    brightWhite: '#f1f1f0'
+                }
+                });
                 terminal.open(document.getElementById('terminal'));
 
                 const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
                 const wsUrl = `${wsProtocol}//${window.location.host}/xterm`;
-                const socket = new WebSocket(wsUrl);
+                socket = new WebSocket(wsUrl);
 
                 const attachAddon = new AttachAddon.AttachAddon(socket);
                 terminal.loadAddon(attachAddon);
@@ -132,26 +159,38 @@
 
                 // Ensure the terminal fits its container
                 window.terminalFitAddon.fit();
+                socket.send(`resize:${terminal.cols},${terminal.rows}`);
+  
 
                 terminal.refresh(0, terminal.rows - 1);
-
-            }
-          function resizeTerminal(size) {
-            const terminalContainer = document.getElementById('terminalContainer');
-            if (size === "0%") {
-              terminalContainer.style.display = "none";
-            }
-            else {
-            terminalContainer.style.height = size;
             }
 
-            // Add a slight delay before fitting to ensure the container has been resized
-            setTimeout(() => {
-                window.terminalFitAddon.fit();
-            }, 100); // 100ms delay
+            window.addEventListener('resize', function() {
+                const terminalContainer = document.getElementById('terminalContainer');
+                if (terminalContainer.style.display !== "none") {
+                    window.terminalFitAddon.fit();
+                    terminal.refresh(0, terminal.rows - 1);
+                    socket.send(`resize:${terminal.cols},${terminal.rows}`);
+                }
+            });
 
-          }
-          
+            function resizeTerminal(size) {
+                const terminalContainer = document.getElementById('terminalContainer');
+                if (terminalContainer.style.display === "none" || size === "0%") {
+                    terminalContainer.style.display = "none";
+                } else {
+                    terminalContainer.style.display = "block";
+                    terminalContainer.style.height = size;
+
+                    socket.send(`resize:${terminal.cols},${terminal.rows}`);
+                    setTimeout(() => {
+                        window.terminalFitAddon.fit();
+                        terminal.refresh(0, terminal.rows - 1);
+                    }, 100); // 100ms delay
+                }
+            }
+
+
           </script>
         {% endif %}
       {% if config.repo_url %}
