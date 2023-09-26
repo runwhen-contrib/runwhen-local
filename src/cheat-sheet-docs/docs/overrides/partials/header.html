@@ -82,7 +82,7 @@
           <!-- Place this tag where you want the button to render. -->
           <a class="github-button" href="https://github.com/runwhen-contrib/runwhen-local" data-icon="octicon-star" data-size="large" data-show-count="true" aria-label="Star runwhen-contrib/runwhen-local on GitHub">Star</a>
           </div>
-          {% if config.build.terminal %}
+          {% if config.build.terminal_disabled is false %}
           <button id="toggleTerminal"><img src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/terminal.svg"></button>
           <div id="terminalDivider" class="divider-bar"></div>
           <div id="terminalContainer">

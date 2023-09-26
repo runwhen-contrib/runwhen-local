@@ -407,7 +407,7 @@ def generate_index(summarized_resources, workspace_details, command_generation_s
         home_file.write(home_output)
     home_file.close()
 
-def demo_check():
+def env_check():
     config_file = "cheat-sheet-docs/mkdocs.yml"
 
     # Load the mkdocs.yml file
@@ -428,6 +428,14 @@ def demo_check():
             config["build"]["demo"] = True
         else:
             config["build"]["demo"] = False
+
+    # Check if RW_LOCAL_DEMO environment variable exists
+    if "RW_LOCAL_TERMINAL_DISABLED" in os.environ:
+        terminal_disabled_env_value = os.environ["RW_LOCAL_TERMINAL_DISABLED"].lower()
+        if terminal_disabled_env_value == "true":
+            config["build"]["terminal_disabled"] = True
+        else:
+            config["build"]["terminal_disabled"] = False
 
     # Write the updated config back to mkdocs.yml file
     with open(config_file, "w") as f:
@@ -643,7 +651,7 @@ def cheat_sheet(directory_path):
     ## Not sure if this is the most scalable approach, so it's just 
     ## a test for now
     # search_list = ['RW.K8s.Shell', 'RW.CLI.Run Cli']
-    demo_check()
+    env_check()
     update_last_scan_time()
     search_list = ['render_in_commandlist=true']
     runbook_files = find_files(directory_path, 'runbook.yaml')

@@ -35,8 +35,14 @@ fi
 # Link the shared output dir so that mkdocs and surface config files
 ln -s /shared/output cheat-sheet-docs/docs/output
 mkdocs serve -f cheat-sheet-docs/mkdocs.yml &
-node server.js &
-nginx & 
+
+if [[ "${RW_LOCAL_TERMINAL_DISABLED,,}" == "true" ]]; 
+then
+    echo "Terminal is disabled"
+else
+    node server.js &
+fi 
+nginx &
 
 # Run neo4j in the background
 echo Starting up neo4j
@@ -45,11 +51,12 @@ echo Waiting a bit before starting workspace builder REST server
 sleep 5
 python manage.py migrate
 echo Starting workspace builder REST server
+
 # Check if AUTORUN_WORKSPACE_BUILDER_INTERVAL environment variable is set
 # This is mostly for our kubernetes demo environment 
 if [ -n "$AUTORUN_WORKSPACE_BUILDER_INTERVAL" ]; 
 then
-    echo AUTORUN_WORKSPACE_BUILDER_INTERVAL is set. Running workspace-builder
+    echo "AUTORUN_WORKSPACE_BUILDER_INTERVAL is set. Running workspace-builder"
     python manage.py runserver 0.0.0.0:8000 --noreload &
     sleep 60
     while true; do ./run.sh; sleep $AUTORUN_WORKSPACE_BUILDER_INTERVAL; done

@@ -54,7 +54,7 @@ build:
     version: 0.1
     scan_date: today
     demo: false
-    terminal: true
+    terminal_disabled: false
 extra_css:
   - css/custom.css
 # extra_javascript:
