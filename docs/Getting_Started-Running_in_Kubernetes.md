@@ -40,7 +40,7 @@ Deploying RunWhen Local to a Kubernetes cluster can be achieved with the followi
 * Ingress
   * The ingress object supports access from outside of the cluster to the RunWhen conatiner. An example ingress manifest is not provided, as this will vary from cluster to cluster.
 * ConfigMap
-  * Stores the `workspaceInfo.yaml` file, which is the main configuration file that is used to customize how RunWhen Local builds it's Troubleshooting Cheat Sheet. See [User\_Guide-Advanced\_Configuration.md](User\_Guide-Advanced\_Configuration.md "mention")for more details on how to modify this file.
+  * Stores the `workspaceInfo.yaml` file, which is the main configuration file that is used to customize how RunWhen Local builds it's Troubleshooting Cheat Sheet. See [user\_guide-advanced\_configuration](user-guide/user\_guide-advanced\_configuration/ "mention")for more details on how to modify this file.
 * Secret
   * A kubeconfig secret that contains all contexts that should be included in the Troubleshooting Cheat Sheet. This is typically a user or service account that has view-only access to the resources you wish to be included in the Troubleshooting Cheat Sheet.
 

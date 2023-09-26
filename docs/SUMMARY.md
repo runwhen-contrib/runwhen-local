@@ -10,7 +10,8 @@
 * [Feature Overview](User\_Guide-Feature\_Overview.md)
 * [Privacy & Security](User\_Guide-Privacy\_and\_Security.md)
 * [Stuck?Read This](User\_Guide-Stuck\_Read\_This.md)
-* [Advanced Configuration](User\_Guide-Advanced\_Configuration.md)
+* [Advanced Configuration](user-guide/user\_guide-advanced\_configuration/README.md)
+  * [Terminal Configuration](user-guide/user\_guide-advanced\_configuration/terminal-configuration.md)
 * [Release Notes](User\_Guide-Release\_Notes.md)
 
 ## Architecture​
