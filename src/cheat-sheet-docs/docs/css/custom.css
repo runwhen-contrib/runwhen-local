@@ -763,3 +763,20 @@ hr.custom-hr {
   width: 100%;
   height: 95%;
 }
+
+
+/* Input Style */
+input[type="text"] {
+  border: 1px solid #ccc;  /* Light gray border */
+  padding: 8px 12px;  /* Comfortable padding for text */
+  border-radius: 4px;  /* Rounded corners */
+  font-size: 16px;  /* Font size similar to other text elements */
+  color: #3f3f3f;  /* Dark color for text */
+  transition: border-color 0.3s ease;  /* Smooth transition for focus effect */
+}
+
+/* Focus Effect */
+input[type="text"]:focus {
+  border-color: var(--md-primary-color);  /* Change border color to primary color on focus */
+  outline: none;  /* Remove the default focus outline */
+}
