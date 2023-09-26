@@ -721,3 +721,62 @@ hr.custom-hr {
 .md-typeset details.runwhen > h4 {
   visibility: hidden;
 }
+
+#terminalContainer {
+  display: none;
+  border: 1px solid #fff;
+  position: fixed;
+  background-color: #fff;
+  z-index: 1000;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 30%; /* or whatever default height you want */
+  z-index: 1000;
+  overflow: hidden;
+}
+
+#toggleTerminal img {
+  filter: invert(1);
+}
+
+
+#terminalControls {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  background-color: #3f3f3f; /* Optional background for better visibility */
+  padding: 5px 10px;
+  border-bottom: 1px solid #ccc;
+}
+
+#terminalControls button {
+  margin: 0 5px;
+  font-family: "Roboto", "Helvetica", "Arial", sans-serif;
+  color: #ffffff;
+}
+
+#terminal {
+  padding: 0;
+  margin: 0;
+  overflow: auto;
+  width: 100%;
+  height: 95%;
+}
+
+
+/* Input Style */
+input[type="text"] {
+  border: 1px solid #ccc;  /* Light gray border */
+  padding: 8px 12px;  /* Comfortable padding for text */
+  border-radius: 4px;  /* Rounded corners */
+  font-size: 16px;  /* Font size similar to other text elements */
+  color: #3f3f3f;  /* Dark color for text */
+  transition: border-color 0.3s ease;  /* Smooth transition for focus effect */
+}
+
+/* Focus Effect */
+input[type="text"]:focus {
+  border-color: var(--md-primary-color);  /* Change border color to primary color on focus */
+  outline: none;  /* Remove the default focus outline */
+}

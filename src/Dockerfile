@@ -70,11 +70,38 @@ COPY --from=builder-base $PYSETUP_PATH $PYSETUP_PATH
 
 # Add tools for live tool documentation
 RUN wget -q -O - https://deb.nodesource.com/setup_19.x | bash - \
-    && apt-get install nodejs gnupg wget vim git -y --no-install-recommends \
+    && apt-get install nodejs gnupg wget unzip vim git curl -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --no-cache-dir mkdocs mkdocs-material mkdocs-print-site-plugin pymdown-extensions ruamel.yaml gitpython
+RUN npm install xterm express ws node-pty
+ENV NODE_PATH="/var/lib/neo4j/node_modules"
+
+# Add command-line tools
+# Commented out if not needed in the dev container
+# Install gcloud sdk 
+# RUN curl -sSL https://sdk.cloud.google.com | bash
+# ENV PATH "$PATH:/home/runwhen/google-cloud-sdk/bin/"
+# RUN gcloud components install gke-gcloud-auth-plugin --quiet
+
+# Install lnav (https://github.com/tstack/lnav)
+ENV LNAV_VERSION 0.11.2
+RUN wget https://github.com/tstack/lnav/releases/download/v${LNAV_VERSION}/lnav-${LNAV_VERSION}-x86_64-linux-musl.zip && \
+    unzip lnav-${LNAV_VERSION}-x86_64-linux-musl.zip && \
+    cd lnav-${LNAV_VERSION} && \
+    mkdir -p /home/runwhen/.lnav/formats/installed && \ 
+    mv lnav /usr/local/bin
+
+# Install and validate kubectl
+RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+RUN curl -LO "https://dl.k8s.io/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl.sha256"
+RUN echo "$(cat kubectl.sha256) kubectl" | sha256sum --check
+RUN rm kubectl.sha256
+RUN chmod +x kubectl
+RUN mv kubectl /usr/local/bin/
+ENV KUBECONFIG=/shared/kubeconfig
+
 
 WORKDIR $RUNWHEN_HOME
 
@@ -89,9 +116,22 @@ COPY ./neo4j.conf /conf
 RUN mkdir $RUNWHEN_SHARED \
     && usermod -g 0 runwhen -G 0  \
     &&  chown -R runwhen:0 $RUNWHEN_HOME $RUNWHEN_SHARED \ 
-    # && chmod -755 $RUNWHEN_HOME \ 
     && chmod g=u /etc/passwd \
     && chmod -R g+w ${RUNWHEN_HOME} ${RUNWHEN_SHARED}  
+
+
+# Reverse Proxy Bits
+RUN apt-get update && apt-get install -y nginx && apt-get clean && rm -rf /var/lib/apt/lists/*
+COPY nginx.conf /etc/nginx/sites-enabled/default
+
+# Set ownership for Nginx directories and files
+RUN chown -R runwhen:runwhen /etc/nginx/ \
+    && chown -R runwhen:runwhen /var/log/nginx/ \
+    && chown -R runwhen:runwhen /usr/share/nginx/html \
+    && touch /run/nginx.pid \
+    && chown runwhen:runwhen /run/nginx.pid \
+    && chown -R runwhen:runwhen /var/lib/nginx/
+
 
 USER runwhen
 EXPOSE 8081
