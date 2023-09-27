@@ -62,9 +62,19 @@ The list of commands in a copy & paste format, ready to be used in your terminal
 
 If you want to understand what each command does, click the **What does it do? tab** to display documentation about the command. All documentation is statically generated and stored with the public source code of the command and does not have access to, or context of, your resource names, namespace names, and so on. These explanations are generic and do not share any of your resource details with RunWhen.
 
-<figure><img src="assets/feature_overview_8.png" alt=""><figcaption></figcaption></figure>
 
-###
+
+### Running Commands from the Terminal
+
+
+
+{% hint style="danger" %}
+The built in terminal provides **unauthenticated access** to the container, with access to tools like `kubectl`. This feature should be disabled ([terminal-configuration.md](user-guide/user\_guide-advanced\_configuration/terminal-configuration.md "mention")) if running in a shared cluster - or the service account permissions thoroughly reviewed.&#x20;
+{% endhint %}
+
+A simple terminal has been added to the RunWhen Local application in order to provide a quicker way to run commands from within the same window. The terminal has command line tools like `kubectl` installed, and is configured to use the same KUBECONFIG that was used to discover cluster resources.&#x20;
+
+
 
 ## Feedback <a href="#tool-feedback" id="tool-feedback"></a>
 
