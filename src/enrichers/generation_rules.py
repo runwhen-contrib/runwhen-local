@@ -824,8 +824,6 @@ def load(context: Context) -> None:
         code_collection.update_repo(ref_name)
         code_bundle_names = code_collection.get_code_bundle_names(ref_name, code_collection_config)
         for code_bundle_name in code_bundle_names:
-            if code_bundle_name == "k8s-kubectl-namespace-healthcheck":
-                x = 0
             generation_rules_configs = code_collection.get_generation_rules_configs(ref_name, code_bundle_name)
             for generation_rules_name, generation_rules_config_text in generation_rules_configs:
                 generation_rules_config = yaml.safe_load(generation_rules_config_text)
