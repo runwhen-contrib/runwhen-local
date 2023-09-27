@@ -74,7 +74,7 @@ The built in terminal provides **unauthenticated access** to the container, with
 
 A simple terminal has been added to the RunWhen Local application in order to provide a quicker way to run commands from within the same window. The terminal has command line tools like `kubectl` installed, and is configured to use the same KUBECONFIG that was used to discover cluster resources.&#x20;
 
-
+<figure><img src=".gitbook/assets/terminal.gif" alt=""><figcaption><p>Running Commands in the Terminal</p></figcaption></figure>
 
 ## Feedback <a href="#tool-feedback" id="tool-feedback"></a>
 
