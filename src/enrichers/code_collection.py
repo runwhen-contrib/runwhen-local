@@ -200,7 +200,7 @@ class CodeCollection:
             if not self.repo_directory_path:
                 repo_name = get_repo_name(self.repo_url)
                 self.repo_directory_path = create_repo_directory(code_collection_cache_dir, repo_name)
-            self.repo = Repo.clone_from(self.repo_url, self.repo_directory_path, bare=True)
+            self.repo = Repo.clone_from(self.repo_url, self.repo_directory_path, mirror=True)
         # Fetch the ref, in case we haven't got it yet or if there are new changes since the last request
         self.repo.remote().fetch(ref_name)
 
