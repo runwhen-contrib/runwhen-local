@@ -48,7 +48,6 @@ wss.on('connection', (ws) => {
 
     ws.on('message', (data) => {
         const msg = data.toString(); // Convert the binary data to a string
-        console.log(`Backend terminal dimensions: ${shell.cols}x${shell.rows}`);
         if (msg.startsWith("resize:")) {
             const parts = msg.split(":")[1].split(",");
             const cols = parseInt(parts[0], 10);
