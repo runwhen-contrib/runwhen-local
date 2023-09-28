@@ -1,7 +1,7 @@
 ---
 description: >-
-  This page provides example manifests to have RunWhen Local deployed in a
-  Kubernetes environment.
+  This page provides instructions on how to deploy RunWhen Local via helm or
+  with standard Kubernetes manifests
 ---
 
 # Running in Kubernetes
