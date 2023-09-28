@@ -10,4 +10,4 @@ Welcome to your troubleshooting cheat sheet:
 
 
 <h2> If you're seeing this page, <b>your resources have not yet been discovered</b> 
-<a href="https://docs.runwhen.com/public/runwhen-local/getting-started-with-runwhen-local/running-locally#running-the-workspace-builder" target="_blank" >Check out these docs to keep going. </a>
+<a href="https://docs.runwhen.com/public/v/runwhen-local/user-guide/getting-started/getting_started-running_locally#generating-your-cheat-sheet" target="_blank" >Check out these docs to keep going. </a>

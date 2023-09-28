@@ -74,6 +74,47 @@ def call_rest_service_with_retries(rest_call_proc, max_attempts=10, retry_delay=
             print("Workspace builder REST service isn't available yet; waiting and trying again.")
             time.sleep(retry_delay)
 
+def create_kubeconfig():
+    api_server_host = os.environ.get("KUBERNETES_SERVICE_HOST")
+    api_server_port = os.environ.get("KUBERNETES_SERVICE_PORT")
+    api_server = f"https://{api_server_host}:{api_server_port}"
+
+    with open("/var/run/secrets/kubernetes.io/serviceaccount/token", "r") as f:
+        token = f.read().strip()
+
+    with open("/var/run/secrets/kubernetes.io/serviceaccount/namespace", "r") as f:
+        namespace = f.read().strip()
+
+    ca_path = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+
+    kubeconfig = {
+        "apiVersion": "v1",
+        "kind": "Config",
+        "clusters": [{
+            "name": "default",
+            "cluster": {
+                "certificate-authority": ca_path,
+                "server": api_server
+            }
+        }],
+        "contexts": [{
+            "name": "default",
+            "context": {
+                "cluster": "default",
+                "namespace": namespace,
+                "user": "default"
+            }
+        }],
+        "current-context": "default",
+        "users": [{
+            "name": "default",
+            "user": {
+                "token": token
+            }
+        }]
+    }
+
+    return kubeconfig
 
 def main():
     parser = ArgumentParser(description="Run onboarding script to generate initial workspace and SLX info")
@@ -291,9 +332,28 @@ def main():
             custom_definitions[key] = value.strip()
 
     kubeconfig = args.kubeconfig
-    if not kubeconfig:
-        kubeconfig = os.getenv('MB_KUBECONFIG')
     kubeconfig_path = os.path.join(base_directory, kubeconfig)
+
+    # Check if the file at the constructed path exists
+    if not os.path.exists(kubeconfig_path):
+        print(f"Auth file not found at {base_directory}/{kubeconfig}...")
+        # Try getting the kubeconfig from the MB_KUBECONFIG environment variable
+        kubeconfig = os.getenv('MB_KUBECONFIG')
+        if kubeconfig:
+            kubeconfig_path = os.path.join(base_directory, kubeconfig)
+
+        # If the file still doesn't exist and we're in a Kubernetes environment, create a kubeconfig
+        if not os.path.exists(kubeconfig_path) and os.getenv('KUBERNETES_SERVICE_HOST'):
+            kubeconfig_data = create_kubeconfig()
+            # Save the kubeconfig_data to a file in the base_directory
+            kubeconfig_file = os.path.join(base_directory, "in_cluster_kubeconfig.yaml")
+            with open(kubeconfig_file, "w") as f:
+                f.write(yaml.dump(kubeconfig_data))
+            kubeconfig_path = kubeconfig_file
+            print("Using in-cluster Kubernetes auth...")
+            print(f"Using auth from {base_directory}/{kubeconfig}...")
+    else: 
+        print(f"Using auth from {base_directory}/{kubeconfig}...")
 
     map_customization_rules = args.customization_rules
     if not map_customization_rules:

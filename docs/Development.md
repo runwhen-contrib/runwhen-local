@@ -24,7 +24,7 @@ docker build -t runwhen-local:test -f Dockerfile .
 
 ## Testing the image
 
-In order to test the image, a valid `kubeconfig` and `workspaceInfo.yaml` file must exist. Please see the [Running Locally](https://docs.runwhen.com/public/runwhen-local/getting-started/running-locally) documentation for instructions on this task. With those files available and ready, you can run the image as normal.
+In order to test the image, a valid `kubeconfig` and `workspaceInfo.yaml` file must exist. Please see the [Running Locally](https://docs.runwhen.com/public/v/runwhen-local/user-guide/getting-started/getting_started-running_locally) documentation for instructions on this task. With those files available and ready, you can run the image as normal.
 
 * Testing with built in generation and customization rules
 

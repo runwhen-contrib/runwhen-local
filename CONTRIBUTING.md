@@ -30,7 +30,7 @@ to <info@runwhen.com>.
 
 ## I Have a Question
 
-> If you want to ask a question, we assume that you have read the available [Documentation](https://docs.runwhen.com/public/).
+> If you want to ask a question, we assume that you have read the available [Documentation](https://docs.runwhen.com/public/v/runwhen-local/).
 
 Before you ask a question, it is best to search for existing [Issues](https://github.com/runwhen-contrib/runwhen-local/issues) that might help you. In case you have found a suitable issue and still need clarification, you can write your question in this issue. It is also advisable to search the internet for answers first.
 
