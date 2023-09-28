@@ -332,23 +332,48 @@ def main():
             custom_definitions[key] = value.strip()
 
     kubeconfig = args.kubeconfig
-    if not kubeconfig:
+    kubeconfig_path = os.path.join(base_directory, kubeconfig)
+
+    # Check if the file at the constructed path exists
+    if not os.path.exists(kubeconfig_path):
+        print(f"Auth file not found at {base_directory}/{kubeconfig}...")
+        # Try getting the kubeconfig from the MB_KUBECONFIG environment variable
         kubeconfig = os.getenv('MB_KUBECONFIG')
-    
-    # Check if we are running in a cluster, and if so, build a local
-    # in-cluster kubeconfig
-    if not kubeconfig and os.getenv('KUBERNETES_SERVICE_HOST'):
-        kubeconfig_data = create_kubeconfig()
-        # Here you can either save the kubeconfig_data to a file or use it directly.
-        # For this example, let's assume you want to save it to a file in the base_directory.
-        kubeconfig_file = os.path.join(base_directory, "in-cluster-kubeconfig")
-        with open(kubeconfig_file, "w") as f:
-            f.write(yaml.dump(kubeconfig_data))
-        kubeconfig_path = kubeconfig_file
-        print("Using in-cluster Kubernetes auth...")
-    else:
-        kubeconfig_path = os.path.join(base_directory, kubeconfig)
+        if kubeconfig:
+            kubeconfig_path = os.path.join(base_directory, kubeconfig)
+
+        # If the file still doesn't exist and we're in a Kubernetes environment, create a kubeconfig
+        if not os.path.exists(kubeconfig_path) and os.getenv('KUBERNETES_SERVICE_HOST'):
+            kubeconfig_data = create_kubeconfig()
+            # Save the kubeconfig_data to a file in the base_directory
+            kubeconfig_file = os.path.join(base_directory, "in_cluster_kubeconfig.yaml")
+            with open(kubeconfig_file, "w") as f:
+                f.write(yaml.dump(kubeconfig_data))
+            kubeconfig_path = kubeconfig_file
+            print("Using in-cluster Kubernetes auth...")
+            print(f"Using auth from {base_directory}/{kubeconfig}...")
+    else: 
         print(f"Using auth from {base_directory}/{kubeconfig}...")
+
+    # kubeconfig = args.kubeconfig
+    # if not kubeconfig:
+    #     kubeconfig = os.getenv('MB_KUBECONFIG')
+    
+    # # Check if we are running in a cluster, and if so, build a local
+    # # in-cluster kubeconfig
+    # if not kubeconfig and os.getenv('KUBERNETES_SERVICE_HOST'):
+    #     kubeconfig_data = create_kubeconfig()
+    #     # Here you can either save the kubeconfig_data to a file or use it directly.
+    #     # For this example, let's assume you want to save it to a file in the base_directory.
+    #     kubeconfig_file = os.path.join(base_directory, "in-cluster-kubeconfig")
+    #     with open(kubeconfig_file, "w") as f:
+    #         f.write(yaml.dump(kubeconfig_data))
+    #     kubeconfig_path = kubeconfig_file
+    #     print("Using in-cluster Kubernetes auth...")
+    #     print(f"Using auth from {base_directory}/{kubeconfig}...")
+    # else:
+    #     kubeconfig_path = os.path.join(base_directory, kubeconfig)
+    #     print(f"Using auth from {base_directory}/{kubeconfig}...")
 
     map_customization_rules = args.customization_rules
     if not map_customization_rules:
