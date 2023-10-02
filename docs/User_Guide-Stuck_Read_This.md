@@ -51,7 +51,7 @@ Running migrations:
 Starting prodgraph REST server
 ```
 
-* In many cases, you may just see the following generic error, which is often related to [stuck-read-this.md](stuck-read-this.md#authentication-issues "mention")
+* In many cases, you may just see the following generic error, which is often related to [#authentication-issues](User\_Guide-Stuck\_Read\_This.md#authentication-issues "mention")
 
 ```
 Resetting neo4j models
