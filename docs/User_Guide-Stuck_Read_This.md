@@ -59,7 +59,12 @@ Internal Server Error: /run/
 [26/Jul/2023 22:30:03] "POST /run/ HTTP/1.1" 500 9619
 ```
 
-####
+#### Adding Verbosity
+
+In some cases it may be helpful to add verbosity to the output, which can be achieved with the `--verbose` flag. For example;&#x20;
+
+<pre><code><strong>$ docker exec -w /workspace-builder -- RunWhenLocal ./run.sh --verbose
+</strong></code></pre>
 
 #### Getting Logs while Running in Kubernetes
 
