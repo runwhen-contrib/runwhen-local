@@ -62,6 +62,26 @@ extract_oidc_command() {
     echo "kubectl $args"
 }
 
+#######################################
+# Extract kubeLogin command function by combining command and args
+#
+# Arguments: 
+#   path to shared kubeconfig which has parameters to build up the command
+# Returns: 
+#   full command to be executed
+#######################################
+extract_kubelogin_command() {
+    kubeconfig_file=$1
+    
+    # Extract command
+    cmd=$(yq e '.users[] | select(.user.exec.command == "kubelogin").user.exec.command' "$kubeconfig_file")
+
+    # Extract args
+    args=$(yq e '.users[] | select(.user.exec.command == "kubelogin").user.exec.args[]' "$kubeconfig_file" | tr '\n' ' ')
+
+    # Construct full command
+    echo "$cmd $args"
+}
 
 
 # Set the working directory
@@ -85,6 +105,7 @@ kubeconfig_json=$(yq eval -o=json "$workdir/shared/kubeconfig")
 gke_exists=$(yq e '.users[] | select(.user.exec.command == "gke-gcloud-auth-plugin")' "$workdir/shared/kubeconfig")
 oci_exists=$(yq e '.users[] | select(.user.exec.command == "oci")' "$workdir/shared/kubeconfig")
 oidc_exists=$(yq e '.users[] | select(.user.exec.command == "kubectl").user.exec.args[]' "$workdir/shared/kubeconfig" | grep "oidc-login")
+kubelogin_exists=$(yq e '.users[] | select(.user.exec.command == "kubelogin")' "$workdir/shared/kubeconfig")
 
 # Generate tokens only if commands exist in kubeconfig
 gke_token=""
@@ -96,11 +117,17 @@ oci_token=""
 oidc_token=""
 [ ! -z "$oidc_exists" ] && oidc_token=$($(extract_oidc_command $workdir/shared/kubeconfig) | jq -r .status.token)
 
+kubelogin_token=""
+[ ! -z "$kubelogin_exists" ] && kubelogin_token=$($(extract_kubelogin_command $workdir/shared/kubeconfig) | jq -r .status.token)
+
 # Process the JSON
-processed_json=$(echo "$kubeconfig_json" | jq --arg gke_token "$gke_token" --arg oci_token "$oci_token" --arg oidc_token "$oidc_token" '
+processed_json=$(echo "$kubeconfig_json" | jq --arg gke_token "$gke_token" --arg oci_token "$oci_token" --arg oidc_token "$oidc_token" --arg kubelogin_token "$kubelogin_token" '
   .users[] |= 
     if .user.exec.command == "gke-gcloud-auth-plugin" then 
       .user.token = $gke_token 
+      | del(.user.exec) 
+    elif .user.exec.command == "kubelogin" then 
+      .user.token = $kubelogin_token 
       | del(.user.exec) 
     elif .user.exec.command == "oci" then 
       .user.token = $oci_token 
