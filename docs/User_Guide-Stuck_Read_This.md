@@ -124,7 +124,7 @@ $ docker exec -w /workspace-builder -- RunWhenLocal ./run.sh
 
 ### Testing with a Single Cluster
 
-If you have multiple clusters configured in your `kubeconfig`, it can be difficult to isolate if the problem is related to authentication with a specific cluster or some other issue. The `./gen_rw_kubeconfig.sh` script supports the use of defining the KUBECONFIG file to point to any temporary authentication file. To test with a single cluster;&#x20;
+If you have multiple clusters configured in your `kubeconfig`, it can be difficult to isolate if the problem is related to authentication with a specific cluster or some other issue. The `./gen_rw_kubeconfig.sh` script supports the use of defining the KUBECONFIG environment variable to point to any temporary authentication file. To test with a single cluster;&#x20;
 
 * Specify `KUBECONFIG=/some/file` with your authentication command
 * Specify `KUBECONFIG=/some/file`when running the `./gen_rw_kubeconfig.sh` script
