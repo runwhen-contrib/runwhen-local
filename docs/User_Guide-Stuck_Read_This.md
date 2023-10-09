@@ -122,6 +122,33 @@ awx                 Active   120d
 $ docker exec -w /workspace-builder -- RunWhenLocal ./run.sh
 ```
 
+### Testing with a Single Cluster
+
+If you have multiple clusters configured in your `kubeconfig`, it can be difficult to isolate if the problem is related to authentication with a specific cluster or some other issue. The `./gen_rw_kubeconfig.sh` script supports the use of defining the KUBECONFIG file to point to any temporary authentication file. To test with a single cluster;&#x20;
+
+* Specify `KUBECONFIG=/some/file` with your authentication command
+* Specify `KUBECONFIG=/some/file`when running the `./gen_rw_kubeconfig.sh` script
+
+{% tabs %}
+{% tab title="Google GKE" %}
+{% code overflow="wrap" fullWidth="true" %}
+```
+KUBECONFIG=/some/test/file gcloud container clusters get-credentials [cluster_name] --region [region] --project [project_id]
+KUBECONFIG=/some/test/file ./gen_rw_kubeconfig.sh
+```
+{% endcode %}
+{% endtab %}
+
+{% tab title="Microsoft Azure AKZ" %}
+{% code overflow="wrap" %}
+```
+KUBECONFIG=/some/test/file az aks get-credentials --resource-group [resource_group] --name [cluster_name]
+KUBECONFIG=/some/test/file ./gen_rw_kubeconfig.sh
+```
+{% endcode %}
+{% endtab %}
+{% endtabs %}
+
 ### Network Issues
 
 In some cases, the configuration of your container runtime (e.g. docker/podman) might cause network issues. When attaching to the container, it might look like this:
