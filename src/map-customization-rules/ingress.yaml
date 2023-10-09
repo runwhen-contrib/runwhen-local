@@ -15,4 +15,4 @@ spec:
         pattern: "ingress-health"
         matchMode: substring
         properties: [name]
-      group: "{{resource.resource.metadata.namespace}}"
+      group: "{{namespace.name}} ({{cluster.name}})"

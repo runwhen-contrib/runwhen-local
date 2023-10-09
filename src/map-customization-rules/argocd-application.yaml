@@ -7,10 +7,10 @@ spec:
         matchType: base-name
         pattern: "argocd-app"
         matchMode: "substring"
-      group: "{{resource.resource.metadata.namespace}}"
+      group: "{{namespace.name}} ({{cluster.name}})"
     - match:
         type: pattern
         matchType: base-name
         pattern: "argocd-helm"
         matchMode: "substring"
-      group: "{{resource.resource.metadata.namespace}}"
+      group: "{{namespace.name}} ({{cluster.name}})"
