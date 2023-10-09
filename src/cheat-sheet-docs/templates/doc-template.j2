@@ -1,8 +1,12 @@
 ---
 title: "{{ slx_hints["nice_name"] }}"
 tags: 
+{% if slx_hints.cluster is not none %}
   - 'cluster: {{ slx_hints["cluster"] }}'
+{% endif %}
+{% if slx_hints.namespace is not none %}
   - 'namespace: {{ slx_hints["namespace"] }}'
+{% endif %}
 ---
 
 <table class="invisible-table">
