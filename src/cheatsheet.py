@@ -298,9 +298,17 @@ def generate_slx_hints(runbook_path):
     slx_hints["nice_name"]=f'{parsed_slx["spec"]["alias"]}  '
     slx_hints["statement"]=f'{parsed_slx["spec"]["statement"]}'
     slx_hints["as_measured_by"]=f'<strong>As Measured By:</strong> {parsed_slx["spec"]["asMeasuredBy"]}'
+    slx_hints["namespace"] = parsed_slx.get("spec", {}).get("additionalContext", {}).get("namespace", None)
+    slx_hints["cluster"] = parsed_slx.get("spec", {}).get("additionalContext", {}).get("cluster", None)
     return slx_hints
 
 def find_group_name(groups, target_slx):
+    for group in groups:
+        if target_slx in group['slxs']:
+            return group['name']
+    return f'ungrouped'
+
+def find_cluster_name(groups, target_slx):
     for group in groups:
         if target_slx in group['slxs']:
             return group['name']
@@ -633,6 +641,20 @@ def fetch_meta(runbook_url, repo, ref="main"):
 
     return None
 
+def find_group_path(group_name):
+    # Split out cluster name for doc_group_formatting
+    # looks for a pattern like "group-name (cluster-name)"
+    cluster_separator = r'^(.*?)\s+\((.*?)\)$'
+    cluster_match = re.match(cluster_separator, group_name)
+    if cluster_match:
+        # Extract the name and cluster from the matched groups
+        group_name = cluster_match.group(1)
+        cluster_name = cluster_match.group(2)
+        doc_group_dir_path = f'{cluster_name}/{group_name}'
+    else:
+        doc_group_dir_path = f'{group_name}'
+    return doc_group_dir_path
+
 def cheat_sheet(directory_path):
     """
     Gets passed in a directory to scan for robot files. 
@@ -667,26 +689,23 @@ def cheat_sheet(directory_path):
     workspace_details = parse_yaml(workspace_files[0])
     
     # Reset ungrouped path
-    if os.path.exists(f'cheat-sheet-docs/docs-tmp/ungrouped'):
+    if os.path.exists(f'cheat-sheet-docs/docs-tmp/'):
         try: 
-            shutil.rmtree(f'cheat-sheet-docs/docs-tmp/ungrouped')
+            shutil.rmtree(f'cheat-sheet-docs/docs-tmp/')
         except Exception as e:
             print(f"An error occurred while removing the files: {e}")
-    if not os.path.exists(f'cheat-sheet-docs/docs-tmp/ungrouped'):
-        os.makedirs(f'cheat-sheet-docs/docs-tmp/ungrouped')
+    if not os.path.exists(f'cheat-sheet-docs/docs-tmp/'):
+        os.makedirs(f'cheat-sheet-docs/docs-tmp/')
     ## Check if groups are defined in the workspace file
     ## If so, rebuild the directory path to set up for groupings
     if "spec" in workspace_details and "slxGroups" in workspace_details["spec"]:
         groups = workspace_details["spec"]["slxGroups"]
-        ## Reset mkdocs group paths
-        for doc_group_dir in groups: 
-          if os.path.exists(f'cheat-sheet-docs/docs-tmp/{doc_group_dir["name"]}'):
-            shutil.rmtree(f'cheat-sheet-docs/docs-tmp/{doc_group_dir["name"]}')
-        ## Create directories based on map groups. Default all ungrouped to 
-        ## folder named `ungrouped`
-        for doc_group_dir in groups: 
-          if not os.path.exists(f'cheat-sheet-docs/docs-tmp/{doc_group_dir["name"]}'):
-            os.makedirs(f'cheat-sheet-docs/docs-tmp/{doc_group_dir["name"]}')
+
+        for group in groups: 
+            doc_group_dir_path = find_group_path(f"{group['name']}")
+            if not os.path.exists(f'cheat-sheet-docs/docs-tmp/{doc_group_dir_path}'):
+                os.makedirs(f'cheat-sheet-docs/docs-tmp/{doc_group_dir_path}')
+
     else: 
         groups = []
 
@@ -709,6 +728,7 @@ def cheat_sheet(directory_path):
         doc = ''.join(parsed_robot["doc"].split('\n'))
         author = ''.join(parsed_robot["author"].split('\n'))
         group_name = find_group_name(groups, slx_hints["slx_short_name"])
+        group_path = find_group_path(f"{group_name}")
         meta=fetch_meta(runbook_url, repo, ref)
         interesting_commands = search_keywords(parsed_robot, parsed_runbook_config, search_list, meta)
         command_generation_summary_stats["total_interesting_commands"] += len(interesting_commands)
@@ -726,7 +746,7 @@ def cheat_sheet(directory_path):
             commit_age=commit_age
         )
 
-        command_assist_md_output = f'cheat-sheet-docs/docs-tmp/{group_name}/{slx_hints["slug"]}.md'
+        command_assist_md_output = f'cheat-sheet-docs/docs-tmp/{group_path}/{slx_hints["slug"]}.md'
         with open(command_assist_md_output, 'w') as md_file:
             md_file.write(output)
         md_file.close()

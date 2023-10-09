@@ -63,6 +63,7 @@ docs_dir: docs
 
 plugins:
   - search
+  - tags
   # - print-site:
   #     add_to_navigation: true
   #     add_full_urls: false
