@@ -84,8 +84,7 @@ workspaceName: my-workspace
 # All content with [placeholder] is only updated
 # and auto-generated when using the RunWhen Platform
 # leave it as [placeholder] if only using RunWhen Local
-# See https://docs.runwhen.com/public/runwhen-local/advanced-configuration 
-# or https://docs.runwhen.com/public/runwhen-local/features/workspace-builder
+# See https://docs.runwhen.com/public/v/runwhen-local/user-guide/user_guide-advanced_configuration
 token: placeholder
 workspaceOwnerEmail: tester@my-company.com
 papiURL: placeholder

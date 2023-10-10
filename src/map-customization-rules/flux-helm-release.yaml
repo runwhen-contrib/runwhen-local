@@ -7,4 +7,4 @@ spec:
         matchType: base-name
         pattern: "flux-helm"
         matchMode: substring
-      group: "{{resource.resource.metadata.namespace}}"
+      group: "{{namespace.name}} ({{cluster.name}})"

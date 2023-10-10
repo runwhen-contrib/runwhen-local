@@ -1,7 +1,7 @@
 ---
 description: >-
-  This page provides example manifests to have RunWhen Local deployed in a
-  Kubernetes environment.
+  This page provides instructions on how to deploy RunWhen Local via helm or
+  with standard Kubernetes manifests
 ---
 
 # Running in Kubernetes
@@ -20,13 +20,39 @@ The commands generated in the Troubleshooting Cheat Sheet include the specific k
 
 As we also host this in Kubernetes for the purposes of an online demo, this document will share the manifests that we have used in [our own demo environment](https://runwhen-local.sandbox.runwhen.com).
 
-### Kubeconfig Secret
-
-RunWhen Local requires a Kubernetes secret that contains a valid Kubeconfig in order to discover resources and generate documentation for your clusters. This secret would need read permissions on the namespaces and resource types that you would like discovered - keeping in mind that listing and getting custom resources (such as a helm controller) must be added to the OOTB viewer role.
-
+{% tabs %}
+{% tab title="Helm Installation" %}
+{% hint style="info" %}
+RunWhen Local requires access to a kubeconfigto perform resource discovery across Kubernetes clusters. When installing with Helm, RunWhen Local _can automatically discover it's local cluster by default_. To discover additional clusters, a separate kubeconfig secret is required. Please see [helm-configuration.md](user-guide/user\_guide-advanced\_configuration/helm-configuration.md "mention")for additional information. \
+\
 For additional resources on creating a long-lived service account and Kubeconfig, please see [**Generating Service Accounts and Kubeconfigs**](https://docs.runwhen.com/public/runwhen-platform/guides/kubernetes-environments/generating-service-accounts-and-kubeconfigs).
+{% endhint %}
 
-### Kubernetes Manifests
+#### Installing the RunWhen Local Helm Chart
+
+<pre><code># Customize the namespace name and path to kubeconfig as desired
+namespace=runwhen-local
+
+# Create the namespace
+<strong>kubectl create ns $namespace
+</strong>
+# Add the RunWhen Conrib Helm Chart Repo
+helm repo add runwhen-contrib https://runwhen-contrib.github.io/helm-charts
+helm repo update
+
+# Install the RunWhen Local helm release 
+helm install runwhen-local runwhen-contrib/runwhen-local -n $namespace
+</code></pre>
+{% endtab %}
+
+{% tab title="Kubernetes Manifest Installation" %}
+{% hint style="info" %}
+RunWhen Local requires access to a _kubeconfig_ to perform resource discovery across Kubernetes clusters. This secret should have read permissions on the namespaces and resource types that you would like discovered \
+\
+For additional resources on creating a long-lived service account and Kubeconfig, please see [**Generating Service Accounts and Kubeconfigs**](https://docs.runwhen.com/public/runwhen-platform/guides/kubernetes-environments/generating-service-accounts-and-kubeconfigs).
+{% endhint %}
+
+#### Kubernetes Manifests
 
 Deploying RunWhen Local to a Kubernetes cluster can be achieved with the following manifests:
 
@@ -45,6 +71,8 @@ Deploying RunWhen Local to a Kubernetes cluster can be achieved with the followi
   * A kubeconfig secret that contains all contexts that should be included in the Troubleshooting Cheat Sheet. This is typically a user or service account that has view-only access to the resources you wish to be included in the Troubleshooting Cheat Sheet.
 
 Example deployment manifests (as used in the online demo environment) are in the [runwhen-local GitHub repo](https://github.com/runwhen-contrib/runwhen-local/tree/main/deploy/kubernetes). There is an all-in-one.yaml manifest that provides the fastest path to deployment.
+
+####
 
 ### Deploying the manifests
 
@@ -68,12 +96,16 @@ kubectl apply -f https://raw.githubusercontent.com/runwhen-contrib/runwhen-local
 {% hint style="warning" %}
 It might take a few minutes for discovery to complete. In some cases, the API server isn't available right away when the discovery attempts to start and this may delay the initial scan until the `AUTORUN_WORKSPACE_BUILDER_INTERVAL` has passed.
 {% endhint %}
+{% endtab %}
+{% endtabs %}
+
+
 
 #### Testing the RunWhen Local Deployment
 
-If you should choose to deploy an ingress object (or loadbalancer type service) with an accessible URL or dedicated IP address, you can simply navigate to that URL to validate the functionality.
+If you choose to deploy an ingress object (or loadbalancer type service) with an accessible URL or dedicated IP address, you can simply navigate to that URL to validate the functionality.
 
-Without an ingress object or loadbalancer IP address, you can use the following command to validate functionality:
+Without an ingress object or loadbalancer IP address, you can port-forward the instance to your local machine:
 
 ```
 kubectl port-forward svc/runwhen-local 8081:8081 -n $namespace

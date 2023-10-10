@@ -59,7 +59,20 @@ then
     echo "AUTORUN_WORKSPACE_BUILDER_INTERVAL is set. Running workspace-builder"
     python manage.py runserver 0.0.0.0:8000 --noreload &
     sleep 60
-    while true; do ./run.sh; sleep $AUTORUN_WORKSPACE_BUILDER_INTERVAL; done
+    if [[ "${RW_LOCAL_UPLOAD_ENABLED,,}" == "true" ]]; 
+    then
+        echo "Upload to RunWhen Platform Enabled"
+        if [[ "$RW_LOCAL_UPLOAD_MERGE_MODE" == "keep-uploaded" ]]; 
+        then
+            echo "Merge Mode: keep-uploaded"
+            while true; do ./run.sh --upload --upload-merge-mode keep-uploaded; sleep $AUTORUN_WORKSPACE_BUILDER_INTERVAL; done
+        else
+            echo "Merge Mode: keep-existing"
+            while true; do ./run.sh --upload --upload-merge-mode keep-existing; sleep $AUTORUN_WORKSPACE_BUILDER_INTERVAL; done
+        fi
+    else
+        while true; do ./run.sh; sleep $AUTORUN_WORKSPACE_BUILDER_INTERVAL; done
+    fi 
 else
     python manage.py runserver 0.0.0.0:8000 --noreload
 fi

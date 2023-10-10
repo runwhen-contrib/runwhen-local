@@ -6,73 +6,79 @@ spec:
         type: pattern
         matchType: base-name
         pattern: "ngx-ing-gmp"
-        matchMode: exact
-      group: "{{resource.resource.metadata.namespace}}"
+        matchMode: substring
+        properties: [name]
+      group: "{{namespace.name}} ({{cluster.name}})"
     - match:
         type: pattern
         matchType: base-name
         pattern: "ns-health"
-        matchMode: exact
-      group: "{{resource.resource.metadata.name}}"
+        matchMode: substring
+        properties: [name]
+      group: "{{namespace.name}} ({{cluster.name}})"
     - match:
         type: pattern
         matchType: base-name
         pattern: "redis-health"
-        matchMode: exact
-      group: "{{resource.resource.metadata.namespace}}"
+        matchMode: substring
+        properties: [name]
+      group: "{{namespace.name}} ({{cluster.name}})"
     - match:
         type: pattern
         matchType: base-name
         pattern: "ss-health"
-        matchMode: exact
-      group: "{{resource.resource.metadata.namespace}}"
+        matchMode: substring
+        properties: [name]
+      group: "{{namespace.name}} ({{cluster.name}})"
     - match:
         type: pattern
         matchType: base-name
         pattern: "ds-health"
-        matchMode: exact
-      group: "{{resource.resource.metadata.namespace}}"
+        matchMode: substring
+        properties: [name]
+      group: "{{namespace.name}} ({{cluster.name}})"
     - match:
         type: pattern
         matchType: base-name
         pattern: "depl-health"
-        matchMode: exact
-      group: "{{resource.resource.metadata.namespace}}"
+        matchMode: substring
+      group: "{{namespace.name}} ({{cluster.name}})"
     - match:
         type: pattern
         matchType: base-name
         pattern: "kong-ing-health"
-        matchMode: exact
-      group: "{{resource.resource.metadata.namespace}}"
+        matchMode: substring
+        properties: [name]
+      group: "{{namespace.name}} ({{cluster.name}})"
     - match:
         type: pattern
         matchType: base-name
         pattern: "pvc-health"
-        matchMode: exact
+        matchMode: substring
         properties: [name]
-      group: "{{resource.resource.metadata.name}}"
+      group: "{{namespace.name}} ({{cluster.name}})"
     - match:
         type: pattern
         matchType: base-name
         pattern: "pod-resources"
-        matchMode: exact
+        matchMode: substring
         properties: [name]
-      group: "{{resource.resource.metadata.name}}"
+      group: "{{namespace.name}} ({{cluster.name}})"
     - match:
         type: pattern
         matchType: base-name
         pattern: "jenkins-health"
-        matchMode: exact
-      group: "{{resource.resource.metadata.namespace}}"
+        matchMode: substring
+      group: "{{namespace.name}} ({{cluster.name}})"
     - match:
         type: pattern
         matchType: base-name
         pattern: "image-check"
-        matchMode: exact
-      group: "{{resource.resource.metadata.name}}"
+        matchMode: substring
+      group: "{{namespace.name}} ({{cluster.name}})"
     - match:
         type: pattern
         matchType: base-name
         pattern: "sa-check"
-        matchMode: exact
-      group: "{{resource.resource.metadata.name}}"
+        matchMode: substring
+      group: "{{namespace.name}} ({{cluster.name}})"

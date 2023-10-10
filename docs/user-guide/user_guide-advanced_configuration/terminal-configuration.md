@@ -2,7 +2,7 @@
 
 RunWhen Local provides a browser accessible terminal. This terminal connects directly to the RunWhen Local container, with the goal of providing faster access to running cheat sheet commands & scripts as the `runwhen` terminal user.&#x20;
 
-<figure><img src="../../.gitbook/assets/terminal.gif" alt=""><figcaption><p>Terminal Example</p></figcaption></figure>
+<figure><img src="../../.gitbook/assets/terminal (1).gif" alt=""><figcaption><p>Terminal Example</p></figcaption></figure>
 
 ### Disabling the Terminal
 

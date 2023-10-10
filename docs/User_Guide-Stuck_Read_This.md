@@ -51,7 +51,7 @@ Running migrations:
 Starting prodgraph REST server
 ```
 
-* In many cases, you may just see the following generic error, which is often related to [stuck-read-this.md](stuck-read-this.md#authentication-issues "mention")
+* In many cases, you may just see the following generic error, which is often related to [#authentication-issues](User\_Guide-Stuck\_Read\_This.md#authentication-issues "mention")
 
 ```
 Resetting neo4j models
@@ -59,7 +59,12 @@ Internal Server Error: /run/
 [26/Jul/2023 22:30:03] "POST /run/ HTTP/1.1" 500 9619
 ```
 
-####
+#### Adding Verbosity
+
+In some cases it may be helpful to add verbosity to the output, which can be achieved with the `--verbose` flag. For example;&#x20;
+
+<pre><code><strong>$ docker exec -w /workspace-builder -- RunWhenLocal ./run.sh --verbose
+</strong></code></pre>
 
 #### Getting Logs while Running in Kubernetes
 
