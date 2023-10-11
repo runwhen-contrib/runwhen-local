@@ -417,7 +417,7 @@ def generate_index(summarized_resources, workspace_details, command_generation_s
         home_file.write(home_output)
     home_file.close()
 
-def generate_platform_upload(workspace_info, slx_count): 
+def generate_platform_upload(workspace_info, slx_count, auth_details): 
     platform_upload_path = f'cheat-sheet-docs/docs/platform-upload.md'
     platform_upload_template_file = "cheat-sheet-docs/templates/platform-upload.j2"
     platform_upload_env = jinja2.Environment(loader=jinja2.FileSystemLoader("."))
@@ -426,7 +426,8 @@ def generate_platform_upload(workspace_info, slx_count):
 
     platform_upload_output = platform_upload_template.render(
         workspace_info=workspace_info,
-        slx_count=slx_count
+        slx_count=slx_count,
+        auth_details=auth_details
     )
 
     with open(platform_upload_path, 'w') as platform_upload_file:
@@ -673,6 +674,39 @@ def find_group_path(group_name):
         doc_group_dir_path = f'{group_name}'
     return doc_group_dir_path
 
+def generate_auth_details():
+    """
+    Inspects authentication files and assigns useful values to an auth object for 
+    generating upload documentation. 
+
+    Uses markdown extensions from https://facelessuser.github.io/pymdown-extensions/  
+
+    Returns:
+        Object 
+    """    
+    auth_config_details = {
+        'kubernetes': {
+            'kubeconfig_details': None
+        }
+    }
+
+    # Identify kubeconfig auth details
+    kubeconfig_auth = None
+
+    # Check for the existence of the files in the /shared/ directory
+    if os.path.exists('/shared/kubeconfig'):
+        kubeconfig_auth = "user-provided"
+        with open('/shared/kubeconfig', 'r') as file:
+            config_details = yaml.safe_load(file)
+            auth_config_details['kubernetes']['kubeconfig_details'] = config_details
+    elif os.path.exists('/shared/in_cluster_auth.yaml'):
+        kubeconfig_auth = "in-cluster"
+        with open('/shared/in_cluster_auth.yaml', 'r') as file:
+            config_details = yaml.safe_load(file)
+            auth_config_details['kubernetes']['kubeconfig_details'] = config_details
+    auth_config_details['kubernetes']['type']= kubeconfig_auth
+
+    return auth_config_details
 
 def cheat_sheet(directory_path):
     """
@@ -684,9 +718,6 @@ def cheat_sheet(directory_path):
 
     Args:
         args (str): The path the output contents from map-builder. 
-
-    Returns:
-        Object 
     """
     ## Switched to args to only match on  render_in_commandlist=true
     ## Not sure if this is the most scalable approach, so it's just 
@@ -694,6 +725,7 @@ def cheat_sheet(directory_path):
     # search_list = ['RW.K8s.Shell', 'RW.CLI.Run Cli']
     env_check()
     update_last_scan_time()
+    auth_details=generate_auth_details()
     search_list = ['render_in_commandlist=true']
     runbook_files = find_files(directory_path, 'runbook.yaml')
     workspace_files = find_files(directory_path, 'workspace.yaml')
@@ -705,7 +737,7 @@ def cheat_sheet(directory_path):
     slx_files = find_files(directory_path, 'slx.yaml')
     slx_count = len(slx_files)
     # Generage customized upload page
-    generate_platform_upload(workspace_info, slx_count)
+    generate_platform_upload(workspace_info, slx_count, auth_details)
 
     # Init stats variables
     command_generation_summary_stats = {}

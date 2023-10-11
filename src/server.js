@@ -44,7 +44,17 @@ app.get('/run-discovery', (req, res) => {
     });
 });
 
-app.get('/run-upload-to-runwhenplatform', (req, res) => {
+app.get('/run-upload-to-runwhenplatform-keep-existing', (req, res) => {
+    // run discovery with upload
+    exec('python3 run.py upload --upload-merge-mode keep-existing', (error, stdout, stderr) => {
+        if (error) {
+            console.error(`exec error: ${error}`);
+            return res.status(500).send(`Error executing command: ${error}`);
+        }
+        res.send(`Upload Output:\n${stdout}`);
+    });
+});
+app.get('/run-upload-to-runwhenplatform-keep-uploaded', (req, res) => {
     // run discovery with upload
     exec('python3 run.py upload --upload-merge-mode keep-uploaded', (error, stdout, stderr) => {
         if (error) {
@@ -54,7 +64,6 @@ app.get('/run-upload-to-runwhenplatform', (req, res) => {
         res.send(`Upload Output:\n${stdout}`);
     });
 });
-
 
 // Setup xterm WebSocket server
 const wss = new WebSocket.Server({ server });
