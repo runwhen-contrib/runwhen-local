@@ -53,7 +53,7 @@
           </div>  
 {% endraw %}
 
-<h2 align="center"> <img class="main-page-search-icon" src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/local_library.svg" alt="Icon" /> Search in your local documentation  </h2><p align="center"><br><b>{{ command_generation_summary_stats["total_interesting_commands"] }}</b> indexed commands across <b>{{ summarized_resources["num_clusters"] }}</b> cluster(s) & <b>{{ summarized_resources["num_namespaces"] }}</b> namespaces <br><br>Last generated at: <b>{{ current_date }}</b> <br> For cluster(s): <b>{{ cluster_names }}</b> <br> By: <b>{{ workspace_details["spec"]["permissions"][0]["user"] }}</b> <br>From: <b>{{ command_generation_summary_stats["num_unique_authors"] }} community authors</b></p>
+<h2 align="center"> <img class="main-page-search-icon" src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/local_library.svg" alt="Icon" /> Search in your local documentation  </h2><p align="center"><br><b>{{ command_generation_summary_stats["total_interesting_commands"] }}</b> indexed commands across <b>{{ summarized_resources["num_clusters"] }}</b> cluster(s), <b>{{ summarized_resources["num_namespaces"] }}</b> namespaces & {{ slx_count }} <b>SLXs</b><br><br>Last generated at: <b>{{ current_date }}</b> <br> For cluster(s): <b>{{ cluster_names }}</b> <br> By: <b>{{ workspace_details["spec"]["permissions"][0]["user"] }}</b> <br>From: <b>{{ command_generation_summary_stats["num_unique_authors"] }} community authors</b></p>
   </div>
 </header>
 

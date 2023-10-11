@@ -1,18 +1,62 @@
 const express = require('express');
 const { spawn } = require('node-pty');
 const WebSocket = require('ws');
+const multer = require('multer');
+const { exec } = require('child_process');
 
 const app = express();
 const port = 3000;
 
-// Serve static files (like your MkDocs page with xterm.js)
+// Configure multer storage
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, '/shared');
+    },
+    filename: (req, file, cb) => {
+        cb(null, 'uploadInfo.yaml');
+    }
+});
+const upload = multer({ storage: storage });
+
+// Serve static files
 app.use(express.static('public'));
+
+// Route to handle file uploads
+app.post('/store-uploadinfo', upload.single('file'), (req, res) => {
+    if (!req.file) {
+        return res.status(400).send('No file uploaded.');
+    }
+    res.send('File uploaded successfully.');
+});
 
 const server = app.listen(port, () => {
     console.log(`Server listening on http://localhost:${port}`);
 });
 
-// Setup WebSocket server
+app.get('/run-discovery', (req, res) => {
+    // run discovery without upload
+    exec('./run.sh', (error, stdout, stderr) => {
+        if (error) {
+            console.error(`exec error: ${error}`);
+            return res.status(500).send(`Error executing command: ${error}`);
+        }
+        res.send(`Discovery Output:\n${stdout}`);
+    });
+});
+
+app.get('/run-upload-to-runwhenplatform', (req, res) => {
+    // run discovery with upload
+    exec('python3 run.py upload', (error, stdout, stderr) => {
+        if (error) {
+            console.error(`exec error: ${error}`);
+            return res.status(500).send(`Error executing command: ${error}`);
+        }
+        res.send(`Upload Output:\n${stdout}`);
+    });
+});
+
+
+// Setup xterm WebSocket server
 const wss = new WebSocket.Server({ server });
 
 wss.on('connection', (ws) => {

@@ -377,7 +377,7 @@ def discovery_summary(resource_dump_file):
         print(f"Error while parsing YAML: {e}")  
     
 
-def generate_index(summarized_resources, workspace_details, command_generation_summary_stats): 
+def generate_index(summarized_resources, workspace_details, command_generation_summary_stats, slx_count): 
     index_path = f'cheat-sheet-docs/docs/index.md'
     home_path = f'cheat-sheet-docs/docs/overrides/home.html'
     index_template_file = "cheat-sheet-docs/templates/index-template.j2"
@@ -397,14 +397,16 @@ def generate_index(summarized_resources, workspace_details, command_generation_s
         summarized_resources=summarized_resources,
         workspace_details=workspace_details,
         cluster_names=cluster_names,
-        command_generation_summary_stats=command_generation_summary_stats
+        command_generation_summary_stats=command_generation_summary_stats, 
+        slx_count=slx_count
     )
     home_output = home_template.render(
         current_date=current_date,
         summarized_resources=summarized_resources,
         workspace_details=workspace_details,
         cluster_names=cluster_names,
-        command_generation_summary_stats=command_generation_summary_stats
+        command_generation_summary_stats=command_generation_summary_stats,
+        slx_count=slx_count
     )
 
     with open(index_path, 'w') as index_file:
@@ -655,6 +657,7 @@ def find_group_path(group_name):
         doc_group_dir_path = f'{group_name}'
     return doc_group_dir_path
 
+
 def cheat_sheet(directory_path):
     """
     Gets passed in a directory to scan for robot files. 
@@ -678,10 +681,13 @@ def cheat_sheet(directory_path):
     search_list = ['render_in_commandlist=true']
     runbook_files = find_files(directory_path, 'runbook.yaml')
     workspace_files = find_files(directory_path, 'workspace.yaml')
+    slx_files = find_files(directory_path, 'slx.yaml')
+    slx_count = len(slx_files)
     command_generation_summary_stats = {}
     command_generation_summary_stats["total_interesting_commands"] = 0 
     command_generation_summary_stats["unique_authors"] = []
     command_generation_summary_stats["num_unique_authors"] = 0
+
 
     ## TODO determine if we wish to support more than one workspace... 
     ## there would be a bit of refactoring to do if this is the case
@@ -774,7 +780,7 @@ def cheat_sheet(directory_path):
     # Generage customized/summarized index if dump file exists
     if os.path.exists(f'{resource_dump_file}'):
         summarized_resources = discovery_summary(resource_dump_file)
-        generate_index(summarized_resources, workspace_details, command_generation_summary_stats)
+        generate_index(summarized_resources, workspace_details, command_generation_summary_stats, slx_count)
 
 
 if __name__ == "__main__":
