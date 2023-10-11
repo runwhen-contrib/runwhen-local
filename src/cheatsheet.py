@@ -417,6 +417,22 @@ def generate_index(summarized_resources, workspace_details, command_generation_s
         home_file.write(home_output)
     home_file.close()
 
+def generate_platform_upload(workspace_info, slx_count): 
+    platform_upload_path = f'cheat-sheet-docs/docs/platform-upload.md'
+    platform_upload_template_file = "cheat-sheet-docs/templates/platform-upload.j2"
+    platform_upload_env = jinja2.Environment(loader=jinja2.FileSystemLoader("."))
+    platform_upload_template = platform_upload_env.get_template(platform_upload_template_file)
+
+
+    platform_upload_output = platform_upload_template.render(
+        workspace_info=workspace_info,
+        slx_count=slx_count
+    )
+
+    with open(platform_upload_path, 'w') as platform_upload_file:
+        platform_upload_file.write(platform_upload_output)
+    platform_upload_file.close()
+
 def env_check():
     config_file = "cheat-sheet-docs/mkdocs.yml"
 
@@ -681,8 +697,17 @@ def cheat_sheet(directory_path):
     search_list = ['render_in_commandlist=true']
     runbook_files = find_files(directory_path, 'runbook.yaml')
     workspace_files = find_files(directory_path, 'workspace.yaml')
+    with open("/shared/workspaceInfo.yaml", 'r') as workspace_info_file:
+        workspace_info = yaml.safe_load(workspace_info_file)
+    workspace_info_file.close()
+
+
     slx_files = find_files(directory_path, 'slx.yaml')
     slx_count = len(slx_files)
+    # Generage customized upload page
+    generate_platform_upload(workspace_info, slx_count)
+
+    # Init stats variables
     command_generation_summary_stats = {}
     command_generation_summary_stats["total_interesting_commands"] = 0 
     command_generation_summary_stats["unique_authors"] = []
@@ -693,7 +718,7 @@ def cheat_sheet(directory_path):
     ## there would be a bit of refactoring to do if this is the case
     resource_dump_file = f'{directory_path}/resource-dump.yaml'
     workspace_details = parse_yaml(workspace_files[0])
-    
+
     # Reset ungrouped path
     if os.path.exists(f'cheat-sheet-docs/docs-tmp/'):
         try: 

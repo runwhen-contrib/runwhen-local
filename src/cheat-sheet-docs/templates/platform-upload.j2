@@ -1,8 +1,12 @@
 # RunWhen Platform Upload
+The Workspace Builder component of RunWhen Local generates all necessary configuration files to bootstrap a workspace within the RunWhen Platform with provides: 
 
+- Collaborative maps
+- Collaborative troubleshooting
+- Troubleshooting Digital Assistants
+- Automated workflows
 
-> Note: this process currently only works for a single-node cluster
-
+Workspace Builder generated a total of: **{{ slx_count }} SLXs**
 
 ## 1. Setting Up a Workspace
 
@@ -13,16 +17,19 @@
 
 ## 2. Preparing for Upload
 
-- <a href="#" id="dynamicLink" target="_blank">Download workspace tethering configuration file</a>
-- Add this file to the RunWhen Local container: 
+- <a href="#" id="dynamicUploadInfoLink" target="_blank">Download workspace tethering configuration file</a>
+- Add this file to the RunWhen Local container with **one of the following options**: 
 
-!!! info "Adding uploadInfo.yaml to the container"
-    === "Upload to Container"
+    ??? "Direct Upload"
         Upload the `uploadInfo.yaml` for one-time use. This file may be removed when the container restarts.
+        <br><input type="file" id="fileInput">
+        <div class="card">
+            <img class="card-icon" src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/cloud_upload.svg" alt="Icon" />
+            <h6 class="card-title">
+            <a href="javascript:void(0)" onclick="uploadFile()">Upload to Container</a>
+        </div>
 
-        <br><input type="file" id="fileInput"><a href="javascript:void(0)" onclick="uploadFile()"><br>Upload</a>
-
-    === "Use the Built-In Terminal"
+    ??? "Use the Built-In Terminal"
         If the in-browser terminal is available: 
 
         - copy the contents of `uploadInfo.yaml` into your clipboard
@@ -30,7 +37,69 @@
         - using `cat` or `vi`, paste the contents into `/shared/uploadInfo.yaml`
         <img src="../assets/uploadInfo.gif" />
 
-    === "Use Your Terminal (Running Locally)"
+    ??? "Use Your Terminal (Running Locally)"
+        From your own terminal, cp the `uploadInfo.yaml` file into `$workdir/shared/uploadInfo.yaml`:
+        <div class="code-block-container">
+        <pre class="code-block"><code>
+        cp /path/to/uploadInfo.yaml $workdir/shared/uploadInfo.yaml 
+        </code></pre>
+        </div>
+
+    ??? "Update Helm (Running in Kubernetes)"
+        If using Helm, add the `uploadInfo.yaml` details as part of your values.yaml specification. The following example demonstrates a Helm configuration for use with FluxCD: 
+        <div class="code-block-container">
+        <pre class="code-block"><code>
+        apiVersion: helm.toolkit.fluxcd.io/v2beta1
+        kind: HelmRelease
+        metadata:
+            name: runwhen-local
+            namespace: runwhen-local
+        spec:
+          releaseName: runwhen-local
+          chart:
+            spec:
+              chart: runwhen-local
+              # https://github.com/runwhen-contrib/helm-charts/blob/main/charts/runwhen-local/values.yaml
+              version: 0.0.21
+              sourceRef:
+                kind: HelmRepository
+                name: runwhen-contrib
+                namespace: flux-system
+              interval: 5m
+              values:
+                image: 
+                  repository: ghcr.io/runwhen-contrib/runwhen-local
+                  tag: latest
+                uploadInfo:
+                  defaultLocation: location-01-us-west1
+                  papiURL: https://papi.beta.runwhen.com
+                  token: [token]
+                  workspaceName: b-sandbox
+                  workspaceOwnerEmail: workspace-user@tester.com
+        </code></pre>
+        </div>
+        See the [full values.yaml](https://github.com/runwhen-contrib/helm-charts/blob/main/charts/runwhen-local/values.yaml) for reference. 
+        > Note: When updating your Helm values, this can trigger a redeployment of the container and a new discovery will take place. 
+
+    ??? quote "Permission Issues"
+        If you experience permission issues, ensure that `$workdir/shared` has open permissions. The `runwhen` user in the container needs to read & write from this directory. If running locally in Docker/Podman, this directory is shared with your own filesystem and often owned by your local user. `chmod 777 $workdir/shared` may be required. 
+
+
+<!-- !!! note "Adding uploadInfo.yaml to the container"
+    ??? "Upload to Container"
+        Upload the `uploadInfo.yaml` for one-time use. This file may be removed when the container restarts.
+
+        <br><input type="file" id="fileInput"><a href="javascript:void(0)" onclick="uploadFile()"><br>Upload</a>
+
+    ??? "Use the Built-In Terminal"
+        If the in-browser terminal is available: 
+
+        - copy the contents of `uploadInfo.yaml` into your clipboard
+        - open the terminal (top right corner)
+        - using `cat` or `vi`, paste the contents into `/shared/uploadInfo.yaml`
+        <img src="../assets/uploadInfo.gif" />
+
+    ??? "Use Your Terminal (Running Locally)"
         From your own terminal, simply move the `uploadInfo.yaml` file into `$workdir/shared/uploadInfo.yaml`:
 
         <div class="code-block-container">
@@ -39,9 +108,7 @@
         </code></pre>
         </div>
 
-
-
-    === "Update Helm (Running in Kubernetes)"
+    ??? "Update Helm (Running in Kubernetes)"
         If using Helm, add the `uploadInfo.yaml` details as part of your values.yaml specification. The following example demonstrates a Helm configuration for use with FluxCD: 
         
         <div class="code-block-container">
@@ -78,42 +145,74 @@
         See the [full values.yaml](https://github.com/runwhen-contrib/helm-charts/blob/main/charts/runwhen-local/values.yaml) for reference. 
         > Note: When updating your Helm values, this can trigger a redeployment of the container and a new discovery will take place. 
 
-??? tip "Permission Issues?"
-    If you experience permission issues, ensure that `$workdir/shared` has open permissions. The `runwhen` user in the container read/write to this directory, and it is often shared with your own filesystem and owned by your local user.
+??? bug "Permission Issues?"
+    If you experience permission issues, ensure that `$workdir/shared` has open permissions. The `runwhen` user in the container needs to read & write from this directory. If running locally in Docker/Podman, this directory is shared with your own filesystem and often owned by your local user.
 
     <div class="code-block-container">
     <pre class="code-block"><code>
     chmod 777 $workdir/shared
     </code></pre>
-    </div>
+    </div> -->
 
-## 3. Execute the Upload
+## 3. Upload Workspace Configuration
+Before uploading the configuration to the RunWhen Platform, feel free to browse the content that will be uploaded. This content resides in the `$workdir/shared/output/workspaces/` directory of the container.
+
 
 <div class="card-grid" markdown>
 <div class="card">
-    <img class="card-icon" src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/search.svg" alt="Icon" />
-    <h6 class="card-title">
-    <a href="javascript:void(0)" id="runDiscoveryButton">Run Discovery</a>
-</div>
-<div class="card">
     <img class="card-icon" src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/cloud_upload.svg" alt="Icon" />
     <h6 class="card-title">
-    <a href="javascript:void(0)" id="runUploadButton">Upload to RunWhen Platform</a>
+    <a href="javascript:void(0)" id="runUploadButton">Upload to RunWhen Platform </a>
 </div>
 </div>
 
-## 4. Creating your Kubeconfig Secret
+??? info "Browsing Configuration Data"
+    === "Local Filesystem"
+        If running the container image locally, you can browse the configuration contents from the `shared` directory that is mounted from your local system. 
+
+        <div class="code-block-container">
+        <pre class="code-block"><code>
+        tree $workdir/shared/output/workspaces 
+        </code></pre>
+        </div>
+
+    === "Using the Built-In Terminal"
+        If the in-browser terminal is available, you can browse the configuration data from the `/shared/output/workspaces` directory. 
+
+        <div class="code-block-container">
+        <pre class="code-block"><code>
+        tree /shared/output/workspaces 
+        </code></pre>
+        </div>
+
+## 4. Creating Secrets
+In order for the RunWhen Platform to connect with your cluster(s) and cloud resources, **secrets** are required in your workspace. 
+
+#### KUBECONFIG Secret
+In order for RunWhen Platform to connect to your Kubernetes based clusters, a **secret** must be created in the form of a KUBECONFIG. Based on the RunWhen Local discovery: 
+
+- The **Secret Key** should be set to: {{ workspace_info["custom"]["kubeconfig_secret_name"] }}
+- The **Secret Value** should be set to: 
 
 
 
+To create the secret, please:
+
+- Click <a href="#" id="dynamicSecretLink" target="_blank">this link</a>
+- Select *+ ADD SECRET*
+- Set the **Secret Key**
+- Set the **Secret Value**
+- Select *ADD AND SAVE*
 
 
 <script>
 function updateLink() {
     let workspaceName = document.getElementById('workspaceName').value;
     if (workspaceName) {
-        let link = document.getElementById('dynamicLink');
-        link.href = "https://app.beta.runwhen.com/workspace/" +workspaceName + "/configuration/workspace#" 
+        let uploadInfolink = document.getElementById('dynamicUploadInfoLink');
+        uploadInfolink.href = "https://app.beta.runwhen.com/workspace/" +workspaceName + "/configuration/workspace#" 
+        let secretlink = document.getElementById('dynamicSecretLink');
+        secretlink.href = "https://app.beta.runwhen.com/workspace/" +workspaceName + "/configuration/secrets#" 
     }
 }
 function uploadFile() {

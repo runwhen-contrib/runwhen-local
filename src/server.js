@@ -46,7 +46,7 @@ app.get('/run-discovery', (req, res) => {
 
 app.get('/run-upload-to-runwhenplatform', (req, res) => {
     // run discovery with upload
-    exec('python3 run.py upload', (error, stdout, stderr) => {
+    exec('python3 run.py upload --upload-merge-mode keep-uploaded', (error, stdout, stderr) => {
         if (error) {
             console.error(`exec error: ${error}`);
             return res.status(500).send(`Error executing command: ${error}`);
