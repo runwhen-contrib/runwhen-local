@@ -107,12 +107,13 @@ In order for the RunWhen Platform to connect with your cluster(s) and cloud reso
 
     {% if 'user-provided' in auth_details['kubernetes']['type'] %}
     Your Kubernetes auth type has been detected as: `{{ auth_details["kubernetes"]["type"] }}`
-    Kubeconfig content: 
-    - Context Count: {{ auth_details["kubernetes"]['kubeconfig_details']['contexts']|length }}  
-    - Context Name(s): 
-        {% for context in auth_details["kubernetes"]['kubeconfig_details']['contexts'] %}
-        - {{ context.name }}
-        {% endfor %}
+    Kubeconfig content:  
+
+    - Context Count: `{{ auth_details["kubernetes"]['kubeconfig_details']['contexts']|length }}`
+    - Context Name(s):
+    {% for context in auth_details["kubernetes"]['kubeconfig_details']['contexts'] %}
+        - `{{ context.name }}`
+    {% endfor %}
 
     - The **Secret Key** should be set to: `{{ workspace_info["custom"]["kubeconfig_secret_name"] | default('kubeconfig') }}`
 

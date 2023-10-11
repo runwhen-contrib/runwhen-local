@@ -28,6 +28,10 @@ else
   echo "Directory $OUTPUT has been created."
 fi
 
+if [ -z "$RW_LOCAL_APP_ENDPOINT" ]; 
+then
+  export RW_LOCAL_APP_ENDPOINT="https://app.beta.runwhen.com"
+fi
 if [ -L "cheat-sheet-docs/docs/output" ]; then
   rm "cheat-sheet-docs/docs/output"
 fi
