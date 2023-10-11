@@ -80,10 +80,12 @@
 
 ??? tip "Permission Issues?"
     If you experience permission issues, ensure that `$workdir/shared` has open permissions. The `runwhen` user in the container read/write to this directory, and it is often shared with your own filesystem and owned by your local user.
-    
-        ```
-        chmod 777 $workdir/shared
-        ``` 
+
+    <div class="code-block-container">
+    <pre class="code-block"><code>
+    chmod 777 $workdir/shared
+    </code></pre>
+    </div>
 
 ## 3. Execute the Upload
 

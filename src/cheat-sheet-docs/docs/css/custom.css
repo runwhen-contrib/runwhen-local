@@ -51,6 +51,10 @@ table {
   color: #fff !important;
 }
 
+.md-header__button img {
+  filter: brightness(0) saturate(100%) invert(1);
+}
+
 .md-button:hover {
   background-color: var(--md-accent-color);
 }
