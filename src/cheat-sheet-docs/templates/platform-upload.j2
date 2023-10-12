@@ -39,45 +39,40 @@ Workspace Builder generated a total of: **{{ slx_count }} SLXs**
 
     ??? "Use Your Terminal (Running Locally)"
         From your own terminal, cp the `uploadInfo.yaml` file into `$workdir/shared/uploadInfo.yaml`:
-        <div class="code-block-container">
-        <pre class="code-block"><code>
-        cp /path/to/uploadInfo.yaml $workdir/shared/uploadInfo.yaml 
-        </code></pre>
-        </div>
+
+            cp /path/to/uploadInfo.yaml $workdir/shared/uploadInfo.yaml 
 
     ??? "Update Helm (Running in Kubernetes)"
         If using Helm, add the `uploadInfo.yaml` details as part of your values.yaml specification. The following example demonstrates a Helm configuration for use with FluxCD: 
-        <div class="code-block-container">
-        <pre class="code-block"><code>
-        apiVersion: helm.toolkit.fluxcd.io/v2beta1
-        kind: HelmRelease
-        metadata:
-            name: runwhen-local
-            namespace: runwhen-local
-        spec:
-          releaseName: runwhen-local
-          chart:
+
+            apiVersion: helm.toolkit.fluxcd.io/v2beta1
+            kind: HelmRelease
+            metadata:
+                name: runwhen-local
+                namespace: runwhen-local
             spec:
-              chart: runwhen-local
-              # https://github.com/runwhen-contrib/helm-charts/blob/main/charts/runwhen-local/values.yaml
-              version: 0.0.21
-              sourceRef:
-                kind: HelmRepository
-                name: runwhen-contrib
-                namespace: flux-system
-              interval: 5m
-              values:
-                image: 
-                  repository: ghcr.io/runwhen-contrib/runwhen-local
-                  tag: latest
-                uploadInfo:
-                  defaultLocation: location-01-us-west1
-                  papiURL: https://papi.beta.runwhen.com
-                  token: [token]
-                  workspaceName: b-sandbox
-                  workspaceOwnerEmail: workspace-user@tester.com
-        </code></pre>
-        </div>
+            releaseName: runwhen-local
+            chart:
+                spec:
+                chart: runwhen-local
+                # https://github.com/runwhen-contrib/helm-charts/blob/main/charts/runwhen-local/values.yaml
+                version: 0.0.21
+                sourceRef:
+                    kind: HelmRepository
+                    name: runwhen-contrib
+                    namespace: flux-system
+                interval: 5m
+                values:
+                    image: 
+                        repository: ghcr.io/runwhen-contrib/runwhen-local
+                        tag: latest
+                    uploadInfo:
+                        defaultLocation: location-01-us-west1
+                        papiURL: https://papi.beta.runwhen.com
+                        token: [token]
+                        workspaceName: b-sandbox
+                        workspaceOwnerEmail: workspace-user@tester.com
+
         See the [full values.yaml](https://github.com/runwhen-contrib/helm-charts/blob/main/charts/runwhen-local/values.yaml) for reference. 
         > Note: When updating your Helm values, this can trigger a redeployment of the container and a new discovery will take place. 
 
@@ -93,7 +88,7 @@ Workspace Builder generated a total of: **{{ slx_count }} SLXs**
   
   
 
--  Upload the configuration data with **one of the following options**:
+-  Upload the configuration data with **ONE** of the following options:
 
 <button id="runUploadPreserveButton" class="md-button">Upload (Preserve Existing Configurations)</button>
 <button id="runUploadOverwriteButton" class="md-button">Upload (Overwrite Existing Configurations)</button>
@@ -106,8 +101,9 @@ In order for the RunWhen Platform to connect with your cluster(s) and cloud reso
     In order for RunWhen Platform to connect to your Kubernetes based clusters, a **secret** must be created in the form of a KUBECONFIG.
 
     {% if 'user-provided' in auth_details['kubernetes']['type'] %}
-    Your Kubernetes auth type has been detected as: `{{ auth_details["kubernetes"]["type"] }}`
-    Kubeconfig content:  
+    Your Kubernetes auth type has been detected as: `{{ auth_details["kubernetes"]["type"] }}`  
+
+    Kubeconfig contents:  
 
     - Context Count: `{{ auth_details["kubernetes"]['kubeconfig_details']['contexts']|length }}`
     - Context Name(s):
@@ -115,37 +111,57 @@ In order for the RunWhen Platform to connect with your cluster(s) and cloud reso
         - `{{ context.name }}`
     {% endfor %}
 
-    If the kubeconfig that you provided utilized short-lived tokens (such as those generaged from gcloud, az, and aws cli auth plugins), then a long-lived service account and token is required for every cluster context.
-    To create a long lived sa: 
-    
-    ??? note "One-click- Service Account & Kubeconfig Generation"
-        This step will attempt to create a service account with **Cluster Scoped View** access in the provided namespace for all contexts: 
-        
-        - Namespace: <input type="text" id="saNamespaceName">
-        - Service Account Name:  <input type="text" id="saServiceAccountName">
-        <br>
-        <button id="generateClusterViewSA" class="md-button">Generate Kubeconfig with ClusterView Permissions</button>
-
-    ??? note "Terminal Execution - Service Account & Kubeconfig Generation"
-        Some content
-
-    ??? note "Manually Create Service Accounts and Kubeconfig"
-        If you wish to manually create the service accounts and construct the Kubeconfig yourself, the following resources may be useful: 
-
-        - [RunWhen Docs: Generating Service Accounts and Kubeconfigs](https://docs.runwhen.com/public/runwhen-platform/guides/kubernetes-environments/generating-service-accounts-and-kubeconfigs)
-        - [Kubernetes Docs: Organizing Cluster Access Using kubeconfig Files](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)
+    When creating the RunWhen Platform Workspace **Secret**:
 
     - The **Secret Key** should be set to: `{{ workspace_info["custom"]["kubeconfig_secret_name"] | default('kubeconfig') }}` 
-    - The **Secret Value** should be set to: 
+    - The **Secret Value** should be set to the contents of a kubeconfig that has a **long lived token**: 
 
-    {% elif 'in-cluster' in auth_details['kubernetes']['type'] %}
+    !!! tip "Long Lived vs Short Lived Tokens"
+        If the kubeconfig that you provided utilized *long-lived* serivce account tokens, those contents can be copied into the **Secret Value**.
+        If, however, the kubeconfig that you provided utilized *short-lived tokens* (such as those generaged from gcloud, az, and aws cli auth plugins), then a long-lived service account and token is required for every cluster context.
 
-    {% else %}
-    Could not determine Kubernetes auth type. 
-    Your Kubernetes auth type has been detected as: `{{ auth_details["kubernetes"]["type"] }}`
-    {% endif %}
+    ??? note "Creating a Long Lived Service Account Token"
+        To create a long lived sa, choose **ONE** of the following methods: 
+        
+        === "One-click- Service Account & Kubeconfig Generation"
+            This step will create a service account with **Cluster Scoped View** access in the provided namespace for **all contexts**: 
 
-    To create the secret, please:
+            - Namespace: <input type="text" id="saNamespaceName" placeholder="runwhen-local">
+            - Service Account Name:  <input type="text" id="saServiceAccountName" placeholder="runwhen-local">
+            - <button id="generateClusterViewSA" class="md-button">Generate Kubeconfig with ClusterView Permissions</button>
+            - Copy the contents of the new kubeconfig and paste them into the **Secret Value** with **one** of the following options: 
+                - From the built-in terminal: `cat shared/generated-kubeconfig.yaml`
+                - From your Terminal (Running Locally with Docker/Podman): `cat $workdir/shared/generated-kubeconfig.yaml`
+                - From kubectl (Running in Kubernetes - example only): `kubectl exec deployment/runwhen-local -n runwhen-local -- cat /shared/generated-kubeconfig.yaml`
+
+        === "Built in Terminal Execution - Service Account & Kubeconfig Generation"
+
+            - Determine the namespace name and service account name that you'd like to use
+            - Run the built in gen_clusterview_sa.sh script from the built-in terminal: 
+
+                    /workspace-builder/scripts/gen_clusterview_sa.sh {% set comma = joiner(", ") %}{% for context in auth_details["kubernetes"]['kubeconfig_details']['contexts'] %}{{ comma() }}"{{ context.name }}"{% endfor %} [namespace name] [service account name]
+
+            - Copy the contents of the new kubeconfig and paste them into the **Secret Value**:
+
+                    cat /shared/generated-kubeconfig.yaml
+
+        === "Manually Create Service Accounts and Kubeconfig"
+            If you wish to manually create the service accounts and construct the Kubeconfig yourself, the following resources may be useful: 
+
+            - [RunWhen Docs: Generating Service Accounts and Kubeconfigs](https://docs.runwhen.com/public/runwhen-platform/guides/kubernetes-environments/generating-service-accounts-and-kubeconfigs)
+            - [Kubernetes Docs: Organizing Cluster Access Using kubeconfig Files](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)
+
+
+        {% elif 'in-cluster' in auth_details['kubernetes']['type'] %}
+
+        {% else %}
+        Could not determine Kubernetes auth type. 
+        Your Kubernetes auth type has been detected as: `{{ auth_details["kubernetes"]["type"] }}`
+        {% endif %}
+
+
+
+    To create the secret:
 
     - Click <a href="#" id="dynamicSecretLink" target="_blank">this link</a>
     - Select **+ ADD SECRET**
