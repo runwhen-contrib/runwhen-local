@@ -10,8 +10,8 @@ Workspace Builder generated a total of: **{{ slx_count }} SLXs**
 
 ## 1. Setting Up a Workspace
 
-- <a href="https://app.beta.runwhen.com/" target="_blank">Login to RunWhen Platform Beta Instance</a>
-- <a href="https://app.beta.runwhen.com/?addWorkspace=true" target="_blank">Create a workspace</a>
+- <a href="{{ app_url }}/" target="_blank">Login to RunWhen Platform Beta Instance</a>
+- <a href="{{ app_url }}/?addWorkspace=true" target="_blank">Create a workspace</a>
 - Put that cool workspace name that you created in this box: <br>
 <input type="text" id="workspaceName"><a href="javascript:void(0)" onclick="updateLink()"><br>Submit</a>
 
@@ -21,8 +21,8 @@ Workspace Builder generated a total of: **{{ slx_count }} SLXs**
 - Add this file to the RunWhen Local container with **one of the following options**: 
 
     ??? "Direct Upload (Recommended for first time users)"
-        Upload the `uploadInfo.yaml` for one-time use. This file may be removed when the container restarts.
-        <br><input type="file" id="fileInput">
+        Upload the `uploadInfo.yaml` for one-time use. This file may be removed when the container restarts.  
+        <input type="file" id="fileUploadInfo">
         <div class="card">
             <img class="card-icon" src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/cloud_upload.svg" alt="Icon" />
             <h6 class="card-title">
@@ -115,10 +115,27 @@ In order for the RunWhen Platform to connect with your cluster(s) and cloud reso
         - `{{ context.name }}`
     {% endfor %}
 
-    - The **Secret Key** should be set to: `{{ workspace_info["custom"]["kubeconfig_secret_name"] | default('kubeconfig') }}`
+    If the kubeconfig that you provided utilized short-lived tokens (such as those generaged from gcloud, az, and aws cli auth plugins), then a long-lived service account and token is required for every cluster context.
+    To create a long lived sa: 
+    
+    ??? note "One-click- Service Account & Kubeconfig Generation"
+        This step will attempt to create a service account with **Cluster Scoped View** access in the provided namespace for all contexts: 
+        
+        - Namespace: <input type="text" id="saNamespaceName">
+        - Service Account Name:  <input type="text" id="saServiceAccountName">
+        <br>
+        <button id="generateClusterViewSA" class="md-button">Generate Kubeconfig with ClusterView Permissions</button>
 
-    If the kubeconfig that you provided utilized short-lived tokens (such as those generaged from gcloud, az, and aws cli auth plugins), then a long-lived service account and token is required for every cluster context. 
+    ??? note "Terminal Execution - Service Account & Kubeconfig Generation"
+        Some content
 
+    ??? note "Manually Create Service Accounts and Kubeconfig"
+        If you wish to manually create the service accounts and construct the Kubeconfig yourself, the following resources may be useful: 
+
+        - [RunWhen Docs: Generating Service Accounts and Kubeconfigs](https://docs.runwhen.com/public/runwhen-platform/guides/kubernetes-environments/generating-service-accounts-and-kubeconfigs)
+        - [Kubernetes Docs: Organizing Cluster Access Using kubeconfig Files](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)
+
+    - The **Secret Key** should be set to: `{{ workspace_info["custom"]["kubeconfig_secret_name"] | default('kubeconfig') }}` 
     - The **Secret Value** should be set to: 
 
     {% elif 'in-cluster' in auth_details['kubernetes']['type'] %}
@@ -143,14 +160,14 @@ function updateLink() {
     let workspaceName = document.getElementById('workspaceName').value;
     if (workspaceName) {
         let uploadInfolink = document.getElementById('dynamicUploadInfoLink');
-        uploadInfolink.href = "https://app.beta.runwhen.com/workspace/" +workspaceName + "/configuration/workspace#" 
+        uploadInfolink.href = "{{ app_url }}/workspace/" +workspaceName + "/configuration/workspace#" 
         let secretlink = document.getElementById('dynamicSecretLink');
-        secretlink.href = "https://app.beta.runwhen.com/workspace/" +workspaceName + "/configuration/secrets#" 
+        secretlink.href = "{{ app_url }}/workspace/" +workspaceName + "/configuration/secrets#" 
     }
 }
 function uploadFile() {
-    const fileInput = document.getElementById('fileInput');
-    const file = fileInput.files[0];
+    const fileUploadInfo = document.getElementById('fileUploadInfo');
+    const file = fileUploadInfo.files[0];
     
     if (!file) {
         alert('Please select a file first.');
@@ -210,6 +227,46 @@ document.getElementById('runUploadOverwriteButton').addEventListener('click', fu
             console.error('There was a problem with the upload operation:', error.message);
         });
 });
+
+document.getElementById('generateClusterViewSA').addEventListener('click', function(event) {
+    event.preventDefault();
+
+    // Fetch values from the input fields
+    const namespaceName = document.getElementById('saNamespaceName').value || 'default-namespace';
+    const serviceAccountName = document.getElementById('saServiceAccountName').value || 'default-service-account';
+    const contexts = [
+        {% for context in auth_details["kubernetes"]['kubeconfig_details']['contexts'] %}
+            "{{ context.name }}",
+        {% endfor %}
+    ];
+
+    // Call the /run-generate-clusterview-sa endpoint using the fetch API with a POST request
+    fetch('/run-generate-clusterview-sa', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            contexts: contexts,
+            namespace: namespaceName,
+            serviceAccount: serviceAccountName
+        }) // Send the data as JSON payload
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.text();
+    })
+    .then(data => {
+        // Call the showCommandOutput function to display the data in the styled popup
+        showCommandOutput(data);
+    })
+    .catch(error => {
+        console.error('There was a problem with the operation:', error.message);
+    });
+});
+
 
 function showCommandOutput(data) {
     const popupContainer = document.createElement("div"); 

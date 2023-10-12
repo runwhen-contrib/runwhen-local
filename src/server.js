@@ -54,6 +54,7 @@ app.get('/run-upload-to-runwhenplatform-keep-existing', (req, res) => {
         res.send(`Upload Output:\n${stdout}`);
     });
 });
+
 app.get('/run-upload-to-runwhenplatform-keep-uploaded', (req, res) => {
     // run discovery with upload
     exec('python3 run.py upload --upload-merge-mode keep-uploaded', (error, stdout, stderr) => {
@@ -64,6 +65,32 @@ app.get('/run-upload-to-runwhenplatform-keep-uploaded', (req, res) => {
         res.send(`Upload Output:\n${stdout}`);
     });
 });
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+app.post('/run-generate-clusterview-sa', (req, res) => {
+    const contexts = req.body.contexts;
+    const namespace = req.body.namespace;
+    const serviceAccount = req.body.serviceAccount;
+
+    if (!contexts || contexts.length === 0) {
+        return res.status(400).send('No contexts provided');
+    }
+
+    // Convert the list of contexts into a space-separated string
+    const contextString = contexts.join(',');
+
+    // Insert the values in the command
+    exec(`./scripts/gen_clusterview_sa.sh ${contextString} ${namespace} ${serviceAccount}`, (error, stdout, stderr) => {
+        if (error) {
+            console.error(`exec error: ${error}`);
+            return res.status(500).send(`Error executing command: ${error}`);
+        }
+        res.send(`Script Output:\n${stdout}`);
+    });
+});
+
 
 // Setup xterm WebSocket server
 const wss = new WebSocket.Server({ server });

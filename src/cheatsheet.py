@@ -427,7 +427,8 @@ def generate_platform_upload(workspace_info, slx_count, auth_details):
     platform_upload_output = platform_upload_template.render(
         workspace_info=workspace_info,
         slx_count=slx_count,
-        auth_details=auth_details
+        auth_details=auth_details,
+        app_url=os.environ.get('RW_LOCAL_APP_ENDPOINT', 'https://app.beta.runwhen.com')
     )
 
     with open(platform_upload_path, 'w') as platform_upload_file:
