@@ -1,8 +1,8 @@
 # RunWhen Platform Upload
-The Workspace Builder component of RunWhen Local generates all necessary configuration files to bootstrap a workspace within the RunWhen Platform with provides: 
+The Workspace Builder component of RunWhen Local generates all necessary configuration files to bootstrap a workspace within the RunWhen Platform, providing: 
 
 - Collaborative maps
-- Collaborative troubleshooting
+- Collaborative & automated troubleshooting
 - Troubleshooting Digital Assistants
 - Automated workflows
 
@@ -171,10 +171,10 @@ In order for the RunWhen Platform to connect with your cluster(s) and cloud reso
     
 {% endif %}
 
-## 5. Browse your New Map
-With your content uploaded, and secrets uploaded, yout map should now be ready for interaction: 
+## 5. Browse your New Workspace Map
+With your content uploaded, and secrets uploaded, your map should now be ready for interaction: 
 
-🎉 Click <a href="#" id="dynamicMapLink" target="_blank">**this link**</a>
+- 🎉 Click <a href="#" id="dynamicMapLink" target="_blank">**this link** </a>to see your new workspace map
 
 <script>
 function updateLink() {
@@ -193,7 +193,7 @@ function uploadFile() {
     const file = fileUploadInfo.files[0];
     
     if (!file) {
-        alert('Please select a file first.');
+        showCommandOutput('Please select a file first.');
         return;
     }
 
@@ -210,8 +210,8 @@ function uploadFile() {
         showCommandOutput(data);
     })
     .catch(error => {
-        alert('Error uploading the file.');
-        console.error(error);
+        showCommandOutput(error.message);
+        console.error('There was a problem with the upload operation:', error.message);
     });
 }
 document.getElementById('runUploadPreserveButton').addEventListener('click', function() {
@@ -229,6 +229,7 @@ document.getElementById('runUploadPreserveButton').addEventListener('click', fun
             showCommandOutput(data);
         })
         .catch(error => {
+            showCommandOutput(error.message);
             console.error('There was a problem with the upload operation:', error.message);
         });
 });
@@ -248,6 +249,7 @@ document.getElementById('runUploadOverwriteButton').addEventListener('click', fu
             showCommandOutput(data);
         })
         .catch(error => {
+            showCommandOutput(error.message);
             console.error('There was a problem with the upload operation:', error.message);
         });
 });
@@ -287,15 +289,18 @@ document.getElementById('generateClusterViewSA').addEventListener('click', funct
         showCommandOutput(data);
     })
     .catch(error => {
-        console.error('There was a problem with the operation:', error.message);
+        showCommandOutput(error.message);
+        console.error('There was a problem with the upload operation:', error.message);
     });
 });
-
 
 function showCommandOutput(data) {
     const popupContainer = document.createElement("div"); 
     const popup = document.createElement("div");
     popup.classList.add("popup");
+    popupContainer.appendChild(popup); // Append the popup to the container
+    document.body.appendChild(popupContainer); // Append the container to the document body
+
 
     const closeButton = document.createElement("span");
     closeButton.classList.add("close");
@@ -305,15 +310,12 @@ function showCommandOutput(data) {
     closeButton.style.top = "10px";
     closeButton.style.right = "10px";
 
-    const title = document.createElement("p");
-    title.innerText = "Command Output";
 
     const codeBlock = document.createElement("pre");
     codeBlock.classList.add("code-block");
     codeBlock.innerText = data;
 
     popup.appendChild(closeButton);
-    popup.appendChild(title);
     popup.appendChild(codeBlock);
     popupContainer.appendChild(popup);
     document.body.appendChild(popupContainer);
@@ -343,3 +345,21 @@ function showLoadingMessage() {
     return popupContainer;  // Return the container so it can be removed later
 }
 </script>
+<style>
+  .multiline {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+.popup .code-block {
+    background-color: #333;
+    color: #f8f8f8;
+    padding: 10px;
+    font-family: Consolas, Monaco, 'Andale Mono', monospace;
+    font-size: 14px;
+    line-height: 1.4;
+    overflow: auto;
+}
+
+
+</style>
+
