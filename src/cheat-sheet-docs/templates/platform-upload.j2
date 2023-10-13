@@ -100,7 +100,6 @@ In order for the RunWhen Platform to connect with your cluster(s) and cloud reso
 ??? info "Kubeconfig Secret"
     In order for RunWhen Platform to connect to your Kubernetes based clusters, a **secret** must be created in the form of a KUBECONFIG.
 
-    {% if 'user-provided' in auth_details['kubernetes']['type'] %}
     Your Kubernetes auth type has been detected as: `{{ auth_details["kubernetes"]["type"] }}`  
 
     Kubeconfig contents:  
@@ -110,6 +109,8 @@ In order for the RunWhen Platform to connect with your cluster(s) and cloud reso
     {% for context in auth_details["kubernetes"]['kubeconfig_details']['contexts'] %}
         - `{{ context.name }}`
     {% endfor %}
+
+    {% if 'user-provided' in auth_details['kubernetes']['type'] %}
 
     When creating the RunWhen Platform Workspace **Secret**:
 
@@ -153,6 +154,22 @@ In order for the RunWhen Platform to connect with your cluster(s) and cloud reso
 
 
         {% elif 'in-cluster' in auth_details['kubernetes']['type'] %}
+         When creating the RunWhen Platform Workspace **Secret**:
+
+        - The **Secret Key** should be set to: `{{ workspace_info["custom"]["kubeconfig_secret_name"] | default('kubeconfig') }}` 
+        - The **Secret Value** should be set to the contents of the generated kubeconfig: 
+
+        !!! tip "In-cluster Auth is Limited to 1 Cluster"
+            If you've deployed this instance via helm and allowed helm to create the service account using in-cluster auth, the generated kubeconfig will only be able to discover this cluster. 
+            If you would like to discover and upload multiple clusters, provide a customized kubeconfig that has access to all necessary cluster contexts and rerun the discovery process. 
+
+        This step will create an updated kubeconfig based on the in-cluster auth, along with the server endpoint: 
+
+        - Server Address: <input type="text" id="serverAddress" placeholder="https://your.kubernetes.api.endpoint">
+        - <button id="generateKubeconfig" class="md-button">Generate Kubeconfig</button>
+        - Copy the contents of the new kubeconfig and paste them into the **Secret Value** with **one** of the following options: 
+            - From the built-in terminal: `cat /shared/generated-kubeconfig.yaml`
+            - From kubectl (Running in Kubernetes - example only): `kubectl exec deployment/runwhen-local -n runwhen-local -- cat /shared/generated-kubeconfig.yaml`
 
         {% else %}
         Could not determine Kubernetes auth type. 
@@ -210,10 +227,12 @@ function uploadFile() {
         showCommandOutput(data);
     })
     .catch(error => {
+        document.body.removeChild(loadingPopup);
         showCommandOutput(error.message);
         console.error('There was a problem with the upload operation:', error.message);
     });
 }
+
 document.getElementById('runUploadPreserveButton').addEventListener('click', function() {
     event.preventDefault();
     const loadingPopup = showLoadingMessage();
@@ -229,6 +248,7 @@ document.getElementById('runUploadPreserveButton').addEventListener('click', fun
             showCommandOutput(data);
         })
         .catch(error => {
+            document.body.removeChild(loadingPopup);
             showCommandOutput(error.message);
             console.error('There was a problem with the upload operation:', error.message);
         });
@@ -249,11 +269,13 @@ document.getElementById('runUploadOverwriteButton').addEventListener('click', fu
             showCommandOutput(data);
         })
         .catch(error => {
+            document.body.removeChild(loadingPopup);
             showCommandOutput(error.message);
             console.error('There was a problem with the upload operation:', error.message);
         });
 });
 
+{% if 'user-provided' in auth_details['kubernetes']['type'] %}
 document.getElementById('generateClusterViewSA').addEventListener('click', function(event) {
     event.preventDefault();
 
@@ -289,10 +311,53 @@ document.getElementById('generateClusterViewSA').addEventListener('click', funct
         showCommandOutput(data);
     })
     .catch(error => {
+        document.body.removeChild(loadingPopup);
         showCommandOutput(error.message);
-        console.error('There was a problem with the upload operation:', error.message);
+        console.error('There was a problem with the kubeconfig generation operation:', error.message);
     });
 });
+{% endif %}
+
+{% if 'in-cluster' in auth_details['kubernetes']['type'] %}
+document.getElementById('generateKubeconfig').addEventListener('click', function(event) {
+    event.preventDefault();
+
+    // Fetch values from the input fields
+    const serverDetails = document.getElementById('serverAddress').value ;
+    console.log('serverDetails value:', serverDetails);
+
+    if (!serverDetails) {
+        showCommandOutput('Please specify a Kubernetes API server address.');
+        return;
+    }
+    const loadingPopup = showLoadingMessage();
+    // Call the /run-generate-clusterview-sa endpoint using the fetch API with a POST request
+    fetch('/run-generate-kubeconfig-from-in-cluster-auth', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            serverDetails: serverDetails
+        }) // Send the data as JSON payload
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.text();
+    })
+    .then(data => {
+        document.body.removeChild(loadingPopup);
+        showCommandOutput(data);
+    })
+    .catch(error => {
+        document.body.removeChild(loadingPopup);
+        showCommandOutput(error.message);
+        console.error('There was a problem with the kubeconfig generation:', error.message);
+    });
+});
+{% endif %}
 
 function showCommandOutput(data) {
     const popupContainer = document.createElement("div"); 

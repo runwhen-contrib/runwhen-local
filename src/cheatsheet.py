@@ -695,6 +695,7 @@ def generate_auth_details():
     kubeconfig_auth = None
 
     # Check for the existence of the files in the /shared/ directory
+    # Assume user-provided kubeconfig is better than in-cluster auth
     if os.path.exists('/shared/kubeconfig'):
         kubeconfig_auth = "user-provided"
         with open('/shared/kubeconfig', 'r') as file:
@@ -706,6 +707,7 @@ def generate_auth_details():
             config_details = yaml.safe_load(file)
             auth_config_details['kubernetes']['kubeconfig_details'] = config_details
     auth_config_details['kubernetes']['type']= kubeconfig_auth
+
 
     return auth_config_details
 

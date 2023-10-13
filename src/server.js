@@ -35,10 +35,10 @@ const server = app.listen(port, () => {
 
 app.get('/run-discovery', (req, res) => {
     // run discovery without upload
-    exec('./run.sh', (error, stdout, stderr) => {
+    exec('WB_DEBUG_SUPPRESS_CHEAT_SHEET="false" ./run.sh', (error, stdout, stderr) => {
         if (error) {
             console.error(`exec error: ${error}`);
-            return res.status(500).send(`Error executing command: ${error}`);
+            return res.status(500).send(`Error executing command: ${error}\nStderr: ${stderr}`);
         }
         res.send(`Discovery Output:\n${stdout}`);
     });
@@ -49,7 +49,7 @@ app.get('/run-upload-to-runwhenplatform-keep-existing', (req, res) => {
     exec('WB_DEBUG_SUPPRESS_CHEAT_SHEET="true" ./run.sh --upload --upload-merge-mode keep-existing', (error, stdout, stderr) => {
         if (error) {
             console.error(`exec error: ${error}`);
-            return res.status(500).send(`Error executing command: ${error}`);
+            return res.status(500).send(`Error executing command: ${error}\nStderr: ${stderr}`);
         }
         res.send(`Upload Output:\n${stdout}`);
     });
@@ -60,7 +60,7 @@ app.get('/run-upload-to-runwhenplatform-keep-uploaded', (req, res) => {
     exec('WB_DEBUG_SUPPRESS_CHEAT_SHEET="true" ./run.sh --upload --upload-merge-mode keep-uploaded ', (error, stdout, stderr) => {
         if (error) {
             console.error(`exec error: ${error}`);
-            return res.status(500).send(`Error executing command: ${error}`);
+            return res.status(500).send(`Error executing command: ${error}\nStderr: ${stderr}`);
         }
         res.send(`Upload Output:\n${stdout}`);
     });
@@ -85,18 +85,35 @@ app.post('/run-generate-clusterview-sa', (req, res) => {
     exec(`./scripts/gen_clusterview_sa.sh ${contextString} ${namespace} ${serviceAccount}`, (error, stdout, stderr) => {
         if (error) {
             console.error(`exec error: ${error}`);
-            return res.status(500).send(`Error executing command: ${error}`);
+            return res.status(500).send(`Error executing command: ${error}\nStderr: ${stderr}`);
         }
         res.send(`Script Output:\n${stdout}`);
     });
 });
+
+app.post('/run-generate-kubeconfig-from-in-cluster-auth', (req, res) => {
+    const serverDetails = req.body.serverDetails;
+
+    if (!serverDetails || serverDetails.length === 0) {
+        return res.status(400).send('No server details provided');
+    }
+
+    // Insert the values in the command
+    exec(`./scripts/in_cluster_auth_gen_kubeconfig.sh ${serverDetails}`, (error, stdout, stderr) => {
+        if (error) {
+            console.error(`exec error: ${error}`);
+            return res.status(500).send(`Error executing command: ${error}\nStderr: ${stderr}`);
+        }
+        res.send(`Script Output:\n${stdout}\n${stderr}`);
+    });
+});
+
 
 app.post('/get-runbook-config', (req, res) => {
     const runbook = req.body.runbook;
     if (!runbook || runbook.length === 0) {
         return res.status(400).send('No runbook provided');
     }
-    console.log(runbook);
     exec(`cat /shared/output${runbook}`, (error, stdout, stderr) => {
         if (error) {
             console.error(`exec error: ${error}`);

@@ -59,6 +59,13 @@ def check_rest_service_error(response: requests.Response, command: str, verbose:
         fatal(f'Error {response.status_code} from {SERVICE_NAME} service for command "{command}": '
               f'{response_data.get("message")}')
 
+def test_bolt_endpoint():
+    # This is a placeholder. In reality, you'd use the neo4j package to test a BOLT connection.
+    # Here, we're simulating a REST call to illustrate the retry mechanism.
+    response = requests.get("http://127.0.0.1:7687")
+    response.raise_for_status()
+    return response
+
 
 def call_rest_service_with_retries(rest_call_proc, max_attempts=10, retry_delay=5) -> requests.Response:
     attempts = 0
@@ -369,6 +376,11 @@ def main():
     output_path = os.path.join(base_directory, output)
 
     if args.command == RUN_COMMAND:
+        # Check if bolt is running (we commonly see that it's not ready yet)
+        # This is a bit hacky using the rest call, but neo4j will be removed
+        # in the future 
+        bolt_response = call_rest_service_with_retries(test_bolt_endpoint)
+
         request_data = dict()
         if not args.components:
             fatal("Error: at least one component must be specified to run")
