@@ -124,53 +124,64 @@ app.post('/get-runbook-config', (req, res) => {
 });
 
 // Setup xterm WebSocket server
-const wss = new WebSocket.Server({ server });
+const isTerminalDisabledEnv = process.env.RW_LOCAL_TERMINAL_DISABLED;
+const isTerminalDisabled = isTerminalDisabledEnv ? isTerminalDisabledEnv.toLowerCase() === 'true' : false;
+console.log('Environment Variable:', isTerminalDisabledEnv);
+console.log('Normalized Value:', isTerminalDisabled);
 
-wss.on('connection', (ws) => {
-    console.log('Client connected');
-
-    let isAlive = true;
-    ws.on('pong', () => {
-        isAlive = true;
+if (isTerminalDisabled) {
+    // Handle routes when the terminal is disabled
+    app.get('/xterm', (req, res) => {
+      res.status(404).send('Terminal is disabled');
     });
+  } else {
+    const wss = new WebSocket.Server({ server });
+    wss.on('connection', (ws) => {
+        console.log('Client connected');
 
-    const interval = setInterval(() => {
-        if (isAlive === false) return ws.terminate();
+        let isAlive = true;
+        ws.on('pong', () => {
+            isAlive = true;
+        });
 
-        isAlive = false;
-        ws.ping(() => {});
-    }, 30000);  // 30 seconds
+        const interval = setInterval(() => {
+            if (isAlive === false) return ws.terminate();
 
-    ws.on('close', () => {
-        clearInterval(interval);
-    });
+            isAlive = false;
+            ws.ping(() => {});
+        }, 30000);  // 30 seconds
 
-    const shell = spawn('bash', [], {
-        cols: 80,
-        rows: 30,
-        cwd: process.env.HOME,
-        env: process.env
-    });
+        ws.on('close', () => {
+            clearInterval(interval);
+        });
 
-    // When data is received from the shell, send it to the WebSocket
-    shell.on('data', (data) => {
-        ws.send(data);
-    });
+        const shell = spawn('bash', [], {
+            cols: 80,
+            rows: 30,
+            cwd: process.env.HOME,
+            env: process.env
+        });
 
-    ws.on('message', (data) => {
-        const msg = data.toString(); // Convert the binary data to a string
-        if (msg.startsWith("resize:")) {
-            const parts = msg.split(":")[1].split(",");
-            const cols = parseInt(parts[0], 10);
-            const rows = parseInt(parts[1], 10);
-    
-            if (!isNaN(cols) && !isNaN(rows)) {
-                shell.resize(cols, rows);
+        // When data is received from the shell, send it to the WebSocket
+        shell.on('data', (data) => {
+            ws.send(data);
+        });
+
+        ws.on('message', (data) => {
+            const msg = data.toString(); // Convert the binary data to a string
+            if (msg.startsWith("resize:")) {
+                const parts = msg.split(":")[1].split(",");
+                const cols = parseInt(parts[0], 10);
+                const rows = parseInt(parts[1], 10);
+        
+                if (!isNaN(cols) && !isNaN(rows)) {
+                    shell.resize(cols, rows);
+                } else {
+                    console.error("Invalid resize parameters:", msg);
+                }
             } else {
-                console.error("Invalid resize parameters:", msg);
+                shell.write(msg);
             }
-        } else {
-            shell.write(msg);
-        }
+        });
     });
-});
+}

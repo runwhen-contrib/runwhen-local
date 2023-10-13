@@ -38,14 +38,10 @@ fi
 
 # Link the shared output dir so that mkdocs and surface config files
 ln -s /shared/output cheat-sheet-docs/output
-mkdocs serve -v -f cheat-sheet-docs/mkdocs.yml &
+mkdocs serve -f cheat-sheet-docs/mkdocs.yml &
 
-if [[ "${RW_LOCAL_TERMINAL_DISABLED,,}" == "true" ]]; 
-then
-    echo "Terminal is disabled"
-else
-    node server.js &
-fi 
+# Run node and nginx servers
+node server.js &
 nginx &
 
 # Run neo4j in the background

@@ -701,9 +701,9 @@ def generate_auth_details():
         with open('/shared/kubeconfig', 'r') as file:
             config_details = yaml.safe_load(file)
             auth_config_details['kubernetes']['kubeconfig_details'] = config_details
-    elif os.path.exists('/shared/in_cluster_auth.yaml'):
+    elif os.path.exists('/shared/in_cluster_kubeconfig.yaml'):
         kubeconfig_auth = "in-cluster"
-        with open('/shared/in_cluster_auth.yaml', 'r') as file:
+        with open('/shared/in_cluster_kubeconfig.yaml', 'r') as file:
             config_details = yaml.safe_load(file)
             auth_config_details['kubernetes']['kubeconfig_details'] = config_details
     auth_config_details['kubernetes']['type']= kubeconfig_auth
