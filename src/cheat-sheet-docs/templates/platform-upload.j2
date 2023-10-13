@@ -174,7 +174,7 @@ In order for the RunWhen Platform to connect with your cluster(s) and cloud reso
 ## 5. Browse your New Map
 With your content uploaded, and secrets uploaded, yout map should now be ready for interaction: 
 
-- Click <a href="#" id="dynamicMapLink" target="_blank">**this link**</a>
+🎉 Click <a href="#" id="dynamicMapLink" target="_blank">**this link**</a>
 
 <script>
 function updateLink() {
@@ -207,7 +207,7 @@ function uploadFile() {
     })
     .then(response => response.text())
     .then(data => {
-        alert(data);
+        showCommandOutput(data);
     })
     .catch(error => {
         alert('Error uploading the file.');
@@ -216,7 +216,7 @@ function uploadFile() {
 }
 document.getElementById('runUploadPreserveButton').addEventListener('click', function() {
     event.preventDefault();
-    // Call the /run-discovery endpoint using the fetch API
+    const loadingPopup = showLoadingMessage();
     fetch('/run-upload-to-runwhenplatform-keep-existing')
         .then(response => {
             if (!response.ok) {
@@ -225,7 +225,7 @@ document.getElementById('runUploadPreserveButton').addEventListener('click', fun
             return response.text();
         })
         .then(data => {
-            // Call the showCommandOutput function to display the data in the styled popup
+            document.body.removeChild(loadingPopup);
             showCommandOutput(data);
         })
         .catch(error => {
@@ -235,6 +235,7 @@ document.getElementById('runUploadPreserveButton').addEventListener('click', fun
 document.getElementById('runUploadOverwriteButton').addEventListener('click', function() {
     event.preventDefault();
     // Call the /run-discovery endpoint using the fetch API
+    const loadingPopup = showLoadingMessage();
     fetch('/run-upload-to-runwhenplatform-keep-uploaded')
         .then(response => {
             if (!response.ok) {
@@ -243,7 +244,7 @@ document.getElementById('runUploadOverwriteButton').addEventListener('click', fu
             return response.text();
         })
         .then(data => {
-            // Call the showCommandOutput function to display the data in the styled popup
+            document.body.removeChild(loadingPopup);
             showCommandOutput(data);
         })
         .catch(error => {
@@ -262,7 +263,7 @@ document.getElementById('generateClusterViewSA').addEventListener('click', funct
             "{{ context.name }}",
         {% endfor %}
     ];
-
+    const loadingPopup = showLoadingMessage();
     // Call the /run-generate-clusterview-sa endpoint using the fetch API with a POST request
     fetch('/run-generate-clusterview-sa', {
         method: 'POST',
@@ -282,7 +283,7 @@ document.getElementById('generateClusterViewSA').addEventListener('click', funct
         return response.text();
     })
     .then(data => {
-        // Call the showCommandOutput function to display the data in the styled popup
+        document.body.removeChild(loadingPopup);
         showCommandOutput(data);
     })
     .catch(error => {
@@ -325,5 +326,20 @@ function showCommandOutput(data) {
             document.body.removeChild(popupContainer);
         }
     });
+}
+
+function showLoadingMessage() {
+    const popupContainer = document.createElement("div");
+    const popup = document.createElement("div");
+    popup.classList.add("popup");
+
+    const loadingMessage = document.createElement("p");
+    loadingMessage.innerText = "Running command, please wait...";
+
+    popup.appendChild(loadingMessage);
+    popupContainer.appendChild(popup);
+    document.body.appendChild(popupContainer);
+
+    return popupContainer;  // Return the container so it can be removed later
 }
 </script>
