@@ -20,7 +20,7 @@ Workspace Builder generated a total of: **{{ slx_count }} SLXs**
 - <a href="#" id="dynamicUploadInfoLink" target="_blank">Download workspace tethering configuration file</a>
 - Add this file to the RunWhen Local container with **one of the following options**: 
 
-    ??? "Direct Upload (Recommended for first time users)"
+    ??? "Option 1 - Direct Upload (Recommended for first time users)"
         Upload the `uploadInfo.yaml` for one-time use. This file may be removed when the container restarts.  
         <input type="file" id="fileUploadInfo">
         <div class="card">
@@ -29,7 +29,7 @@ Workspace Builder generated a total of: **{{ slx_count }} SLXs**
             <a href="javascript:void(0)" onclick="uploadFile()">Upload to Container</a>
         </div>
 
-    ??? "Use the Built-In Terminal"
+    ??? "Option 2 - Use the Built-In Terminal"
         If the in-browser terminal is available: 
 
         - copy the contents of `uploadInfo.yaml` into your clipboard
@@ -37,12 +37,12 @@ Workspace Builder generated a total of: **{{ slx_count }} SLXs**
         - using `cat` or `vi`, paste the contents into `/shared/uploadInfo.yaml`
         <img src="../assets/uploadInfo.gif" />
 
-    ??? "Use Your Terminal (Running Locally)"
+    ??? "Option 3 - Use Your Terminal (Running Locally)"
         From your own terminal, cp the `uploadInfo.yaml` file into `$workdir/shared/uploadInfo.yaml`:
 
             cp /path/to/uploadInfo.yaml $workdir/shared/uploadInfo.yaml 
 
-    ??? "Update Helm (Running in Kubernetes)"
+    ??? "Option 4 - Update Helm (Running in Kubernetes)"
         If using Helm, add the `uploadInfo.yaml` details as part of your values.yaml specification. The following example demonstrates a Helm configuration for use with FluxCD: 
 
             apiVersion: helm.toolkit.fluxcd.io/v2beta1
@@ -123,18 +123,18 @@ In order for the RunWhen Platform to connect with your cluster(s) and cloud reso
     ??? note "Creating a Long Lived Service Account Token"
         To create a long lived sa, choose **ONE** of the following methods: 
         
-        === "One-click- Service Account & Kubeconfig Generation"
+        ??? note "Option 1 - One-click Service Account & Kubeconfig Generation"
             This step will create a service account with **Cluster Scoped View** access in the provided namespace for **all contexts**: 
 
-            - Namespace: <input type="text" id="saNamespaceName" placeholder="runwhen-local">
-            - Service Account Name:  <input type="text" id="saServiceAccountName" placeholder="runwhen-local">
+            - Namespace: <input type="text" id="saNamespaceName" value="runwhen-local">
+            - Service Account Name:  <input type="text" id="saServiceAccountName" value="runwhen-local-sa">
             - <button id="generateClusterViewSA" class="md-button">Generate Kubeconfig with ClusterView Permissions</button>
             - Copy the contents of the new kubeconfig and paste them into the **Secret Value** with **one** of the following options: 
-                - From the built-in terminal: `cat shared/generated-kubeconfig.yaml`
+                - From the built-in terminal: `cat /shared/generated-kubeconfig.yaml`
                 - From your Terminal (Running Locally with Docker/Podman): `cat $workdir/shared/generated-kubeconfig.yaml`
                 - From kubectl (Running in Kubernetes - example only): `kubectl exec deployment/runwhen-local -n runwhen-local -- cat /shared/generated-kubeconfig.yaml`
 
-        === "Built in Terminal Execution - Service Account & Kubeconfig Generation"
+        ??? note "Option 2 - Built in Terminal Execution - Service Account & Kubeconfig Generation"
 
             - Determine the namespace name and service account name that you'd like to use
             - Run the built in gen_clusterview_sa.sh script from the built-in terminal: 
@@ -145,7 +145,7 @@ In order for the RunWhen Platform to connect with your cluster(s) and cloud reso
 
                     cat /shared/generated-kubeconfig.yaml
 
-        === "Manually Create Service Accounts and Kubeconfig"
+        ??? note "Option 3 - Manually Create Service Accounts and Kubeconfig"
             If you wish to manually create the service accounts and construct the Kubeconfig yourself, the following resources may be useful: 
 
             - [RunWhen Docs: Generating Service Accounts and Kubeconfigs](https://docs.runwhen.com/public/runwhen-platform/guides/kubernetes-environments/generating-service-accounts-and-kubeconfigs)
@@ -163,13 +163,18 @@ In order for the RunWhen Platform to connect with your cluster(s) and cloud reso
 
     To create the secret:
 
-    - Click <a href="#" id="dynamicSecretLink" target="_blank">this link</a>
+    - Click <a href="#" id="dynamicSecretLink" target="_blank">**this link**</a>
     - Select **+ ADD SECRET**
     - Set the **Secret Key**
     - Set the **Secret Value**
     - Select **ADD AND SAVE**
     
 {% endif %}
+
+## 5. Browse your New Map
+With your content uploaded, and secrets uploaded, yout map should now be ready for interaction: 
+
+- Click <a href="#" id="dynamicMapLink" target="_blank">**this link**</a>
 
 <script>
 function updateLink() {
@@ -179,6 +184,8 @@ function updateLink() {
         uploadInfolink.href = "{{ app_url }}/workspace/" +workspaceName + "/configuration/workspace#" 
         let secretlink = document.getElementById('dynamicSecretLink');
         secretlink.href = "{{ app_url }}/workspace/" +workspaceName + "/configuration/secrets#" 
+        let maplink = document.getElementById('dynamicMapLink');
+        maplink.href = "{{ app_url }}/map/" +workspaceName
     }
 }
 function uploadFile() {

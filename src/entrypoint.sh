@@ -37,8 +37,8 @@ if [ -L "cheat-sheet-docs/docs/output" ]; then
 fi
 
 # Link the shared output dir so that mkdocs and surface config files
-ln -s /shared/output cheat-sheet-docs/docs/output
-mkdocs serve -f cheat-sheet-docs/mkdocs.yml &
+ln -s /shared/output cheat-sheet-docs/output
+mkdocs serve -v -f cheat-sheet-docs/mkdocs.yml &
 
 if [[ "${RW_LOCAL_TERMINAL_DISABLED,,}" == "true" ]]; 
 then

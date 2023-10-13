@@ -60,7 +60,10 @@ extra_css:
 # extra_javascript:
 #   - javascript/server.js
 docs_dir: docs
-
+exclude_docs: |
+  /output/*
+  output/
+  *.yaml
 plugins:
   - search
   - tags

@@ -123,10 +123,10 @@ function showCopiedMessage() {
 
 <script>
 document.getElementById('configLink').addEventListener('click', function() {
-    showConfig('/output{{ runbook }}');
+    showConfig('{{ runbook }}');
 });
 
-function showConfig(path) {
+function showConfig(runbook) {
     const serverPath = window.location.origin; // Get the current server path dynamically
     const popupContainer = document.createElement("div"); // Container for the popup
     const popup = document.createElement("div");
@@ -139,8 +139,21 @@ function showConfig(path) {
     popupContainer.appendChild(popup); // Append the popup to the container
     document.body.appendChild(popupContainer); // Append the container to the document body
 
-    fetch(serverPath + '/' + encodeURIComponent(path))
-        .then(response => response.text())
+    fetch('/get-runbook-config', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            runbook: runbook,
+        }) 
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.text();
+        })
         .then(data => {
             popup.removeChild(loadingMessage);
 
@@ -155,10 +168,10 @@ function showConfig(path) {
             const title = document.createElement("p");
             title.innerText = "Private configuration for: " + '{{ slx_hints["nice_name"] }}';
             const configPath = document.createElement("p");
-            configPath.innerText = "Local filesystem path: " + path;
+            configPath.innerText = "Local filesystem path: /shared/output/" + runbook;
 
             const image = document.createElement("img");
-            image.src = "https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/lock.svg"; // Replace with the actual image path
+            image.src = "https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/lock.svg";
             image.alt = "Icon";
 
             const codeBlock = document.createElement("pre");

@@ -95,6 +95,8 @@ type: kubernetes.io/service-account-token" | kubectl apply -f - --context="$cont
     
     kubectl config --kubeconfig=$OUTPUT_KUBECONFIG set-context "$context" --cluster="$context" --user="$SERVICE_ACCOUNT-$context" --namespace="$NAMESPACE"
 
+    kubectl config --kubeconfig=$OUTPUT_KUBECONFIG use-context "$context"
+
     # Remove the temporary certificate file
     rm $TEMP_CERT_FILE
 

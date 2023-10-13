@@ -424,7 +424,8 @@ def main():
             request_data['codeCollections'] = code_collections
 
         # Update cheat sheet status by copying index
-        shutil.copyfile("cheat-sheet-docs/templates/index-status-discovery.md", "cheat-sheet-docs/docs/index.md")
+        if cheat_sheet_enabled:
+            shutil.copyfile("cheat-sheet-docs/templates/index-status-discovery.md", "cheat-sheet-docs/docs/index.md")
         print("Discovering resources...")
         # Invoke the workspace builder /run REST endpoint
         run_url = f"http://{rest_service_host}:{rest_service_port}/run/"
