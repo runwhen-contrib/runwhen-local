@@ -762,6 +762,7 @@ def cheat_sheet(directory_path):
             print(f"An error occurred while removing the files: {e}")
     if not os.path.exists(f'cheat-sheet-docs/docs-tmp/'):
         os.makedirs(f'cheat-sheet-docs/docs-tmp/')
+        os.makedirs(f'cheat-sheet-docs/docs-tmp/ungrouped')
     ## Check if groups are defined in the workspace file
     ## If so, rebuild the directory path to set up for groupings
     if "spec" in workspace_details and "slxGroups" in workspace_details["spec"]:
@@ -811,8 +812,13 @@ def cheat_sheet(directory_path):
             author_details=author_details,
             commit_age=commit_age
         )
-
-        command_assist_md_output = f'cheat-sheet-docs/docs-tmp/{group_path}/{slx_hints["slug"]}.md'
+        content_dir=f'cheat-sheet-docs/docs-tmp/{group_path}/'
+        command_assist_md_output = f'{content_dir}{slx_hints["slug"]}.md'
+        if not os.path.exists(content_dir):
+            try:
+                os.makedirs(content_dir)  # Create the full directory path
+            except OSError as e:
+                print(f"Error creating directory: {e}")
         with open(command_assist_md_output, 'w') as md_file:
             md_file.write(output)
         md_file.close()

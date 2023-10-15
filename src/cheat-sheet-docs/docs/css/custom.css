@@ -784,3 +784,17 @@ input[type="text"]:focus {
   border-color: var(--md-primary-color);  /* Change border color to primary color on focus */
   outline: none;  /* Remove the default focus outline */
 }
+
+/* Light Theme */
+[data-md-color-scheme="light"] .theme-input {
+  background-color: #fff; /* Set the background color for the light theme */
+  color: #3f3f3f; /* Set the text color for the light theme */
+  border: 1px solid #ccc;
+}
+
+/* Dark Theme */
+[data-md-color-scheme="slate"] .theme-input {
+  background-color: #282d33; /* Set the background color for the dark theme */
+  color: #ccc; /* Set the text color for the dark theme */
+  border: 1px solid #ccc;
+}

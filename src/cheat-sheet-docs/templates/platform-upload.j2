@@ -13,7 +13,7 @@ Workspace Builder generated a total of: **{{ slx_count }} SLXs**
 - <a href="{{ app_url }}/" target="_blank">Login to RunWhen Platform Beta Instance</a>
 - <a href="{{ app_url }}/?addWorkspace=true" target="_blank">Create a workspace</a>
 - Put that cool workspace name that you created in this box: <br>
-<input type="text" id="workspaceName"><a href="javascript:void(0)" onclick="updateLink()"><br>Submit</a>
+<input type="text" class="theme-input" id="workspaceName"><a href="javascript:void(0)" onclick="updateLink()"><br>Submit</a>
 
 ## 2. Preparing for Upload
 
@@ -127,8 +127,8 @@ In order for the RunWhen Platform to connect with your cluster(s) and cloud reso
         ??? note "Option 1 - One-click Service Account & Kubeconfig Generation"
             This step will create a service account with **Cluster Scoped View** access in the provided namespace for **all contexts**: 
 
-            - Namespace: <input type="text" id="saNamespaceName" value="runwhen-local">
-            - Service Account Name:  <input type="text" id="saServiceAccountName" value="runwhen-local-sa">
+            - Namespace: <input type="text" class="theme-input" id="saNamespaceName" value="runwhen-local">
+            - Service Account Name:  <input type="text" class="theme-input" id="saServiceAccountName" value="runwhen-local-sa">
             - <button id="generateClusterViewSA" class="md-button">Generate Kubeconfig with ClusterView Permissions</button>
             - Copy the contents of the new kubeconfig and paste them into the **Secret Value** with **one** of the following options: 
                 - From the built-in terminal: `cat /shared/generated-kubeconfig.yaml`
@@ -165,7 +165,7 @@ In order for the RunWhen Platform to connect with your cluster(s) and cloud reso
 
         This step will create an updated kubeconfig based on the in-cluster auth, along with the server endpoint: 
 
-        - Server Address: <input type="text" id="serverAddress" placeholder="https://your.kubernetes.api.endpoint">
+        - Server Address: <input type="text" id="serverAddress" class="theme-input" placeholder="https://your.kubernetes.api.endpoint">
         - <button id="generateKubeconfig" class="md-button">Generate Kubeconfig</button>
         - Copy the contents of the new kubeconfig and paste them into the **Secret Value** with **one** of the following options: 
             - From the built-in terminal: `cat /shared/generated-kubeconfig.yaml`
