@@ -12,7 +12,7 @@ The following steps allow you to safely run RunWhen from your own laptop, with t
 {% endhint %}
 
 {% hint style="info" %}
-If you have any issues with this process, have a look at [**Generating Service Accounts and Kubeconfigs**](https://docs.runwhen.com/public/runwhen-platform/guides/kubernetes-environments/generating-service-accounts-and-kubeconfigs),  or feel free to reach out on [Slack](https://runwhen.slack.com/join/shared\_invite/zt-1l7t3tdzl-IzB8gXDsWtHkT8C5nufm2A), [GitHub](https://github.com/runwhen-contrib/runwhen-local) or [Discord](https://discord.com/invite/Ut7Ws4rm8Q)
+If you have any issues with this process, have a look at [**Generating Service Accounts and Kubeconfigs**](https://docs.runwhen.com/public/runwhen-platform/guides/kubernetes-environments/generating-service-accounts-and-kubeconfigs), or feel free to reach out on [Slack](https://runwhen.slack.com/join/shared\_invite/zt-1l7t3tdzl-IzB8gXDsWtHkT8C5nufm2A), [GitHub](https://github.com/runwhen-contrib/runwhen-local) or [Discord](https://discord.com/invite/Ut7Ws4rm8Q)
 {% endhint %}
 
 ### Pull the RunWhen Local Container Image
@@ -85,9 +85,7 @@ workspaceName: my-workspace
 # and auto-generated when using the RunWhen Platform
 # leave it as [placeholder] if only using RunWhen Local
 # See https://docs.runwhen.com/public/v/runwhen-local/user-guide/user_guide-advanced_configuration
-token: placeholder
 workspaceOwnerEmail: tester@my-company.com
-papiURL: placeholder
 defaultLocation: placeholder
 defaultLOD: 2
 namespaceLODs:
