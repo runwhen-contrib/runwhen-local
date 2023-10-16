@@ -200,7 +200,7 @@ If temporary tokens are generated through this process (such as with GKE or OKE)
 {% endtab %}
 
 {% tab title="Advanced: Service Account kubeconfig" %}
-If you already have a service account in your cluster, or wish to use a service account with a standard kubeconfig, see [generating-service-accounts-and-kubeconfigs.md](../runwhen-platform/guides/kubernetes-environments/generating-service-accounts-and-kubeconfigs.md "mention") - and come back here when you're done!
+If you already have a service account in your cluster, or wish to use a service account with a standard kubeconfig, see [Generating Service Accounts and Kubeconfigs](https://docs.runwhen.com/public/runwhen-platform/guides/kubernetes-environments/generating-service-accounts-and-kubeconfigs) and come back here when you're done!
 
 Based on how you created the kubeconfig in the above step, you will want to copy it to `~/runwhen-local/shared/kubeconfig`
 
