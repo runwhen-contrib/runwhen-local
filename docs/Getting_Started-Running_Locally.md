@@ -172,7 +172,7 @@ These step uses [**yq**](https://github.com/mikefarah/yq) and [**jq**](https://j
 {% endhint %}
 
 {% hint style="warning" %}
-This script _will not modify your existing kubeconfig._ It will copy the contents (defaulted from \~/.kube/config) into a file that is usable by RunWhen Local. It is still on your local machine and safe to use.
+This script _will not modify your existing kubeconfig._ It will copy the contents (defaulted from \~/.kube/config, but also supports KUBECONFIG) into a file that is usable by RunWhen Local. It is still on your local machine and safe to use.
 {% endhint %}
 
 * Fetch the _gen\_rw\_kubeconfig.sh_ from [GitHub](../deploy/scripts/gen\_rw\_kubeconfig.sh)
@@ -193,7 +193,7 @@ chmod +x gen_rw_kubeconfig.sh
 ```
 
 {% hint style="info" %}
-If temporary tokens are generated through this process (such as with GKE or OKE), rerun the script as needed once the tokens expire
+If temporary tokens are generated through this process (such as with GKE, OKE, or azure cli), rerun the script as needed once the tokens expire
 {% endhint %}
 {% endtab %}
 
