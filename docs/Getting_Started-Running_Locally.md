@@ -284,3 +284,9 @@ podman kill RunWhenLocal; podman rm RunWhenLocal
 ```
 {% endtab %}
 {% endtabs %}
+
+
+
+### Next Steps
+
+If you're using RunWhen Local as way of building your [**RunWhen Platform**](https://docs.runwhen.com/public/runwhen-platform/getting-started-with-runwhen-platform) workspace, jump to [upload-to-runwhen-platform.md](user-guide/user\_guide-feature\_overview/upload-to-runwhen-platform.md "mention")to complete this process.&#x20;
