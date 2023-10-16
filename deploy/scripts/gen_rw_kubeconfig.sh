@@ -82,6 +82,3 @@ echo "$kubeconfig_json" | yq eval -P - > "$workdir/shared/kubeconfig"
 
 # Set permissions for container to read the file
 chmod 655 "$workdir/shared/kubeconfig" 
-
-# Output the modified kubeconfig
-cat "$workdir/shared/kubeconfig"

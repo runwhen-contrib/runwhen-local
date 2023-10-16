@@ -85,60 +85,22 @@
           <div class="md-header__button md-icon">
           <a href="javascript:void(0)" id="runDiscoveryButton" title="Run Discovery"><img src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/restart.svg" alt="Run Discovery"></a> </div>
           <script>
-          document.getElementById('runDiscoveryButton').addEventListener('click', function() {
-            event.preventDefault();
-            // Call the /run-discovery endpoint using the fetch API
-            fetch('/run-discovery')
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
-                    }
-                    return response.text();
-                })
-                .then(data => {
-                    // Call the showCommandOutput function to display the data in the styled popup
-                    showCommandOutput(data);
-                })
-                .catch(error => {
-                    console.error('There was a problem with the discovery operation:', error.message);
-                });
+            document.getElementById('runDiscoveryButton').addEventListener('click', function(event) {
+                event.preventDefault();
+            
+                // Call the /run-discovery endpoint using the fetch API
+                fetch('/run-discovery')
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.text();
+                    })
+                    .catch(error => {
+                        console.error('There was a problem with the discovery operation:', error.message);
+                    });
             });
-            function showCommandOutput(data) {
-              const popupContainer = document.createElement("div"); 
-              const popup = document.createElement("div");
-              popup.classList.add("popup");
-
-              const closeButton = document.createElement("span");
-              closeButton.classList.add("close");
-              closeButton.innerHTML = "&times;";
-              closeButton.style.fontSize = "24px"; 
-              closeButton.style.position = "absolute";
-              closeButton.style.top = "10px";
-              closeButton.style.right = "10px";
-
-              const title = document.createElement("p");
-              title.innerText = "Command Output";
-
-              const codeBlock = document.createElement("pre");
-              codeBlock.classList.add("code-block");
-              codeBlock.innerText = data;
-
-              popup.appendChild(closeButton);
-              popup.appendChild(title);
-              popup.appendChild(codeBlock);
-              popupContainer.appendChild(popup);
-              document.body.appendChild(popupContainer);
-
-              // Event delegation for close button click
-              popupContainer.addEventListener("click", (event) => {
-                  const target = event.target;
-                  if (target.classList.contains("close")) {
-                      event.stopPropagation();
-                      document.body.removeChild(popupContainer);
-                  }
-              });
-          }
-          </script>
+            </script>
           <div class="md-header__button md-icon">
           <a href="/platform-upload/" title="Upload to RunWhen Platform"><img src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/cloud_upload.svg" alt="Upload Icon"></a> </div>
           {% if config.build.terminal_disabled is false %}

@@ -1,3 +1,7 @@
+---
+search:
+  exclude: true
+---
 # RunWhen Platform Upload
 The Workspace Builder component of RunWhen Local generates all necessary configuration files to bootstrap a workspace within the RunWhen Platform, providing: 
 
@@ -13,11 +17,12 @@ Workspace Builder generated a total of: **{{ slx_count }} SLXs**
 - <a href="{{ app_url }}/" target="_blank">Login to RunWhen Platform Beta Instance</a>
 - <a href="{{ app_url }}/?addWorkspace=true" target="_blank">Create a workspace</a>
 - Put that cool workspace name that you created in this box: <br>
-<input type="text" class="theme-input" id="workspaceName"><a href="javascript:void(0)" onclick="updateLink()"><br>Submit</a>
+<input type="text" class="theme-input" id="workspaceName">   <div id="attention" style="display: inline;"><img src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/priority_high.svg" alt="Info Icon" style="filter: invert(28%) sepia(25%) saturate(2976%) hue-rotate(329deg) brightness(101%) contrast(74%);"></div><a href="javascript:void(0)" onclick="updateLink()"><div id="checkmark" style="display: none;"><img src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/check_circle.svg" alt="Info Icon" style="filter: invert(44%) sepia(12%) saturate(2789%) hue-rotate(71deg) brightness(93%) contrast(96%);"></div><a href="javascript:void(0)" onclick="updateLink()"><br>Submit</a>
+
 
 ## 2. Preparing for Upload
 
-- <a href="#" id="dynamicUploadInfoLink" target="_blank">Download workspace tethering configuration file</a>
+- <a href="#" id="dynamicUploadInfoLink" target="_blank">Download workspace tethering configuration file</a><span class="info-icon"><img src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/info.svg"><span class="tooltip">Was your workspace name added in step 1?</span></span>
 - Add this file to the RunWhen Local container with **one of the following options**: 
 
     ??? "Option 1 - Direct Upload (Recommended for first time users)"
@@ -43,7 +48,7 @@ Workspace Builder generated a total of: **{{ slx_count }} SLXs**
             cp /path/to/uploadInfo.yaml $workdir/shared/uploadInfo.yaml 
 
     ??? "Option 4 - Update Helm (Running in Kubernetes)"
-        If using Helm, add the `uploadInfo.yaml` details as part of your values.yaml specification. The following example demonstrates a Helm configuration for use with FluxCD: 
+        If using Helm, add the `uploadInfo.yaml` details as part of your values.yaml specification. The following **example** demonstrates a Helm configuration for use with FluxCD: 
 
             apiVersion: helm.toolkit.fluxcd.io/v2beta1
             kind: HelmRelease
@@ -180,7 +185,7 @@ In order for the RunWhen Platform to connect with your cluster(s) and cloud reso
 
     To create the secret:
 
-    - Click <a href="#" id="dynamicSecretLink" target="_blank">**this link**</a>
+    - Click <a href="#" id="dynamicSecretLink" target="_blank">**this link** </a><span class="info-icon"><img src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/info.svg"><span class="tooltip">Was your workspace name added in step 1?</span></span>
     - Select **+ ADD SECRET**
     - Set the **Secret Key**
     - Set the **Secret Value**
@@ -191,9 +196,10 @@ In order for the RunWhen Platform to connect with your cluster(s) and cloud reso
 ## 5. Browse your New Workspace Map
 With your content uploaded, and secrets uploaded, your map should now be ready for interaction: 
 
-- 🎉 Click <a href="#" id="dynamicMapLink" target="_blank">**this link** </a>to see your new workspace map
+- 🎉 Click <a href="#" id="dynamicMapLink" target="_blank">**this link** </a><span class="info-icon"><img src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/info.svg"><span class="tooltip">Was your workspace name added in step 1?</span></span> to see your new workspace map
 
 <script>
+
 function updateLink() {
     let workspaceName = document.getElementById('workspaceName').value;
     if (workspaceName) {
@@ -203,6 +209,11 @@ function updateLink() {
         secretlink.href = "{{ app_url }}/workspace/" +workspaceName + "/configuration/secrets#" 
         let maplink = document.getElementById('dynamicMapLink');
         maplink.href = "{{ app_url }}/map/" +workspaceName
+        // update checkmark
+        const checkmark = document.getElementById("checkmark");
+        const attention = document.getElementById("attention");
+        checkmark.style.display = "inline";
+        attention.style.display = "none";
     }
 }
 function uploadFile() {
@@ -415,6 +426,7 @@ function showLoadingMessage() {
     white-space: pre-wrap;
     word-wrap: break-word;
   }
+
 .popup .code-block {
     background-color: #333;
     color: #f8f8f8;
