@@ -126,9 +126,7 @@ cat <<EOF > ~/runwhen-local/shared/workspaceInfo.yaml
 workspaceName: my-workspace
 # Tokens are generated from the RunWhen Platform UI if 
 # planning on uploading workspace configuration
-token: [placeholder]
 workspaceOwnerEmail: tester@my-company.com
-papiURL: [placeholder]
 defaultLocation: [placeholder]
 defaultLOD: 2
 namespaceLODs:
@@ -140,18 +138,18 @@ custom:
   kubernetes_distribution_binary: oc
   
   # Possible values are gcp, aws
-  cloud_provider: gcp
+  # cloud_provider: gcp
   
   # Possible values are gmp, promql
   prometheus_provider: gmp
   # If using GCP and wanting to use GCP integrations  
-  gcp_project_id: [gcp-project-id] 
+  # gcp_project_id: [gcp-project-id] 
   
   # Secret names are used when integrating the RunWhen Platform
   # with your enviornment. RunWhen has no access to this data, 
   # as the secret name and content comes from your own configuration. 
   kubeconfig_secret_name: kubeconfig
-  gcp_ops_suite_sa: ops-suite-sa
+  # gcp_ops_suite_sa: ops-suite-sa
 EOF
 ```
 {% endtab %}
