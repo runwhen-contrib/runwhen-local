@@ -76,7 +76,7 @@ All keys with the value **placeholder** are required, but the value can be left 
 mkdir -p $workdir/shared/output
 
 # Set the output directory to 777 so that the runwhen container user can write 
-# out the configuraiton files: 
+# out the configuration files: 
 chmod -R 777 $workdir/shared
 
 cat <<EOF > $workdir/shared/workspaceInfo.yaml
