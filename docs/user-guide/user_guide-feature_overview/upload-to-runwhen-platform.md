@@ -39,7 +39,7 @@ docker exec -w /workspace-builder -e WB_DEBUG_SUPPRESS_CHEAT_SHEET="true" -- Run
 To speed up this step, we also skip the cheat sheet rendering in this step by passing `-e WB_DEBUG_SUPPRESS_CHEAT_SHEET="true"` in the docker exec command
 {% endhint %}
 
-#### 1Additional Upload Options for Merge Conflicts
+#### Additional Upload Options for Merge Conflicts
 
 Additional upload options are available to handle certain cases where the same SLX already exists on the platform and RunWhen Local has generated new configuration under the same name:&#x20;
 
