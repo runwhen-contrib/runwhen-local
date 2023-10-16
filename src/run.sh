@@ -27,7 +27,7 @@ fi
 # Check if the lock file exists and exit if it's locked
 if [ -e "$LOCK_FILE" ]; then
     echo "Lock file exists at $LOCK_FILE. Another process may be running." >&2
-    echo "Lock file exists at $LOCK_FILE. Another process may be running." > /shared/output/.status
+    echo "Lock file exists at $LOCK_FILE. Another process may be running." >> /shared/output/.status
     exit 1
 fi
 
