@@ -4,6 +4,8 @@ const WebSocket = require('ws');
 const multer = require('multer');
 const { exec } = require('child_process');
 
+
+
 const app = express();
 const port = 3000;
 
@@ -33,16 +35,45 @@ const server = app.listen(port, () => {
     console.log(`Server listening on http://localhost:${port}`);
 });
 
+// app.get('/run-discovery', (req, res) => {
+//     if (fs.existsSync(lockFilePath)) {
+//         console.log('Lock file exists.');
+//         res.status(409).send(`Existing discovery in progress. Please wait until this process has finished.`);
+//     } else {
+//         console.log('Creating lock file...');
+//         fs.writeFileSync(lockFilePath, 'locked');
+
+//         exec('WB_DEBUG_SUPPRESS_CHEAT_SHEET="false" ./run.sh', (error, stdout, stderr) => {
+//             if (error) {
+//                 console.error(`exec error: ${error}`);
+//                 fs.unlinkSync(lockFilePath); // Remove the lock file on error.
+//                 return res.status(500).send(`Error executing command: ${error}\nStderr: ${stderr}`);
+//             }
+
+//             // Remove the lock file after successful execution.
+//             fs.unlinkSync(lockFilePath);
+//             console.log('Lock file removed.');
+//             res.send(`Discovery Output:\n${stdout}`);
+//         });
+//     }
+// });
 app.get('/run-discovery', (req, res) => {
-    // run discovery without upload
-    exec('WB_DEBUG_SUPPRESS_CHEAT_SHEET="false" ./run.sh', (error, stdout, stderr) => {
+    // Execute the shell script with proper environment variables
+    const childProcess = exec('WB_DEBUG_SUPPRESS_CHEAT_SHEET="false" ./run.sh', (error, stdout, stderr) => {
         if (error) {
-            console.error(`exec error: ${error}`);
-            return res.status(500).send(`Error executing command: ${error}\nStderr: ${stderr}`);
+            // If there is an error, send a 500 Internal Server Error response
+            res.status(500).send(`Errors:\n${stderr}`);
+        } else {
+            // If there is no error, send a 200 OK response with stdout
+            res.status(200).send(`Status:\n${stdout}\n\nErrors:\n${stderr}`);
         }
-        res.send(`Discovery Output:\n${stdout}`);
     });
+
+    // Capture and send the output and errors as they come in
+    childProcess.stdout.pipe(process.stdout);
+    childProcess.stderr.pipe(process.stderr);
 });
+
 
 app.get('/run-upload-to-runwhenplatform-keep-existing', (req, res) => {
     // run discovery with upload
@@ -122,6 +153,19 @@ app.post('/get-runbook-config', (req, res) => {
         res.send(`${stdout}`);
     });
 });
+
+app.post('/status', (req, res) => {
+    exec(`cat /shared/output/.status`, (error, stdout, stderr) => {
+        let responseText = stdout || '';
+
+        if (stderr) {
+            responseText += '\n' + stderr;
+        }
+
+        res.send(responseText);
+    });
+});
+
 
 // Setup xterm WebSocket server
 const isTerminalDisabledEnv = process.env.RW_LOCAL_TERMINAL_DISABLED;

@@ -123,6 +123,16 @@ def create_kubeconfig():
 
     return kubeconfig
 
+def status_update(update, append_mode=True):
+    status_fpath = "/shared/output/.status"
+    status_update = f"{update}\n"  # Add a newline character to separate updates
+    print(status_update)
+    
+    file_mode = 'a' if append_mode else 'w'
+
+    with open(status_fpath, file_mode) as status_file:
+        status_file.write(status_update)
+
 def main():
     parser = ArgumentParser(description="Run onboarding script to generate initial workspace and SLX info")
     parser.add_argument('command', action='store', choices=[INFO_COMMAND, RUN_COMMAND, UPLOAD_COMMAND],
@@ -436,9 +446,9 @@ def main():
             request_data['codeCollections'] = code_collections
 
         # Update cheat sheet status by copying index
-        if cheat_sheet_enabled:
-            shutil.copyfile("cheat-sheet-docs/templates/index-status-discovery.md", "cheat-sheet-docs/docs/index.md")
-        print("Discovering resources...")
+        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+        status_update(f"Discovery started at: {timestamp} ", append_mode=False)
+        status_update("Discovering resources...")
         # Invoke the workspace builder /run REST endpoint
         run_url = f"http://{rest_service_host}:{rest_service_port}/run/"
         response = call_rest_service_with_retries(lambda: requests.post(run_url, json=request_data))
@@ -478,10 +488,9 @@ def main():
         # run.sh script handle calling it after invoking this tool.
         if cheat_sheet_enabled:
             # Update cheat sheet status by copying index
-            shutil.copyfile("cheat-sheet-docs/templates/index-status-rendering.md", "cheat-sheet-docs/docs/index.md")
-            print("Starting cheat sheet rendering...")
+            status_update("Starting cheat sheet rendering...")
             cheatsheet.cheat_sheet(output_path)
-            print("Cheat sheet rending completed.")
+            status_update("Cheat sheet rending completed.")
 
         # Note: Handling of the upload flag is done below, so that the code can be shared
         # with the upload command
