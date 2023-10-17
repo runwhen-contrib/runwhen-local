@@ -117,12 +117,12 @@ chmod 655 $workdir/shared/workspaceInfo.yaml
 
 {% tab title="OpenShift" %}
 ```
-mkdir -p ~/runwhen-local/shared/output
+mkdir -p $workdir/shared/output
 
 # The ouput directory needs to be written to from the container image: 
-chmod 777 ~/runwhen-local/shared/output
+chmod 777 $workdir/shared/output
 
-cat <<EOF > ~/runwhen-local/shared/workspaceInfo.yaml
+cat <<EOF > $workdir/shared/workspaceInfo.yaml
 workspaceName: my-workspace
 # Tokens are generated from the RunWhen Platform UI if 
 # planning on uploading workspace configuration
