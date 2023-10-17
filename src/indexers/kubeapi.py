@@ -291,9 +291,9 @@ def index(component_context: Context):
                 ingresses = dict()
                 ingresses_connected_services = dict()
                 networking_api_client = client.NetworkingV1Api(api_client=api_client)
-                logger.debug(f"kube API scan: {len(ret.items)} ingresses")
                 try:
                     ret = networking_api_client.list_namespaced_ingress(namespace_name)
+                    logger.debug(f"kube API scan: {len(ret.items)} ingresses")
                     for raw_resource in ret.items:
                         ingress_name = raw_resource.metadata.name
                         r = kubeapi_parsers.parse_ingress(raw_resource)
