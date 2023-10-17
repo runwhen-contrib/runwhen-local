@@ -23,7 +23,7 @@ As we also host this in Kubernetes for the purposes of an online demo, this docu
 {% tabs %}
 {% tab title="Helm Installation" %}
 {% hint style="info" %}
-RunWhen Local requires access to a kubeconfigto perform resource discovery across Kubernetes clusters. When installing with Helm, RunWhen Local _can automatically discover it's local cluster by default_. To discover additional clusters, a separate kubeconfig secret is required. Please see [helm-configuration.md](user-guide/user\_guide-advanced\_configuration/helm-configuration.md "mention")for additional information. \
+RunWhen Local requires access to a kubeconfig in order to perform resource discovery across Kubernetes clusters. When installing with Helm, RunWhen Local _can automatically discover it's local cluster by default_. To discover additional clusters, a separate kubeconfig secret is required. Please see [helm-configuration.md](user-guide/user\_guide-advanced\_configuration/helm-configuration.md "mention")for additional information. \
 \
 For additional resources on creating a long-lived service account and Kubeconfig, please see [**Generating Service Accounts and Kubeconfigs**](https://docs.runwhen.com/public/runwhen-platform/guides/kubernetes-environments/generating-service-accounts-and-kubeconfigs).
 {% endhint %}
