@@ -1,8 +1,8 @@
 # Build the RunWhen Local image
 name: Build and Tag Image
 on:
+  workflow_dispatch:
   push:
-    workflow_dispatch:
     branches:
       - main
     paths:
