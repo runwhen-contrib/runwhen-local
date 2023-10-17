@@ -82,8 +82,34 @@
           <!-- Place this tag where you want the button to render. -->
           <a class="github-button" href="https://github.com/runwhen-contrib/runwhen-local" data-icon="octicon-star" data-size="large" data-show-count="true" aria-label="Star runwhen-contrib/runwhen-local on GitHub">Star</a>
           </div>
+          <div class="md-header__button md-icon">
+          <a href="javascript:void(0)" id="runDiscoveryButton" title="Run Discovery"><img src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/restart.svg" alt="Run Discovery"></a> </div>
+          <script>
+            document.getElementById('runDiscoveryButton').addEventListener('click', function(event) {
+                event.preventDefault();
+                window.location.href = '/discovery-status';
+                fetch('/run-discovery')
+                    .then(response => {
+                        if (!response.ok) {
+                            return response.text().then(errorText => {
+                                throw new Error('Error occurred while running discovery');
+                            });
+                        }
+                        return response.text();
+                    })
+                    .then(data => {
+                    })
+                    .catch(error => {
+                        console.error('There was a problem with the discovery operation:', error.message);
+                    });
+            });
+          </script>
+          
+          <div class="md-header__button md-icon">
+          <a href="/platform-upload/" title="Upload to RunWhen Platform"><img src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/cloud_upload.svg" alt="Upload Icon"></a> </div>
           {% if config.build.terminal_disabled is false %}
-          <button id="toggleTerminal"><img src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/terminal.svg"></button>
+          <div class="md-header__button md-icon">
+            <a href="javascript:void(0)" id="toggleTerminal" title="Open Terminal"><img src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/terminal.svg" alt="Open Terminal"></a> </div>
           <div id="terminalDivider" class="divider-bar"></div>
           <div id="terminalContainer">
             <div id="terminalControls">
@@ -164,20 +190,6 @@
 
                     terminal.refresh(0, terminal.rows - 1);
                 };
-
-                // const attachAddon = new AttachAddon.AttachAddon(socket);
-                // terminal.loadAddon(attachAddon);
-
-                // const fitAddon = new FitAddon.FitAddon();
-                // terminal.loadAddon(fitAddon);
-                // window.terminalFitAddon = fitAddon;
-
-                // // Ensure the terminal fits its container
-                // window.terminalFitAddon.fit();
-
-                // resizeTerminal('30%');
-
-                // terminal.refresh(0, terminal.rows - 1);
             }
 
             window.addEventListener('resize', function() {
@@ -221,3 +233,22 @@
       {% endif %}
     {% endif %}
   </header>
+  <style>
+    .multiline {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+  
+  .popup .code-block {
+      background-color: #333;
+      color: #f8f8f8;
+      padding: 10px;
+      font-family: Consolas, Monaco, 'Andale Mono', monospace;
+      font-size: 14px;
+      line-height: 1.4;
+      overflow: auto;
+  }
+  
+  
+  </style>
+  

@@ -1,10 +1,16 @@
 :root {
   --md-primary-color: #2f80ed;
   --md-accent-color: #faa629;
+  --tooltip-background: #333;
+  --tooltip-text-color: #ccc;
+  --icon-filter: brightness(0) saturate(100%) invert(39%) sepia(84%) saturate(907%) hue-rotate(188deg) brightness(95%) contrast(96%);
 }
 
 [data-md-color-scheme="slate"] {
   --md-hue: 230;
+  --tooltip-background: #ccc;
+  --tooltip-text-color: #333;
+  --icon-filter: invert(97%) sepia(0%) saturate(0%) hue-rotate(187deg) brightness(86%) contrast(90%);
 }
 
 a {
@@ -49,6 +55,10 @@ table {
 .md-button {
   background-color: var(--md-primary-color);
   color: #fff !important;
+}
+
+.md-header__button img {
+  filter: brightness(0) saturate(100%) invert(1);
 }
 
 .md-button:hover {
@@ -779,4 +789,68 @@ input[type="text"] {
 input[type="text"]:focus {
   border-color: var(--md-primary-color);  /* Change border color to primary color on focus */
   outline: none;  /* Remove the default focus outline */
+}
+
+/* Light Theme */
+[data-md-color-scheme="light"] .theme-input {
+  background-color: #fff; /* Set the background color for the light theme */
+  color: #3f3f3f; /* Set the text color for the light theme */
+  border: 1px solid #ccc;
+}
+
+/* Dark Theme */
+[data-md-color-scheme="slate"] .theme-input {
+  background-color: #282d33; /* Set the background color for the dark theme */
+  color: #ccc; /* Set the text color for the dark theme */
+  border: 1px solid #ccc;
+}
+
+.info-icon {
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+  /* background-image: url('https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/info.svg'); 
+  background-size: 18px;  */
+  width: 18px; 
+  height: 18px;
+
+}
+
+.info-icon img {
+  filter: var(--icon-filter); 
+}
+
+/* Style the tooltip (hidden by default) */
+.info-icon .tooltip {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 200px; 
+  background-color: var(--tooltip-background) !important;
+  color: var(--tooltip-text-color) !important;
+  border-radius: 4px;
+  padding: 8px;
+  font-size: 14px;
+  z-index: 1;
+  /* Add a box-shadow for better visibility */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Style the tooltip arrow */
+.info-icon .tooltip::after {
+  content: "";
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 0 8px 8px 8px;
+  border-style: solid;
+  /* Use CSS variables for arrow color */
+  border-color: transparent transparent var(--tooltip-background) transparent;
+}
+
+/* Show the tooltip on hover */
+.info-icon:hover .tooltip {
+  display: block;
 }

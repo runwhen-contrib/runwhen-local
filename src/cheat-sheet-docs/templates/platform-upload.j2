@@ -1,0 +1,442 @@
+---
+search:
+  exclude: true
+---
+# RunWhen Platform Upload
+The Workspace Builder component of RunWhen Local generates all necessary configuration files to bootstrap a workspace within the RunWhen Platform, providing: 
+
+- Collaborative maps
+- Collaborative & automated troubleshooting
+- Troubleshooting Digital Assistants
+- Automated workflows
+
+Workspace Builder generated a total of: **{{ slx_count }} SLXs**
+
+## 1. Setting Up a Workspace
+
+- <a href="{{ app_url }}/" target="_blank">Login to RunWhen Platform Beta Instance</a>
+- <a href="{{ app_url }}/?addWorkspace=true" target="_blank">Create a workspace</a>
+- Put that cool workspace name that you created in this box: <br>
+<input type="text" class="theme-input" id="workspaceName">   <div id="attention" style="display: inline;"><img src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/priority_high.svg" alt="Info Icon" style="filter: invert(28%) sepia(25%) saturate(2976%) hue-rotate(329deg) brightness(101%) contrast(74%);"></div><a href="javascript:void(0)" onclick="updateLink()"><div id="checkmark" style="display: none;"><img src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/check_circle.svg" alt="Info Icon" style="filter: invert(44%) sepia(12%) saturate(2789%) hue-rotate(71deg) brightness(93%) contrast(96%);"></div><a href="javascript:void(0)" onclick="updateLink()"><br>Submit</a>
+
+
+## 2. Preparing for Upload
+
+- <a href="#" id="dynamicUploadInfoLink" target="_blank">Download workspace tethering configuration file</a><span class="info-icon"><img src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/info.svg"><span class="tooltip">Was your workspace name added in step 1?</span></span>
+- Add this file to the RunWhen Local container with **one of the following options**: 
+
+    ??? "Option 1 - Direct Upload (Recommended for first time users)"
+        Upload the `uploadInfo.yaml` for one-time use. This file may be removed when the container restarts.  
+        <input type="file" id="fileUploadInfo">
+        <div class="card">
+            <img class="card-icon" src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/cloud_upload.svg" alt="Icon" />
+            <h6 class="card-title">
+            <a href="javascript:void(0)" onclick="uploadFile()">Upload to Container</a>
+        </div>
+
+    ??? "Option 2 - Use the Built-In Terminal"
+        If the in-browser terminal is available: 
+
+        - copy the contents of `uploadInfo.yaml` into your clipboard
+        - open the terminal (top right corner)
+        - using `cat` or `vi`, paste the contents into `/shared/uploadInfo.yaml`
+        <img src="../assets/uploadInfo.gif" />
+
+    ??? "Option 3 - Use Your Terminal (Running Locally)"
+        From your own terminal, cp the `uploadInfo.yaml` file into `$workdir/shared/uploadInfo.yaml`:
+
+            cp /path/to/uploadInfo.yaml $workdir/shared/uploadInfo.yaml 
+
+    ??? "Option 4 - Update Helm (Running in Kubernetes)"
+        If using Helm, add the `uploadInfo.yaml` details as part of your values.yaml specification. The following **example** demonstrates a Helm configuration for use with FluxCD: 
+
+            apiVersion: helm.toolkit.fluxcd.io/v2beta1
+            kind: HelmRelease
+            metadata:
+                name: runwhen-local
+                namespace: runwhen-local
+            spec:
+            releaseName: runwhen-local
+            chart:
+                spec:
+                chart: runwhen-local
+                # https://github.com/runwhen-contrib/helm-charts/blob/main/charts/runwhen-local/values.yaml
+                version: 0.0.21
+                sourceRef:
+                    kind: HelmRepository
+                    name: runwhen-contrib
+                    namespace: flux-system
+                interval: 5m
+                values:
+                    image: 
+                        repository: ghcr.io/runwhen-contrib/runwhen-local
+                        tag: latest
+                    uploadInfo:
+                        defaultLocation: location-01-us-west1
+                        papiURL: https://papi.beta.runwhen.com
+                        token: [token]
+                        workspaceName: b-sandbox
+                        workspaceOwnerEmail: workspace-user@tester.com
+
+        See the [full values.yaml](https://github.com/runwhen-contrib/helm-charts/blob/main/charts/runwhen-local/values.yaml) for reference. 
+        > Note: When updating your Helm values, this can trigger a redeployment of the container and a new discovery will take place. 
+
+    ??? warning "Permission Issues"
+        If you experience permission issues, ensure that `$workdir/shared` has open permissions. The `runwhen` user in the container needs to read & write from this directory. If running locally in Docker/Podman, this directory is shared with your own filesystem and often owned by your local user. `chmod 777 $workdir/shared` may be required. 
+
+
+
+## 3. Upload Workspace Configuration
+- Browse the configuration data to review the content that will be uploaded
+    - From your local filesystem (if running locally) - `tree $workdir/shared/output/workspaces`
+    - From the in-browser terminal - `tree /shared/output/workspaces`
+  
+  
+
+-  Upload the configuration data with **ONE** of the following options:
+
+<button id="runUploadPreserveButton" class="md-button">Upload (Preserve Existing Configurations)</button>
+<button id="runUploadOverwriteButton" class="md-button">Upload (Overwrite Existing Configurations)</button>
+
+## 4. Creating Secrets
+In order for the RunWhen Platform to connect with your cluster(s) and cloud resources, **secrets** are required in your workspace. 
+
+{% if 'kubernetes' in auth_details %}
+??? info "Kubeconfig Secret"
+    In order for RunWhen Platform to connect to your Kubernetes based clusters, a **secret** must be created in the form of a KUBECONFIG.
+
+    Your Kubernetes auth type has been detected as: `{{ auth_details["kubernetes"]["type"] }}`  
+
+    Kubeconfig contents:  
+
+    - Context Count: `{{ auth_details["kubernetes"]['kubeconfig_details']['contexts']|length }}`
+    - Context Name(s):
+    {% for context in auth_details["kubernetes"]['kubeconfig_details']['contexts'] %}
+        - `{{ context.name }}`
+    {% endfor %}
+
+    {% if 'user-provided' in auth_details['kubernetes']['type'] %}
+
+    When creating the RunWhen Platform Workspace **Secret**:
+
+    - The **Secret Key** should be set to: `{{ workspace_info["custom"]["kubeconfig_secret_name"] | default('kubeconfig') }}` 
+    - The **Secret Value** should be set to the contents of a kubeconfig that has a **long lived token**: 
+
+    !!! tip "Long Lived vs Short Lived Tokens"
+        If the kubeconfig that you provided utilized *long-lived* serivce account tokens, those contents can be copied into the **Secret Value**.
+        If, however, the kubeconfig that you provided utilized *short-lived tokens* (such as those generaged from gcloud, az, and aws cli auth plugins), then a long-lived service account and token is required for every cluster context.
+
+    ??? note "Creating a Long Lived Service Account Token"
+        To create a long lived sa, choose **ONE** of the following methods: 
+        
+        ??? note "Option 1 - One-click Service Account & Kubeconfig Generation"
+            This step will create a service account with **Cluster Scoped View** access in the provided namespace for **all contexts**: 
+
+            - Namespace: <input type="text" class="theme-input" id="saNamespaceName" value="runwhen-local">
+            - Service Account Name:  <input type="text" class="theme-input" id="saServiceAccountName" value="runwhen-local-sa">
+            - <button id="generateClusterViewSA" class="md-button">Generate Kubeconfig with ClusterView Permissions</button>
+            - Copy the contents of the new kubeconfig and paste them into the **Secret Value** with **one** of the following options: 
+                - From the built-in terminal: `cat /shared/generated-kubeconfig.yaml`
+                - From your Terminal (Running Locally with Docker/Podman): `cat $workdir/shared/generated-kubeconfig.yaml`
+                - From kubectl (Running in Kubernetes - example only): `kubectl exec deployment/runwhen-local -n runwhen-local -- cat /shared/generated-kubeconfig.yaml`
+
+        ??? note "Option 2 - Built in Terminal Execution - Service Account & Kubeconfig Generation"
+
+            - Determine the namespace name and service account name that you'd like to use
+            - Run the built in gen_clusterview_sa.sh script from the built-in terminal: 
+
+                    /workspace-builder/scripts/gen_clusterview_sa.sh {% set comma = joiner(", ") %}{% for context in auth_details["kubernetes"]['kubeconfig_details']['contexts'] %}{{ comma() }}"{{ context.name }}"{% endfor %} [namespace name] [service account name]
+
+            - Copy the contents of the new kubeconfig and paste them into the **Secret Value**:
+
+                    cat /shared/generated-kubeconfig.yaml
+
+        ??? note "Option 3 - Manually Create Service Accounts and Kubeconfig"
+            If you wish to manually create the service accounts and construct the Kubeconfig yourself, the following resources may be useful: 
+
+            - [RunWhen Docs: Generating Service Accounts and Kubeconfigs](https://docs.runwhen.com/public/runwhen-platform/guides/kubernetes-environments/generating-service-accounts-and-kubeconfigs)
+            - [Kubernetes Docs: Organizing Cluster Access Using kubeconfig Files](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)
+
+
+        {% elif 'in-cluster' in auth_details['kubernetes']['type'] %}
+         When creating the RunWhen Platform Workspace **Secret**:
+
+        - The **Secret Key** should be set to: `{{ workspace_info["custom"]["kubeconfig_secret_name"] | default('kubeconfig') }}` 
+        - The **Secret Value** should be set to the contents of the generated kubeconfig: 
+
+        !!! tip "In-cluster Auth is Limited to 1 Cluster"
+            If you've deployed this instance via helm and allowed helm to create the service account using in-cluster auth, the generated kubeconfig will only be able to discover this cluster. 
+            If you would like to discover and upload multiple clusters, provide a customized kubeconfig that has access to all necessary cluster contexts and rerun the discovery process. 
+
+        This step will create an updated kubeconfig based on the in-cluster auth, along with the server endpoint: 
+
+        - Server Address: <input type="text" id="serverAddress" class="theme-input" placeholder="https://your.kubernetes.api.endpoint">
+        - <button id="generateKubeconfig" class="md-button">Generate Kubeconfig</button>
+        - Copy the contents of the new kubeconfig and paste them into the **Secret Value** with **one** of the following options: 
+            - From the built-in terminal: `cat /shared/generated-kubeconfig.yaml`
+            - From kubectl (Running in Kubernetes - example only): `kubectl exec deployment/runwhen-local -n runwhen-local -- cat /shared/generated-kubeconfig.yaml`
+
+        {% else %}
+        Could not determine Kubernetes auth type. 
+        Your Kubernetes auth type has been detected as: `{{ auth_details["kubernetes"]["type"] }}`
+        {% endif %}
+
+
+
+    To create the secret:
+
+    - Click <a href="#" id="dynamicSecretLink" target="_blank">**this link** </a><span class="info-icon"><img src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/info.svg"><span class="tooltip">Was your workspace name added in step 1?</span></span>
+    - Select **+ ADD SECRET**
+    - Set the **Secret Key**
+    - Set the **Secret Value**
+    - Select **ADD AND SAVE**
+    
+{% endif %}
+
+## 5. Browse your New Workspace Map
+With your content uploaded, and secrets uploaded, your map should now be ready for interaction: 
+
+- 🎉 Click <a href="#" id="dynamicMapLink" target="_blank">**this link** </a><span class="info-icon"><img src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/info.svg"><span class="tooltip">Was your workspace name added in step 1?</span></span> to see your new workspace map
+
+<script>
+
+function updateLink() {
+    let workspaceName = document.getElementById('workspaceName').value;
+    if (workspaceName) {
+        let uploadInfolink = document.getElementById('dynamicUploadInfoLink');
+        uploadInfolink.href = "{{ app_url }}/workspace/" +workspaceName + "/configuration/workspace#" 
+        let secretlink = document.getElementById('dynamicSecretLink');
+        secretlink.href = "{{ app_url }}/workspace/" +workspaceName + "/configuration/secrets#" 
+        let maplink = document.getElementById('dynamicMapLink');
+        maplink.href = "{{ app_url }}/map/" +workspaceName
+        // update checkmark
+        const checkmark = document.getElementById("checkmark");
+        const attention = document.getElementById("attention");
+        checkmark.style.display = "inline";
+        attention.style.display = "none";
+    }
+}
+function uploadFile() {
+    const fileUploadInfo = document.getElementById('fileUploadInfo');
+    const file = fileUploadInfo.files[0];
+    
+    if (!file) {
+        showCommandOutput('Please select a file first.');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    // Send the file to the server using Fetch API
+    fetch('/store-uploadinfo', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.text())
+    .then(data => {
+        showCommandOutput(data);
+    })
+    .catch(error => {
+        document.body.removeChild(loadingPopup);
+        showCommandOutput(error.message);
+        console.error('There was a problem with the upload operation:', error.message);
+    });
+}
+
+document.getElementById('runUploadPreserveButton').addEventListener('click', function() {
+    event.preventDefault();
+    const loadingPopup = showLoadingMessage();
+    fetch('/run-upload-to-runwhenplatform-keep-existing')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.text();
+        })
+        .then(data => {
+            document.body.removeChild(loadingPopup);
+            showCommandOutput(data);
+        })
+        .catch(error => {
+            document.body.removeChild(loadingPopup);
+            showCommandOutput(error.message);
+            console.error('There was a problem with the upload operation:', error.message);
+        });
+});
+document.getElementById('runUploadOverwriteButton').addEventListener('click', function() {
+    event.preventDefault();
+    // Call the /run-discovery endpoint using the fetch API
+    const loadingPopup = showLoadingMessage();
+    fetch('/run-upload-to-runwhenplatform-keep-uploaded')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.text();
+        })
+        .then(data => {
+            document.body.removeChild(loadingPopup);
+            showCommandOutput(data);
+        })
+        .catch(error => {
+            document.body.removeChild(loadingPopup);
+            showCommandOutput(error.message);
+            console.error('There was a problem with the upload operation:', error.message);
+        });
+});
+
+{% if 'user-provided' in auth_details['kubernetes']['type'] %}
+document.getElementById('generateClusterViewSA').addEventListener('click', function(event) {
+    event.preventDefault();
+
+    // Fetch values from the input fields
+    const namespaceName = document.getElementById('saNamespaceName').value || 'default-namespace';
+    const serviceAccountName = document.getElementById('saServiceAccountName').value || 'default-service-account';
+    const contexts = [
+        {% for context in auth_details["kubernetes"]['kubeconfig_details']['contexts'] %}
+            "{{ context.name }}",
+        {% endfor %}
+    ];
+    const loadingPopup = showLoadingMessage();
+    // Call the /run-generate-clusterview-sa endpoint using the fetch API with a POST request
+    fetch('/run-generate-clusterview-sa', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            contexts: contexts,
+            namespace: namespaceName,
+            serviceAccount: serviceAccountName
+        }) // Send the data as JSON payload
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.text();
+    })
+    .then(data => {
+        document.body.removeChild(loadingPopup);
+        showCommandOutput(data);
+    })
+    .catch(error => {
+        document.body.removeChild(loadingPopup);
+        showCommandOutput(error.message);
+        console.error('There was a problem with the kubeconfig generation operation:', error.message);
+    });
+});
+{% endif %}
+
+{% if 'in-cluster' in auth_details['kubernetes']['type'] %}
+document.getElementById('generateKubeconfig').addEventListener('click', function(event) {
+    event.preventDefault();
+
+    // Fetch values from the input fields
+    const serverDetails = document.getElementById('serverAddress').value ;
+    console.log('serverDetails value:', serverDetails);
+
+    if (!serverDetails) {
+        showCommandOutput('Please specify a Kubernetes API server address.');
+        return;
+    }
+    const loadingPopup = showLoadingMessage();
+    // Call the /run-generate-clusterview-sa endpoint using the fetch API with a POST request
+    fetch('/run-generate-kubeconfig-from-in-cluster-auth', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            serverDetails: serverDetails
+        }) // Send the data as JSON payload
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.text();
+    })
+    .then(data => {
+        document.body.removeChild(loadingPopup);
+        showCommandOutput(data);
+    })
+    .catch(error => {
+        document.body.removeChild(loadingPopup);
+        showCommandOutput(error.message);
+        console.error('There was a problem with the kubeconfig generation:', error.message);
+    });
+});
+{% endif %}
+
+function showCommandOutput(data) {
+    const popupContainer = document.createElement("div"); 
+    const popup = document.createElement("div");
+    popup.classList.add("popup");
+    popupContainer.appendChild(popup); // Append the popup to the container
+    document.body.appendChild(popupContainer); // Append the container to the document body
+
+
+    const closeButton = document.createElement("span");
+    closeButton.classList.add("close");
+    closeButton.innerHTML = "&times;";
+    closeButton.style.fontSize = "24px"; 
+    closeButton.style.position = "absolute";
+    closeButton.style.top = "10px";
+    closeButton.style.right = "10px";
+
+
+    const codeBlock = document.createElement("pre");
+    codeBlock.classList.add("code-block");
+    codeBlock.innerText = data;
+
+    popup.appendChild(closeButton);
+    popup.appendChild(codeBlock);
+    popupContainer.appendChild(popup);
+    document.body.appendChild(popupContainer);
+
+    // Event delegation for close button click
+    popupContainer.addEventListener("click", (event) => {
+        const target = event.target;
+        if (target.classList.contains("close")) {
+            event.stopPropagation();
+            document.body.removeChild(popupContainer);
+        }
+    });
+}
+
+function showLoadingMessage() {
+    const popupContainer = document.createElement("div");
+    const popup = document.createElement("div");
+    popup.classList.add("popup");
+
+    const loadingMessage = document.createElement("p");
+    loadingMessage.innerText = "Running command, please wait...";
+
+    popup.appendChild(loadingMessage);
+    popupContainer.appendChild(popup);
+    document.body.appendChild(popupContainer);
+
+    return popupContainer;  // Return the container so it can be removed later
+}
+</script>
+<style>
+  .multiline {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+
+.popup .code-block {
+    background-color: #333;
+    color: #f8f8f8;
+    padding: 10px;
+    font-family: Consolas, Monaco, 'Andale Mono', monospace;
+    font-size: 14px;
+    line-height: 1.4;
+    overflow: auto;
+}
+
+
+</style>
+

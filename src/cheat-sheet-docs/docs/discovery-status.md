@@ -1,14 +1,8 @@
-# Community Powered Troubleshooting Cheat sheet
-
-Welcome to your troubleshooting cheat sheet:
-
-  ➡️ a local tool, run by you, on your system  
-  ➡️ that discovers your resources,  
-  ➡️ finds useful troubleshooting commands from a community of engineers, and  
-  ➡️ combines them into a (locally stored) copy & paste-able cheat sheet
-
-
-## Discovery Status:
+---
+search:
+  exclude: true
+---
+# Discovery Status
 
 <div id="status">
   <pre class="code-block" style="color: white;" id="fileContents"></pre>
@@ -40,6 +34,7 @@ Welcome to your troubleshooting cheat sheet:
 
     // Set up a periodic refresh every 5 seconds
     setInterval(updateTerminalContents, 5000);
+    
 </script>
 <style>
 #status {
@@ -58,7 +53,5 @@ Welcome to your troubleshooting cheat sheet:
 }
 #status .code-block {
   color: white !important;
-  margin: 0; /* Remove margins */
-  padding: 0; /* Remove padding */
 }
 </style>

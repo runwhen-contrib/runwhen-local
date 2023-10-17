@@ -377,7 +377,7 @@ def discovery_summary(resource_dump_file):
         print(f"Error while parsing YAML: {e}")  
     
 
-def generate_index(summarized_resources, workspace_details, command_generation_summary_stats): 
+def generate_index(summarized_resources, workspace_details, command_generation_summary_stats, slx_count): 
     index_path = f'cheat-sheet-docs/docs/index.md'
     home_path = f'cheat-sheet-docs/docs/overrides/home.html'
     index_template_file = "cheat-sheet-docs/templates/index-template.j2"
@@ -397,14 +397,16 @@ def generate_index(summarized_resources, workspace_details, command_generation_s
         summarized_resources=summarized_resources,
         workspace_details=workspace_details,
         cluster_names=cluster_names,
-        command_generation_summary_stats=command_generation_summary_stats
+        command_generation_summary_stats=command_generation_summary_stats, 
+        slx_count=slx_count
     )
     home_output = home_template.render(
         current_date=current_date,
         summarized_resources=summarized_resources,
         workspace_details=workspace_details,
         cluster_names=cluster_names,
-        command_generation_summary_stats=command_generation_summary_stats
+        command_generation_summary_stats=command_generation_summary_stats,
+        slx_count=slx_count
     )
 
     with open(index_path, 'w') as index_file:
@@ -414,6 +416,24 @@ def generate_index(summarized_resources, workspace_details, command_generation_s
     with open(home_path, 'w') as home_file:
         home_file.write(home_output)
     home_file.close()
+
+def generate_platform_upload(workspace_info, slx_count, auth_details): 
+    platform_upload_path = f'cheat-sheet-docs/docs/platform-upload.md'
+    platform_upload_template_file = "cheat-sheet-docs/templates/platform-upload.j2"
+    platform_upload_env = jinja2.Environment(loader=jinja2.FileSystemLoader("."))
+    platform_upload_template = platform_upload_env.get_template(platform_upload_template_file)
+
+
+    platform_upload_output = platform_upload_template.render(
+        workspace_info=workspace_info,
+        slx_count=slx_count,
+        auth_details=auth_details,
+        app_url=os.environ.get('RW_LOCAL_APP_ENDPOINT', 'https://app.beta.runwhen.com')
+    )
+
+    with open(platform_upload_path, 'w') as platform_upload_file:
+        platform_upload_file.write(platform_upload_output)
+    platform_upload_file.close()
 
 def env_check():
     config_file = "cheat-sheet-docs/mkdocs.yml"
@@ -655,6 +675,42 @@ def find_group_path(group_name):
         doc_group_dir_path = f'{group_name}'
     return doc_group_dir_path
 
+def generate_auth_details():
+    """
+    Inspects authentication files and assigns useful values to an auth object for 
+    generating upload documentation. 
+
+    Uses markdown extensions from https://facelessuser.github.io/pymdown-extensions/  
+
+    Returns:
+        Object 
+    """    
+    auth_config_details = {
+        'kubernetes': {
+            'kubeconfig_details': None
+        }
+    }
+
+    # Identify kubeconfig auth details
+    kubeconfig_auth = None
+
+    # Check for the existence of the files in the /shared/ directory
+    # Assume user-provided kubeconfig is better than in-cluster auth
+    if os.path.exists('/shared/kubeconfig'):
+        kubeconfig_auth = "user-provided"
+        with open('/shared/kubeconfig', 'r') as file:
+            config_details = yaml.safe_load(file)
+            auth_config_details['kubernetes']['kubeconfig_details'] = config_details
+    elif os.path.exists('/shared/in_cluster_kubeconfig.yaml'):
+        kubeconfig_auth = "in-cluster"
+        with open('/shared/in_cluster_kubeconfig.yaml', 'r') as file:
+            config_details = yaml.safe_load(file)
+            auth_config_details['kubernetes']['kubeconfig_details'] = config_details
+    auth_config_details['kubernetes']['type']= kubeconfig_auth
+
+
+    return auth_config_details
+
 def cheat_sheet(directory_path):
     """
     Gets passed in a directory to scan for robot files. 
@@ -665,9 +721,6 @@ def cheat_sheet(directory_path):
 
     Args:
         args (str): The path the output contents from map-builder. 
-
-    Returns:
-        Object 
     """
     ## Switched to args to only match on  render_in_commandlist=true
     ## Not sure if this is the most scalable approach, so it's just 
@@ -675,19 +728,32 @@ def cheat_sheet(directory_path):
     # search_list = ['RW.K8s.Shell', 'RW.CLI.Run Cli']
     env_check()
     update_last_scan_time()
+    auth_details=generate_auth_details()
     search_list = ['render_in_commandlist=true']
     runbook_files = find_files(directory_path, 'runbook.yaml')
     workspace_files = find_files(directory_path, 'workspace.yaml')
+    with open("/shared/workspaceInfo.yaml", 'r') as workspace_info_file:
+        workspace_info = yaml.safe_load(workspace_info_file)
+    workspace_info_file.close()
+
+
+    slx_files = find_files(directory_path, 'slx.yaml')
+    slx_count = len(slx_files)
+    # Generage customized upload page
+    generate_platform_upload(workspace_info, slx_count, auth_details)
+
+    # Init stats variables
     command_generation_summary_stats = {}
     command_generation_summary_stats["total_interesting_commands"] = 0 
     command_generation_summary_stats["unique_authors"] = []
     command_generation_summary_stats["num_unique_authors"] = 0
 
+
     ## TODO determine if we wish to support more than one workspace... 
     ## there would be a bit of refactoring to do if this is the case
     resource_dump_file = f'{directory_path}/resource-dump.yaml'
     workspace_details = parse_yaml(workspace_files[0])
-    
+
     # Reset ungrouped path
     if os.path.exists(f'cheat-sheet-docs/docs-tmp/'):
         try: 
@@ -696,6 +762,7 @@ def cheat_sheet(directory_path):
             print(f"An error occurred while removing the files: {e}")
     if not os.path.exists(f'cheat-sheet-docs/docs-tmp/'):
         os.makedirs(f'cheat-sheet-docs/docs-tmp/')
+        os.makedirs(f'cheat-sheet-docs/docs-tmp/ungrouped')
     ## Check if groups are defined in the workspace file
     ## If so, rebuild the directory path to set up for groupings
     if "spec" in workspace_details and "slxGroups" in workspace_details["spec"]:
@@ -745,8 +812,13 @@ def cheat_sheet(directory_path):
             author_details=author_details,
             commit_age=commit_age
         )
-
-        command_assist_md_output = f'cheat-sheet-docs/docs-tmp/{group_path}/{slx_hints["slug"]}.md'
+        content_dir=f'cheat-sheet-docs/docs-tmp/{group_path}/'
+        command_assist_md_output = f'{content_dir}{slx_hints["slug"]}.md'
+        if not os.path.exists(content_dir):
+            try:
+                os.makedirs(content_dir)  # Create the full directory path
+            except OSError as e:
+                print(f"Error creating directory: {e}")
         with open(command_assist_md_output, 'w') as md_file:
             md_file.write(output)
         md_file.close()
@@ -774,7 +846,7 @@ def cheat_sheet(directory_path):
     # Generage customized/summarized index if dump file exists
     if os.path.exists(f'{resource_dump_file}'):
         summarized_resources = discovery_summary(resource_dump_file)
-        generate_index(summarized_resources, workspace_details, command_generation_summary_stats)
+        generate_index(summarized_resources, workspace_details, command_generation_summary_stats, slx_count)
 
 
 if __name__ == "__main__":

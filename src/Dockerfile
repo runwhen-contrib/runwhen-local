@@ -70,12 +70,12 @@ COPY --from=builder-base $PYSETUP_PATH $PYSETUP_PATH
 
 # Add tools for live tool documentation
 RUN wget -q -O - https://deb.nodesource.com/setup_19.x | bash - \
-    && apt-get install nodejs gnupg wget unzip vim git curl -y --no-install-recommends \
+    && apt-get install tree nodejs gnupg wget unzip vim git curl -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --no-cache-dir mkdocs mkdocs-material mkdocs-print-site-plugin pymdown-extensions ruamel.yaml gitpython
-RUN npm install xterm express ws node-pty
+RUN npm install xterm express ws node-pty multer
 ENV NODE_PATH="/var/lib/neo4j/node_modules"
 
 # Add command-line tools
