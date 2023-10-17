@@ -60,32 +60,32 @@ jobs:
       - name: Configure Docker for GCP
         run: gcloud --quiet auth configure-docker us-docker.pkg.dev
 
-      # Build x86 image for testing
-      - name: Build x86 image for testing
-        run: |-
-          cd ./src
-          docker build \
-            --tag "$IMAGE:$VERSION" \
-            --load \
-            -f Dockerfile .
+      # # Build x86 image for testing
+      # - name: Build x86 image for testing
+      #   run: |-
+      #     cd ./src
+      #     docker build \
+      #       --tag "$IMAGE:$VERSION" \
+      #       --load \
+      #       -f Dockerfile .
 
-      # Scan Image directory
-      - name: Scan Image
-        id: scan
-        uses: anchore/scan-action@v3
-        with:
-          image: "${{ env.IMAGE }}:${{ env.VERSION }}"
-          fail-build: false
+      # # Scan Image directory
+      # - name: Scan Image
+      #   id: scan
+      #   uses: anchore/scan-action@v3
+      #   with:
+      #     image: "${{ env.IMAGE }}:${{ env.VERSION }}"
+      #     fail-build: false
 
-      - name: Upload Anchore scan SARIF report
-        uses: github/codeql-action/upload-sarif@v2
-        with:
-          sarif_file: ${{ steps.scan.outputs.sarif }}
+      # - name: Upload Anchore scan SARIF report
+      #   uses: github/codeql-action/upload-sarif@v2
+      #   with:
+      #     sarif_file: ${{ steps.scan.outputs.sarif }}
 
-      # SBOM
-      - uses: anchore/sbom-action@v0.14.3
-        with:
-          image: "${{ env.IMAGE }}:${{ env.VERSION }}"
+      # # SBOM
+      # - uses: anchore/sbom-action@v0.14.3
+      #   with:
+      #     image: "${{ env.IMAGE }}:${{ env.VERSION }}"
 
       # Build the Docker image
       - name: Build and push multi-arch image
