@@ -118,8 +118,6 @@ ENV KUBECONFIG=/shared/kubeconfig
 RUN wget -O /tmp/oc.tar.gz https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/openshift-client-linux.tar.gz && \
     tar -xzf /tmp/oc.tar.gz -C /usr/local/bin/ && \
     rm /tmp/oc.tar.gz
-# Verify the installation
-RUN oc version
 
 WORKDIR $RUNWHEN_HOME
 
