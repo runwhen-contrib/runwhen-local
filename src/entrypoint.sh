@@ -28,10 +28,6 @@ else
   echo "Directory $OUTPUT has been created."
 fi
 
-# if [ -z "$RW_LOCAL_APP_ENDPOINT" ]; 
-# then
-#   export RW_LOCAL_APP_ENDPOINT="https://app.beta.runwhen.com"
-# fi
 if [ -L "cheat-sheet-docs/docs/output" ]; then
   rm "cheat-sheet-docs/docs/output"
 fi
@@ -53,7 +49,8 @@ python manage.py migrate
 echo Starting workspace builder REST server
 
 # Check if AUTORUN_WORKSPACE_BUILDER_INTERVAL environment variable is set
-# This is mostly for our kubernetes demo environment 
+# This is mostly for our kubernetes demo environment
+# Merge mode options are for continuous upload
 if [ -n "$AUTORUN_WORKSPACE_BUILDER_INTERVAL" ]; 
 then
     echo "AUTORUN_WORKSPACE_BUILDER_INTERVAL is set. Running workspace-builder"

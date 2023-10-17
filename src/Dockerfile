@@ -102,6 +102,12 @@ RUN chmod +x kubectl
 RUN mv kubectl /usr/local/bin/
 ENV KUBECONFIG=/shared/kubeconfig
 
+# Download and install the latest OpenShift CLI (oc)
+RUN wget -O /tmp/oc.tar.gz https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/openshift-client-linux.tar.gz && \
+    tar -xzf /tmp/oc.tar.gz -C /usr/local/bin/ && \
+    rm /tmp/oc.tar.gz
+# Verify the installation
+RUN oc version
 
 WORKDIR $RUNWHEN_HOME
 
