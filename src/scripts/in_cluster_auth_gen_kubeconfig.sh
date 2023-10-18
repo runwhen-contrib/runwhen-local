@@ -7,8 +7,19 @@ NEW_KUBECONFIG_FILE="/shared/generated-kubeconfig.yaml"
 NAMESPACE=$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)
 SERVICE_ACCOUNT=$(kubectl get pods $HOSTNAME -o=jsonpath='{.spec.serviceAccountName}')
 
+# Validate namespace
+if [[ -z "$NAMESPACE" ]]; then
+    echo "Can't determine namespace details"
+    exit 1
+fi
 
-# Check if the server details and secret name are provided
+# Validate Service Account
+if [[ -z "$SERVICE_ACCOUNT" ]]; then
+    echo "Can't determine service account name"
+    exit 1
+fi
+
+# Check if the server details aare provided
 if [[ -z "$SERVER_DETAILS" ]]; then
     echo "Please provide the server details."
     exit 1
