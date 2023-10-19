@@ -27,7 +27,7 @@ RunWhen Local hosts a page titled **RunWhen Platform Upload** - it is accessible
 
 RunWhen Local will look for the file called `uploadInfo.yaml` in the `/shared` directory of the container image. This file is obtained from the RunWhen Platform interface from **Configuration --> Workspace --> Automated Workspace Builder Config File**
 
-<figure><img src="../../.gitbook/assets/image.png" alt=""><figcaption><p>Obtaining the uploadInfo.yaml file from RunWhen Platform</p></figcaption></figure>
+<figure><img src="../../.gitbook/assets/image (5).png" alt=""><figcaption><p>Obtaining the uploadInfo.yaml file from RunWhen Platform</p></figcaption></figure>
 
 With this file in place, re-run the discovery process with the `--upload` flag:&#x20;
 

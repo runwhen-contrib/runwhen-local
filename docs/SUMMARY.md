@@ -24,3 +24,13 @@
 ## Development
 
 * [Container Development](Development.md)
+
+## Community
+
+* [Discord / Slack Chat](community/discord-slack-chat.md)
+* [GitHub Discussions](community/github-discussions.md)
+
+***
+
+* [GitHub Issues - Request or Share Commands, Report Bugs, Request Features](github-issues-request-or-share-commands-report-bugs-request-features.md)
+* [Roadmap](roadmap.md)
