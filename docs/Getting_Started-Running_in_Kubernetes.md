@@ -125,8 +125,7 @@ While the ingress configuration will vary between environments, the following _e
 _This example demonstrates an ingress object ingress-nginx, cert-manager, and external-dns._ &#x20;
 
 ```
-namespace=rwl-2
-hostname="rwl.sandbox.runwhen.com"
+hostname="runwhen-local.sandbox.runwhen.com"
 helm install runwhen-local runwhen-contrib/runwhen-local -n $namespace \
     --set ingress.enabled=true \
     --set ingress.annotations."kubernetes\.io/tls-acme"=letsencrypt-prod \
@@ -140,6 +139,22 @@ helm install runwhen-local runwhen-contrib/runwhen-local -n $namespace \
   	--set ingress.hosts[0].paths[0].pathType="Prefix" \
   	--set ingress.tls[0].hosts[0]=${hostname} \
   	--set ingress.tls[0].secretName="runwhen-local-tls"
+```
+
+</details>
+
+<details>
+
+<summary>Advanced Helm Deployment - Enable Built-in Terminal</summary>
+
+The built-in terminal is disable by default for Helm deployments (as otherws with access to the service could then run commands with the built-in kubeconfig).&#x20;
+
+To enable the terminal during helm installation:&#x20;
+
+```
+helm install runwhen-local runwhen-contrib/runwhen-local \
+    -n $namespace \
+    --set terminal.disabled=false
 ```
 
 </details>
