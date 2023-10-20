@@ -21,7 +21,7 @@ The commands generated in the Troubleshooting Cheat Sheet include the specific k
 As we also host this in Kubernetes for the purposes of an online demo, this document will share the manifests that we have used in [our own demo environment](https://runwhen-local.sandbox.runwhen.com).
 
 {% tabs %}
-{% tab title="Helm Installation" %}
+{% tab title="Helm Installation (Basic)" %}
 {% hint style="info" %}
 RunWhen Local requires access to a kubeconfig in order to perform resource discovery across Kubernetes clusters. When installing with Helm, RunWhen Local _can automatically discover it's local cluster by default_. To discover additional clusters, a separate kubeconfig secret is required. Please see [helm-configuration.md](user-guide/user\_guide-advanced\_configuration/helm-configuration.md "mention")for additional information. \
 \
@@ -99,7 +99,50 @@ It might take a few minutes for discovery to complete. In some cases, the API se
 {% endtab %}
 {% endtabs %}
 
+<details>
 
+<summary>Advanced Helm Deployment - EKS Fargate</summary>
+
+EKS Fargate only looks at Kubernetes resource requests when provisioning nodes. As a result, the following helm installation command is recommended for EKS Fargate implementations:&#x20;
+
+{% code overflow="wrap" %}
+```
+helm install runwhen-local runwhen-contrib/runwhen-local \
+    -n $namespace \
+    --set resources.requests.memory="1Gi" \
+    --set resources.requests.cpu="1" 
+```
+{% endcode %}
+
+</details>
+
+<details>
+
+<summary>Advanced Helm Deployment - Ingress Deployment</summary>
+
+While the ingress configuration will vary between environments, the following _example_ outlines how to create an ingress object with the helm installation command.&#x20;
+
+_This example demonstrates an ingress object ingress-nginx, cert-manager, and external-dns._ &#x20;
+
+```
+namespace=rwl-2
+hostname="rwl.sandbox.runwhen.com"
+helm install runwhen-local runwhen-contrib/runwhen-local -n $namespace \
+    --set ingress.enabled=true \
+    --set ingress.annotations."kubernetes\.io/tls-acme"=letsencrypt-prod \
+    --set-string ingress.annotations."cert-manager\.io/cluster-issuer"="true"\
+	--set ingress.annotations."external-dns\.alpha\.kubernetes\.io/hostname"=${hostname} \
+    --set ingress.className="ingress-nginx" \
+  	--set ingress.hosts[0].host=${hostname} \
+  	--set ingress.hosts[0].paths[0].backend.service.name="runwhen-local" \
+  	--set ingress.hosts[0].paths[0].backend.service.port.number=8081 \
+  	--set ingress.hosts[0].paths[0].path="/" \
+  	--set ingress.hosts[0].paths[0].pathType="Prefix" \
+  	--set ingress.tls[0].hosts[0]=${hostname} \
+  	--set ingress.tls[0].secretName="runwhen-local-tls"
+```
+
+</details>
 
 #### Testing the RunWhen Local Deployment
 
