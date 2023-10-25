@@ -1,9 +1,8 @@
-FROM neo4j:5-community as neo4j-base
+FROM node:20-bullseye-slim AS node-base
 
 RUN apt-get update && apt-get install -y \
     python3 \
     pip \
-    libgeos-dev \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -17,24 +16,23 @@ ENV PYTHONUNBUFFERED=1 \
     POETRY_VIRTUALENVS_IN_PROJECT=true \
     POETRY_NO_INTERACTION=1 \
     PYSETUP_PATH="/opt/pysetup" \
-    VENV_PATH="/opt/pysetup/.venv" \
-    NEO4J_AUTH='neo4j/thisisnotalongrunningdb' 
+    VENV_PATH="/opt/pysetup/.venv"
 
 ENV PATH="$POETRY_HOME/bin:$VENV_PATH/bin:$PATH"
 
 # Install CLI tools and OS Runtime Dependencies
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-    entr \
+    entr curl \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # Builder stage used for building and installing python dependencies within the venv
-FROM neo4j-base as builder-base
+FROM node-base as builder-base
 
 # Install Build Time Only Dependencies
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl build-essential unzip \
+    && apt-get install -y --no-install-recommends build-essential unzip \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -43,19 +41,18 @@ RUN curl -sSL https://install.python-poetry.org | python3 - --version 1.3.2
 
 # Copy project requirement files here to ensure they will be cached.
 WORKDIR $PYSETUP_PATH
+# FIXME: Why don't we copy the poetry.lock file?
+# It seems like that means we will be running with different versions of components
+# in production that what we use in dev environments, which could cause problems.
+# Was it causing some problem to have the poetry.lock file?
 # COPY pyproject.toml poetry.lock ./
 COPY pyproject.toml ./
 
 # Install Python Dependencies
 RUN poetry install
 
-# Install the neo4j gds plugin
-RUN curl -o neo4j-gds.zip https://graphdatascience.ninja/neo4j-graph-data-science-2.3.0.zip
-RUN mkdir /plugins
-RUN unzip neo4j-gds.zip -d /plugins
-
 # Final Image Stage
-FROM neo4j-base AS app
+FROM node-base AS app
 LABEL org.opencontainers.image.description The RunWhen Local container image is a local tool to scan your Kubernetes based clusters and provide human readable and searchable troubleshooting documentation and commands.
 RUN groupadd -r runwhen && useradd --no-log-init -r -g runwhen runwhen
 
@@ -69,25 +66,36 @@ COPY --from=builder-base $POETRY_HOME $POETRY_HOME
 COPY --from=builder-base $PYSETUP_PATH $PYSETUP_PATH
 
 # Add tools for live tool documentation
-RUN set -uex; \
-    apt-get update; \
-    apt-get install -y ca-certificates curl gnupg; \
-    mkdir -p /etc/apt/keyrings; \
-    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
-     | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg; \
-    NODE_MAJOR=20; \
-    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" \
-     > /etc/apt/sources.list.d/nodesource.list; \
-    apt-get update; \
-    apt-get install nodejs -y;
+# I'm assuming this stuff is just to install node, so it's not needed if
+# we're starting from a standard node docker image.
+# But I don't understand the stuff it's doing with certs, gpg, etc., so
+# possibly there's some of this that we still need to do?
+#RUN set -uex; \
+#    apt-get update; \
+#    apt-get install -y ca-certificates curl gnupg; \
+#    mkdir -p /etc/apt/keyrings; \
+#    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
+#     | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg; \
+#    NODE_MAJOR=20; \
+#    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" \
+#     > /etc/apt/sources.list.d/nodesource.list; \
+#    apt-get update; \
+#    apt-get install nodejs -y;
 
-RUN apt-get install tree wget unzip vim git -y --no-install-recommends \
+RUN apt-get update \
+    && apt-get install tree wget unzip vim git -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+# I needed to move this before any of the "npm install" commands or else they would fail.
+# Not sure what the exact change was that required this or why it wasn't a problem before?
+WORKDIR $RUNWHEN_HOME
+
 RUN pip install --no-cache-dir mkdocs mkdocs-material mkdocs-print-site-plugin pymdown-extensions ruamel.yaml gitpython
+# FIXME: Not sure if we still need to do this now that we start from a standard node image?
 RUN npm install -g npm@10.2.0
 RUN npm install xterm express ws node-pty multer
+
 ENV NODE_PATH="/var/lib/neo4j/node_modules"
 
 # Add command-line tools
@@ -119,15 +127,9 @@ RUN wget -O /tmp/oc.tar.gz https://mirror.openshift.com/pub/openshift-v4/clients
     tar -xzf /tmp/oc.tar.gz -C /usr/local/bin/ && \
     rm /tmp/oc.tar.gz
 
-WORKDIR $RUNWHEN_HOME
-
 # RunWhen customizations
 ADD . $RUNWHEN_HOME
 
-
-# Copy over the neo4j config file and gds plugin jar
-COPY --from=builder-base /plugins/* /plugins
-COPY ./neo4j.conf /conf
 
 RUN mkdir $RUNWHEN_SHARED \
     && usermod -g 0 runwhen -G 0  \

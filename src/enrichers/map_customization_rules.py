@@ -5,26 +5,35 @@ from typing import Any, Optional, Union
 
 import yaml
 
-import models
 from exceptions import WorkspaceBuilderException, WorkspaceBuilderUserException
-from models import KubernetesBase
 from name_utils import make_qualified_slx_name
+from resources import Resource
+from indexers.kubetypes import KUBERNETES_PLATFORM, get_cluster, get_namespace, get_context
 from .match_predicate import MatchPredicate, StringMatchMode
 from .match_predicate import base_construct_match_predicate_from_config, match_resource_path, matches_pattern
 
 
-def get_qualifier_value(qualifier: str, resource: Union[models.KubernetesBase, models.RunWhenBase]) -> str:
+def get_qualifier_value(qualifier: str, resource: Resource) -> str:
     qualifier = qualifier.lower()
+    # FIXME: This has a lot of Kubernetes dependencies/assumptions and is pretty kludgy.
+    # Should clean up to make it more indexer/platform-agnostic to work with indexers for
+    # other cloud platforms.
+    # Probably this will entail refactoring the indexer-specific logic into the indexers,
+    # which would then be called from this (and other) indexer-independent code.
     if qualifier == 'resource':
-        return resource.get_name()
-    elif qualifier == 'namespace':
-        return resource.get_namespace().get_name()
-    elif qualifier == 'cluster':
-        return resource.get_cluster().get_name()
-    elif qualifier == 'context':
-        return resource.get_context()
+        return resource.name
     else:
-        raise WorkspaceBuilderException(f"Unknown qualifier type for SLX name: {qualifier}")
+        platform = resource.resource_type.platform.name
+        if platform != KUBERNETES_PLATFORM:
+            raise WorkspaceBuilderException(f"Unsupported platform: {platform}")
+        if qualifier == 'namespace':
+            return get_namespace(resource).name
+        elif qualifier == 'cluster':
+            return get_cluster(resource).name
+        elif qualifier == 'context':
+            return get_context(resource)
+        else:
+            raise WorkspaceBuilderException(f"Unknown qualifier type for SLX name: {qualifier}")
 
 
 class SLXInfo:
@@ -37,12 +46,12 @@ class SLXInfo:
     qualifier_values: list[str]
     full_name: str
     qualified_name: str
-    resource: KubernetesBase
+    resource: Resource
 
     # FIXME: Problem with circular import detail with type annotation for LOD
     # level_of_detail: LevelOfDetail
 
-    def __init__(self, slx, resource: KubernetesBase, level_of_detail, generation_rule_info):
+    def __init__(self, slx, resource: Resource, level_of_detail, generation_rule_info):
         # FIXME: Currently, it doesn't work to specify the type hint for the
         # slx member due to circular import dependencies with generation_rules.
         # Should be able to resolve by refactoring some of the class definitions

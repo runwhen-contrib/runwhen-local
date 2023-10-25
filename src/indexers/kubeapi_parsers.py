@@ -4,9 +4,17 @@ Take the raw objects that come back from the Kubernetes client APi
 and transform them to a form ready for initializing the model state.
 """
 
-from models import kube_escape
 from utils import kubernetes_resource_to_dict
 
+def kube_escape(s):
+    """Escapes a k8s valid key to a neomodel valid key"""
+    # TODO - redo this with proper regexp.  This is just for my
+    # own readability ease...
+    s = s.replace("_", "__")
+    s = s.replace(".", "_dot_")
+    s = s.replace("/", "_slash_")
+    s = s.replace("-", "_dash_")
+    return s
 
 def parse_resource(resource):
     """

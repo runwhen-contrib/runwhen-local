@@ -1,18 +1,18 @@
-from dataclasses import dataclass
 import logging
 import os
 import re
 from enum import Enum
 from typing import Any, Union, Optional, Sequence
-
 import yaml
 
-import models
 from component import Context, Setting, SettingDependency, WORKSPACE_NAME_SETTING, WORKSPACE_OUTPUT_PATH_SETTING
 from exceptions import WorkspaceBuilderException
+from indexers.kubetypes import KUBERNETES_PLATFORM, ResourceType as KubernetesResourceType
+from indexers.kubetypes import get_namespace, get_cluster
 from name_utils import shorten_name, make_qualified_slx_name, make_slx_name
 from renderers.render_output_items import OUTPUT_ITEMS_PROPERTY
 from renderers.render_output_items import OutputItem as RendererOutputItem
+from resources import RUNWHEN_PLATFORM, RunWhenResourceType, Resource, Registry
 from template import render_template_string
 from .code_collection import (
     CodeCollection,
@@ -62,6 +62,11 @@ SLXS_PROPERTY = "SLXS"
 SLX_RELATIONSHIPS_PROPERTY = "slx-relationships"
 GENERATION_RULES_PROPERTY = "generation-rules"
 CUSTOM_RESOURCE_TYPE_SPECS = "custom-resource-type-specs"
+
+# FIXME: Short-term workaround for the messiness with needing to access the registry
+# from match predicates. Should bite the bullet soon to fix this the right way, but
+# will likely entail changing the signatures of a bunch of things.
+registry: Registry
 
 
 class LevelOfDetail(Enum):
@@ -193,46 +198,57 @@ class ResourceTypeSpec:
         return ResourceTypeSpec(resource_type, group=group, version=version, kind=kind)
 
 
-resource_map: dict[ResourceType, Any] = {
-    ResourceType.NAMESPACE: models.KubernetesNamespace,
-    ResourceType.INGRESS: models.KubernetesIngress,
-    ResourceType.SERVICE: models.KubernetesService,
-    ResourceType.CLUSTER: models.KubernetesCluster,
-    ResourceType.WORKSPACE: models.RunWhenWorkspace,
-    ResourceType.DEPLOYMENT: models.KubernetesDeployment,
-    ResourceType.CONFIG_MAP: models.KubernetesConfigMap,
-    ResourceType.DAEMON_SET: models.KubernetesDaemonSet,
-    ResourceType.STATEFUL_SET: models.KubernetesStatefulSet,
-    ResourceType.POD: models.KubernetesPod,
+resource_map: dict[ResourceType, tuple[str, str]] = {
+    ResourceType.WORKSPACE: (RUNWHEN_PLATFORM, RunWhenResourceType.WORKSPACE.value),
+    ResourceType.NAMESPACE: (KUBERNETES_PLATFORM, KubernetesResourceType.NAMESPACE.value),
+    ResourceType.INGRESS: (KUBERNETES_PLATFORM, KubernetesResourceType.INGRESS.value),
+    ResourceType.SERVICE: (KUBERNETES_PLATFORM, KubernetesResourceType.SERVICE.value),
+    ResourceType.CLUSTER: (KUBERNETES_PLATFORM, KubernetesResourceType.CLUSTER.value),
+    ResourceType.DEPLOYMENT: (KUBERNETES_PLATFORM, KubernetesResourceType.DEPLOYMENT.value),
+    ResourceType.DAEMON_SET: (KUBERNETES_PLATFORM, KubernetesResourceType.DAEMON_SET.value),
+    ResourceType.STATEFUL_SET: (KUBERNETES_PLATFORM, KubernetesResourceType.STATEFUL_SET.value),
+    ResourceType.POD: (KUBERNETES_PLATFORM, KubernetesResourceType.POD.value),
 }
 
 
 def get_resources(resource_type_spec: ResourceTypeSpec,
-                  variables: dict[str, Any]) -> Sequence[Union[models.KubernetesBase, dict[str, Any]]]:
+                  variables: dict[str, Any],
+                  registry: Registry) -> Sequence[Union[Resource, dict[str, Any]]]:
     resource_type = resource_type_spec.resource_type
     if resource_type == ResourceType.VARIABLES:
         return [variables]
     if resource_type == ResourceType.CUSTOM:
-        # TODO: It's possibly a performance issue if there are lots of different custom resource types
-        # and instances. Not sure how well neo4j will optimize the performance of the query in that case.
-        # But probably not a huge deal, at least for now. Probably won't have too many different custom
-        # resource types that we're accessing from gen rules (but should check with Shea).
-        # If it turns out to be a problem, there's probably some way to set up indexing of fields in
-        # neo4j; probably just doing the kind field would be sufficient.
-        # Or just ditch neo4j...
-        kwargs = {
-            'group': resource_type_spec.group,
-            'plural_name': resource_type_spec.kind
-        }
-        if resource_type_spec.version is not None and resource_type_spec.version != '*':
-            kwargs['version'] = resource_type_spec.version
-        result = models.KubernetesCustomResource.nodes.filter(**kwargs)
-        if not result:
-            result = []
+        # TODO: This isn't a super efficient implementation, especially if there are a lot of
+        # different custom resource types, because we do a linear search over the complete list of
+        # custom resources. Currently, there aren't a lot of custom resources that are indexed,
+        # so I don't think this will be a problem. But if it turns out to be a performance issue,
+        # it wouldn't be too hard to come up with some more efficient implementation, presumably
+        # one that structures the data more by the group/version/plural-name, so that we don't
+        # have to iterate over everything. Or, of course, switching back to some sort of actual
+        # database, preferably something that runs in-process, but I think it only makes sense
+        # to do that if there's some other compelling reason to want that, e.g. separating out
+        # the resource discovery process into a standalone service that supports more
+        # full-featured querying of the resources.
+        custom_resource_type = registry.lookup_resource_type(KUBERNETES_PLATFORM, KubernetesResourceType.CUSTOM.value)
+        result = list()
+        if custom_resource_type:
+            for custom_resource in custom_resource_type.instances.values():
+                # NB: Use getattr here to avoid linting errors, since currently these attributes
+                # are set dynamically, so they're not known to do static type analysis.
+                # Should think about ways to make this more type-safe...
+                if getattr(custom_resource, "plural_name") != resource_type_spec.kind:
+                    continue
+                if getattr(custom_resource, "group") != resource_type_spec.group:
+                    continue
+                check_version = resource_type_spec.version is not None and resource_type_spec.version != '*'
+                if check_version and getattr(custom_resource, "version") != resource_type_spec.version:
+                    continue
+                result.append(custom_resource)
         return result
     else:
-        resource_class = resource_map[resource_type]
-        return resource_class.nodes.all()
+        platform_name, resource_type_name = resource_map[resource_type]
+        resource_type = registry.lookup_resource_type(platform_name, resource_type_name)
+        return resource_type.instances.values() if resource_type else list()
 
 
 class ResourceProperty(Enum):
@@ -319,10 +335,10 @@ class ResourcePropertyMatchPredicate(MatchPredicate):
             if string_match_mode_config else StringMatchMode.SUBSTRING
         return ResourcePropertyMatchPredicate(resource_type_spec, pattern, list(properties), string_match_mode)
 
-    def matches_resource(self, resource: Union[models.KubernetesBase, dict[str, Any]]):
+    def matches_resource(self, resource: Union[Resource, dict[str, Any]]):
         for p in self.properties:
             if p == ResourceProperty.NAME:
-                name = resource.get_name()
+                name = resource.name
                 if matches_pattern(name, self.pattern, self.string_match_mode):
                     return True
             elif p == ResourceProperty.LABEL_KEYS:
@@ -350,13 +366,14 @@ class ResourcePropertyMatchPredicate(MatchPredicate):
                 # FIXME: This is sort of kludgy due to the union typing of the resource variable
                 # between the Kubernetes resource and the variables dict. There's probably
                 # a cleaner way to handle it, but this works for now.
-                root = resource.resource if isinstance(resource, models.KubernetesBase) else resource
+                root = resource.resource if isinstance(resource, Resource) else resource
                 return match_resource_path(root, p, match_func)
         return False
 
-    def matches(self, resource: Union[models.KubernetesBase, dict[str, Any]], variables: dict[str, Any]):
+    def matches(self, resource: Union[Resource, dict[str, Any]], variables: dict[str, Any]):
+        global registry
         if self.resource_type_spec:
-            resources = get_resources(self.resource_type_spec, variables)
+            resources = get_resources(self.resource_type_spec, variables, registry)
             for resource in resources:
                 if self.matches_resource(resource):
                     resource_type = self.resource_type_spec.resource_type
@@ -394,7 +411,7 @@ class ResourcePathExistsMatchPredicate(MatchPredicate):
         match_empty = predicate_config.get("matchEmpty", False)
         return ResourcePathExistsMatchPredicate(path, match_empty)
 
-    def matches(self, resource: models.KubernetesBase, variables: dict[str, Any]) -> bool:
+    def matches(self, resource: Resource, variables: dict[str, Any]) -> bool:
         def match_func(value: str) -> bool:
             return (value is not None) or self.match_empty
         return match_resource_path(resource.resource, self.path, match_func)
@@ -618,14 +635,15 @@ def get_template_variables(output_item: OutputItem,
     # Always configure some built-in template variables for Kubernetes resources
     # This simplifies things for template authors, so they don't need to explicitly
     # declare these variables in generation rules.
-    if isinstance(resource, models.KubernetesBase):
-        cluster = resource.get_cluster()
+    if isinstance(resource, Resource):
+        cluster = get_cluster(resource)
         if cluster:
             template_variables['cluster'] = cluster
-            context = cluster.get_context()
+            context = cluster.context
             if context:
                 template_variables['context'] = context
-        namespace = resource.get_namespace()
+        # FIXME: Kubernetes dependency
+        namespace = get_namespace(resource)
         if namespace:
             template_variables['namespace'] = namespace
 
@@ -663,7 +681,7 @@ def should_emit_output_item(output_item: OutputItem, level_of_detail: LevelOfDet
 
 def generate_output_item(generation_rule_info: GenerationRuleInfo,
                          output_item: OutputItem,
-                         resource: models.KubernetesBase,
+                         resource: Resource,
                          renderer_output_items: dict[str, RendererOutputItem],
                          base_template_variables: dict[str, Any]) -> bool:
     template_variables = get_template_variables(output_item, resource, base_template_variables, generation_rule_info)
@@ -690,7 +708,7 @@ def generate_output_item(generation_rule_info: GenerationRuleInfo,
 
 
 def collect_emitted_slxs(generation_rule_info: GenerationRuleInfo,
-                         resource: models.KubernetesBase,
+                         resource: Resource,
                          level_of_detail: LevelOfDetail,
                          slxs: dict[str, SLXInfo]):
     generation_rule = generation_rule_info.generation_rule
@@ -756,8 +774,9 @@ def generate_slx_output_items(slx_info: SLXInfo,
     :return:
     """
     resource = slx_info.resource
-    namespace = resource.get_namespace()
-    cluster = resource.get_cluster()
+    # FIXME: Kubernetes dependency
+    namespace = get_namespace(resource)
+    cluster = get_cluster(resource)
     generation_rule_info = slx_info.generation_rule_info
 
     slx_base_template_variables = base_template_variables.copy()
@@ -903,14 +922,15 @@ def load(context: Context) -> None:
     context.set_property(GENERATION_RULES_PROPERTY, generation_rules)
     context.set_property(CUSTOM_RESOURCE_TYPE_SPECS, custom_resource_type_specs)
 
-
 def enrich(context: Context) -> None:
+    global registry
 
     map_customization_rules_path = context.get_setting("MAP_CUSTOMIZATION_RULES")
     map_customization_rules = MapCustomizationRules.load(map_customization_rules_path) \
         if map_customization_rules_path else MapCustomizationRules()
 
     custom_definitions = context.get_setting("CUSTOM_DEFINITIONS")
+    registry = context.registry
 
     # Create the list of output items in the context if it hasn't already been created.
     # FIXME: Seems a little kludgy to have to do this here (and in theory in any other
@@ -925,7 +945,8 @@ def enrich(context: Context) -> None:
         context.set_property(OUTPUT_ITEMS_PROPERTY, renderer_output_items)
 
     workspace_name = context.get_setting("WORKSPACE_NAME")
-    workspace = models.RunWhenWorkspace.nodes.get(short_name=workspace_name)
+    # workspace = models.RunWhenWorkspace.nodes.get(short_name=workspace_name)
+    workspace = registry.lookup_resource(RUNWHEN_PLATFORM, RunWhenResourceType.WORKSPACE.value, workspace_name)
 
     slxs = context.get_property(SLXS_PROPERTY)
     if slxs is None:
@@ -964,7 +985,7 @@ def enrich(context: Context) -> None:
     for generation_rule_info in generation_rules:
         generation_rule = generation_rule_info.generation_rule
         for resource_type_spec in generation_rule.resource_type_specs:
-            resources = get_resources(resource_type_spec, base_template_variables)
+            resources = get_resources(resource_type_spec, base_template_variables, registry)
             for resource in resources:
                 # Currently, the level of detail logic depends on the hclod enricher component
                 # to tag the namespaces with the configured LOD value. So it must be enabled
@@ -981,7 +1002,7 @@ def enrich(context: Context) -> None:
                     # In all those cases, we just catch it and default to full level of detail.
                     # FIXME: Should improve this so you don't get the warning for resource/model
                     # types that don't have an associated namespace
-                    level_of_detail_value = resource.get_namespace().lod
+                    level_of_detail_value = get_namespace(resource).lod
                     level_of_detail = LevelOfDetail(level_of_detail_value)
                 except Exception as e:
                     # FIXME: Should catch narrower exception

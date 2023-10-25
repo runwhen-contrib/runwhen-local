@@ -41,10 +41,6 @@ node server.js &
 nginx &
 
 # Run neo4j in the background
-echo Starting up neo4j
-tini -g -s -- /startup/docker-entrypoint.sh neo4j &
-echo Waiting a bit before starting workspace builder REST server
-sleep 5
 python manage.py migrate
 echo Starting workspace builder REST server
 

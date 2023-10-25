@@ -8,7 +8,7 @@ from importlib import import_module
 from outputter import Outputter
 from exceptions import WorkspaceBuilderException, WorkspaceBuilderUserException, \
     WorkspaceBuilderObjectNotFoundException
-
+from resources import Registry
 
 class Setting:
     """
@@ -170,12 +170,14 @@ class Context:
     settings and abstracts the file output operations.
     """
     setting_values: dict[str, Any]
+    registry: Registry
     outputter: Outputter
     properties: dict[str, Any]
 
-    def __init__(self, setting_values: dict[str, Any], outputter: Outputter):
+    def __init__(self, setting_values: dict[str, Any], registry: Registry, outputter: Outputter):
         self.setting_values = setting_values
         self.outputter = outputter
+        self.registry = registry
         self.properties = dict()
 
     def get_setting(self, name: str) -> Any:
@@ -210,9 +212,9 @@ def init_components():
     # be added here, which is less than ideal, although practically may not be
     # a huge deal.
     component_stages_init = (
-        (Stage.INDEXER, ("kubeapi", "reset_models")),
-        (Stage.ENRICHER, ("hclod", "runwhen_default_workspace", "generation_rules")),
-        (Stage.RENDERER, ("render_output_items", "dump_resources"))
+        (Stage.INDEXER, ["kubeapi"]),
+        (Stage.ENRICHER, ["hclod", "runwhen_default_workspace", "generation_rules"]),
+        (Stage.RENDERER, ["render_output_items", "dump_resources"])
     )
     for stage, component_names in component_stages_init:
         components = list()

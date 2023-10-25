@@ -22,13 +22,12 @@ if not git_repo_root:
 
 
 BASE_REQUEST_DATA = {
-    "namespaceLODs": {"kube-system": 0, "kube-public": 0},
-    "defaultLOD": 2,
+    "namespaceLODs": {"kube-system": 0, "kube-public": 0, 'online-boutique': 2},
+    "defaultLOD": 0,
     "defaultWorkspaceName": "my-workspace",
     "workspaceName": "my-workspace",
     "workspaceOwnerEmail": "test@runwhen.com",
-    "kubeconfig": "kubeconfig",
-    "gcpProjectId": "project-468-304505",
+    "kubeconfig": "kubeconfig-shea",
     "workspaceOutputPath": "workspace",
     "defaultLocation": "northamerica-northeast2-01",
     "mapCustomizationRules": "map-customization-rules-test",
@@ -55,7 +54,8 @@ BASE_REQUEST_DATA = {
     #     }
     # }
     "codeCollections": [
-        {"repoURL": f"file://{git_repo_root}/rw-public-codecollection", "branch": "main", "codeBundles": ["*"]},
+        # {"repoURL": f"file://{git_repo_root}/rw-public-codecollection", "branch": "main"},
+        # , "codeBundles": ["k8s-deployment-healthcheck"]
         {"repoURL": f"file://{git_repo_root}/rw-cli-codecollection", "branch": "main"}
     ]
 }
@@ -143,20 +143,14 @@ class ProductionComponentTestCase(TestCase):
         os.makedirs(TEST_OUTPUT_DIRECTORY)
         archive.extractall(TEST_OUTPUT_DIRECTORY)
 
-    def test_index_kubeapi_graph(self):
-        self.run_common("kubeapi,hclod,graphviz")
-
     def test_generation_rules_workspace_gen(self):
-        self.run_common("reset_models,kubeapi,runwhen_default_workspace,hclod,generation_rules,render_output_items")
+        self.run_common("kubeapi,runwhen_default_workspace,hclod,generation_rules,render_output_items")
 
     def test_generation_rules_workspace_gen_no_indexing(self):
         self.run_common("generation_rules,render_output_items")
 
     def test_dump_resources(self):
         self.run_common("generation_rules,render_output_items,dump_resources")
-
-    def test_graphviz(self):
-        self.run_common("graphviz")
 
     def test_info(self):
         response = self.client.get("/info/")
