@@ -707,6 +707,7 @@ def warm_git_cache(runbook_files):
         runbook_files (dict): The path the output contents from map-builder. 
     """
     unique_repos = set()
+    unique_authors = set()
     # Read every runbook ref and build a unique list of repos to clone
     for runbook in runbook_files:
         parsed_runbook_config = parse_yaml(runbook)
@@ -725,11 +726,13 @@ def warm_git_cache(runbook_files):
         else:
             # If the repo is already cloned, pull the latest changes
             subprocess.run(['git', '-C', local_path, 'pull', 'origin', ref])
-
-    # for runbook in runbook_files:
-
-    #     author = parsed_runbook_config["spec"]["codeBundle"]["ref"]
-    #     fetch_github_profile_icon(author)
+        
+        # Build list of unique authors
+        runbook_robot_files = find_files(f"{owner}_{repo}_{ref}-cache", 'runbook.robot')
+        for runbook in runbook_robot_files: 
+            parsed_robot=parse_robot_file(runbook)
+            author = ''.join(parsed_robot["author"].split('\n'))
+            fetch_github_profile_icon(author)
      
 def cheat_sheet(directory_path):
     """
