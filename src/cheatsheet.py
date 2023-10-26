@@ -725,6 +725,11 @@ def warm_git_cache(runbook_files):
         else:
             # If the repo is already cloned, pull the latest changes
             subprocess.run(['git', '-C', local_path, 'pull', 'origin', ref])
+
+    # for runbook in runbook_files:
+
+    #     author = parsed_runbook_config["spec"]["codeBundle"]["ref"]
+    #     fetch_github_profile_icon(author)
      
 def cheat_sheet(directory_path):
     """
