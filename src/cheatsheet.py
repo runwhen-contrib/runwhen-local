@@ -17,6 +17,7 @@ import yaml
 import json
 import datetime
 import ruamel.yaml
+import subprocess
 from robot.api import TestSuite
 from tempfile import NamedTemporaryFile
 from functools import lru_cache
@@ -256,37 +257,21 @@ def fetch_robot_source(parsed_runbook_config):
     Fetch raw robot file from github as referenced in the runbook.yaml
 
     Args:
-        file (str): The runbook.yaml file to parse
+        parsed_runbook_config (dict): The parsed runbook configuration.
 
     Returns:
-        A the contents of the robot file from github
+        str: The local path to the robot file.
     """
-    robot_baseurl=parsed_runbook_config["spec"]["codeBundle"]["repoUrl"].rstrip('.git')
     repo = parsed_runbook_config["spec"]["codeBundle"]["repoUrl"].rstrip(".git").split("/")[-1]
-    owner = parsed_runbook_config["spec"]["codeBundle"]["repoUrl"].rstrip(".git").split("/")[-2] # if 'github.com' in parsed_runbook_config["spec"]["codeBundle"]["repoUrl"] else ''
-    # Derive the cache directory name from the repo and owner parameters
-    #cache_dir_name = f"{owner}-{repo.replace('/', '-')}-{ref}-cache"
-    robot_file=f'{robot_baseurl}/{parsed_runbook_config["spec"]["codeBundle"]["ref"]}/{parsed_runbook_config["spec"]["codeBundle"]["pathToRobot"]}'
-    local_robot_path=f'{parsed_runbook_config["spec"]["codeBundle"]["pathToRobot"]}'
-    local_path = os.path.join(os.getcwd(), f'{owner}-{repo}-cache')  # clone/update the repo to the current directory
-    # Check if the repo is already cloned
-    if os.path.exists(local_path):
-        # If yes, then pull the latest changes
-        try:
-            existing_repo = Repo(local_path)
-            existing_repo.remotes.origin.pull()
-        except GitCommandError as e:
-            print(f"Failed to pull the latest changes due to: {e}")
-            return None
-    else:
-        # If not, then clone the repository
-        try:
-            Repo.clone_from(robot_baseurl, local_path)
-        except GitCommandError as e:
-            print(f"Failed to clone the repository due to: {e}")
-            return None
-        repo = Repo(local_path)
-    file_path = f'{local_path}/{local_robot_path}'
+    owner = parsed_runbook_config["spec"]["codeBundle"]["repoUrl"].rstrip(".git").split("/")[-2]
+    ref = parsed_runbook_config["spec"]["codeBundle"]["ref"]
+    robot_file_path = parsed_runbook_config["spec"]["codeBundle"]["pathToRobot"]
+
+    cache_dir_name = f"{owner}_{repo}_{ref}-cache"
+    local_path = os.path.join(os.getcwd(), cache_dir_name)
+
+    # Assuming the repository exists because of the warm_git_cache function
+    file_path = os.path.join(local_path, robot_file_path)
     return file_path
 
 def generate_slx_hints(runbook_path):
@@ -723,6 +708,34 @@ def generate_auth_details():
 
     return auth_config_details
 
+def warm_git_cache(runbook_files):
+    """
+    Gets passed in a list of runbook files. 
+    Parses out all git repos and clones them locally for later use as a cache.
+
+    Args:
+        runbook_files (dict): The path the output contents from map-builder. 
+    """
+    unique_repos = set()
+    # Read every runbook ref and build a unique list of repos to clone
+    for runbook in runbook_files:
+        parsed_runbook_config = parse_yaml(runbook)
+        repo = parsed_runbook_config["spec"]["codeBundle"]["repoUrl"].rstrip(".git").split("/")[-1]
+        owner = parsed_runbook_config["spec"]["codeBundle"]["repoUrl"].rstrip(".git").split("/")[-2]
+        ref = parsed_runbook_config["spec"]["codeBundle"]["ref"]
+        unique_repos.add((owner, repo, ref))
+    
+    for owner, repo, ref in unique_repos:
+        repo_url = f"https://github.com/{owner}/{repo}.git"
+        cache_dir_name = f"{owner}_{repo}_{ref}-cache"
+        local_path = os.path.join(os.getcwd(), cache_dir_name)
+        
+        if not os.path.exists(local_path):
+            subprocess.run(['git', 'clone', '-b', ref, repo_url, local_path])
+        else:
+            # If the repo is already cloned, pull the latest changes
+            subprocess.run(['git', '-C', local_path, 'pull', 'origin', ref])
+     
 def cheat_sheet(directory_path):
     """
     Gets passed in a directory to scan for robot files. 
@@ -751,6 +764,10 @@ def cheat_sheet(directory_path):
 
     slx_files = find_files(directory_path, 'slx.yaml')
     slx_count = len(slx_files)
+    
+    # Try to fetch all git clones before processing anything deeper
+    warm_git_cache(runbook_files)
+    
     # Generage customized upload page
     generate_platform_upload(workspace_info, slx_count, auth_details)
 
