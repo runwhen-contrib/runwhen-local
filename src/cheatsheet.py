@@ -542,38 +542,28 @@ def fetch_github_profile_icon(identifier):
         return "Not Available"
 
 
-def get_last_commit_age(owner, repo, path):
-    url = f"https://github.com/{owner}/{repo}.git"
-    local_path = os.path.join(os.getcwd(), f'{owner}-{repo}-cache')  # clone/update the repo to the current directory
-
-    # Check if the repo is already cloned
-    if os.path.exists(local_path):
-        # If yes, then pull the latest changes
-        try:
-            existing_repo = Repo(local_path)
-            existing_repo.remotes.origin.pull()
-        except GitCommandError as e:
-            print(f"Failed to pull the latest changes due to: {e}")
-            return None
-    else:
-        # If not, then clone the repository
-        try:
-            Repo.clone_from(url, local_path)
-        except GitCommandError as e:
-            print(f"Failed to clone the repository due to: {e}")
-            return None
+def get_last_commit_age(owner, repo, ref, path):
+    # Construct the local path using the new cache directory naming convention
+    local_path = os.path.join(os.getcwd(), f'{owner}_{repo}_{ref}-cache')
+    
+    # If the repo is not in the cache, return an error message or None
+    if not os.path.exists(local_path):
+        print(f"The repository for {owner}/{repo} with reference {ref} is not found in the cache.")
+        return None
 
     # Get repo object
-    repo = Repo(local_path)
+    repo_obj = Repo(local_path)
 
-    # Ensure the repo object is pointing to the 'main' branch (replace 'main' with your targeted branch if different)
-    main = repo.heads.main
+    # Ensure the repo object is pointing to the provided ref
+    if ref not in repo_obj.heads:
+        print(f"Reference {ref} not found in the cached repository for {owner}/{repo}.")
+        return None
 
-    # Checkout the 'main' branch
-    repo.git.checkout('main')
+    # Checkout the provided ref
+    repo_obj.git.checkout(ref)
 
     # Get the latest commit that involves the given path
-    commits_touching_path = list(repo.iter_commits(paths=path))
+    commits_touching_path = list(repo_obj.iter_commits(paths=path))
 
     # If there are no commits that touch the path, return None
     if not commits_touching_path:
@@ -815,10 +805,11 @@ def cheat_sheet(directory_path):
         parsed_runbook_config = parse_yaml(runbook)
         robot_file = fetch_robot_source(parsed_runbook_config)
         runbook_url=f'{parsed_runbook_config["spec"]["codeBundle"]["repoUrl"].rstrip(".git")}/tree/{parsed_runbook_config["spec"]["codeBundle"]["ref"]}/{parsed_runbook_config["spec"]["codeBundle"]["pathToRobot"]}'
+        owner = parsed_runbook_config["spec"]["codeBundle"]["repoUrl"].rstrip(".git").split("/")[-2]
         repo = parsed_runbook_config["spec"]["codeBundle"]["repoUrl"].rstrip(".git").split("/")[-1]
         path = parsed_runbook_config["spec"]["codeBundle"]["pathToRobot"].rstrip('runbook.robot')
         ref = parsed_runbook_config["spec"]["codeBundle"]["ref"]
-        commit_age=get_last_commit_age("runwhen-contrib",repo, path)
+        commit_age=get_last_commit_age(owner,repo, ref, path)
         parsed_robot = parse_robot_file(robot_file)
         slx_hints = generate_slx_hints(runbook)
         doc = ''.join(parsed_robot["doc"].split('\n'))
