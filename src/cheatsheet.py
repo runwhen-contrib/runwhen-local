@@ -664,7 +664,7 @@ def fetch_meta(runbook_url, repo, ref="main"):
 
             return yaml_data
         elif response.status_code == 404:
-            print(f"No meta.yaml found at {meta_yaml_url}. Skipping...")
+            # print(f"No meta.yaml found at {meta_yaml_url}. Skipping...")
             return None
         else:
             print(f"Request failed with status code: {response.status_code}")
