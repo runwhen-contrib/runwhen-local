@@ -189,7 +189,6 @@ def search_keywords(parsed_robot, parsed_runbook_config, search_list, meta):
     Search through the list of keywords in the robot file,
     looking for interesting patterns that we can extrapolate. 
 
-
     Args:
         parsed_robot (object): The parsed robot contents. 
         parsed_runbook_config (object): The parsed runbook config content.
@@ -199,6 +198,12 @@ def search_keywords(parsed_robot, parsed_runbook_config, search_list, meta):
     Returns:
         A list of commands that matched the search pattern. 
     """
+    # Default values if meta is None
+    if meta is None:
+        meta = {
+            "commands": []
+        }
+
     commands = []
     for task in parsed_robot['tasks']:
         for keyword in task['keywords']:
@@ -212,13 +217,14 @@ def search_keywords(parsed_robot, parsed_runbook_config, search_list, meta):
                         }
                         for cmd_meta in meta['commands']:
                             if cmd_meta['name'] == name_snake_case:
-                                command['explanation'] = cmd_meta['explanation']
-                                command['multi_line_details'] = cmd_meta['multi_line_details']
-                                command['doc_links'] = cmd_meta['doc_links']
+                                command['explanation'] = cmd_meta.get('explanation', "No command explanation available")
+                                command['multi_line_details'] = cmd_meta.get('multi_line_details', "No multi-line explanation available")
+                                command['doc_links'] = cmd_meta.get('doc_links', [])
                                 break  # Break out of the loop once a match is found
                         else:
                             command['explanation'] = "No command explanation available"  # Executed if no match is found
                             command['multi_line_details'] = "No multi-line explanation available"
+                            command['doc_links'] = []
                         commands.append(command)
     return commands
 
@@ -257,9 +263,12 @@ def fetch_robot_source(parsed_runbook_config):
     """
     robot_baseurl=parsed_runbook_config["spec"]["codeBundle"]["repoUrl"].rstrip('.git')
     repo = parsed_runbook_config["spec"]["codeBundle"]["repoUrl"].rstrip(".git").split("/")[-1]
+    owner = parsed_runbook_config["spec"]["codeBundle"]["repoUrl"].rstrip(".git").split("/")[-2] # if 'github.com' in parsed_runbook_config["spec"]["codeBundle"]["repoUrl"] else ''
+    # Derive the cache directory name from the repo and owner parameters
+    #cache_dir_name = f"{owner}-{repo.replace('/', '-')}-{ref}-cache"
     robot_file=f'{robot_baseurl}/{parsed_runbook_config["spec"]["codeBundle"]["ref"]}/{parsed_runbook_config["spec"]["codeBundle"]["pathToRobot"]}'
     local_robot_path=f'{parsed_runbook_config["spec"]["codeBundle"]["pathToRobot"]}'
-    local_path = os.path.join(os.getcwd(), f'{repo}-cache')  # clone/update the repo to the current directory
+    local_path = os.path.join(os.getcwd(), f'{owner}-{repo}-cache')  # clone/update the repo to the current directory
     # Check if the repo is already cloned
     if os.path.exists(local_path):
         # If yes, then pull the latest changes
@@ -550,7 +559,7 @@ def fetch_github_profile_icon(identifier):
 
 def get_last_commit_age(owner, repo, path):
     url = f"https://github.com/{owner}/{repo}.git"
-    local_path = os.path.join(os.getcwd(), f'{repo}-cache')  # clone/update the repo to the current directory
+    local_path = os.path.join(os.getcwd(), f'{owner}-{repo}-cache')  # clone/update the repo to the current directory
 
     # Check if the repo is already cloned
     if os.path.exists(local_path):
@@ -654,6 +663,9 @@ def fetch_meta(runbook_url, repo, ref="main"):
                 print(f"Failed to write meta.yaml to local cache due to: {str(e)}")
 
             return yaml_data
+        elif response.status_code == 404:
+            print(f"No meta.yaml found at {meta_yaml_url}. Skipping...")
+            return None
         else:
             print(f"Request failed with status code: {response.status_code}")
     except requests.RequestException as e:
