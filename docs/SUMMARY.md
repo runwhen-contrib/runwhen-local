@@ -13,6 +13,7 @@
 * [Privacy & Security](User\_Guide-Privacy\_and\_Security.md)
 * [Stuck?Read This](User\_Guide-Stuck\_Read\_This.md)
 * [Advanced Configuration](user-guide/user\_guide-advanced\_configuration/README.md)
+  * [WorkspaceInfo Customization](user-guide/user\_guide-advanced\_configuration/workspaceinfo-customization.md)
   * [Helm Configuration](user-guide/user\_guide-advanced\_configuration/helm-configuration.md)
   * [Terminal Configuration](user-guide/user\_guide-advanced\_configuration/terminal-configuration.md)
 * [Release Notes](User\_Guide-Release\_Notes.md)
