@@ -3,6 +3,8 @@ FROM node:20-bullseye-slim AS node-base
 RUN apt-get update && apt-get install -y \
     python3 \
     pip \
+    entr \
+    curl \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -19,13 +21,6 @@ ENV PYTHONUNBUFFERED=1 \
     VENV_PATH="/opt/pysetup/.venv"
 
 ENV PATH="$POETRY_HOME/bin:$VENV_PATH/bin:$PATH"
-
-# Install CLI tools and OS Runtime Dependencies
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-    entr curl \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
 
 # Builder stage used for building and installing python dependencies within the venv
 FROM node-base as builder-base
@@ -69,8 +64,20 @@ RUN apt-get update \
 
 WORKDIR $RUNWHEN_HOME
 
-RUN pip install --no-cache-dir mkdocs mkdocs-material mkdocs-print-site-plugin pymdown-extensions ruamel.yaml gitpython
-RUN npm install xterm express ws node-pty multer
+RUN pip install --no-cache-dir \
+    mkdocs \    
+    mkdocs-material \   
+    mkdocs-print-site-plugin \  
+    pymdown-extensions \    
+    ruamel.yaml \   
+    gitpython
+
+RUN npm install \
+    xterm \
+    express \
+    ws \
+    node-pty \
+    multer
 
 ENV NODE_PATH="/var/lib/neo4j/node_modules"
 
@@ -81,25 +88,26 @@ RUN gcloud components install gke-gcloud-auth-plugin --quiet
 
 # Install lnav (https://github.com/tstack/lnav)
 ENV LNAV_VERSION 0.11.2
-RUN wget https://github.com/tstack/lnav/releases/download/v${LNAV_VERSION}/lnav-${LNAV_VERSION}-x86_64-linux-musl.zip && \
-    unzip lnav-${LNAV_VERSION}-x86_64-linux-musl.zip && \
-    cd lnav-${LNAV_VERSION} && \
-    mkdir -p /home/runwhen/.lnav/formats/installed && \ 
-    mv lnav /usr/local/bin
+RUN wget https://github.com/tstack/lnav/releases/download/v${LNAV_VERSION}/lnav-${LNAV_VERSION}-x86_64-linux-musl.zip\
+    && unzip lnav-${LNAV_VERSION}-x86_64-linux-musl.zip \
+    && rm lnav-${LNAV_VERSION}-x86_64-linux-musl.zip \
+    && cd lnav-${LNAV_VERSION} \
+    && mkdir -p /home/runwhen/.lnav/formats/installed \ 
+    && mv lnav /usr/local/bin
 
 # Install and validate kubectl
-RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-RUN curl -LO "https://dl.k8s.io/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl.sha256"
-RUN echo "$(cat kubectl.sha256) kubectl" | sha256sum --check
-RUN rm kubectl.sha256
-RUN chmod +x kubectl
-RUN mv kubectl /usr/local/bin/
-ENV KUBECONFIG=/shared/kubeconfig
+RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
+    && curl -LO "https://dl.k8s.io/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl.sha256" \
+    && echo "$(cat kubectl.sha256) kubectl" | sha256sum --check \
+    && rm kubectl.sha256 \
+    && chmod +x kubectl \
+    && mv kubectl /usr/local/bin/ \
+    && KUBECONFIG=/shared/kubeconfig
 
 # Download and install the latest OpenShift CLI (oc)
-RUN wget -O /tmp/oc.tar.gz https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/openshift-client-linux.tar.gz && \
-    tar -xzf /tmp/oc.tar.gz -C /usr/local/bin/ && \
-    rm /tmp/oc.tar.gz
+RUN wget -O /tmp/oc.tar.gz https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/openshift-client-linux.tar.gz \
+    && tar -xzf /tmp/oc.tar.gz -C /usr/local/bin/ \
+    && rm /tmp/oc.tar.gz
 
 # RunWhen customizations
 ADD . $RUNWHEN_HOME

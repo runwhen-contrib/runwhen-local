@@ -330,47 +330,47 @@ def update_last_scan_time():
     except Exception as e:
         print(f"An error occurred while updating the file: {e}")
 
-def discovery_summary(resource_dump_file):
-    summary = {}
-    try:
-        with open(resource_dump_file, 'r') as file:
-            data = yaml.safe_load(file)
+# def discovery_summary(resource_dump_file):
+#     summary = {}
+#     try:
+#         with open(resource_dump_file, 'r') as file:
+#             data = yaml.safe_load(file)
             
-            # Summarize Clusters
-            clusters = data["clusters"]
-            summary["num_clusters"] = len(clusters)
-            summary["cluster_names"] = list(clusters.keys())
+#             # Summarize Clusters
+#             clusters = data["clusters"]
+#             summary["num_clusters"] = len(clusters)
+#             summary["cluster_names"] = list(clusters.keys())
 
-            total_ingresses = 0
-            total_namespaces = 0
-            total_pods = 0 
-            total_daemonsets = 0 
-            total_statefulsets = 0 
-            for cluster in clusters.values():
-                ingresses = cluster.get('ingresses', [])
-                total_ingresses += len(ingresses)
-                namespaces = cluster.get('namespaces', [])
-                total_namespaces += len(namespaces)
-                pods = cluster.get('pods', [])
-                total_pods += len(pods)
-                daemonsets = cluster.get('daemonSets', [])
-                total_daemonsets += len(daemonsets)
-                statefulsets = cluster.get('statefulSets', [])
-                total_statefulsets += len(statefulsets)
+#             total_ingresses = 0
+#             total_namespaces = 0
+#             total_pods = 0 
+#             total_daemonsets = 0 
+#             total_statefulsets = 0 
+#             for cluster in clusters.values():
+#                 ingresses = cluster.get('ingresses', [])
+#                 total_ingresses += len(ingresses)
+#                 namespaces = cluster.get('namespaces', [])
+#                 total_namespaces += len(namespaces)
+#                 pods = cluster.get('pods', [])
+#                 total_pods += len(pods)
+#                 daemonsets = cluster.get('daemonSets', [])
+#                 total_daemonsets += len(daemonsets)
+#                 statefulsets = cluster.get('statefulSets', [])
+#                 total_statefulsets += len(statefulsets)
 
-            summary["num_namespaces"] = total_namespaces
-            summary["num_ingresses"] = total_ingresses
-            summary["num_pods"] = total_pods
-            summary["num_daemonsets"] = total_daemonsets
-            summary["num_statefulsets"] = total_statefulsets
+#             summary["num_namespaces"] = total_namespaces
+#             summary["num_ingresses"] = total_ingresses
+#             summary["num_pods"] = total_pods
+#             summary["num_daemonsets"] = total_daemonsets
+#             summary["num_statefulsets"] = total_statefulsets
 
 
-            return summary
+#             return summary
             
-    except FileNotFoundError:
-        print("Resource Dump File not found.")
-    except yaml.YAMLError as e:
-        print(f"Error while parsing YAML: {e}")  
+#     except FileNotFoundError:
+#         print("Resource Dump File not found.")
+#     except yaml.YAMLError as e:
+#         print(f"Error while parsing YAML: {e}")  
     
 
 def generate_index(summarized_resources, workspace_details, command_generation_summary_stats, slx_count): 
@@ -857,10 +857,13 @@ def cheat_sheet(directory_path):
     command_generation_summary_stats["unique_authors"] = set(command_generation_summary_stats["unique_authors"])
     command_generation_summary_stats["num_unique_authors"] = len(command_generation_summary_stats["unique_authors"])
 
-    # Generage customized/summarized index if dump file exists
-    if os.path.exists(f'{resource_dump_file}'):
-        summarized_resources = discovery_summary(resource_dump_file)
-        generate_index(summarized_resources, workspace_details, command_generation_summary_stats, slx_count)
+    # Generate stats and home page
+    cluster_data = auth_details.get('kubernetes', {}).get('kubeconfig_details', {}).get('clusters', [])
+    summarized_resources = {}
+    summarized_resources["groups"] = len(groups)
+    summarized_resources["num_clusters"] = len(cluster_data)
+    summarized_resources["cluster_names"] = [cluster.get('name') for cluster in cluster_data]
+    generate_index(summarized_resources, workspace_details, command_generation_summary_stats, slx_count)
 
 
 if __name__ == "__main__":
