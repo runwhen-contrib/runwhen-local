@@ -16,3 +16,10 @@ spec:
         matchMode: substring
         properties: [name]
       group: "{{namespace.name}} ({{cluster.name}})"
+    - match:
+        type: pattern
+        matchType: base-name
+        pattern: "ingress-gce-health"
+        matchMode: substring
+        properties: [name]
+      group: "{{namespace.name}} ({{cluster.name}})"
