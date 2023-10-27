@@ -723,10 +723,10 @@ def warm_git_cache(runbook_files):
         local_path = os.path.join(os.getcwd(), cache_dir_name)
         
         if not os.path.exists(local_path):
-            subprocess.run(['git', 'clone', '-b', ref, repo_url, local_path])
+            subprocess.run(['git', 'clone', '-b', ref, repo_url, local_path], stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         else:
             # If the repo is already cloned, pull the latest changes
-            subprocess.run(['git', '-C', local_path, 'pull', 'origin', ref])
+            subprocess.run(['git', '-C', local_path, 'pull', 'origin', ref], stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         
         # Build list of unique authors
         runbook_robot_files = find_files(f"{owner}_{repo}_{ref}-cache", 'runbook.robot')
