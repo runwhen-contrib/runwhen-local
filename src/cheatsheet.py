@@ -603,10 +603,8 @@ def fetch_meta(owner, repo, path, ref="main"):
     cache_dir_name = f"{owner}_{repo}_{ref}-cache"
 
     meta_path = path.rsplit('/', 1)[0] + '/meta.yaml'
-    
     # Update the local_path to include the cache directory name
     local_path = os.path.join(os.getcwd(), cache_dir_name)
-
     # Check if the meta.yaml file exists in the local cache
     local_meta_path = os.path.join(local_path, meta_path)
     if os.path.exists(local_meta_path):
@@ -722,7 +720,7 @@ def process_runbook(runbook, groups, search_list, template):
     author = ''.join(parsed_robot["author"].split('\n'))
     group_name = find_group_name(groups, slx_hints["slx_short_name"])  # NOTE: 'groups' variable is not defined in the provided context
     group_path = find_group_path(f"{group_name}")
-    meta = fetch_meta(owner, repo, ref, path)
+    meta = fetch_meta(owner=owner, repo=repo, path=path, ref=ref)
     interesting_commands = search_keywords(parsed_robot, parsed_runbook_config, search_list, meta)
     command_generation_summary_stats["total_interesting_commands"] += len(interesting_commands)
     author_details = fetch_github_profile_icon(author)
