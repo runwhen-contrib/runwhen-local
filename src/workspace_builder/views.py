@@ -11,8 +11,8 @@ from rest_framework.views import APIView
 from component import Component, Stage, Setting, Context, \
     get_active_settings, get_all_settings, get_component, apply_component_dependencies, run_components
 from exceptions import WorkspaceBuilderUserException
-from models import set_neomodel_credentials
 from outputter import TarFileOutputter
+from resources import Registry
 from utils import get_version_info
 from .models import InfoResult, ArchiveRunResult
 from .serializers import InfoResultSerializer, ArchiveRunResultSerializer
@@ -93,8 +93,8 @@ class RunView(APIView):
             # service is invoked via the run tool, the outputter type is purely an
             # implementation detail, so not an issue for now.
             outputter = TarFileOutputter()
-            context = Context(setting_values, outputter)
-            set_neomodel_credentials()
+            registry = Registry()
+            context = Context(setting_values, registry, outputter)
             # FIXME: This should call component.run_components to avoid code duplication.
             # Would need to resolve differences in how they're called, i.e. separate lists for
             # the indexers, enrichers, renders, vs. a single list.

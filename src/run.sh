@@ -35,7 +35,7 @@ fi
 touch "$LOCK_FILE"
 
 # Run the Python script with your specified arguments
-python3 run.py run --components "reset_models,kubeapi,runwhen_default_workspace,hclod,generation_rules,render_output_items,dump_resources" $@
+python3 run.py run --components "kubeapi,runwhen_default_workspace,hclod,generation_rules,render_output_items,dump_resources" $@
 
 # Remove the lock file after the Python script exits
 rm -f "$LOCK_FILE"

@@ -3,6 +3,7 @@ Index assets that we can find by querying K8s API servers
 to fetch live clusters, Namepsaces, Ingresses, Services,
 Deployments, StatefulSets, etc.
 """
+from enum import Enum
 import logging
 
 #########
@@ -12,7 +13,6 @@ from kubernetes import client
 from kubernetes import config as kubernetes_config
 from kubernetes.client.rest import ApiException
 
-import models
 from component import Setting, SettingDependency, Context, KUBECONFIG_SETTING
 # FIXME: It's a little kludgy to have these cross-references between components (especially
 # a reference from an indexer to an enricher, since the enrichers are executed after the
@@ -25,8 +25,9 @@ from component import Setting, SettingDependency, Context, KUBECONFIG_SETTING
 # product/resource discovery/graphing service across multiple IaaS platforms it might
 # be useful to have the notion of different indexing components. But we'll cross that
 # bridge when we get to it...
-from enrichers.generation_rules import ResourceTypeSpec, ResourceType, CUSTOM_RESOURCE_TYPE_SPECS
+from enrichers.generation_rules import ResourceTypeSpec, ResourceType as GenRuleResourceType, CUSTOM_RESOURCE_TYPE_SPECS
 from enrichers.hclod import NAMESPACE_LODS_SETTING, DEFAULT_LOD_SETTING
+from .kubetypes import KUBERNETES_PLATFORM, ResourceType
 from . import kubeapi_parsers
 
 logger = logging.getLogger(__name__)
@@ -57,7 +58,6 @@ SETTINGS = (
     SettingDependency(DEFAULT_LOD_SETTING, False)
 )
 
-
 def get_service_key(namespace_name, service_name):
     return f"{namespace_name}/{service_name}"
 
@@ -81,6 +81,7 @@ def index(component_context: Context):
     custom_namespace_names = component_context.get_setting("NAMESPACES")
     default_lod = component_context.get_setting("DEFAULT_LOD")
     custom_resource_type_specs = component_context.get_property(CUSTOM_RESOURCE_TYPE_SPECS)
+    registry = component_context.registry
 
     # NOTE: In theory we should just call kubernetes_config.load_config here to load
     # the config file, but there is a bug in that method where the name of the kwarg
@@ -99,12 +100,20 @@ def index(component_context: Context):
         # Create the model object for the cluster associated with the current context
         # FIXME: If there are multiple contexts for the same cluster this will update the
         # cluster instance with the last context we see, so we'll lose the previous context
-        # info for the cluster. In practice, I'm nost sure this is really a problem, though.
+        # info for the cluster. In practice, I'm not sure this is really a problem, though.
         # I don't think any of the gen rules access the context field of the cluster currently,
-        # and not sure why they would need to.
+        # and not sure why they would need to. So possibly this info just shouldn't be
+        # included in the resource at all.
         cluster_name = context_info.get('cluster')
+        cluster_attributes = {
+            'context': context_name,
+            'namespaces': dict()
+        }
+        cluster = registry.add_resource(KUBERNETES_PLATFORM,
+                                        ResourceType.CLUSTER.value,
+                                        cluster_name,
+                                        cluster_attributes)
         logger.debug(f"starting kube API scan of context {context_name} in cluster {cluster_name}")
-        cluster = models.KubernetesCluster.create_or_update({'name': cluster_name, 'context': context_name})[0]
 
         with kubernetes_config.new_client_from_config(config_file=kubeconfig_path, context=context_name) as api_client:
             core_api_client = client.CoreV1Api(api_client=api_client)
@@ -128,7 +137,6 @@ def index(component_context: Context):
             #
             # Index the namespaces
             #
-
             namespace_names = set()
             try:
                 # FIXME: Following line is debugging code to simulate not having permissions
@@ -241,8 +249,21 @@ def index(component_context: Context):
                     continue
                 try:
                     raw_resource = core_api_client.read_namespace(namespace_name)
-                    r = kubeapi_parsers.parse_namespace(raw_resource)
-                    namespace = models.KubernetesNamespace.create_or_update(r, relationship=cluster.namespaces)[0]
+                    namespace_attributes = kubeapi_parsers.parse_namespace(raw_resource)
+                    # Set up a dummy value for the lod attribute.
+                    # This will be set with the real value in the hclod enricher, but we
+                    # want to set it here so that the attribute is defined.
+                    # FIXME: This whole lod initialization process is pretty convoluted
+                    # right now and could use a cleanup pass, especially when we generalize
+                    # to support non-Kubernetes platform/resources.
+                    namespace_attributes['cluster'] = cluster
+                    namespace_attributes['lod'] = 0
+                    namespace_attributes['resources'] = list()
+                    namespace = registry.add_resource(KUBERNETES_PLATFORM,
+                                                      ResourceType.NAMESPACE.value,
+                                                      namespace_name,
+                                                      namespace_attributes)
+                    cluster.namespaces[namespace_name] = namespace
                     namespaces[namespace_name] = namespace
                 except ApiException:
                     # We weren't able to access the namespace, presumably either because the
@@ -263,25 +284,30 @@ def index(component_context: Context):
                 # Index Deployments, DaemonSets and StatefulSets (the common app Kinds)
                 #
                 apps_api_client = client.AppsV1Api(api_client=api_client)
-                app_classes = (
-                    ('Deployment', apps_api_client.list_namespaced_deployment, models.KubernetesDeployment),
-                    ('DaemonSet', apps_api_client.list_namespaced_daemon_set, models.KubernetesDaemonSet),
-                    ('StatefulSet', apps_api_client.list_namespaced_stateful_set, models.KubernetesStatefulSet),
+                app_info = (
+                    ('Deployment', apps_api_client.list_namespaced_deployment, ResourceType.DEPLOYMENT),
+                    ('DaemonSet', apps_api_client.list_namespaced_daemon_set, ResourceType.DAEMON_SET),
+                    ('StatefulSet', apps_api_client.list_namespaced_stateful_set, ResourceType.STATEFUL_SET),
                 )
                 # app_items = list()
                 # Query for the application instances.
                 # We wrap these in try blocks so that any permissions error are just ignored instead
                 # of resulting in fatal errors. So we just log that there was the error and continue.
                 # FIXME: Should really refactor this code a bit to reduce code duplication.
-                for app_class_kind, app_class_list_method, app_class_model in app_classes:
+                for app_class_kind, app_class_list_method, app_resource_type in app_info:
                     try:
                         ret = app_class_list_method(namespace_name)
                         for raw_resource in ret.items:
-                            r = kubeapi_parsers.parse_app(raw_resource)
+                            app_name = raw_resource.metadata.name
+                            app_attributes = kubeapi_parsers.parse_app(raw_resource)
                             # When getting lists from the api server, kind and apiVersion are set to None
-                            r['kind'] = app_class_kind
+                            app_attributes['kind'] = app_class_kind
+                            namespace_name = app_attributes['namespace_name']
+                            namespace = namespaces.get(namespace_name)
+                            app_attributes['namespace'] = namespace
                             # r["cluster_name"] = cluster_name
-                            app = app_class_model.create_or_update(r, relationship=namespace.resources)[0]
+                            app = registry.add_resource(KUBERNETES_PLATFORM, app_resource_type.value, app_name, app_attributes)
+                            namespace.resources.append(app)
                     except ApiException as e:
                         logger.debug(f"Error scanning for deployment instances; skipping and continuing; error: {e}")
 
@@ -296,10 +322,17 @@ def index(component_context: Context):
                     logger.debug(f"kube API scan: {len(ret.items)} ingresses")
                     for raw_resource in ret.items:
                         ingress_name = raw_resource.metadata.name
-                        r = kubeapi_parsers.parse_ingress(raw_resource)
-                        # r["cluster_name"] = cluster_name
-                        paths = r['paths']  # NOTE - create_or_update will mutate r's values to strings
-                        ingress = models.KubernetesIngress.create_or_update(r, relationship=namespace.resources)[0]
+                        ingress_attributes = kubeapi_parsers.parse_ingress(raw_resource)
+                        # ingress_attributes["cluster_name"] = cluster_name
+                        paths = ingress_attributes['paths']
+                        namespace_name = ingress_attributes["namespace_name"]
+                        namespace = namespaces.get(namespace_name)
+                        ingress_attributes["namespace"] = namespace
+                        ingress = registry.add_resource(KUBERNETES_PLATFORM,
+                                                        ResourceType.INGRESS.value,
+                                                        ingress_name,
+                                                        ingress_attributes)
+                        namespace.resources.append(ingress)
                         ingresses[f"{namespace_name}/{ingress_name}"] = ingress
                         # Set this for wiring up services to ingresses later
                         # FIXME: Not sure what this is doing? (RobV)
@@ -319,25 +352,35 @@ def index(component_context: Context):
                     logger.debug(f"kube API scan: {len(ret.items)} services")
                     for raw_resource in ret.items:
                         service_name = raw_resource.metadata.name
-                        r = kubeapi_parsers.parse_service(raw_resource)
-                        # r["cluster_name"] = cluster_name
-                        service = models.KubernetesService.create_or_update(r, relationship=namespace.resources)[0]
                         service_key = get_service_key(namespace_name, service_name)
-                        services[service_key] = service
-
+                        service_attributes = kubeapi_parsers.parse_service(raw_resource)
+                        namespace_name = service_attributes["namespace_name"]
+                        namespace = namespaces.get(namespace_name)
+                        service_attributes["namespace"] = namespace
+                        # r["cluster_name"] = cluster_name
                         # Connect service to ingress
-                        ingress = ingresses_connected_services.get(service_key)
-                        if ingress and not service.ingress:
-                            service.ingress.connect(ingress)
-                            service.save()
+                        if 'ingress' not in service_attributes:
+                            ingress = ingresses_connected_services.get(service_key)
+                            service_attributes['ingress'] = ingress
+                        service = registry.add_resource(KUBERNETES_PLATFORM,
+                                                        ResourceType.SERVICE.value,
+                                                        service_name,
+                                                        service_attributes)
+                        services[service_key] = service
+                        namespace.resources.append(service)
+
                         # Connect service to Deployments, StatefulSets, DaemonSets
-                        if service.selector is not None:
-                            apps = models.kubernetes_filter_by_template_labels(models.KubernetesApp,
-                                                                               labels=service.selector,
-                                                                               namespace_name=namespace_name,
-                                                                               cluster_name=cluster_name)
-                            for app in apps:
-                                service.apps.connect(app)
+                        # FIXME: Need to reimplement the following code to perform the same function as
+                        # the neo4j query. Although there's nothing that actually uses the service
+                        # connections that are established, so I don't think it will break anything to
+                        # not reproduce the old behavior, at least for now.
+                        # if service.selector is not None:
+                        #     apps = models.kubernetes_filter_by_template_labels(models.KubernetesApp,
+                        #                                                        labels=service.selector,
+                        #                                                        namespace_name=namespace_name,
+                        #                                                        cluster_name=cluster_name)
+                        #     for app in apps:
+                        #         service.apps.connect(app)
                 except ApiException as e:
                     # Just log and continue, instead of raising a fatal exception.
                     logger.info(f"Error scanning for Service instances; skipping and continuing; error: {e}")
@@ -356,12 +399,19 @@ def index(component_context: Context):
                         # are needed?
                         if phase != "Running":
                             continue
-                        # pod_name = raw_resource.metadata.name
+                        pod_name = raw_resource.metadata.name
                         namespace_name = raw_resource.metadata.namespace
                         namespace = namespaces[namespace_name]
-                        r = kubeapi_parsers.parse_pod(raw_resource)
+                        pod_attributes = kubeapi_parsers.parse_pod(raw_resource)
+                        namespace_name = pod_attributes["namespace_name"]
+                        namespace = namespaces.get(namespace_name)
+                        pod_attributes["namespace"] = namespace
                         # r['cluster_name'] = cluster_name
-                        pod = models.KubernetesPod.create_or_update(r, relationship=namespace.resources)[0]
+                        pod = registry.add_resource(KUBERNETES_PLATFORM,
+                                                    ResourceType.POD.value,
+                                                    pod_name,
+                                                    pod_attributes)
+                        namespace.resources.append(pod)
                         # pod_key = get_pod_key(namespace_name, pod_name)
                         # pods[pod_key] = pod
                         # TODO: Extract the IP address of the pod
@@ -382,7 +432,7 @@ def index(component_context: Context):
                         # it's really not the same as the kind field of the resource.
                         plural_name = custom_resource_type_spec.kind
                         if version:
-                            wildcard_spec = ResourceTypeSpec(ResourceType.CUSTOM,
+                            wildcard_spec = ResourceTypeSpec(GenRuleResourceType.CUSTOM,
                                                              group=group,
                                                              version=None,
                                                              kind=plural_name)
@@ -399,18 +449,21 @@ def index(component_context: Context):
                                                                                               namespace=namespace_name,
                                                                                               plural=plural_name)
                                 for raw_resource in ret['items']:
+                                    resource_name = raw_resource['metadata']['name']
                                     kwargs = dict()
-                                    # FIXME: Is it guaranteed that there will always be an associated namespace?
-                                    # I think probably yes, but should check with Shea. But for now, be careful
-                                    # and handle
-                                    try:
-                                        kwargs['relationship'] = namespace.resources
-                                    except ValueError:
-                                        # No associated namespace, but continue and just don't set the namespace
-                                        # relationship when creating the model instance.
-                                        pass
-                                    r = kubeapi_parsers.parse_custom_resource(raw_resource, group, version, plural_name)
-                                    custom_resource = models.KubernetesCustomResource.create_or_update(r, **kwargs)[0]
+                                    custom_name = f"{plural_name}|{group}|{version}|{resource_name}"
+                                    custom_attributes = kubeapi_parsers.parse_custom_resource(raw_resource,
+                                                                                              group,
+                                                                                              version,
+                                                                                              plural_name)
+                                    namespace_name = custom_attributes["namespace_name"]
+                                    namespace = namespaces.get(namespace_name)
+                                    custom_attributes["namespace"] = namespace
+                                    custom_resource = registry.add_resource(KUBERNETES_PLATFORM,
+                                                                            ResourceType.CUSTOM.value,
+                                                                            custom_name,
+                                                                            custom_attributes)
+                                    namespace.resources.append(custom_resource)
                         except ApiException as e:
                             # Just log and continue, instead of raising a fatal exception.
                             logger.info(f"Error scanning for custom resource instances; skipping and continuing; "
