@@ -16,6 +16,7 @@ import requests
 import yaml
 import json
 import datetime
+import time
 import ruamel.yaml
 import subprocess
 from robot.api import TestSuite
@@ -733,7 +734,18 @@ def warm_git_cache(runbook_files):
             parsed_robot=parse_robot_file(runbook)
             author = ''.join(parsed_robot["author"].split('\n'))
             fetch_github_profile_icon(author)
-     
+
+def timer(func):
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        end_time = time.time()
+        duration = end_time - start_time
+        print(f"'{func.__name__}' executed in {duration:.2f} seconds")
+        return result
+    return wrapper
+
+#@timer
 def cheat_sheet(directory_path):
     """
     Gets passed in a directory to scan for robot files. 
@@ -749,6 +761,7 @@ def cheat_sheet(directory_path):
     ## Not sure if this is the most scalable approach, so it's just 
     ## a test for now
     # search_list = ['RW.K8s.Shell', 'RW.CLI.Run Cli']
+
     env_check()
     update_last_scan_time()
     auth_details=generate_auth_details()
