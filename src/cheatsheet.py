@@ -23,6 +23,7 @@ from robot.api import TestSuite
 from tempfile import NamedTemporaryFile
 from functools import lru_cache
 from git import Repo, GitCommandError
+from concurrent.futures import ThreadPoolExecutor
 
 
 @lru_cache(maxsize=2048)
@@ -560,9 +561,6 @@ def get_last_commit_age(owner, repo, ref, path):
         print(f"Reference {ref} not found in the cached repository for {owner}/{repo}.")
         return None
 
-    # Checkout the provided ref
-    repo_obj.git.checkout(ref)
-
     # Get the latest commit that involves the given path
     commits_touching_path = list(repo_obj.iter_commits(paths=path))
 
@@ -589,7 +587,7 @@ def get_last_commit_age(owner, repo, ref, path):
     if age_in_weeks >= 2:
         return f"{int(age_in_weeks)} weeks ago"  # using int() to round down
 
-def fetch_meta(runbook_url, repo, ref="main"):
+def fetch_meta(owner, repo, path, ref="main"):
     """
     Fetches the meta.yaml file for the given runbook URL.
 
@@ -601,18 +599,13 @@ def fetch_meta(runbook_url, repo, ref="main"):
     Returns:
         The meta.yaml content as a dictionary, or None if the request failed.
     """
-    # Extract the owner from the runbook_url
-    owner = runbook_url.split('/')[3] if 'github.com' in runbook_url else ''
-
     # Derive the cache directory name from the repo and owner parameters
-    cache_dir_name = f"{owner}-{repo.replace('/', '-')}-{ref}-cache"
+    cache_dir_name = f"{owner}_{repo}_{ref}-cache"
 
-    meta_yaml_url = runbook_url.rsplit('/', 1)[0] + '/meta.yaml'
-    meta_yaml_url = meta_yaml_url.replace('github.com', 'raw.githubusercontent.com').replace(f"/tree/{ref}/", f"/{ref}/")
+    meta_path = path.rsplit('/', 1)[0] + '/meta.yaml'
     
     # Update the local_path to include the cache directory name
     local_path = os.path.join(os.getcwd(), cache_dir_name)
-    meta_path = meta_yaml_url.split(f'/{ref}/', 1)[-1] if f'/{ref}/' in meta_yaml_url else ''
 
     # Check if the meta.yaml file exists in the local cache
     local_meta_path = os.path.join(local_path, meta_path)
@@ -624,28 +617,6 @@ def fetch_meta(runbook_url, repo, ref="main"):
         except IOError as e:
             print(f"Failed to read local meta.yaml file due to: {str(e)}")
 
-    # If the meta.yaml file doesn't exist in the cache, fetch it from the internet
-    try:
-        response = requests.get(meta_yaml_url)
-        if response.status_code == 200:
-            yaml_data = yaml.safe_load(response.text)
-
-            # Save the fetched meta.yaml file to the local cache
-            os.makedirs(os.path.dirname(local_meta_path), exist_ok=True)  # Ensure directory exists
-            try:
-                with open(local_meta_path, 'w') as f:
-                    yaml.dump(yaml_data, f)
-            except IOError as e:
-                print(f"Failed to write meta.yaml to local cache due to: {str(e)}")
-
-            return yaml_data
-        elif response.status_code == 404:
-            # print(f"No meta.yaml found at {meta_yaml_url}. Skipping...")
-            return None
-        else:
-            print(f"Request failed with status code: {response.status_code}")
-    except requests.RequestException as e:
-        print(f"Request failed: {str(e)}")
 
     return None
 
@@ -735,6 +706,49 @@ def warm_git_cache(runbook_files):
             author = ''.join(parsed_robot["author"].split('\n'))
             fetch_github_profile_icon(author)
 
+
+def process_runbook(runbook, groups, search_list, template):
+    parsed_runbook_config = parse_yaml(runbook)
+    robot_file = fetch_robot_source(parsed_runbook_config)
+    runbook_url = f'{parsed_runbook_config["spec"]["codeBundle"]["repoUrl"].rstrip(".git")}/tree/{parsed_runbook_config["spec"]["codeBundle"]["ref"]}/{parsed_runbook_config["spec"]["codeBundle"]["pathToRobot"]}'
+    owner = parsed_runbook_config["spec"]["codeBundle"]["repoUrl"].rstrip(".git").split("/")[-2]
+    repo = parsed_runbook_config["spec"]["codeBundle"]["repoUrl"].rstrip(".git").split("/")[-1]
+    path = parsed_runbook_config["spec"]["codeBundle"]["pathToRobot"].rstrip('runbook.robot')
+    ref = parsed_runbook_config["spec"]["codeBundle"]["ref"]
+    commit_age = get_last_commit_age(owner, repo, ref, path)
+    parsed_robot = parse_robot_file(robot_file)
+    slx_hints = generate_slx_hints(runbook)
+    doc = ''.join(parsed_robot["doc"].split('\n'))
+    author = ''.join(parsed_robot["author"].split('\n'))
+    group_name = find_group_name(groups, slx_hints["slx_short_name"])  # NOTE: 'groups' variable is not defined in the provided context
+    group_path = find_group_path(f"{group_name}")
+    meta = fetch_meta(owner, repo, ref, path)
+    interesting_commands = search_keywords(parsed_robot, parsed_runbook_config, search_list, meta)
+    command_generation_summary_stats["total_interesting_commands"] += len(interesting_commands)
+    author_details = fetch_github_profile_icon(author)
+    command_generation_summary_stats["unique_authors"].append(author)
+    output = template.render(
+        runbook=runbook.split("/output", 1)[-1],
+        author=author,
+        slx_hints=slx_hints,
+        doc=doc,
+        runbook_url=runbook_url,
+        interesting_commands=interesting_commands,
+        command_count=len(interesting_commands),
+        author_details=author_details,
+        commit_age=commit_age
+    )
+    content_dir = f'cheat-sheet-docs/docs-tmp/{group_path}/'
+    command_assist_md_output = f'{content_dir}{slx_hints["slug"]}.md'
+    if not os.path.exists(content_dir):
+        try:
+            os.makedirs(content_dir)  # Create the full directory path
+        except OSError as e:
+            print(f"Error creating directory: {e}")
+    with open(command_assist_md_output, 'w') as md_file:
+        md_file.write(output)
+
+# Useful when testing changes like parallel processing
 def timer(func):
     def wrapper(*args, **kwargs):
         start_time = time.time()
@@ -744,6 +758,13 @@ def timer(func):
         print(f"'{func.__name__}' executed in {duration:.2f} seconds")
         return result
     return wrapper
+
+
+# Init global stats variables
+command_generation_summary_stats = {}
+command_generation_summary_stats["total_interesting_commands"] = 0 
+command_generation_summary_stats["unique_authors"] = []
+command_generation_summary_stats["num_unique_authors"] = 0
 
 #@timer
 def cheat_sheet(directory_path):
@@ -782,13 +803,6 @@ def cheat_sheet(directory_path):
     # Generage customized upload page
     generate_platform_upload(workspace_info, slx_count, auth_details)
 
-    # Init stats variables
-    command_generation_summary_stats = {}
-    command_generation_summary_stats["total_interesting_commands"] = 0 
-    command_generation_summary_stats["unique_authors"] = []
-    command_generation_summary_stats["num_unique_authors"] = 0
-
-
     ## TODO determine if we wish to support more than one workspace... 
     ## there would be a bit of refactoring to do if this is the case
     resource_dump_file = f'{directory_path}/resource-dump.yaml'
@@ -821,48 +835,9 @@ def cheat_sheet(directory_path):
     env = jinja2.Environment(loader=jinja2.FileSystemLoader("."))
     template = env.get_template(template_file)
 
+    with ThreadPoolExecutor() as executor:
+      results = list(executor.map(lambda runbook: process_runbook(runbook, groups, search_list, template), runbook_files))
 
-    for runbook in runbook_files:
-        parsed_runbook_config = parse_yaml(runbook)
-        robot_file = fetch_robot_source(parsed_runbook_config)
-        runbook_url=f'{parsed_runbook_config["spec"]["codeBundle"]["repoUrl"].rstrip(".git")}/tree/{parsed_runbook_config["spec"]["codeBundle"]["ref"]}/{parsed_runbook_config["spec"]["codeBundle"]["pathToRobot"]}'
-        owner = parsed_runbook_config["spec"]["codeBundle"]["repoUrl"].rstrip(".git").split("/")[-2]
-        repo = parsed_runbook_config["spec"]["codeBundle"]["repoUrl"].rstrip(".git").split("/")[-1]
-        path = parsed_runbook_config["spec"]["codeBundle"]["pathToRobot"].rstrip('runbook.robot')
-        ref = parsed_runbook_config["spec"]["codeBundle"]["ref"]
-        commit_age=get_last_commit_age(owner,repo, ref, path)
-        parsed_robot = parse_robot_file(robot_file)
-        slx_hints = generate_slx_hints(runbook)
-        doc = ''.join(parsed_robot["doc"].split('\n'))
-        author = ''.join(parsed_robot["author"].split('\n'))
-        group_name = find_group_name(groups, slx_hints["slx_short_name"])
-        group_path = find_group_path(f"{group_name}")
-        meta=fetch_meta(runbook_url, repo, ref)
-        interesting_commands = search_keywords(parsed_robot, parsed_runbook_config, search_list, meta)
-        command_generation_summary_stats["total_interesting_commands"] += len(interesting_commands)
-        author_details=fetch_github_profile_icon(author)
-        command_generation_summary_stats["unique_authors"].append(author)
-        output = template.render(
-            runbook=runbook.split("/output", 1)[-1],
-            author=author,
-            slx_hints=slx_hints,
-            doc=doc,
-            runbook_url=runbook_url,
-            interesting_commands=interesting_commands,
-            command_count=len(interesting_commands),
-            author_details=author_details,
-            commit_age=commit_age
-        )
-        content_dir=f'cheat-sheet-docs/docs-tmp/{group_path}/'
-        command_assist_md_output = f'{content_dir}{slx_hints["slug"]}.md'
-        if not os.path.exists(content_dir):
-            try:
-                os.makedirs(content_dir)  # Create the full directory path
-            except OSError as e:
-                print(f"Error creating directory: {e}")
-        with open(command_assist_md_output, 'w') as md_file:
-            md_file.write(output)
-        md_file.close()
     # Move from tmp to main docs foder
     source_dir = 'cheat-sheet-docs/docs-tmp/'
 
