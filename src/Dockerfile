@@ -84,7 +84,8 @@ ENV NODE_PATH="/var/lib/neo4j/node_modules"
 # Install gcloud
 RUN curl -sSL https://sdk.cloud.google.com | bash
 ENV PATH "$PATH:/root/google-cloud-sdk/bin/"
-RUN gcloud components install gke-gcloud-auth-plugin --quiet
+# FIXME - this crashed builds on nov 1 - skipping for now
+# RUN gcloud components install gke-gcloud-auth-plugin --quiet
 
 # Install lnav (https://github.com/tstack/lnav)
 ENV LNAV_VERSION 0.11.2

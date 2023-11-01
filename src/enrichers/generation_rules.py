@@ -868,50 +868,6 @@ def load(context: Context) -> None:
                             custom_resource_type_specs.append(resource_type_spec)
                     generation_rule.match_predicate.collect_custom_resource_type_specs(custom_resource_type_specs)
 
-    # FIXME: For now we enable the old code that loads the generation rules from the
-    # workspace builder code tree. This enables us to incrementally move the gen rules
-    # over to the code bundles, although there aren't a ton of them, so we should be
-    # able to get them all moved over soon. Once that's done we can get rid of this
-    # backward compatibility code.
-    # Update: All of the gen rules have been moved over except for the cortex one,
-    # which didn't specify a code bundle so I wasn't sure which one it was
-    # associated with. Once that one has been moved, we can get rid of this code.
-    generation_rules_path_config = os.environ.get("GENERATION_RULES_PATH")
-    if not generation_rules_path_config:
-        generation_rules_path_config = "generation-rules"
-
-    if not os.path.exists(generation_rules_path_config):
-        raise WorkspaceBuilderException("Specified generation rules path does not exist")
-
-    if not os.path.isdir(generation_rules_path_config):
-        raise WorkspaceBuilderException("Specified generation rules path must be a directory")
-
-    generation_rules_file_names = os.listdir(generation_rules_path_config)
-
-    for generation_rules_file_name in generation_rules_file_names:
-        generation_rules_path = os.path.join(generation_rules_path_config, generation_rules_file_name)
-        with open(generation_rules_path, "r") as f:
-            generation_rules_config_str = f.read()
-        generation_rules_config = yaml.safe_load(generation_rules_config_str)
-        generation_rule_config_list = generation_rules_config["spec"]["generationRules"]
-        for generation_rule_config in generation_rule_config_list:
-            generation_rule = GenerationRule.construct_from_config(generation_rule_config)
-            generation_rule_info = GenerationRuleInfo(generation_rule, generation_rules_file_name)
-            generation_rules.append(generation_rule_info)
-            for slx in generation_rule.slxs:
-                shortened_base_name = slx.shortened_base_name
-                slx_list = slxs_by_shortened_base_name.get(shortened_base_name)
-                if not slx_list:
-                    slx_list = []
-                    slxs_by_shortened_base_name[shortened_base_name] = slx_list
-                slx_list.append(slx)
-            for resource_type_spec in generation_rule.resource_type_specs:
-                if (resource_type_spec.resource_type == ResourceType.CUSTOM and
-                        resource_type_spec not in custom_resource_type_specs):
-                    custom_resource_type_specs.append(resource_type_spec)
-            generation_rule.match_predicate.collect_custom_resource_type_specs(custom_resource_type_specs)
-    # >>>> End of backward compatibility code
-
     # Check for collisions in the generation of the shortened SLX base names
     # Collision are resolved by appending with an incrementing integer
     for slx_list in slxs_by_shortened_base_name.values():
