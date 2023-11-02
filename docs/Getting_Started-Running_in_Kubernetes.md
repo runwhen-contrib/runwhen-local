@@ -130,15 +130,15 @@ helm install runwhen-local runwhen-contrib/runwhen-local -n $namespace \
     --set ingress.enabled=true \
     --set ingress.annotations."kubernetes\.io/tls-acme"=letsencrypt-prod \
     --set-string ingress.annotations."cert-manager\.io/cluster-issuer"="true"\
-	--set ingress.annotations."external-dns\.alpha\.kubernetes\.io/hostname"=${hostname} \
+    --set ingress.annotations."external-dns\.alpha\.kubernetes\.io/hostname"=${hostname} \
     --set ingress.className="ingress-nginx" \
-  	--set ingress.hosts[0].host=${hostname} \
-  	--set ingress.hosts[0].paths[0].backend.service.name="runwhen-local" \
-  	--set ingress.hosts[0].paths[0].backend.service.port.number=8081 \
-  	--set ingress.hosts[0].paths[0].path="/" \
-  	--set ingress.hosts[0].paths[0].pathType="Prefix" \
-  	--set ingress.tls[0].hosts[0]=${hostname} \
-  	--set ingress.tls[0].secretName="runwhen-local-tls"
+    --set ingress.hosts[0].host=${hostname} \
+    --set ingress.hosts[0].paths[0].backend.service.name="runwhen-local" \
+    --set ingress.hosts[0].paths[0].backend.service.port.number=8081 \
+    --set ingress.hosts[0].paths[0].path="/" \
+    --set ingress.hosts[0].paths[0].pathType="Prefix" \
+    --set ingress.tls[0].hosts[0]=${hostname} \
+    --set ingress.tls[0].secretName="runwhen-local-tls"
 ```
 
 </details>
