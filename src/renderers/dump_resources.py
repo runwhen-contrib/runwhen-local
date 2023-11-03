@@ -49,6 +49,7 @@ def render(context: Context):
         cluster_dump['statefulSets'] = _dump_resource_state(registry, ResourceType.STATEFUL_SET.value, cluster_name)
         cluster_dump['daemonSets'] = _dump_resource_state(registry, ResourceType.DAEMON_SET.value, cluster_name)
         cluster_dump['pods'] = _dump_resource_state(registry, ResourceType.POD.value, cluster_name)
+        cluster_dump['pvcs'] = _dump_resource_state(registry, ResourceType.PVC.value, cluster_name)
 
     dump_text = yaml.safe_dump(dump)
     context.outputter.write_file("resource-dump.yaml", dump_text)

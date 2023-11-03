@@ -384,6 +384,30 @@ def index(component_context: Context):
                 except ApiException as e:
                     # Just log and continue, instead of raising a fatal exception.
                     logger.info(f"Error scanning for Service instances; skipping and continuing; error: {e}")
+                #
+                # Index the pvcs
+                #
+                # pvcs = dict()
+                try:
+                    ret = core_api_client.list_namespaced_persistent_volume_claim(namespace_name, watch=False)
+                    logger.debug(f"kube API scan for namespace {namespace_name}: {len(ret.items)} pvcs")
+                    for raw_resource in ret.items:
+                        pvc_name = raw_resource.metadata.name
+                        namespace_name = raw_resource.metadata.namespace
+                        namespace = namespaces[namespace_name]
+                        pvc_attributes = kubeapi_parsers.parse_pvc(raw_resource)
+                        namespace_name = pvc_attributes["namespace_name"]
+                        namespace = namespaces.get(namespace_name)
+                        pvc_attributes["namespace"] = namespace
+                        # r['cluster_name'] = cluster_name
+                        persistentvolumeclaim = registry.add_resource(KUBERNETES_PLATFORM,
+                                                    ResourceType.PVC.value,
+                                                    pvc_name,
+                                                    pvc_attributes)
+                        namespace.resources.append(persistentvolumeclaim)
+                except ApiException as e:
+                    # Just log and continue, instead of raising a fatal exception.
+                    logger.info(f"Error scanning for PVC instances; skipping and continuing; error: {e}")
 
                 #
                 # Index the pods
@@ -419,6 +443,8 @@ def index(component_context: Context):
                 except ApiException as e:
                     # Just log and continue, instead of raising a fatal exception.
                     logger.info(f"Error scanning for Pod instances; skipping and continuing; error: {e}")
+
+
 
                 #
                 # Index the custom resources

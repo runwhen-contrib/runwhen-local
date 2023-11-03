@@ -90,6 +90,9 @@ def parse_pod(resource):
     ret = parse_namespaced_resource(resource)
     return ret
 
+def parse_pvc(resource):
+    ret = parse_namespaced_resource(resource)
+    return ret
 
 def parse_custom_resource_common(resource):
     # Annoyingly, the results from the call to list the custom resources returns

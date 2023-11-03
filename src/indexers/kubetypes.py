@@ -26,6 +26,7 @@ class ResourceType(Enum):
     SERVICE = "service"
     POD = "pod"
     CUSTOM = "custom"
+    PVC = "persistentvolumeclaim"
 
 
 def check_kubernetes_resource(resource: Resource):

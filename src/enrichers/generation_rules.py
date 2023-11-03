@@ -116,6 +116,7 @@ class ResourceType(Enum):
     STATEFUL_SET = "statefulset"
     POD = "pod"
     CUSTOM = "custom"
+    PVC = "persistentvolumeclaim"
 
 
 class ResourceTypeSpec:
@@ -208,6 +209,8 @@ resource_map: dict[ResourceType, tuple[str, str]] = {
     ResourceType.DAEMON_SET: (KUBERNETES_PLATFORM, KubernetesResourceType.DAEMON_SET.value),
     ResourceType.STATEFUL_SET: (KUBERNETES_PLATFORM, KubernetesResourceType.STATEFUL_SET.value),
     ResourceType.POD: (KUBERNETES_PLATFORM, KubernetesResourceType.POD.value),
+    ResourceType.PVC: (KUBERNETES_PLATFORM, KubernetesResourceType.PVC.value),
+
 }
 
 
