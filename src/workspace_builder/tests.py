@@ -150,7 +150,7 @@ class ProductionComponentTestCase(TestCase):
         self.run_common("generation_rules,render_output_items")
 
     def test_dump_resources(self):
-        self.run_common("generation_rules,render_output_items,dump_resources")
+        self.run_common("kubeapi,runwhen_default_workspace,hclod,generation_rules,render_output_items,dump_resources")
 
     def test_info(self):
         response = self.client.get("/info/")

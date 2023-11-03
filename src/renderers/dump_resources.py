@@ -12,9 +12,9 @@ logger = logging.getLogger(__name__)
 DOCUMENTATION = "Render/dump Kubernetes resource state to a YAML file"
 
 
-def _dump_resource_state(registry: Registry, resource_type_name: ResourceType, cluster_name: str) -> list[Any]:
+def _dump_resource_state(registry: Registry, resource_type_name: str, cluster_name: str) -> list[Any]:
     instances = list()
-    resource_type = registry.lookup_resource_type(KUBERNETES_PLATFORM, resource_type_name.name)
+    resource_type = registry.lookup_resource_type(KUBERNETES_PLATFORM, resource_type_name)
     if resource_type:
         for resource in resource_type.instances.values():
             if get_cluster(resource).name == cluster_name:
@@ -42,13 +42,13 @@ def render(context: Context):
         clusters[cluster_name] = cluster_dump
 
         # Dump the resources that belong to the current cluster
-        cluster_dump['namespaces'] = _dump_resource_state(registry, ResourceType.NAMESPACE, cluster_name)
-        cluster_dump['ingresses'] = _dump_resource_state(registry, ResourceType.INGRESS, cluster_name)
-        cluster_dump['services'] = _dump_resource_state(registry, ResourceType.SERVICE, cluster_name)
-        cluster_dump['deployments'] = _dump_resource_state(registry, ResourceType.DEPLOYMENT, cluster_name)
-        cluster_dump['statefulSets'] = _dump_resource_state(registry, ResourceType.STATEFUL_SET, cluster_name)
-        cluster_dump['daemonSets'] = _dump_resource_state(registry, ResourceType.DAEMON_SET, cluster_name)
-        cluster_dump['pods'] = _dump_resource_state(registry, ResourceType.POD, cluster_name)
+        cluster_dump['namespaces'] = _dump_resource_state(registry, ResourceType.NAMESPACE.value, cluster_name)
+        cluster_dump['ingresses'] = _dump_resource_state(registry, ResourceType.INGRESS.value, cluster_name)
+        cluster_dump['services'] = _dump_resource_state(registry, ResourceType.SERVICE.value, cluster_name)
+        cluster_dump['deployments'] = _dump_resource_state(registry, ResourceType.DEPLOYMENT.value, cluster_name)
+        cluster_dump['statefulSets'] = _dump_resource_state(registry, ResourceType.STATEFUL_SET.value, cluster_name)
+        cluster_dump['daemonSets'] = _dump_resource_state(registry, ResourceType.DAEMON_SET.value, cluster_name)
+        cluster_dump['pods'] = _dump_resource_state(registry, ResourceType.POD.value, cluster_name)
 
     dump_text = yaml.safe_dump(dump)
     context.outputter.write_file("resource-dump.yaml", dump_text)
