@@ -2,6 +2,7 @@ import os
 import re
 from enum import Enum
 from typing import Any, Optional, Union
+import logging
 
 import yaml
 
@@ -11,6 +12,14 @@ from resources import Resource
 from indexers.kubetypes import KUBERNETES_PLATFORM, get_cluster, get_namespace, get_context
 from .match_predicate import MatchPredicate, StringMatchMode
 from .match_predicate import base_construct_match_predicate_from_config, match_resource_path, matches_pattern
+
+logger = logging.getLogger(__name__)
+
+# Check for the environment variable and set the log level
+if os.environ.get('DEBUG_LOGGING') == 'true':
+    logger.setLevel(logging.DEBUG)
+else:
+    logger.setLevel(logging.INFO)
 
 
 def get_qualifier_value(qualifier: str, resource: Resource) -> str:
@@ -80,6 +89,15 @@ class SLXInfo:
         # dependencies between this moulde and generation_rules, which is also
         # a smell that the data structures aren't as clean as they should be...
         self.generation_rule_info = generation_rule_info
+
+    def __repr__(self):
+        try:
+            return (f"SLXInfo(base_name={self.base_name!r}, "
+                    f"qualifiers={self.qualifiers!r}, qualifier_values={self.qualifier_values!r}, "
+                    f"full_name={self.full_name!r}, resource={self.resource!r}, "
+                    f"level_of_detail={self.level_of_detail!r}, generation_rule_info={self.generation_rule_info!r})")
+        except Exception as e:
+            return f"SLXInfo(repr error: {e})"
 
 class MatchProperty(Enum):
     NAME = "name"

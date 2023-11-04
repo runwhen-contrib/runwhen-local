@@ -25,6 +25,12 @@ from .match_predicate import MatchPredicate, AndMatchPredicate, StringMatchMode,
 
 logger = logging.getLogger(__name__)
 
+# Check for the environment variable and set the log level
+if os.environ.get('DEBUG_LOGGING') == 'true':
+    logger.setLevel(logging.DEBUG)
+else:
+    logger.setLevel(logging.INFO)
+
 DOCUMENTATION = "Implements pattern-based rules for generating SLXs"
 
 MAP_CUSTOMIZATION_RULES_SETTING = Setting("MAP_CUSTOMIZATION_RULES",
@@ -343,22 +349,27 @@ class ResourcePropertyMatchPredicate(MatchPredicate):
             if p == ResourceProperty.NAME:
                 name = resource.name
                 if matches_pattern(name, self.pattern, self.string_match_mode):
+                    logger.debug(f"DEBUG: Match found for property {p} with name {name}")
                     return True
             elif p == ResourceProperty.LABEL_KEYS:
                 for key in resource.labels.keys():
                     if matches_pattern(key, self.pattern, self.string_match_mode):
+                        logger.debug(f"DEBUG: Match found for property {p} with key {key}")
                         return True
             elif p == ResourceProperty.LABEL_VALUES:
                 for value in resource.labels.values():
                     if matches_pattern(value, self.pattern, self.string_match_mode):
+                        logger.debug(f"DEBUG: Match found for property {p} with key {value}")
                         return True
             elif p == ResourceProperty.ANNOTATION_KEYS:
                 for key in resource.annotations.keys():
                     if matches_pattern(key, self.pattern, self.string_match_mode):
+                        logger.debug(f"DEBUG: Match found for property {p} with key {key}")
                         return True
             elif p == ResourceProperty.ANNOTATION_VALUES:
                 for value in resource.annotations.values():
                     if matches_pattern(value, self.pattern, self.string_match_mode):
+                        logger.debug(f"DEBUG: Match found for property {p} with key {value}")
                         return True
             else:
                 # If it doesn't match one of the predefined resource names, then we
@@ -464,6 +475,9 @@ class OutputItem:
         self.level_of_detail = LevelOfDetail[level_of_detail_value.upper()] \
             if level_of_detail_value is not None else default_lod
 
+    def __repr__(self):
+        return (f"OutputItem(type={self.type!r}, path={self.path!r}, template_name={self.template_name!r}, "
+                f"template_variables={self.template_variables!r}, level_of_detail={self.level_of_detail!r})")
 
 class SLX:
     base_name: str
@@ -476,6 +490,8 @@ class SLX:
 
     def parse_output_item(self, output_item_config: dict[str, Any]):
         output_item = OutputItem(output_item_config, self.level_of_detail)
+        logger.debug(f"DEBUG: SLX Output Item: {output_item_config}")
+
         # If no explicit path is specified, form one with the conventional file name
         # based on the type of the output item
         if not output_item.path:
@@ -516,6 +532,8 @@ class SLX:
         self.level_of_detail = LevelOfDetail[level_of_detail_value.upper()]
         output_items_config: list[dict[str, Any]] = slx_config.get("outputItems", list())
         self.output_items = [self.parse_output_item(oic) for oic in output_items_config]
+        logger.debug(f"DEBUG: SLX Class:  full_name {self.full_name}, qualifiers: {self.qualifiers}, lod {self.level_of_detail}")
+
 
 
 class SLXRelationship:
@@ -679,6 +697,11 @@ def get_template_variables(output_item: OutputItem,
 
 def should_emit_output_item(output_item: OutputItem, level_of_detail: LevelOfDetail) -> bool:
     # FIXME: Would be a bit nicer if the enum instances were directly comparable
+    logger.debug(f"DEBUG: Should Emit Item: {output_item}")
+    if output_item and output_item.level_of_detail.value <= level_of_detail.value:
+        logger.debug(f"DEBUG: Should Emit Item: Evaluation was True")
+    else: 
+        logger.debug(f"DEBUG: Should Emit Item: Evaluation was False")
     return output_item and output_item.level_of_detail.value <= level_of_detail.value
 
 
@@ -696,6 +719,7 @@ def generate_output_item(generation_rule_info: GenerationRuleInfo,
     # same path after template substitution) are identical
     # And we can only have one output item at a given path anyway...
     if path in renderer_output_items:
+        logger.debug(f"DEBUG: Generate Output Item: {path} already exists")
         return False
 
     code_collection = generation_rule_info.code_collection
@@ -720,12 +744,15 @@ def collect_emitted_slxs(generation_rule_info: GenerationRuleInfo,
         # filtered out by the level of detail
         emit_slx = False
         for output_item in slx.output_items:
+            logger.debug(f"DEBUG: Collect Emitted SLXs: Review {output_item}")
             if should_emit_output_item(output_item, level_of_detail):
+                logger.debug(f"DEBUG: Collect Emitted SLXs: should_emit_output is true")
                 emit_slx = True
                 break
 
         if emit_slx:
             slx_info = SLXInfo(slx, resource, level_of_detail, generation_rule_info)
+            logger.debug(f"DEBUG: Collect Emitted SLXs: emit {slx_info}")
             slxs[slx_info.full_name] = slx_info
 
 
