@@ -77,7 +77,7 @@ class SLXInfo:
         # At some point, it makes sense to revisit some of the data structure
         # decisions based on how the code has evolved.
         # Also, note that we don't have a type hint for this member to avoid circular
-        # dependencies between this moulde and generation_rules, which is also
+        # dependencies between this module and generation_rules, which is also
         # a smell that the data structures aren't as clean as they should be...
         self.generation_rule_info = generation_rule_info
 
@@ -119,7 +119,7 @@ class SLXPropertyMatchPredicate(MatchPredicate):
                                             'a SLX property match predicate')
         try:
             match_property = MatchProperty(match_property_value.lower())
-        except Exception as e:
+        except ValueError:
             # If it's not one of the pre-defined property value, then we treat it as
             # a path property that's resolved against the raw Kubernetes resource data
             match_property = match_property_value
@@ -130,7 +130,7 @@ class SLXPropertyMatchPredicate(MatchPredicate):
         string_match_mode = StringMatchMode(string_match_mode_value.lower())
         return SLXPropertyMatchPredicate(match_property, match_pattern, string_match_mode)
 
-    def matches(self, slx_info: SLXInfo, variables: dict[str, Any]) -> bool:
+    def matches(self, slx_info: SLXInfo) -> bool:
         if self.match_property == MatchProperty.NAME:
             match_value = slx_info.name
         elif self.match_property == MatchProperty.FULL_NAME:
@@ -149,7 +149,7 @@ class SLXPropertyMatchPredicate(MatchPredicate):
             def match_func(value: str) -> bool:
                 return matches_pattern(value, self.match_pattern, self.string_match_mode)
 
-            match = match_resource_path(slx_info.resource.resource, path, match_func)
+            match = match_resource_path(getattr(slx_info.resource, "resource"), path, match_func)
             return match
         if match_value is None:
             return False
@@ -181,7 +181,7 @@ class GroupPropertyMatchPredicate(MatchPredicate):
         string_match_mode = StringMatchMode(string_match_mode_value.lower())
         return GroupPropertyMatchPredicate(match_property, match_pattern, string_match_mode)
 
-    def matches(self, group_info: str, variables: dict[str, Any]) -> bool:
+    def matches(self, group_info: str) -> bool:
         if self.match_property != MatchProperty.NAME:
             raise WorkspaceBuilderUserException('Currently group property matches only support the "name" property')
         # TODO: Currently the group info is just the group name, so it's the same as the name property
@@ -240,8 +240,8 @@ class GroupRule:
         priority = group_rule_config.get('priority', 0)
         return GroupRule(match_predicate, group_name, priority)
 
-    def match(self, slx_info: SLXInfo, variables: dict[str, Any]) -> Optional[str]:
-        matches = self.match_predicate.matches(slx_info, variables)
+    def match(self, slx_info: SLXInfo) -> Optional[str]:
+        matches = self.match_predicate.matches(slx_info)
         if not matches:
             return None
         return self.group_name
@@ -281,12 +281,12 @@ class RelationshipRule:
         matches = [construct_match_predicate_func(mc, construct_match_predicate_func) for mc in match_configs]
         return RelationshipRule(subject, verb, matches)
 
-    def match(self, info: Any, variables: dict[str, Any]) -> bool:
+    def match(self, info: Any,) -> bool:
         for match_predicate in self.matches:
             # TODO: Do we need to return the match_predicate somehow to continue
             # processing the rule? Probably not in the simple cases, but might
             # be useful in more complicated cases.
-            if match_predicate.matches(info, variables):
+            if match_predicate.matches(info):
                 return True
         return False
 
@@ -388,29 +388,25 @@ class MapCustomizationRules:
         merged_map_customization_rules = MapCustomizationRules.merge(map_customization_rules_list)
         return merged_map_customization_rules
 
-    def match_group_rules(self, slx_info: SLXInfo, variables: dict[str, Any]) -> Optional[str]:
+    def match_group_rules(self, slx_info: SLXInfo) -> Optional[str]:
         for group_rule in self.group_rules:
-            group = group_rule.match(slx_info, variables)
+            group = group_rule.match(slx_info)
             if group:
                 return group
         return None
 
-    def _match_relationship_rules(self, match_info,
-                                  variables: dict[str, Any],
+    @staticmethod
+    def _match_relationship_rules(match_info,
                                   relationship_rules: list[RelationshipRule]) -> tuple[Optional[str],
                                                                                        Optional[RelationshipVerb]]:
         for relationship_rule in relationship_rules:
-            matches = relationship_rule.match(match_info, variables)
+            matches = relationship_rule.match(match_info)
             if matches:
                 return relationship_rule.subject, relationship_rule.verb
         return None, None
 
-    def match_group_relationship_rules(self,
-                                       group_info: str,
-                                       variables: dict[str, Any]) -> tuple[Optional[str], Optional[RelationshipVerb]]:
-        return self._match_relationship_rules(group_info, variables, self.group_relationship_rules)
+    def match_group_relationship_rules(self, group_info: str) -> tuple[Optional[str], Optional[RelationshipVerb]]:
+        return self._match_relationship_rules(group_info, self.group_relationship_rules)
 
-    def match_slx_relationship_rules(self,
-                                     slx_info: SLXInfo,
-                                     variables: dict[str, Any]) -> tuple[Optional[str], Optional[RelationshipVerb]]:
-        return self._match_relationship_rules(slx_info, variables, self.slx_relationship_rules)
+    def match_slx_relationship_rules(self, slx_info: SLXInfo) -> tuple[Optional[str], Optional[RelationshipVerb]]:
+        return self._match_relationship_rules(slx_info, self.slx_relationship_rules)

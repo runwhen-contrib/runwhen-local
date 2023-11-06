@@ -2,13 +2,12 @@ from base64 import b64decode
 from enum import Enum
 from functools import total_ordering
 from types import ModuleType
-from typing import Any, Optional, AnyStr, Union
+from typing import Any, Callable, Optional, AnyStr, Union
 from importlib import import_module
 
 from outputter import Outputter
 from exceptions import WorkspaceBuilderException, WorkspaceBuilderUserException, \
     WorkspaceBuilderObjectNotFoundException
-from resources import Registry
 
 class Setting:
     """
@@ -27,51 +26,81 @@ class Setting:
         FILE = "file"
         DICT = "dict"
         LIST = "list"
+        ENUM = "enum"
 
     name: str
     json_name: str
     type: Type
+    enum_class: Enum
     default_value: Optional[Union[bool, int, float, str, dict]]
     documentation: str
+    enum_class: Enum
+    enum_constructor: Callable[[Any], Enum]
 
     def __init__(self, name: str, json_name: str, type: Type, documentation: str,
-                 default_value: Optional[Union[bool, int, float, str, dict, list]] = None):
+                 default_value: Optional[Union[bool, int, float, str, dict, list]] = None,
+                 enum_class: Enum=None, enum_constructor=None):
         self.name = name
         self.json_name = json_name
         self.type = type
         self.default_value = default_value
         self.documentation = documentation
+        self.enum_class = enum_class
+        self.enum_constructor = enum_constructor
 
-    def convert_value_string(self, value: str) -> Any:
+    def convert_value(self, value: Any) -> Any:
         """
-        Convert the string value for a setting that's specified in the input data
+        Convert the value for a setting that's specified in the input data
         into an instance of the corresponding type for the setting.
         """
-        # FIXME: Should have better error handling/messaging for type conversion errors here
-        if self.type == Setting.Type.STRING:
-            return value
-        elif self.type == Setting.Type.INTEGER:
-            return int(value)
-        elif self.type == Setting.Type.FLOAT:
-            return float(value)
-        elif self.type == Setting.Type.BOOLEAN:
-            if isinstance(value, bool):
+        try:
+            if self.type == Setting.Type.STRING:
                 return value
-            if isinstance(value, str):
-                if value.lower() == "true":
-                    return True
-                elif value.lower() == "false":
-                    return False
-            raise WorkspaceBuilderUserException(f'Expected a boolean value of "true" or "false" '
-                                                f'for the "{self.json_name} setting')
-        elif self.type == Setting.Type.FILE:
-            return b64decode(value)
-        elif self.type == Setting.Type.DICT:
-            return value
-        elif self.type == Setting.Type.LIST:
-            return value
-        else:
-            raise WorkspaceBuilderException(f"Invalid setting type: {self.type}")
+            elif self.type == Setting.Type.INTEGER:
+                return int(value)
+            elif self.type == Setting.Type.FLOAT:
+                return float(value)
+            elif self.type == Setting.Type.BOOLEAN:
+                if isinstance(value, bool):
+                    return value
+                if isinstance(value, str):
+                    if value.lower() == "true":
+                        return True
+                    elif value.lower() == "false":
+                        return False
+                raise WorkspaceBuilderUserException(f'Expected a boolean value of "true" or "false" '
+                                                    f'for the "{self.json_name} setting')
+            elif self.type == Setting.Type.FILE:
+                return b64decode(value)
+            elif self.type == Setting.Type.DICT:
+                if type(value) is not dict:
+                    raise ValueError("Expected dict value for dict setting type")
+                return value
+            elif self.type == Setting.Type.LIST:
+                if type(value) is not list:
+                    raise ValueError("Expected list value for list setting type")
+                return value
+            elif self.type == Setting.Type.ENUM:
+                if self.enum_constructor:
+                    return self.enum_constructor(value)
+                else:
+                    try:
+                        return self.enum_class[value]
+                    except KeyError:
+                        pass
+                    try:
+                        return self.enum_class(value)
+                    except ValueError:
+                        pass
+                    # FIXME: Is this necessary or will the value already be an int
+                    # i.e. is the input argument always a string?
+                    return self.enum_class(int(value))
+            else:
+                raise WorkspaceBuilderException(f"Invalid setting type: {self.type}")
+        except ValueError as e:
+            # If the setting was successfully parsed/converted it will have already
+            # been returned above, so if we hit here it means there was an error
+            raise WorkspaceBuilderException(f"Error converting setting: {str(e)}")
 
 
 class SettingDependency:
@@ -170,14 +199,12 @@ class Context:
     settings and abstracts the file output operations.
     """
     setting_values: dict[str, Any]
-    registry: Registry
     outputter: Outputter
     properties: dict[str, Any]
 
-    def __init__(self, setting_values: dict[str, Any], registry: Registry, outputter: Outputter):
+    def __init__(self, setting_values: dict[str, Any], outputter: Outputter):
         self.setting_values = setting_values
         self.outputter = outputter
-        self.registry = registry
         self.properties = dict()
 
     def get_setting(self, name: str) -> Any:
@@ -213,7 +240,7 @@ def init_components():
     # a huge deal.
     component_stages_init = (
         (Stage.INDEXER, ["kubeapi"]),
-        (Stage.ENRICHER, ["hclod", "runwhen_default_workspace", "generation_rules"]),
+        (Stage.ENRICHER, ["runwhen_default_workspace", "generation_rules"]),
         (Stage.RENDERER, ["render_output_items", "dump_resources"])
     )
     for stage, component_names in component_stages_init:

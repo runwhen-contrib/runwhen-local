@@ -17,27 +17,53 @@ def matches_pattern(value: str, pattern: re.Pattern, string_match_mode: StringMa
     return match is not None
 
 
+class Visitor(ABC):
+    @abstractmethod
+    def visit(self, match_predicate: "MatchPredicate"): ...
+
+
 class MatchPredicate(ABC):
     @abstractmethod
-    def matches(self, info: Any, variables: dict[str, Any]) -> bool: ...
+    def matches(self, match_info: Any) -> bool: ...
 
-    # FIXME: Not super clean to have this method here, since it only applies to
-    # gen rule predicates. Would probably be cleaner to use some sort of visitor
-    # pattern instead...
-    def collect_custom_resource_type_specs(self, custom_resource_type_specs):
-        pass
+    def accept(self, visitor: Visitor):
+        """
+        Implementation of the visitor pattern
+        """
+        visitor.visit(self)
 
 
-class AndMatchPredicate(MatchPredicate):
-    """
-    Match predicate that matches if all of its child predicates match.
-    """
-    TYPE_NAME: str = "and"
+class CompoundMatchPredicate(MatchPredicate):
 
     predicates: list[MatchPredicate]
 
     def __init__(self, predicates: list[MatchPredicate]):
         self.predicates = predicates
+
+    def matches(self, match_info: Any) -> bool:
+        """
+        Subclasses should override this, so this should never be called, but we
+        need to implement it to keep the abstract base class mechanism happy.
+
+        FIXME: Is there some way in Python to have an intermediate abstract base
+        class that's meant to always be subclassed and doesn't have to implement
+        all of the abstract methods?
+        """
+        raise WorkspaceBuilderException(f"Subclasses of CompoundMatchPredicate must implement the matches method: "
+                                        f"class={type(self)}")
+
+    def accept(self, visitor: Visitor):
+        super().accept(visitor)
+        for child_predicate in self.predicates:
+            child_predicate.accept(visitor)
+
+
+
+class AndMatchPredicate(CompoundMatchPredicate):
+    """
+    Match predicate that matches if all of its child predicates match.
+    """
+    TYPE_NAME: str = "and"
 
     @staticmethod
     def construct_from_config(predicate_config: dict[str, Any], parent_construct_from_config):
@@ -48,28 +74,19 @@ class AndMatchPredicate(MatchPredicate):
                             for cpc in child_predicate_configs]
         return AndMatchPredicate(child_predicates)
 
-    def matches(self, info: Any, variables: dict[str, Any]):
+    def matches(self, match_info: Any):
         for predicate in self.predicates:
-            match = predicate.matches(info, variables)
+            match = predicate.matches(match_info)
             if not match:
                 return False
         return True
 
-    def collect_custom_resource_type_specs(self, custom_resource_type_specs):
-        for predicate in self.predicates:
-            predicate.collect_custom_resource_type_specs(custom_resource_type_specs)
 
-
-class OrMatchPredicate(MatchPredicate):
+class OrMatchPredicate(CompoundMatchPredicate):
     """
     Match predicate that matches if any of its child predicates match.
     """
     TYPE_NAME: str = "or"
-
-    predicates: list[MatchPredicate]
-
-    def __init__(self, predicates: list[MatchPredicate]):
-        self.predicates = predicates
 
     @staticmethod
     def construct_from_config(predicate_config: dict[str, Any], parent_construct_from_config):
@@ -80,16 +97,12 @@ class OrMatchPredicate(MatchPredicate):
                             for cpc in child_predicate_configs]
         return OrMatchPredicate(child_predicates)
 
-    def matches(self, info: Any, variables: dict[str, Any]):
+    def matches(self, match_info: Any):
         for predicate in self.predicates:
-            match = predicate.matches(info, variables)
+            match = predicate.matches(match_info)
             if match:
                 return True
         return False
-
-    def collect_custom_resource_type_specs(self, custom_resource_type_specs):
-        for predicate in self.predicates:
-            predicate.collect_custom_resource_type_specs(custom_resource_type_specs)
 
 
 class NotMatchPredicate(MatchPredicate):
@@ -98,9 +111,9 @@ class NotMatchPredicate(MatchPredicate):
     """
     TYPE_NAME: str = "not"
 
-    predicate: MatchPredicate
+    predicates: MatchPredicate
 
-    def __init__(self, predicate):
+    def __init__(self, predicate: MatchPredicate):
         self.predicate = predicate
 
     @staticmethod
@@ -114,11 +127,12 @@ class NotMatchPredicate(MatchPredicate):
         child_predicate = parent_construct_from_config(child_predicate_config, parent_construct_from_config)
         return NotMatchPredicate(child_predicate)
 
-    def matches(self, info: Any, variables: dict[str, Any]):
-        return not self.predicate.matches(info, variables)
+    def matches(self, match_info: Any):
+        return not self.predicate.matches(match_info)
 
-    def collect_custom_resource_type_specs(self, custom_resource_type_specs):
-        self.predicate.collect_custom_resource_type_specs(custom_resource_type_specs)
+    def accept(self, visitor: Visitor):
+        super().accept(visitor)
+        self.predicate.accept(visitor)
 
 
 def base_construct_match_predicate_from_config(predicate_config: dict[str, Any],

@@ -2,9 +2,8 @@
     A simple enricher that checks to see if there's an existing RunWhen workspace instance
     in the model database, and, if not, creates one.
 """
-from component import Context, SettingDependency, \
-    WORKSPACE_NAME_SETTING, WORKSPACE_OWNER_EMAIL_SETTING
-from resources import RUNWHEN_PLATFORM, RunWhenResourceType
+from component import Context, SettingDependency, WORKSPACE_NAME_SETTING, WORKSPACE_OWNER_EMAIL_SETTING
+from resources import RUNWHEN_PLATFORM, RunWhenResourceType, Registry, REGISTRY_PROPERTY_NAME
 
 # Variables that are used to initialize/configure the component instance
 DOCUMENTATION = "A simple enricher that tags any RunWhen workspace nodes with a default workspace name"
@@ -25,9 +24,9 @@ def enrich(context: Context):
     But to minimize the changes for the removal of neo4j I'm just going to leave it the
     same for now...
     """
-    workspace_name = context.get_setting("WORKSPACE_NAME")
-    workspace_owner_email = context.get_setting("WORKSPACE_OWNER_EMAIL")
-    registry = context.registry
+    workspace_name: str = context.get_setting("WORKSPACE_NAME")
+    workspace_owner_email: str = context.get_setting("WORKSPACE_OWNER_EMAIL")
+    registry: Registry = context.get_property(REGISTRY_PROPERTY_NAME)
 
     # Check if the workspace has already been created. If so, then just use that one.
     # If not, create it.

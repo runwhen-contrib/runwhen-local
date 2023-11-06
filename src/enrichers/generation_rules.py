@@ -1,18 +1,27 @@
+from dataclasses import dataclass
 import logging
 import os
 import re
-from enum import Enum
 from typing import Any, Union, Optional, Sequence
 import yaml
 
 from component import Context, Setting, SettingDependency, WORKSPACE_NAME_SETTING, WORKSPACE_OUTPUT_PATH_SETTING
 from exceptions import WorkspaceBuilderException
-from indexers.kubetypes import KUBERNETES_PLATFORM, ResourceType as KubernetesResourceType
+from indexers.kubetypes import KUBERNETES_PLATFORM
 from indexers.kubetypes import get_namespace, get_cluster
 from name_utils import shorten_name, make_qualified_slx_name, make_slx_name
+from .generation_rule_types import PLATFORM_HANDLERS_PROPERTY_NAME, PlatformHandler, LevelOfDetail
+from .kubernetes import KubernetesPlatformHandler
 from renderers.render_output_items import OUTPUT_ITEMS_PROPERTY
 from renderers.render_output_items import OutputItem as RendererOutputItem
-from resources import RUNWHEN_PLATFORM, RunWhenResourceType, Resource, Registry
+from resources import (
+    RUNWHEN_PLATFORM,
+    RunWhenResourceType,
+    Resource,
+    Registry,
+    ResourceTypeSpec,
+    REGISTRY_PROPERTY_NAME
+)
 from template import render_template_string
 from .code_collection import (
     CodeCollection,
@@ -20,12 +29,30 @@ from .code_collection import (
     get_code_collection,
 )
 from .map_customization_rules import MapCustomizationRules, SLXInfo, RelationshipVerb
-from .match_predicate import MatchPredicate, AndMatchPredicate, StringMatchMode, \
-    base_construct_match_predicate_from_config, match_resource_path, matches_pattern
+from .match_predicate import (
+    MatchPredicate,
+    AndMatchPredicate,
+    StringMatchMode,
+    base_construct_match_predicate_from_config,
+    match_resource_path,
+    matches_pattern,
+    Visitor as MatchPredicateVisitor
+)
 
 logger = logging.getLogger(__name__)
 
 DOCUMENTATION = "Implements pattern-based rules for generating SLXs"
+
+# FIXME: Not sure exactly where this belongs.
+# It's currently set in the resources by the indexers but the resulting LOD value is used here in the enricher
+# It probably shouldn't be included in the resource, in which case the indexers wouldn't need/use it.
+DEFAULT_LOD_SETTING = Setting("DEFAULT_LOD",
+                              "defaultLOD",
+                              Setting.Type.ENUM,
+                              "Default LOD setting to use for any namespaces not specified in NAMESPACE_LODS",
+                              default_value=LevelOfDetail.DETAILED,
+                              enum_class=LevelOfDetail,
+                              enum_constructor=LevelOfDetail.construct_from_config)
 
 MAP_CUSTOMIZATION_RULES_SETTING = Setting("MAP_CUSTOMIZATION_RULES",
                                           "mapCustomizationRules",
@@ -44,13 +71,14 @@ PERSONAS_SETTING = Setting("PERSONAS",
 
 CODE_COLLECTIONS_SETTING = Setting("CODE_COLLECTIONS",
                                    "codeCollections",
-                                   Setting.Type.DICT,
+                                   Setting.Type.LIST,
                                    "List of information about which code collections "
                                    "to scan for generation rules")
 
 SETTINGS = (
     SettingDependency(WORKSPACE_NAME_SETTING, True),
     SettingDependency(WORKSPACE_OUTPUT_PATH_SETTING, True),
+    SettingDependency(DEFAULT_LOD_SETTING, False),
     SettingDependency(MAP_CUSTOMIZATION_RULES_SETTING, False),
     SettingDependency(CUSTOM_DEFINITIONS_SETTING, False),
     SettingDependency(PERSONAS_SETTING, False),
@@ -61,207 +89,56 @@ GROUPS_PROPERTY = "groups"
 SLXS_PROPERTY = "SLXS"
 SLX_RELATIONSHIPS_PROPERTY = "slx-relationships"
 GENERATION_RULES_PROPERTY = "generation-rules"
-CUSTOM_RESOURCE_TYPE_SPECS = "custom-resource-type-specs"
-
-# FIXME: Short-term workaround for the messiness with needing to access the registry
-# from match predicates. Should bite the bullet soon to fix this the right way, but
-# will likely entail changing the signatures of a bunch of things.
-registry: Registry
-
-
-class LevelOfDetail(Enum):
-    """
-    A per-namespace setting that is used to control how much information to generate.
-
-    FIXME: This probably belongs somewhere else, but it causes a circular reference
-    if this is in generation_rules. Possibly there should be an "slx" module where
-    the low-level slx-related stuff goes...
-    """
-    NONE = 0
-    BASIC = 1
-    DETAILED = 2
+# The value of this is a dict whose key is platform names and value is a set of resource type names
+RESOURCE_TYPE_SPECS_PROPERTY = "resource-type-specs"
+# This is the dict key name for specifying the platform name in gen rules
+# and the associated resource types.
+PLATFORM_NAME_KEY_NAME = "platform"
 
 
-class TemplateValueSourceType(Enum):
-    # IP = "ip"
-    # SETTING = "setting"
-    # ATTRIBUTE = "attribute"
-    NAMESPACE = "namespace"
-    CONTEXT = "context"
-    # WORKSPACE = "workspace"
-    CLUSTER = "cluster"
-
-
-class ResourceType(Enum):
-    """
-    The types of Kubernetes and RunWhen resources that generation rules can iterate over and
-    check their attributes against the specified pattern to trigger the generation of an
-    output file (most commonly an SLX, but also the workspace.yaml file and possibly other
-    things too).
-    """
-    # FIXME: Not sure workspace makes sense here. We're using it currently for a generation
-    # rule that creates the workspace yaml file, but I think it probably makes more sense
-    # to treat the generation of that as something that's done in code, not via a
-    # generation rule, especially when we start supporting group/road customizations
-    # in the generated workspace.
-    WORKSPACE = "workspace"
-    VARIABLES = "variables"
-    INGRESS = "ingress"
-    SERVICE = "service"
-    NAMESPACE = "namespace"
-    CLUSTER = "cluster"
-    DEPLOYMENT = "deployment"
-    CONFIG_MAP = "configmap"
-    DAEMON_SET = "daemonset"
-    STATEFUL_SET = "statefulset"
-    POD = "pod"
-    CUSTOM = "custom"
-    PVC = "persistentvolumeclaim"
-
-
-class ResourceTypeSpec:
-    resource_type: ResourceType
-    # The rest of the fields only apply to custom resource types
-    group: Optional[str]
-    version: Optional[str]
-    kind: Optional[str]
-
-    def __init__(self, resource_type: ResourceType, group: Optional[str] = None,
-                 version: Optional[str] = None, kind: Optional[str] = None):
-        self.resource_type = resource_type
-        self.group = group
-        self.version = version
-        self.kind = kind
-
-    def __eq__(self, other):
-        if not isinstance(other, ResourceTypeSpec):
-            # don't attempt to compare against unrelated types
-            return NotImplemented
-
-        return self.group == other.group and self.version == other.version and self.kind == self.kind
-
-    def get_name(self):
-        group_suffix = f".{self.group}" if self.group else ""
-        return f"{self.kind}{group_suffix}"
-
-    @staticmethod
-    def construct_from_config(config: Union[str, dict[str, Any]]) -> "ResourceTypeSpec":
-        """
-        Construct a ResourceTypeSpec from configuration in a generation rule.
-        The spec can be either a string or a dict. If it's a string, the expected format
-        is "kind.group/version", e.g. "workspaces.runwhen.com/v1".
-        The kind field is the lower-case plural form of the kind.
-        The version can be omitted (along with the slash), which maps to matching all available versions.
-        :param config:
-        :return:
-        """
-        if isinstance(config, str):
-            try:
-                resource_type = ResourceType(config)
-                group = None
-                version = None
-                kind = None
-            except ValueError:
-                resource_type = ResourceType.CUSTOM
-                parts = config.split('/')
-                if len(parts) == 1:
-                    version = None
-                    group_and_kind = config
-                elif len(parts) == 2:
-                    version = parts[1]
-                    group_and_kind = parts[0]
-                else:
-                    raise WorkspaceBuilderException(f"Invalid resource type spec configuration: {config}.")
-                dot_index = group_and_kind.find('.')
-                if dot_index > 0:
-                    kind = group_and_kind[0:dot_index]
-                    group = group_and_kind[dot_index+1:]
-                elif dot_index < 0:
-                    kind = group_and_kind
-                    group = ""
-                else:
-                    raise WorkspaceBuilderException(f'Expected resource type spec string for a custom resource '
-                                                    f'to begin with the kind: {config}')
-        elif isinstance(config, dict):
-            resource_type_str = config.get("resourceType")
-            if not resource_type_str:
-                raise WorkspaceBuilderException(f'Resource type spec must specify a "resourceType" field')
-            resource_type = ResourceType(resource_type_str)
-            group = config.get("group")
-            version = config.get("version")
-            kind = config.get("kind")
-            if resource_type == ResourceType.CUSTOM and not kind:
-                raise WorkspaceBuilderException(f'The resource type spec for a custom resource '
-                                                f'must specify a "kind" field.')
+def get_resources(context: Context,
+                  resource_type_spec: ResourceTypeSpec,
+                  variables: dict[str, Any]) -> Sequence[Union[Resource, dict[str, Any]]]:
+    platform_name = resource_type_spec.platform_name
+    resource_type_name = resource_type_spec.resource_type_name
+    if platform_name == RUNWHEN_PLATFORM:
+        if resource_type_name == RunWhenResourceType.VARIABLES.value:
+            return [variables]
         else:
-            raise WorkspaceBuilderException(f'Unexpected type ("{type(config)}") for ResourceTypeSpec; '
-                                            f'expected str or dict.')
-        return ResourceTypeSpec(resource_type, group=group, version=version, kind=kind)
+            raise WorkspaceBuilderException(f"Unsupported resource type: {RUNWHEN_PLATFORM}:{resource_type_name}")
+    platform_handlers: dict[str, PlatformHandler] = context.get_property(PLATFORM_HANDLERS_PROPERTY_NAME)
+    platform_handler = platform_handlers.get(platform_name)
+    if not platform_handler:
+        raise WorkspaceBuilderException(f"Platform handler not found for platform: {platform_name}")
+    resources = platform_handler.get_resources(resource_type_spec, context)
+    return resources
+
+def update_resource_type_specs(resource_type_spec: ResourceTypeSpec,
+                               resource_type_specs: dict[str, list[ResourceTypeSpec]]):
+    platform_name = resource_type_spec.platform_name
+    platform_resource_type_specs = resource_type_specs.get(platform_name)
+    if not platform_resource_type_specs:
+        platform_resource_type_specs = list()
+        resource_type_specs[platform_name] = platform_resource_type_specs
+    if resource_type_spec not in platform_resource_type_specs:
+        platform_resource_type_specs.append(resource_type_spec)
 
 
-resource_map: dict[ResourceType, tuple[str, str]] = {
-    ResourceType.WORKSPACE: (RUNWHEN_PLATFORM, RunWhenResourceType.WORKSPACE.value),
-    ResourceType.NAMESPACE: (KUBERNETES_PLATFORM, KubernetesResourceType.NAMESPACE.value),
-    ResourceType.INGRESS: (KUBERNETES_PLATFORM, KubernetesResourceType.INGRESS.value),
-    ResourceType.SERVICE: (KUBERNETES_PLATFORM, KubernetesResourceType.SERVICE.value),
-    ResourceType.CLUSTER: (KUBERNETES_PLATFORM, KubernetesResourceType.CLUSTER.value),
-    ResourceType.DEPLOYMENT: (KUBERNETES_PLATFORM, KubernetesResourceType.DEPLOYMENT.value),
-    ResourceType.DAEMON_SET: (KUBERNETES_PLATFORM, KubernetesResourceType.DAEMON_SET.value),
-    ResourceType.STATEFUL_SET: (KUBERNETES_PLATFORM, KubernetesResourceType.STATEFUL_SET.value),
-    ResourceType.POD: (KUBERNETES_PLATFORM, KubernetesResourceType.POD.value),
-    ResourceType.PVC: (KUBERNETES_PLATFORM, KubernetesResourceType.PVC.value),
-
-}
+@dataclass
+class GenerationRuleMatchInfo:
+    resource: Resource
+    variables: dict[str, Any]
+    context: Context
 
 
-def get_resources(resource_type_spec: ResourceTypeSpec,
-                  variables: dict[str, Any],
-                  registry: Registry) -> Sequence[Union[Resource, dict[str, Any]]]:
-    resource_type = resource_type_spec.resource_type
-    if resource_type == ResourceType.VARIABLES:
-        return [variables]
-    if resource_type == ResourceType.CUSTOM:
-        # TODO: This isn't a super efficient implementation, especially if there are a lot of
-        # different custom resource types, because we do a linear search over the complete list of
-        # custom resources. Currently, there aren't a lot of custom resources that are indexed,
-        # so I don't think this will be a problem. But if it turns out to be a performance issue,
-        # it wouldn't be too hard to come up with some more efficient implementation, presumably
-        # one that structures the data more by the group/version/plural-name, so that we don't
-        # have to iterate over everything. Or, of course, switching back to some sort of actual
-        # database, preferably something that runs in-process, but I think it only makes sense
-        # to do that if there's some other compelling reason to want that, e.g. separating out
-        # the resource discovery process into a standalone service that supports more
-        # full-featured querying of the resources.
-        custom_resource_type = registry.lookup_resource_type(KUBERNETES_PLATFORM, KubernetesResourceType.CUSTOM.value)
-        result = list()
-        if custom_resource_type:
-            for custom_resource in custom_resource_type.instances.values():
-                # NB: Use getattr here to avoid linting errors, since currently these attributes
-                # are set dynamically, so they're not known to do static type analysis.
-                # Should think about ways to make this more type-safe...
-                if getattr(custom_resource, "plural_name") != resource_type_spec.kind:
-                    continue
-                if getattr(custom_resource, "group") != resource_type_spec.group:
-                    continue
-                check_version = resource_type_spec.version is not None and resource_type_spec.version != '*'
-                if check_version and getattr(custom_resource, "version") != resource_type_spec.version:
-                    continue
-                result.append(custom_resource)
-        return result
-    else:
-        platform_name, resource_type_name = resource_map[resource_type]
-        resource_type = registry.lookup_resource_type(platform_name, resource_type_name)
-        return resource_type.instances.values() if resource_type else list()
-
-
-class ResourceProperty(Enum):
-    NAME = "name"
-    LABEL_KEYS = "label-keys"
-    LABEL_VALUES = "label-values"
-    LABELS = "labels"  # matches against both the label keys and values
-    ANNOTATION_KEYS = "annotation-keys"
-    ANNOTATION_VALUES = "annotation-values"
-    ANNOTATIONS = "annotations"  # matches against both the annotation keys and values
+def construct_resource_type_spec(resource_type_spec_config: dict[str, Any],
+                                 default_platform_name: str,
+                                 context:Context):
+        platform_handlers: dict[str, PlatformHandler] = context.get_property(PLATFORM_HANDLERS_PROPERTY_NAME)
+        platform_name, _ = ResourceTypeSpec.parse_platform_name(resource_type_spec_config, default_platform_name)
+        platform_handler = platform_handlers[platform_name]
+        resource_type_spec = platform_handler.construct_resource_type_spec(resource_type_spec_config)
+        return resource_type_spec
 
 
 class ResourcePropertyMatchPredicate(MatchPredicate):
@@ -273,14 +150,15 @@ class ResourcePropertyMatchPredicate(MatchPredicate):
     "resource" field of the model instance, which is just a JSON-serialized
     version of the raw resource data.
     """
-    # FIXME: Not sure "pattern" is the best name here?
-    #  Maybe "property" would be better?
-    TYPE_NAME: str = "pattern"
 
     resource_type_spec: Optional[ResourceTypeSpec]
     pattern: re.Pattern
     properties: list[str]
     string_match_mode: StringMatchMode
+
+    # FIXME: Not sure "pattern" is the best name here?
+    #  Maybe "property" would be better?
+    TYPE_NAME: str = "pattern"
 
     def __init__(self,
                  resource_type_spec: ResourceTypeSpec,
@@ -293,106 +171,79 @@ class ResourcePropertyMatchPredicate(MatchPredicate):
         self.string_match_mode = string_match_mode
 
     @staticmethod
-    def construct_from_config(predicate_config: dict[str, Any]) -> "ResourcePropertyMatchPredicate":
+    def construct_from_config(predicate_config: dict[str, Any],
+                              default_platform_name: str,
+                              context: Context) -> "ResourcePropertyMatchPredicate":
         resource_type_spec_config = predicate_config.get("resourceType")
-        resource_type_spec = ResourceTypeSpec.construct_from_config(resource_type_spec_config) \
+        resource_type_spec = construct_resource_type_spec(resource_type_spec_config, default_platform_name, context) \
             if resource_type_spec_config else None
         pattern_config: str = predicate_config.get("pattern")
         if not pattern_config:
             raise WorkspaceBuilderException('A non-empty pattern must be specified for a '
                                             'resource property match predicate')
         pattern = re.compile(pattern_config)
-        properties_config: list[str] = predicate_config.get("properties")
-        if not properties_config:
+        properties: list[str] = predicate_config.get("properties")
+        if not properties:
             raise WorkspaceBuilderException('A non-empty list of resource properties must be specified '
                                             'for a resource property match predicate')
-        properties: set = set()
-        for property_config in properties_config:
-            try:
-                rp = ResourceProperty(property_config.lower())
-                # Expand the LABELS and ANNOTATIONS aggregate properties to the underlying
-                # properties. We do this here to simplify the processing of the properties
-                # in the "matches" method.
-                if rp == ResourceProperty.LABELS:
-                    properties.add(ResourceProperty.LABEL_KEYS)
-                    properties.add(ResourceProperty.LABEL_VALUES)
-                elif property == ResourceProperty.ANNOTATIONS:
-                    properties.add(ResourceProperty.ANNOTATION_KEYS)
-                    properties.add(ResourceProperty.ANNOTATION_VALUES)
-                else:
-                    properties.add(rp)
-            except Exception as e:
-                # If it didn't match one of the pre-defined property values, then
-                # we treat it as a path that's resolved from the root of the
-                # raw Kubernetes resource data
-                # FIXME: This is a little kludgy, since it means that the elements in the
-                # properties list are not a consistent type, i.e. a mix of ResourceProperty
-                # and string/path. Might be cleaner to have a ResourceProperty enum named
-                # "PATH", that corresponds to a path property and store the actual path value
-                # in a separate field in the match predicate. That's more type-safe from
-                # an implementation standpoint, but a little more verbose for the author,
-                # so not sure if it should be changed.
-                properties.add(property_config)
         string_match_mode_config: str = predicate_config.get("mode")
         string_match_mode = StringMatchMode[string_match_mode_config.upper()] \
             if string_match_mode_config else StringMatchMode.SUBSTRING
-        return ResourcePropertyMatchPredicate(resource_type_spec, pattern, list(properties), string_match_mode)
+        return ResourcePropertyMatchPredicate(resource_type_spec, pattern, properties, string_match_mode)
 
-    def matches_resource(self, resource: Union[Resource, dict[str, Any]]):
-        for p in self.properties:
-            if p == ResourceProperty.NAME:
+    def matches_resource(self, resource: Union[Resource, dict[str, Any]], context: Context):
+        # FIXME: This is sort of kludgy due to the union typing of the resource variable
+        # between the Kubernetes resource and the variables dict. There's probably
+        # a cleaner way to handle it, but this works for now.
+        platform_name = resource.resource_type.platform.name
+        platform_handlers: dict[str, PlatformHandler] = context.get_property(PLATFORM_HANDLERS_PROPERTY_NAME)
+        platform_handler = platform_handlers[platform_name]
+
+        # If it doesn't match one of the built-in resource names, then we
+        # treat it as a path to be resolved to a value to be matched.
+        def match_func(v: str) -> bool:
+            return matches_pattern(v, self.pattern, self.string_match_mode)
+
+        for prop in self.properties:
+            if type(resource) == dict:
+                # The "resource" is the custom variables, so treat the property value as
+                # a path to be resolved relative to the root of the variables.
+                if match_resource_path(resource, prop, match_func):
+                    return True
+            elif prop == "name":
                 name = resource.name
                 if matches_pattern(name, self.pattern, self.string_match_mode):
                     return True
-            elif p == ResourceProperty.LABEL_KEYS:
-                for key in resource.labels.keys():
-                    if matches_pattern(key, self.pattern, self.string_match_mode):
-                        return True
-            elif p == ResourceProperty.LABEL_VALUES:
-                for value in resource.labels.values():
-                    if matches_pattern(value, self.pattern, self.string_match_mode):
-                        return True
-            elif p == ResourceProperty.ANNOTATION_KEYS:
-                for key in resource.annotations.keys():
-                    if matches_pattern(key, self.pattern, self.string_match_mode):
-                        return True
-            elif p == ResourceProperty.ANNOTATION_VALUES:
-                for value in resource.annotations.values():
-                    if matches_pattern(value, self.pattern, self.string_match_mode):
-                        return True
             else:
-                # If it doesn't match one of the predefined resource names, then we
-                # treat it as a path to be resolved to a value to be matched.
-                def match_func(v: str) -> bool:
-                    return matches_pattern(v, self.pattern, self.string_match_mode)
-
-                # FIXME: This is sort of kludgy due to the union typing of the resource variable
-                # between the Kubernetes resource and the variables dict. There's probably
-                # a cleaner way to handle it, but this works for now.
-                root = resource.resource if isinstance(resource, Resource) else resource
-                return match_resource_path(root, p, match_func)
+                # Check if it's one of the platform-specific built-in values
+                property_values = platform_handler.get_resource_property_values(resource, prop)
+                if property_values is not None:
+                    for value in property_values:
+                        if matches_pattern(value, self.pattern, self.string_match_mode):
+                            return True
+                else:
+                    if match_resource_path(resource.resource, prop, match_func):
+                        return True
         return False
 
-    def matches(self, resource: Union[Resource, dict[str, Any]], variables: dict[str, Any]):
-        global registry
+    def matches(self, generation_rule_match_info: GenerationRuleMatchInfo):
+        resource = generation_rule_match_info.resource
+        variables = generation_rule_match_info.variables
+        context = generation_rule_match_info.context
         if self.resource_type_spec:
-            resources = get_resources(self.resource_type_spec, variables, registry)
+            resources = get_resources(context, self.resource_type_spec, variables)
             for resource in resources:
-                if self.matches_resource(resource):
-                    resource_type = self.resource_type_spec.resource_type
-                    resource_name = self.resource_type_spec.get_name() \
-                        if resource_type == ResourceType.CUSTOM else resource_type.value
-                    variables['resources'][resource_name] = resource
+                if self.matches_resource(resource, context):
+                    resource_type_name = self.resource_type_spec.get_resource_type_name()
+                    variables['resources'][resource_type_name] = resource
                     return True
             return False
         else:
-            return self.matches_resource(resource)
+            return self.matches_resource(resource, context)
 
-    def collect_custom_resource_type_specs(self, custom_resource_type_specs):
-        if (self.resource_type_spec and
-                self.resource_type_spec.resource_type == ResourceType.CUSTOM and
-                self.resource_type_spec not in custom_resource_type_specs):
-            custom_resource_type_specs.append(self.resource_type_spec)
+    def collect_resource_type_specs(self, resource_type_specs):
+        if self.resource_type_spec:
+            update_resource_type_specs(self.resource_type_spec, resource_type_specs)
 
 
 class ResourcePathExistsMatchPredicate(MatchPredicate):
@@ -414,25 +265,15 @@ class ResourcePathExistsMatchPredicate(MatchPredicate):
         match_empty = predicate_config.get("matchEmpty", False)
         return ResourcePathExistsMatchPredicate(path, match_empty)
 
-    def matches(self, resource: Resource, variables: dict[str, Any]) -> bool:
+    def matches(self, generation_rule_match_info: GenerationRuleMatchInfo) -> bool:
         def match_func(value: str) -> bool:
             return (value is not None) or self.match_empty
+        resource = generation_rule_match_info.resource
         return match_resource_path(resource.resource, self.path, match_func)
 
 
-def construct_match_predicate_from_config(predicate_config: dict[str, Any],
-                                          parent_construct_from_config) -> MatchPredicate:
-    match_predicate_type = predicate_config.get('type')
-    if match_predicate_type == ResourcePropertyMatchPredicate.TYPE_NAME:
-        match_predicate = ResourcePropertyMatchPredicate.construct_from_config(predicate_config)
-    elif match_predicate_type == ResourcePathExistsMatchPredicate.TYPE_NAME:
-        match_predicate = ResourcePathExistsMatchPredicate.construct_from_config(predicate_config)
-    else:
-        match_predicate = base_construct_match_predicate_from_config(predicate_config,
-                                                                     parent_construct_from_config)
-    return match_predicate
 
-
+@dataclass
 class OutputItem:
     """
     Specification of an output item/file to emit. This class is for deserializing the
@@ -444,6 +285,8 @@ class OutputItem:
 
     FIXME: The name conflict between this and the renderer OutputItem is a bit confusing.
     Should probably rename this one to something else, maybe OutputItemConfig?
+    Might make sense to rename all of the classes that correspond to the config that's
+    parsed from the generation rules files to include "Config" in the name.
     """
     type: str
     path: str
@@ -451,19 +294,18 @@ class OutputItem:
     template_variables: dict[str, Any]
     level_of_detail: LevelOfDetail
 
-    def __init__(self, output_item_config: dict[str, Any], default_lod=LevelOfDetail.DETAILED):
-        self.type = output_item_config.get('type')
-        self.path = output_item_config.get("path")
-        self.template_name = output_item_config.get("templateName")
-        template_variables_config = output_item_config.get("templateVariables", dict())
-        self.template_variables = {
-            k: TemplateValueSourceType[v.upper()] for (k, v) in template_variables_config.items()
-        }
+    @staticmethod
+    def construct_from_config(output_item_config: dict[str, Any],
+                              default_level_of_detail=LevelOfDetail.DETAILED):
+        type_ = output_item_config.get('type')
+        path = output_item_config.get("path")
+        template_name = output_item_config.get("templateName")
+        template_variables = output_item_config.get("templateVariables", dict())
         # TODO: Think more about whether default value should be BASIC or DETAILED
-        level_of_detail_value = output_item_config.get("levelOfDetail")
-        self.level_of_detail = LevelOfDetail[level_of_detail_value.upper()] \
-            if level_of_detail_value is not None else default_lod
-
+        level_of_detail_config = output_item_config.get("levelOfDetail")
+        level_of_detail = LevelOfDetail.construct_from_config(level_of_detail_config) \
+            if level_of_detail_config is not None else default_level_of_detail
+        return OutputItem(type_, path, template_name, template_variables, level_of_detail)
 
 class SLX:
     base_name: str
@@ -475,7 +317,7 @@ class SLX:
     output_items: list[OutputItem]
 
     def parse_output_item(self, output_item_config: dict[str, Any]):
-        output_item = OutputItem(output_item_config, self.level_of_detail)
+        output_item = OutputItem.construct_from_config(output_item_config, self.level_of_detail)
         # If no explicit path is specified, form one with the conventional file name
         # based on the type of the output item
         if not output_item.path:
@@ -518,17 +360,6 @@ class SLX:
         self.output_items = [self.parse_output_item(oic) for oic in output_items_config]
 
 
-class SLXRelationship:
-    subject: str
-    verb: RelationshipVerb
-    object: str
-
-    def __init__(self, subject: str, verb: RelationshipVerb, object: str):
-        self.subject = subject
-        self.verb = verb
-        self.object = object
-
-
 class GenerationRule:
     """
     Class for the deserialization of the top-level generationRules list in the
@@ -549,17 +380,42 @@ class GenerationRule:
         self.slxs = slxs
 
     @staticmethod
-    def construct_from_config(generation_rule_config: dict[str, Any]) -> "GenerationRule":
-        resource_types_config = generation_rule_config.get("resourceTypes")
-        if not resource_types_config:
+    def construct_from_config(generation_rule_config: dict[str, Any],
+                              default_platform_name: str,
+                              context: Context) -> "GenerationRule":
+        gen_rule_platform_name = generation_rule_config.get(PLATFORM_NAME_KEY_NAME, default_platform_name)
+
+        resource_type_spec_configs = generation_rule_config.get("resourceTypes")
+        if not resource_type_spec_configs:
             raise WorkspaceBuilderException("A generation rule must specify at least one resource type to check")
-        resource_type_specs = [ResourceTypeSpec.construct_from_config(rtc) for rtc in resource_types_config]
+        resource_type_specs = list()
+        for resource_type_spec_config in resource_type_spec_configs:
+            resource_type_spec = construct_resource_type_spec(resource_type_spec_config, default_platform_name, context)
+            resource_type_specs.append(resource_type_spec)
         match_predicate_configs: list[dict[str, Any]] = generation_rule_config.get("matchRules")
+
+        # Define this as a nested method/closure, so it can access the context and default platform
+        # name variables, which are needed to construct the match predicates, without having to pass
+        # those things around as explicit parameters to all the match predicate construction methods.
+        # Arguably a bit kludgy (or maybe elegant?)
+        def construct_match_predicate_from_config(predicate_config: dict[str, Any],
+                                                  parent_construct_from_config) -> MatchPredicate:
+            match_predicate_type = predicate_config.get('type')
+            if match_predicate_type == ResourcePropertyMatchPredicate.TYPE_NAME:
+                mp = ResourcePropertyMatchPredicate.construct_from_config(predicate_config,
+                                                                          gen_rule_platform_name,
+                                                                          context)
+            elif match_predicate_type == ResourcePathExistsMatchPredicate.TYPE_NAME:
+                mp = ResourcePathExistsMatchPredicate.construct_from_config(predicate_config)
+            else:
+                mp = base_construct_match_predicate_from_config(predicate_config, parent_construct_from_config)
+            return mp
+
         match_predicates = [construct_match_predicate_from_config(mpc, construct_match_predicate_from_config)
                             for mpc in match_predicate_configs]
         match_predicate = AndMatchPredicate(match_predicates)
         output_items_config: list[dict[str, Any]] = generation_rule_config.get("outputItems", list())
-        output_items = [OutputItem(oic) for oic in output_items_config]
+        output_items = [OutputItem.construct_from_config(oic) for oic in output_items_config]
         slxs_config: list[dict[str, Any]] = generation_rule_config.get("slxs", list())
         slxs = [SLX(slx_config) for slx_config in slxs_config]
         return GenerationRule(resource_type_specs, match_predicate, output_items, slxs)
@@ -618,7 +474,8 @@ class GenerationRuleInfo:
 def get_template_variables(output_item: OutputItem,
                            resource: Any,
                            base_template_variables: dict[str, Any],
-                           generation_rule_info: GenerationRuleInfo) -> dict[str, Any]:
+                           generation_rule_info: GenerationRuleInfo,
+                           context: Context) -> dict[str, Any]:
     """
     Convert the template variables configuration from a generation rule into
     a corresponding dictionary with the values of the template variables.
@@ -630,25 +487,22 @@ def get_template_variables(output_item: OutputItem,
     :param base_template_variables:
         base dictionary for the returned dictionary that contains some built-in,
         automatically defined variables.
-
+    :param generation_rule_info:
+    :param context:
     :return: dictionary of the template variables with the resolved/literal values
     """
     template_variables = base_template_variables.copy()
 
-    # Always configure some built-in template variables for Kubernetes resources
-    # This simplifies things for template authors, so they don't need to explicitly
-    # declare these variables in generation rules.
     if isinstance(resource, Resource):
-        cluster = get_cluster(resource)
-        if cluster:
-            template_variables['cluster'] = cluster
-            context = cluster.context
-            if context:
-                template_variables['context'] = context
-        # FIXME: Kubernetes dependency
-        namespace = get_namespace(resource)
-        if namespace:
-            template_variables['namespace'] = namespace
+        # If it's a resource (vs. the kludgy overloaded custom defs), then call the
+        # associated platform handler to add any standard/built-in platform-specific
+        # template variables.
+        platform_name = resource.resource_type.platform.name
+        platform_handlers: dict[str, PlatformHandler] = context.get_property(PLATFORM_HANDLERS_PROPERTY_NAME)
+        platform_handler = platform_handlers[platform_name]
+        platform_handler.add_template_variables(resource, template_variables)
+    else:
+        platform_handler = None
 
     # FIXME: Probably don't need this anymore after we simplified the templating
     # scheme to get rid of the generic header template that included the 'kind' field.
@@ -667,11 +521,18 @@ def get_template_variables(output_item: OutputItem,
         raise WorkspaceBuilderException(f"Unsupported output item type: {output_item.type}")
     template_variables['kind'] = kind
 
-    template_variables['repo_url'] = generation_rule_info.code_collection.repo_url
+    try:
+        template_variables['repo_url'] = generation_rule_info.code_collection.repo_url
+    except Exception as e:
+        raise e
     template_variables['ref'] = generation_rule_info.ref_name
 
     for name, template_string in output_item.template_variables.items():
-        value = render_template_string(template_string, template_variables)
+        value = None
+        if platform_handler:
+            value = platform_handler.resolve_template_variable_value(resource, template_string)
+        if not value:
+            value = render_template_string(template_string, template_variables)
         template_variables[name] = value
 
     return template_variables
@@ -679,15 +540,23 @@ def get_template_variables(output_item: OutputItem,
 
 def should_emit_output_item(output_item: OutputItem, level_of_detail: LevelOfDetail) -> bool:
     # FIXME: Would be a bit nicer if the enum instances were directly comparable
-    return output_item and output_item.level_of_detail.value <= level_of_detail.value
+    try:
+        return output_item and output_item.level_of_detail.value <= level_of_detail.value
+    except Exception as e:
+        raise e
 
 
 def generate_output_item(generation_rule_info: GenerationRuleInfo,
                          output_item: OutputItem,
                          resource: Resource,
                          renderer_output_items: dict[str, RendererOutputItem],
-                         base_template_variables: dict[str, Any]) -> bool:
-    template_variables = get_template_variables(output_item, resource, base_template_variables, generation_rule_info)
+                         base_template_variables: dict[str, Any],
+                         context: Context) -> bool:
+    template_variables = get_template_variables(output_item,
+                                                resource,
+                                                base_template_variables,
+                                                generation_rule_info,
+                                                context)
     path_template = output_item.path
     path = render_template_string(path_template, template_variables)
     # Only emit the output item if it's a path we haven't seen/emitted yet.
@@ -758,12 +627,24 @@ def assign_slx_names(slxs: dict[str, SLXInfo], workspace_name):
             slx_info.name = make_slx_name(workspace_name, shortened_name)
 
 
+class SLXRelationship:
+    subject: str
+    verb: RelationshipVerb
+    object: str
+
+    def __init__(self, subject: str, verb: RelationshipVerb, obj: str):
+        self.subject = subject
+        self.verb = verb
+        self.object = obj
+
+
 def generate_slx_output_items(slx_info: SLXInfo,
                               base_template_variables: dict[str, Any],
                               renderer_output_items: dict[str, RendererOutputItem],
                               map_customization_rules: MapCustomizationRules,
                               groups: dict[str, Group],
-                              slx_relationships: list[SLXRelationship]) -> None:
+                              slx_relationships: list[SLXRelationship],
+                              context: Context) -> None:
     """
     Translate the output items from the generation rule config into the
     corresponding render_output_items OutputItems to be emitted during the
@@ -774,6 +655,7 @@ def generate_slx_output_items(slx_info: SLXInfo,
     :param map_customization_rules:
     :param groups:
     :param slx_relationships:
+    :param context:
     :return:
     """
     resource = slx_info.resource
@@ -797,7 +679,8 @@ def generate_slx_output_items(slx_info: SLXInfo,
                                  output_item,
                                  resource,
                                  renderer_output_items,
-                                 slx_base_template_variables)
+                                 slx_base_template_variables,
+                                 context)
 
     customization_variables = {
         "resource": resource,
@@ -807,7 +690,7 @@ def generate_slx_output_items(slx_info: SLXInfo,
         customization_variables['namespace'] = namespace
     if cluster:
         customization_variables['cluster'] = cluster
-    group_name_template = map_customization_rules.match_group_rules(slx_info, slx_base_template_variables)
+    group_name_template = map_customization_rules.match_group_rules(slx_info)
     if group_name_template:
         group_name = render_template_string(group_name_template, customization_variables)
         group = groups.get(group_name)
@@ -816,29 +699,52 @@ def generate_slx_output_items(slx_info: SLXInfo,
             groups[group_name] = group
         group.add_slx(slx_info.qualified_name)
 
-    subject_template, verb = map_customization_rules.match_slx_relationship_rules(slx_info, slx_base_template_variables)
+    subject_template, verb = map_customization_rules.match_slx_relationship_rules(slx_info)
     if subject_template:
         subject = render_template_string(subject_template, customization_variables)
-        object = slx_info.qualified_name
+        obj = slx_info.qualified_name
         if verb == RelationshipVerb.DEPENDED_ON_BY:
             verb = RelationshipVerb.DEPENDENT_ON
-            subject, object = object, subject
-        slx_relationship = SLXRelationship(subject, verb.value, object)
+            subject, obj = obj, subject
+        slx_relationship = SLXRelationship(subject, verb, obj)
         slx_relationships.append(slx_relationship)
 
 
-def load(context: Context) -> None:
+class CollectResourceTypeSpecsVisitor(MatchPredicateVisitor):
 
-    # Once we have support for user-configured code collections (i.e. supplementing the default
-    # code collections with additional ones or suppressing some of the default ones), then here's
-    # where we would add the logic to handle those customizations to construct the complete list
-    # of code collection configs.
+    resource_type_specs: dict[str, list[ResourceTypeSpec]]
+
+    def __init__(self, resource_type_specs: dict[str, list[ResourceTypeSpec]]):
+        self.resource_type_specs = resource_type_specs
+
+    def visit(self, match_predicate: "MatchPredicate"):
+        try:
+            # Improve the type-checking here to avoid type warnings
+            # Could have a MatchPredicate subclass that defines the collect_resource_type_specs
+            # that anything that supported that method would derive from. Then we could
+            # use isinstance and cast to that. Or something like that...
+            match_predicate.collect_resource_type_specs(self.resource_type_specs)
+        except AttributeError:
+            # This match predicate didn't implement the collect_resource_type_specs
+            # method so just ignore the error.
+            pass
+
+
+def load(context: Context) -> None:
+    # FIXME: Would be nice if this generic gen rule code didn't have to have dependencies
+    # on all the platform handlers.
+    # Could perhaps do some sort of dynamic discovery/loading/registration of all the platform handlers?
+    platform_handlers = {
+        KUBERNETES_PLATFORM: KubernetesPlatformHandler(KUBERNETES_PLATFORM),
+    }
+    context.set_property(PLATFORM_HANDLERS_PROPERTY_NAME, platform_handlers)
     request_code_collections = context.get_setting("CODE_COLLECTIONS")
     code_collection_configs = get_request_code_collections(request_code_collections)
 
     slxs_by_shortened_base_name = dict()
     generation_rules = list()
-    custom_resource_type_specs = list()
+    resource_type_specs: dict[str, list[ResourceTypeSpec]] = dict()
+    collect_resource_types_visitor = CollectResourceTypeSpecsVisitor(resource_type_specs)
 
     for code_collection_config in code_collection_configs:
         code_collection = get_code_collection(code_collection_config)
@@ -849,9 +755,18 @@ def load(context: Context) -> None:
             generation_rules_configs = code_collection.get_generation_rules_configs(ref_name, code_bundle_name)
             for generation_rules_name, generation_rules_config_text in generation_rules_configs:
                 generation_rules_config = yaml.safe_load(generation_rules_config_text)
+                spec_config = generation_rules_config["spec"]
+                # NOTE: The Kubernetes dependency here is just for backward compatibility, since
+                # the existing gen rules were written before there was the notion of a platform,
+                # so they obviously don't specify one. Eventually/soon we should patch up the
+                # gen rules to make their associated platform explicit, and then we can remove
+                # this Kubernetes dependency.
+                default_platform_name = spec_config.get(PLATFORM_NAME_KEY_NAME, KUBERNETES_PLATFORM)
                 generation_rule_config_list = generation_rules_config["spec"]["generationRules"]
                 for generation_rule_config in generation_rule_config_list:
-                    generation_rule = GenerationRule.construct_from_config(generation_rule_config)
+                    generation_rule = GenerationRule.construct_from_config(generation_rule_config,
+                                                                           default_platform_name,
+                                                                           context)
                     generation_rule_info = GenerationRuleInfo(generation_rule,
                                                               generation_rules_name,
                                                               code_collection,
@@ -866,10 +781,8 @@ def load(context: Context) -> None:
                             slxs_by_shortened_base_name[shortened_base_name] = slx_list
                         slx_list.append(slx)
                     for resource_type_spec in generation_rule.resource_type_specs:
-                        if (resource_type_spec.resource_type == ResourceType.CUSTOM and
-                                resource_type_spec not in custom_resource_type_specs):
-                            custom_resource_type_specs.append(resource_type_spec)
-                    generation_rule.match_predicate.collect_custom_resource_type_specs(custom_resource_type_specs)
+                        update_resource_type_specs(resource_type_spec, resource_type_specs)
+                    generation_rule.match_predicate.accept(collect_resource_types_visitor)
 
     # Check for collisions in the generation of the shortened SLX base names
     # Collision are resolved by appending with an incrementing integer
@@ -879,29 +792,18 @@ def load(context: Context) -> None:
                 slx.shortened_base_name = f"{slx.shortened_base_name}{i+1}"
 
     context.set_property(GENERATION_RULES_PROPERTY, generation_rules)
-    context.set_property(CUSTOM_RESOURCE_TYPE_SPECS, custom_resource_type_specs)
+    context.set_property(RESOURCE_TYPE_SPECS_PROPERTY, resource_type_specs)
+
 
 def enrich(context: Context) -> None:
-    global registry
-
     map_customization_rules_path = context.get_setting("MAP_CUSTOMIZATION_RULES")
     map_customization_rules = MapCustomizationRules.load(map_customization_rules_path) \
         if map_customization_rules_path else MapCustomizationRules()
 
-    custom_definitions = context.get_setting("CUSTOM_DEFINITIONS")
-    registry = context.registry
-
-    # Create the list of output items in the context if it hasn't already been created.
-    # FIXME: Seems a little kludgy to have to do this here (and in theory in any other
-    # enricher that emits output items for the render_output_items renderer.
-    # Might be cleaner if there was some way for the render_output_items component
-    # to get a crack at creating it before the enrichers are executed. But that
-    # would imply a more sophisticated lifecycle model for the components, which
-    # seems like overkill at this point.
-    renderer_output_items = context.get_property(OUTPUT_ITEMS_PROPERTY)
-    if not renderer_output_items:
-        renderer_output_items = dict()
-        context.set_property(OUTPUT_ITEMS_PROPERTY, renderer_output_items)
+    custom_definitions: dict[str, Any] = context.get_setting("CUSTOM_DEFINITIONS")
+    registry: Registry = context.get_property(REGISTRY_PROPERTY_NAME)
+    renderer_output_items: dict[str, RendererOutputItem] = context.get_property(OUTPUT_ITEMS_PROPERTY)
+    platform_handlers: dict[str, PlatformHandler] = context.get_property(PLATFORM_HANDLERS_PROPERTY_NAME)
 
     workspace_name = context.get_setting("WORKSPACE_NAME")
     # workspace = models.RunWhenWorkspace.nodes.get(short_name=workspace_name)
@@ -940,39 +842,42 @@ def enrich(context: Context) -> None:
         'resources': dict(),
     }
 
-    generation_rules = context.get_property(GENERATION_RULES_PROPERTY)
-    for generation_rule_info in generation_rules:
+    generation_rule_infos: list[GenerationRuleInfo] = context.get_property(GENERATION_RULES_PROPERTY)
+    for generation_rule_info in generation_rule_infos:
         generation_rule = generation_rule_info.generation_rule
         for resource_type_spec in generation_rule.resource_type_specs:
-            resources = get_resources(resource_type_spec, base_template_variables, registry)
+            resources = get_resources(context, resource_type_spec, base_template_variables)
             for resource in resources:
-                # Currently, the level of detail logic depends on the hclod enricher component
-                # to tag the namespaces with the configured LOD value. So it must be enabled
-                # and must execute before this component. Could manage this with a component
-                # dependency, but support for that is not completely fleshed out at this point.
-                # Alternatively, we could just read the relevant LOD settings directly here
-                # and not rely on the tags in the namespace model instances.
-                try:
-                    # Wrap this logic in a try block to catch the cases where the
-                    # kubernetes_resource instance is not a KubernetesNamespacedResource
-                    # or if the hclod enricher was not enabled and didn't set the lod attribute.
-                    # The other error that could occur is if the integer lod value in the setting
-                    # doesn't map to a value LevelOfDetail enum value.
-                    # In all those cases, we just catch it and default to full level of detail.
-                    # FIXME: Should improve this so you don't get the warning for resource/model
-                    # types that don't have an associated namespace
-                    level_of_detail_value = get_namespace(resource).lod
-                    level_of_detail = LevelOfDetail(level_of_detail_value)
-                except Exception as e:
-                    # FIXME: Should catch narrower exception
-                    logger.warning(f"Level of detail lookup failed; defaulting to full LOD; "
-                                   f"resource type={type(resource)}")
-                    level_of_detail = LevelOfDetail.DETAILED
-                resource_type = resource_type_spec.resource_type
-                resource_name = resource_type_spec.get_name() \
-                    if resource_type == ResourceType.CUSTOM else resource_type.value
-                base_template_variables['resources'][resource_name] = resource
-                matches = generation_rule.match_predicate.matches(resource, base_template_variables)
+                platform_name = resource.resource_type.platform.name
+                platform_handler = platform_handlers[platform_name]
+                level_of_detail = platform_handler.get_level_of_detail(resource)
+                # # Currently, the level of detail logic depends on the hclod enricher component
+                # # to tag the namespaces with the configured LOD value. So it must be enabled
+                # # and must execute before this component. Could manage this with a component
+                # # dependency, but support for that is not completely fleshed out at this point.
+                # # Alternatively, we could just read the relevant LOD settings directly here
+                # # and not rely on the tags in the namespace model instances.
+                # try:
+                #     # Wrap this logic in a try block to catch the cases where the
+                #     # kubernetes_resource instance is not a KubernetesNamespacedResource
+                #     # or if the hclod enricher was not enabled and didn't set the lod attribute.
+                #     # The other error that could occur is if the integer lod value in the setting
+                #     # doesn't map to a value LevelOfDetail enum value.
+                #     # In all those cases, we just catch it and default to full level of detail.
+                #     # FIXME: Should improve this so you don't get the warning for resource/model
+                #     # types that don't have an associated namespace
+                #     namespace = get_namespace
+                #     level_of_detail_value = get_namespace(resource).lod
+                #     level_of_detail = LevelOfDetail.construct_from_config(level_of_detail_value)
+                # except Exception as e:
+                #     # FIXME: Should catch narrower exception
+                #     logger.warning(f"Level of detail lookup failed; defaulting to full LOD; "
+                #                    f"resource type={type(resource)}")
+                #     level_of_detail = LevelOfDetail.DETAILED
+                resource_type_name = resource_type_spec.get_resource_type_name()
+                base_template_variables['resources'][resource_type_name] = resource
+                generation_rule_match_info = GenerationRuleMatchInfo(resource, base_template_variables, context)
+                matches = generation_rule.match_predicate.matches(generation_rule_match_info)
                 if matches:
                     # Emit the non-SLX output items directly. We currently don't do any name/path config
                     # detection/resolution for these. I actually don't think we're using these for
@@ -984,12 +889,14 @@ def enrich(context: Context) -> None:
                                                  output_item,
                                                  resource,
                                                  renderer_output_items,
-                                                 base_template_variables)
+                                                 base_template_variables,
+                                                 context)
 
                     collect_emitted_slxs(generation_rule_info, resource, level_of_detail, slxs)
 
     # Assign the shortened names to the enabled SLXs, including detecting and resolving any name conflicts.
-    assign_slx_names(slxs, workspace.short_name)
+    workspace_name = getattr(workspace, "short_name")
+    assign_slx_names(slxs, workspace_name)
 
     # Now that we've assigned the SLX names, we can generate the output items.
     for slx_info in slxs.values():
@@ -998,7 +905,8 @@ def enrich(context: Context) -> None:
                                   renderer_output_items,
                                   map_customization_rules,
                                   groups,
-                                  slx_relationships)
+                                  slx_relationships,
+                                  context)
 
     # Cleanup any SLX dependencies that refer to non-existent SLXs
     clean_slx_relationships = []

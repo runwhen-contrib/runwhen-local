@@ -34,6 +34,11 @@ class OutputItem:
         self.template_variables = template_variables
 
 
+def load(context: Context):
+    # Initialize the output items dict so that other components don't need to
+    # check for None and initialize it themselves.
+    context.set_property(OUTPUT_ITEMS_PROPERTY, dict())
+
 def render(context: Context):
     output_items: dict[str, OutputItem] = context.get_property(OUTPUT_ITEMS_PROPERTY, [])
     for output_item in output_items.values():
