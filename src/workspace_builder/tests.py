@@ -22,44 +22,27 @@ if not git_repo_root:
 
 
 BASE_REQUEST_DATA = {
-    "namespaceLODs": {"kube-system": 0, "kube-public": 0, 'online-boutique': 2},
-    "defaultLOD": 0,
+    "namespaceLODs": {"kube-system": 0, "kube-public": 0},
+    "defaultLOD": 2,
     "defaultWorkspaceName": "my-workspace",
     "workspaceName": "my-workspace",
     "workspaceOwnerEmail": "test@runwhen.com",
-    "kubeconfig": "kubeconfig-shea",
+    "kubeconfig": "kubeconfig",
     "workspaceOutputPath": "workspace",
     "defaultLocation": "northamerica-northeast2-01",
     "mapCustomizationRules": "map-customization-rules-test",
     # "namespaces": ["cert-manager", "vault", "runwhen-local", "artifactory", "kube-system"],
-    # "namespaces": ["online-boutique"],
-    "customDefinitions": {
-        "foo": "Hello",
-        "bar": 3456,
-    },
-    # "personas": {
-    #     "eager-edgar": {
-    #         "search": {
-    #             "promptStrategy": "dummy",
-    #             "x": 0,
-    #             "y": 0,
-    #         }
-    #     },
-    #     "careful-carl": {
-    #         "search": {
-    #             "promptStrategy": "dummy",
-    #             "x": 0,
-    #             "y": 0,
-    #         }
-    #     }
-    # }
-    "codeCollections": [
-        # {"repoURL": f"file://{git_repo_root}/rw-public-codecollection", "branch": "main"},
-        # , "codeBundles": ["k8s-deployment-healthcheck"]
-        {"repoURL": f"file://{git_repo_root}/rw-cli-codecollection", "branch": "main"}
-    ]
+    # "codeCollections": [
+    #     {"repoURL": f"file://{git_repo_root}/rw-public-codecollection", "branch": "main"},
+    #     {"repoURL": f"file://{git_repo_root}/rw-cli-codecollection", "branch": "main"}
+    #     # , "codeBundles": ["k8s-namespace-healthcheck"]
+    #     # {
+    #     #     "repoURL": "https://github.com/runwhen-contrib/rw-cli-codecollection",
+    #     #     "branch": "main",
+    #     #     "codeBundles": ["k8s-namespace-healthcheck"],
+    #     # }
+    # ]
 }
-
 
 def read_file(file_path: str, mode="r") -> Union[str, bytes]:
     with open(file_path, mode) as f:
