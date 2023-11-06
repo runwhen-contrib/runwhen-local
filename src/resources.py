@@ -1,7 +1,9 @@
 from enum import Enum
 from exceptions import WorkspaceBuilderException
+import logging
 from typing import Any, Optional
 
+logger = logging.getLogger(__name__)
 
 # @dataclass
 # class Resource:
@@ -142,15 +144,23 @@ class RunWhenResourceType(Enum):
 
 class Resource:
     name: str
+    qualified_name: str
     resource_type: "ResourceType"
 
-    def __init__(self, name: str, resource_type: "ResourceType", attributes: Optional[dict[str, Any]]):
+    def __init__(self,
+                 name: str,
+                 qualified_name: str,
+                 resource_type: "ResourceType",
+                 attributes: Optional[dict[str, Any]]):
         self.name = name
+        self.qualified_name = qualified_name
         self.resource_type = resource_type
         if attributes:
-            for key, value in attributes.items():
-                setattr(self, key, value)
+            self.set_attributes(attributes)
 
+    def set_attributes(self, attributes: dict[str, Any]):
+        for key, value in attributes.items():
+            setattr(self, key, value)
 
 class ResourceType:
     name: str
@@ -190,8 +200,9 @@ class Registry:
 
     def add_resource(self,
                      platform_name: str,
-                     resource_type_name: "str",
-                     resource_name: "str",
+                     resource_type_name: str,
+                     resource_name: str,
+                     resource_qualified_name: str,
                      resource_attributes: dict[str, Any]) -> Resource:
         """
         Add a new resource to the registry.
@@ -209,20 +220,37 @@ class Registry:
         if not resource_type:
             resource_type = ResourceType(resource_type_name, platform)
             platform.resource_types[resource_type_name] = resource_type
-        resource = Resource(resource_name, resource_type, resource_attributes)
-        resource_type.instances[resource_name] = resource
+        # Check if there's an existing resource with the same qualified name.
+        # This could happen if an indexer might make multiple passes over the
+        # the same set of resources, e.g. Kubernetes scanning a cluster multiple
+        # time because the kubeconfig has multiple context for the same cluster,
+        # but presumably with different user credentials.
+        # NB: We don't want to replace the existing resource with a new resource,
+        # because then there might be other resources that reference the
+        # existing resource, and we don't want to have reference an orphaned
+        # resource. This probably wouldn't cause problems with the existing
+        # way the workspace builder works, but it seems like it's asking for
+        # subtle problems as the code evolves.
+        resource = resource_type.instances.get(resource_qualified_name)
+        if resource:
+            logger.debug(f"Updating existing resource with name {resource_qualified_name}")
+            if resource_attributes:
+                resource.set_attributes(resource_attributes)
+        else:
+            resource = Resource(resource_name, resource_qualified_name, resource_type, resource_attributes)
+            resource_type.instances[resource_qualified_name] = resource
         return resource
 
     def lookup_resource(self,
                         platform_name: str,
                         resource_type_name: str,
-                        resource_name: str) -> Optional[Resource]:
+                        resource_qualified_name: str) -> Optional[Resource]:
         """
         Lookup a Resource instance with the specified platform/namespace/resource-type
         """
         self.check_resource_type_is_string(resource_type_name)
         resource_type = self.lookup_resource_type(platform_name, resource_type_name)
-        return resource_type.instances.get(resource_name) if resource_type else None
+        return resource_type.instances.get(resource_qualified_name) if resource_type else None
 
     def lookup_resource_type(self,
                               platform_name: str,

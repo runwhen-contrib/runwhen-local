@@ -40,4 +40,5 @@ def enrich(context: Context):
         workspace = registry.add_resource(RUNWHEN_PLATFORM,
                                           RunWhenResourceType.WORKSPACE.value,
                                           workspace_name,
+                                          workspace_name,
                                           workspace_attributes)

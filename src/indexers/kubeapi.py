@@ -3,7 +3,6 @@ Index assets that we can find by querying K8s API servers
 to fetch live clusters, Namepsaces, Ingresses, Services,
 Deployments, StatefulSets, etc.
 """
-from enum import Enum
 import logging
 
 #########
@@ -58,12 +57,9 @@ SETTINGS = (
     SettingDependency(DEFAULT_LOD_SETTING, False)
 )
 
-def get_service_key(namespace_name, service_name):
-    return f"{namespace_name}/{service_name}"
 
-
-def get_pod_key(namespace_name, pod_name):
-    return f"{namespace_name}/{pod_name}"
+def get_qualified_name(parent_qualified_name: str, object_name: str):
+    return f"{parent_qualified_name}/{object_name}"
 
 
 class GroupVersionInfo:
@@ -105,15 +101,37 @@ def index(component_context: Context):
         # and not sure why they would need to. So possibly this info just shouldn't be
         # included in the resource at all.
         cluster_name = context_info.get('cluster')
-        cluster_attributes = {
-            'context': context_name,
-            'namespaces': dict()
-        }
-        cluster = registry.add_resource(KUBERNETES_PLATFORM,
-                                        ResourceType.CLUSTER.value,
-                                        cluster_name,
-                                        cluster_attributes)
-        logger.debug(f"starting kube API scan of context {context_name} in cluster {cluster_name}")
+        # Check if there's already a resource for this cluster.
+        # This could happen if there were multiple contexts accessing the same cluster,
+        # presumably with different user credentials that might have different permissions
+        # to access different namespaces in the cluster, so we might be able to access
+        # additional resources across different context passes for the same cluster.
+        # Note: We don't use the built-in add or update logic in the registry's add_resource
+        # method because if the cluster already exists it would update the namespaces dict in
+        # the existing resource, which would clobber any of the namespaces that had been
+        # collected on previous indexing of the cluster.
+        # FIXME: This feels kludgy. Should think some more about if there's a cleaner way
+        # to handle this...
+        # FIXME: Another (nitpicky) issue is that we only keep track of a single context
+        # for the cluster, even though its resources might be the union of scans across
+        # multiple contexts. But I don't think we currently really use the context attribute
+        # for anything, so I don't think this is a big deal.
+        cluster = registry.lookup_resource(KUBERNETES_PLATFORM, ResourceType.CLUSTER.value, cluster_name)
+        if cluster:
+            cluster_namespaces = getattr(cluster, "namespaces")
+        else:
+            cluster_namespaces = dict()
+            cluster_attributes = {
+                'context': context_name,
+                'namespaces': cluster_namespaces
+            }
+            cluster = registry.add_resource(KUBERNETES_PLATFORM,
+                                            ResourceType.CLUSTER.value,
+                                            cluster_name,
+                                            cluster_name,
+                                            cluster_attributes)
+
+        logger.info(f"Scanning Kubernetes cluster {cluster_name} from context {context_name}")
 
         with kubernetes_config.new_client_from_config(config_file=kubeconfig_path, context=context_name) as api_client:
             core_api_client = client.CoreV1Api(api_client=api_client)
@@ -244,6 +262,11 @@ def index(component_context: Context):
 
             namespaces = dict()
             for namespace_name in namespace_names:
+                namespace_qualified_name = get_qualified_name(cluster_name, namespace_name)
+                # FIXME: Currently you can't have different levels of detail for namespaces with
+                # the same name in different clusters. Should have syntax in the LOD configuration
+                # that let's you qualify by cluster name. For example, a key format that's
+                # "<cluster-name>:<namespace-name>" or something like that.
                 namespace_lod = namespace_lods.get(namespace_name, default_lod)
                 if namespace_lod == 0:
                     continue
@@ -258,13 +281,14 @@ def index(component_context: Context):
                     # to support non-Kubernetes platform/resources.
                     namespace_attributes['cluster'] = cluster
                     namespace_attributes['lod'] = 0
-                    namespace_attributes['resources'] = list()
+                    # namespace_attributes['resources'] = list()
                     namespace = registry.add_resource(KUBERNETES_PLATFORM,
                                                       ResourceType.NAMESPACE.value,
                                                       namespace_name,
+                                                      namespace_qualified_name,
                                                       namespace_attributes)
-                    cluster.namespaces[namespace_name] = namespace
-                    namespaces[namespace_name] = namespace
+                    cluster_namespaces[namespace_qualified_name] = namespace
+                    namespaces[namespace_qualified_name] = namespace
                 except ApiException:
                     # We weren't able to access the namespace, presumably either because the
                     # namespace name doesn't exist (e.g. invalid configured explicit
@@ -276,9 +300,12 @@ def index(component_context: Context):
                     # generate too much noise.
                     pass
 
-            for namespace_name in namespaces.keys():
+            for namespace in namespaces.values():
+
+                namespace_qualified_name = namespace.qualified_name
+                namespace_name = namespace.name
+
                 logger.info(f'Scanning for Kubernetes resources in namespace "{namespace_name}"')
-                namespace = namespaces[namespace_name]
 
                 #
                 # Index Deployments, DaemonSets and StatefulSets (the common app Kinds)
@@ -299,15 +326,18 @@ def index(component_context: Context):
                         ret = app_class_list_method(namespace_name)
                         for raw_resource in ret.items:
                             app_name = raw_resource.metadata.name
+                            app_qualified_name = get_qualified_name(namespace_qualified_name, app_name)
                             app_attributes = kubeapi_parsers.parse_app(raw_resource)
                             # When getting lists from the api server, kind and apiVersion are set to None
                             app_attributes['kind'] = app_class_kind
-                            namespace_name = app_attributes['namespace_name']
-                            namespace = namespaces.get(namespace_name)
                             app_attributes['namespace'] = namespace
                             # r["cluster_name"] = cluster_name
-                            app = registry.add_resource(KUBERNETES_PLATFORM, app_resource_type.value, app_name, app_attributes)
-                            namespace.resources.append(app)
+                            app = registry.add_resource(KUBERNETES_PLATFORM,
+                                                        app_resource_type.value,
+                                                        app_name,
+                                                        app_qualified_name,
+                                                        app_attributes)
+                            # namespace.resources.append(app)
                     except ApiException as e:
                         logger.debug(f"Error scanning for deployment instances; skipping and continuing; error: {e}")
 
@@ -322,23 +352,23 @@ def index(component_context: Context):
                     logger.debug(f"kube API scan: {len(ret.items)} ingresses")
                     for raw_resource in ret.items:
                         ingress_name = raw_resource.metadata.name
+                        ingress_qualified_name = get_qualified_name(namespace_qualified_name, ingress_name)
                         ingress_attributes = kubeapi_parsers.parse_ingress(raw_resource)
                         # ingress_attributes["cluster_name"] = cluster_name
                         paths = ingress_attributes['paths']
-                        namespace_name = ingress_attributes["namespace_name"]
-                        namespace = namespaces.get(namespace_name)
                         ingress_attributes["namespace"] = namespace
                         ingress = registry.add_resource(KUBERNETES_PLATFORM,
                                                         ResourceType.INGRESS.value,
                                                         ingress_name,
+                                                        ingress_qualified_name,
                                                         ingress_attributes)
-                        namespace.resources.append(ingress)
-                        ingresses[f"{namespace_name}/{ingress_name}"] = ingress
+                        # namespace.resources.append(ingress)
+                        ingresses[ingress_qualified_name] = ingress
                         # Set this for wiring up services to ingresses later
                         # FIXME: Not sure what this is doing? (RobV)
                         for service_name in paths.values():
-                            service_key = get_service_key(namespace_name, service_name)
-                            ingresses_connected_services[service_key] = ingress
+                            service_qualified_name = get_qualified_name(namespace_name, service_name)
+                            ingresses_connected_services[service_qualified_name] = ingress
                 except ApiException as e:
                     # Just log and continue, instead of raising a fatal exception.
                     logger.info(f"Error scanning for Ingress instances; skipping and continuing; error: {e}")
@@ -352,22 +382,22 @@ def index(component_context: Context):
                     logger.debug(f"kube API scan: {len(ret.items)} services")
                     for raw_resource in ret.items:
                         service_name = raw_resource.metadata.name
-                        service_key = get_service_key(namespace_name, service_name)
+                        service_qualified_name = get_qualified_name(namespace_qualified_name, service_name)
                         service_attributes = kubeapi_parsers.parse_service(raw_resource)
                         namespace_name = service_attributes["namespace_name"]
-                        namespace = namespaces.get(namespace_name)
                         service_attributes["namespace"] = namespace
                         # r["cluster_name"] = cluster_name
                         # Connect service to ingress
                         if 'ingress' not in service_attributes:
-                            ingress = ingresses_connected_services.get(service_key)
+                            ingress = ingresses_connected_services.get(service_qualified_name)
                             service_attributes['ingress'] = ingress
                         service = registry.add_resource(KUBERNETES_PLATFORM,
                                                         ResourceType.SERVICE.value,
                                                         service_name,
+                                                        service_qualified_name,
                                                         service_attributes)
-                        services[service_key] = service
-                        namespace.resources.append(service)
+                        services[service_qualified_name] = service
+                        # namespace.resources.append(service)
 
                         # Connect service to Deployments, StatefulSets, DaemonSets
                         # FIXME: Need to reimplement the following code to perform the same function as
@@ -393,18 +423,16 @@ def index(component_context: Context):
                     logger.debug(f"kube API scan for namespace {namespace_name}: {len(ret.items)} pvcs")
                     for raw_resource in ret.items:
                         pvc_name = raw_resource.metadata.name
-                        namespace_name = raw_resource.metadata.namespace
-                        namespace = namespaces[namespace_name]
+                        pvc_qualified_name = get_qualified_name(namespace_qualified_name, pvc_name)
                         pvc_attributes = kubeapi_parsers.parse_pvc(raw_resource)
-                        namespace_name = pvc_attributes["namespace_name"]
-                        namespace = namespaces.get(namespace_name)
                         pvc_attributes["namespace"] = namespace
                         # r['cluster_name'] = cluster_name
                         persistentvolumeclaim = registry.add_resource(KUBERNETES_PLATFORM,
                                                     ResourceType.PVC.value,
                                                     pvc_name,
+                                                    pvc_qualified_name,
                                                     pvc_attributes)
-                        namespace.resources.append(persistentvolumeclaim)
+                        # namespace.resources.append(persistentvolumeclaim)
                 except ApiException as e:
                     # Just log and continue, instead of raising a fatal exception.
                     logger.info(f"Error scanning for PVC instances; skipping and continuing; error: {e}")
@@ -424,18 +452,16 @@ def index(component_context: Context):
                         if phase != "Running":
                             continue
                         pod_name = raw_resource.metadata.name
-                        namespace_name = raw_resource.metadata.namespace
-                        namespace = namespaces[namespace_name]
+                        pod_qualified_name = get_qualified_name(namespace_qualified_name, pod_name)
                         pod_attributes = kubeapi_parsers.parse_pod(raw_resource)
-                        namespace_name = pod_attributes["namespace_name"]
-                        namespace = namespaces.get(namespace_name)
                         pod_attributes["namespace"] = namespace
                         # r['cluster_name'] = cluster_name
                         pod = registry.add_resource(KUBERNETES_PLATFORM,
                                                     ResourceType.POD.value,
                                                     pod_name,
+                                                    pod_qualified_name,
                                                     pod_attributes)
-                        namespace.resources.append(pod)
+                        # namespace.resources.append(pod)
                         # pod_key = get_pod_key(namespace_name, pod_name)
                         # pods[pod_key] = pod
                         # TODO: Extract the IP address of the pod
@@ -443,8 +469,6 @@ def index(component_context: Context):
                 except ApiException as e:
                     # Just log and continue, instead of raising a fatal exception.
                     logger.info(f"Error scanning for Pod instances; skipping and continuing; error: {e}")
-
-
 
                 #
                 # Index the custom resources
@@ -478,19 +502,21 @@ def index(component_context: Context):
                                     resource_name = raw_resource['metadata']['name']
                                     kwargs = dict()
                                     custom_name = f"{plural_name}|{group}|{version}|{resource_name}"
+                                    custom_qualified_name = get_qualified_name(namespace_qualified_name, custom_name)
                                     custom_attributes = kubeapi_parsers.parse_custom_resource(raw_resource,
                                                                                               group,
                                                                                               version,
                                                                                               plural_name)
-                                    namespace_name = custom_attributes["namespace_name"]
-                                    namespace = namespaces.get(namespace_name)
                                     custom_attributes["namespace"] = namespace
                                     custom_resource = registry.add_resource(KUBERNETES_PLATFORM,
                                                                             ResourceType.CUSTOM.value,
                                                                             custom_name,
+                                                                            custom_qualified_name,
                                                                             custom_attributes)
-                                    namespace.resources.append(custom_resource)
+                                    # namespace.resources.append(custom_resource)
                         except ApiException as e:
                             # Just log and continue, instead of raising a fatal exception.
                             logger.info(f"Error scanning for custom resource instances; skipping and continuing; "
                                         f"error: {e}, group={group}, kind={plural_name}")
+
+    logger.info("Finished Kubernetes indexing")
