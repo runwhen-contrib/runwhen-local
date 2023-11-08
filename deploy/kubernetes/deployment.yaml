@@ -28,6 +28,8 @@ spec:
         env: 
         - name: AUTORUN_WORKSPACE_BUILDER_INTERVAL
           value: "1800"
+        - name: RW_LOCAL_TERMINAL_DISABLED
+          value: "true"
         volumeMounts:
         - name: shared-volume
           mountPath: "/shared"
