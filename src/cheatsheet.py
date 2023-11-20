@@ -27,7 +27,10 @@ from git import Repo, GitCommandError
 from concurrent.futures import ThreadPoolExecutor
 
 logger = logging.getLogger(__name__)
-
+handler = logging.StreamHandler(sys.stdout)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 # Check for the environment variable and set the log level
 if os.environ.get('DEBUG_LOGGING') == 'true':
     logger.setLevel(logging.DEBUG)
@@ -156,6 +159,26 @@ def cmd_expansion(keyword_arguments, parsed_runbook_config):
 
     return cmd
 
+def task_name_expansion(task_name, parsed_runbook_config):
+    """
+    Cleans up the task title as sent in from robot parsing.
+    Tries to substitute any dynamic vars with config provided  
+
+
+    Args:
+        task_name (object): The cmd arguments as parsed from robot.  
+        parsed_runbook_config (object): The parsed runbook config content.
+
+    Returns:
+        An expanded task title with substituted variables. 
+    """
+    for var in parsed_runbook_config["spec"]["configProvided"]:
+        task_name = task_name.replace('${'+ var["name"] +'}', var["value"])
+        logger.debug(f"Testing variable substitution for {var['name']} for {var['value']}")       
+
+    logger.debug(f"Task Title Substitution: return {task_name}")
+    return task_name
+
 def remove_auth_commands(command):
     """
     Removes common authentication patterns in cli output, as it's assumed that the user is already authenticated, or is authenticated 
@@ -221,9 +244,10 @@ def search_keywords(parsed_robot, parsed_runbook_config, search_list, meta):
             if hasattr(keyword, 'name'):
                 for item in search_list:
                     if item in keyword.args:
-                        name_snake_case = re.sub(r'\W+', '_', task["name"].lower())
+                        task_name=task_name_expansion(task["name"], parsed_runbook_config)
+                        name_snake_case = re.sub(r'\W+', '_', task_name.lower())
                         command = {
-                            "name": task["name"],
+                            "name": f"{task_name}",
                             "command": cmd_expansion(keyword.args, parsed_runbook_config)
                         }
                         for cmd_meta in meta['commands']:
