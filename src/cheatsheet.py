@@ -19,12 +19,20 @@ import datetime
 import time
 import ruamel.yaml
 import subprocess
+import logging
 from robot.api import TestSuite
 from tempfile import NamedTemporaryFile
 from functools import lru_cache
 from git import Repo, GitCommandError
 from concurrent.futures import ThreadPoolExecutor
 
+logger = logging.getLogger(__name__)
+
+# Check for the environment variable and set the log level
+if os.environ.get('DEBUG_LOGGING') == 'true':
+    logger.setLevel(logging.DEBUG)
+else:
+    logger.setLevel(logging.INFO)
 
 @lru_cache(maxsize=2048)
 
@@ -701,6 +709,7 @@ def warm_git_cache(runbook_files):
         runbook_robot_files = find_files(f"{owner}_{repo}_{ref}-cache", 'runbook.robot')
         for runbook in runbook_robot_files: 
             parsed_robot=parse_robot_file(runbook)
+            logger.debug(f"DEBUG: Create Unique Author List - Runbook Details: {parsed_robot}")       
             author = ''.join(parsed_robot["author"].split('\n'))
             fetch_github_profile_icon(author)
 

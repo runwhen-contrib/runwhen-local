@@ -1,3 +1,4 @@
+import os
 import logging
 from typing import Any, Callable, Optional
 
@@ -6,6 +7,14 @@ from component import Context, SettingDependency, WORKSPACE_NAME_SETTING, \
 from template import render_template_file
 
 logger = logging.getLogger(__name__)
+
+# Check for the environment variable and set the log level
+if os.environ.get('DEBUG_LOGGING') == 'true':
+    logger.setLevel(logging.DEBUG)
+else:
+    logger.setLevel(logging.INFO)
+
+
 
 DOCUMENTATION = "Render templated output items"
 
