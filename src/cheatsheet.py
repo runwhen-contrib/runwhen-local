@@ -174,7 +174,7 @@ def task_name_expansion(task_name, parsed_runbook_config):
     """
     for var in parsed_runbook_config["spec"]["configProvided"]:
         task_name = task_name.replace('${'+ var["name"] +'}', var["value"])
-        logger.debug(f"Testing variable substitution for {var['name']} for {var['value']}")       
+        logger.debug(f"Tailored var name {var['name']} for {var['value']}")       
 
     logger.debug(f"Task Title Substitution: return {task_name}")
     return task_name
@@ -245,13 +245,16 @@ def search_keywords(parsed_robot, parsed_runbook_config, search_list, meta):
                 for item in search_list:
                     if item in keyword.args:
                         task_name=task_name_expansion(task["name"], parsed_runbook_config)
-                        name_snake_case = re.sub(r'\W+', '_', task_name.lower())
+                        task_name_generalized = task["name"].replace('`', '').replace('${', '').replace('}', '')
+                        name_snake_case = re.sub(r'\W+', '_', task_name_generalized.lower())
                         command = {
                             "name": f"{task_name}",
                             "command": cmd_expansion(keyword.args, parsed_runbook_config)
                         }
+                        logger.debug(f"Searching for command name in meta: {name_snake_case}")
                         for cmd_meta in meta['commands']:
                             if cmd_meta['name'] == name_snake_case:
+                                logger.debug(f"Found meta for {name_snake_case}")       
                                 command['explanation'] = cmd_meta.get('explanation', "No command explanation available")
                                 command['multi_line_details'] = cmd_meta.get('multi_line_details', "No multi-line explanation available")
                                 command['doc_links'] = cmd_meta.get('doc_links', [])
