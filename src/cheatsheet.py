@@ -245,12 +245,13 @@ def search_keywords(parsed_robot, parsed_runbook_config, search_list, meta):
                 for item in search_list:
                     if item in keyword.args:
                         task_name=task_name_expansion(task["name"], parsed_runbook_config)
-                        task_name_generalized = task_name.replace('`', '').replace('${', '').replace('}', '')
+                        task_name_generalized = task["name"].replace('`', '').replace('${', '').replace('}', '')
                         name_snake_case = re.sub(r'\W+', '_', task_name_generalized.lower())
                         command = {
                             "name": f"{task_name}",
                             "command": cmd_expansion(keyword.args, parsed_runbook_config)
                         }
+                        logger.debug(f"Searching for command name in meta: {name_snake_case}")
                         for cmd_meta in meta['commands']:
                             if cmd_meta['name'] == name_snake_case:
                                 logger.debug(f"Found meta for {name_snake_case}")       
