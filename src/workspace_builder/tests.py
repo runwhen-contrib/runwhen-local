@@ -27,7 +27,7 @@ BASE_REQUEST_DATA = {
     "defaultWorkspaceName": "my-workspace",
     "workspaceName": "my-workspace",
     "workspaceOwnerEmail": "test@runwhen.com",
-    "kubeconfig": "kubeconfig",
+    # "kubeconfig": "kubeconfig",
     "workspaceOutputPath": "workspace",
     "defaultLocation": "northamerica-northeast2-01",
     "mapCustomizationRules": "map-customization-rules-test",
@@ -40,7 +40,26 @@ BASE_REQUEST_DATA = {
         #     "branch": "main",
         #     "codeBundles": ["k8s-namespace-healthcheck"],
         # }
-    ]
+    ],
+    "cloudConfig": {
+        "azure": {
+            # To enable testing of the cloudquery Azure indexing you need to
+            # define the 4 environments variables below either in the shell from
+            # which you're running the test or the run configuration in whatever
+            # IDE you're using. These environment variables are described in the
+            # documentation for the CloudQuery Azure plugin:
+            # https://hub.cloudquery.io/plugins/source/cloudquery/azure/v9.3.7/docs
+            "subscriptionId": os.getenv("WB_AZURE_SUBSCRIPTION_ID"),
+            "tenantId": os.getenv("WB_AZURE_TENANT_ID"),
+            "clientId": os.getenv("WB_AZURE_CLIENT_ID"),
+            "clientSecret": os.getenv("WB_AZURE_CLIENT_SECRET"),
+        },
+        "kubernetes": {
+            "kubeconfig": "kubeconfig",
+            "namespaceLODs": {"kube-system": 0, "kube-public": 0},
+        }
+    }
+
 }
 
 def read_file(file_path: str, mode="r") -> Union[str, bytes]:
@@ -126,7 +145,7 @@ class ProductionComponentTestCase(TestCase):
         archive.extractall(TEST_OUTPUT_DIRECTORY)
 
     def test_generation_rules_workspace_gen(self):
-        self.run_common("kubeapi,runwhen_default_workspace,generation_rules,render_output_items")
+        self.run_common("kubeapi,cloudquery,runwhen_default_workspace,generation_rules,render_output_items")
 
     # Need to implement some sort of dump/load feature to the resource registry
     # for this to make sense now that we're not using neo4j anymore.

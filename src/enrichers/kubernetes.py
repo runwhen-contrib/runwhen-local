@@ -15,6 +15,9 @@ from .generation_rule_types import LevelOfDetail, PlatformHandler
 
 class KubernetesPlatformHandler(PlatformHandler):
 
+    def __init__(self):
+        super().__init__(KUBERNETES_PLATFORM)
+
     def construct_resource_type_spec(self, config: Union[str, dict[str, Any]]) -> KubernetesResourceTypeSpec:
         return KubernetesResourceTypeSpec.construct_from_config(config)
 

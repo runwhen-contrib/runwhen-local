@@ -12,6 +12,7 @@ from indexers.kubetypes import get_namespace, get_cluster
 from name_utils import shorten_name, make_qualified_slx_name, make_slx_name
 from .generation_rule_types import PLATFORM_HANDLERS_PROPERTY_NAME, PlatformHandler, LevelOfDetail
 from .kubernetes import KubernetesPlatformHandler
+from .azure import AzurePlatformHandler, AZURE_PLATFORM
 from renderers.render_output_items import OUTPUT_ITEMS_PROPERTY
 from renderers.render_output_items import OutputItem as RendererOutputItem
 from resources import (
@@ -792,7 +793,8 @@ def load(context: Context) -> None:
     # on all the platform handlers.
     # Could perhaps do some sort of dynamic discovery/loading/registration of all the platform handlers?
     platform_handlers = {
-        KUBERNETES_PLATFORM: KubernetesPlatformHandler(KUBERNETES_PLATFORM),
+        KUBERNETES_PLATFORM: KubernetesPlatformHandler(),
+        AZURE_PLATFORM: AzurePlatformHandler()
     }
     context.set_property(PLATFORM_HANDLERS_PROPERTY_NAME, platform_handlers)
     request_code_collections = context.get_setting("CODE_COLLECTIONS")

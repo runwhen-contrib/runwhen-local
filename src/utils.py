@@ -1,7 +1,8 @@
 import datetime
 import json
+import os
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, AnyStr, Union
 
 from kubernetes.dynamic.resource import ResourceInstance
 
@@ -105,9 +106,20 @@ def kubernetes_resource_to_dict(resource: ResourceInstance, use_attribute_map: b
     obj = json.loads(json_str)
     return obj
 
+def read_file(file_path: AnyStr, mode="r", encoding=None) -> Union[str, bytes]:
+    with open(file_path, mode=mode, encoding=encoding) as f:
+        return f.read()
+
+def write_file(path: AnyStr, data: AnyStr) -> None:
+    directory_path, _ = os.path.split(path)
+    os.makedirs(directory_path, exist_ok=True)
+    mode = "wb" if type(data) == bytes else "w"
+    with open(path, mode=mode) as f:
+        f.write(data)
 
 def get_version_info() -> dict[str, Any]:
-    with open("VERSION", encoding="utf8") as f:
-        json_info = f.read()
+    json_info = read_file("VERSION", encoding="utf8")
+    # with open("VERSION", encoding="utf8") as f:
+    #     json_info = f.read()
     info = json.loads(json_info)
     return info
