@@ -1,10 +1,9 @@
-from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any, Optional, Sequence, Union
 
 from component import Context
 from exceptions import WorkspaceBuilderException
-from resources import Resource, ResourceTypeSpec
+from resources import Resource, ResourceTypeSpec, Registry, REGISTRY_PROPERTY_NAME
 
 PLATFORM_HANDLERS_PROPERTY_NAME = "platform-handlers"
 
@@ -34,7 +33,7 @@ class LevelOfDetail(Enum):
         raise WorkspaceBuilderException(f"Invalid level of detail value: {config}")
 
 
-class PlatformHandler: #(ABC):
+class PlatformHandler:
 
     name: str
 
@@ -44,20 +43,40 @@ class PlatformHandler: #(ABC):
     def construct_resource_type_spec(self, config: Union[str, dict[str, Any]]) -> ResourceTypeSpec:
         return ResourceTypeSpec.construct_from_config(config, self.name)
 
-    # @abstractmethod
+    def process_resource_attributes(self,
+                                    resource_attributes: dict[str,Any],
+                                    resource_type_name: str,
+                                    registry: Registry) -> tuple[str, str]:
+        """
+        This is primarily for use by the CloudQuery indexer to handle the processing of the raw
+        resource attributes obtained from CloudQuery to the data that's used to create the resource
+        in the registry. The return value is a tuple of:
+            (<resource-name>, <qualified-resource-name>, <resource-attributes>)
+        """
+        name = resource_attributes['name']
+        del resource_attributes['name']
+        return name, name
+
     def get_resources(self, resource_type_spec: ResourceTypeSpec, context: Context) -> Sequence[Resource]:
         """
         Implement any platform-specific logic to look up the resources of the specified
         type. In most cases this will just be looking up the resource type in the registry,
+        and returning the instances (i.e. the default/generic implementation below),
         but if the resource type name encodes other information (e.g. Kubernetes custom
         resources), then this is where that info would be parsed and translated into lookup
         calls in the registry.
         """
-        # This method is required to be overridden by the platform subclasses, so raise an
-        # exception if they haven't.
-        raise WorkspaceBuilderException(f"PlatformHandler.get_resources not implemented by subclass: {type(self)}")
+        registry: Registry = context.get_property(REGISTRY_PROPERTY_NAME)
+        resource_type = registry.lookup_resource_type(self.name, resource_type_spec.resource_type_name)
+        return resource_type.instances.values() if resource_type else list()
 
     def get_level_of_detail(self, resource: Resource):
+        """
+        Return the level of detail associated with the specified resource. Platforms
+        override this to implement whatever platform-specific logic they support, if any.
+        The typical model is to provide level-of-detail customization based on whatever
+        resource scoping is supported by the platform, e.g. Kubernetes namespaces.
+        """
         return LevelOfDetail.DETAILED
 
     def get_resource_match_property_value(self, resource: Resource, property_name: str) -> Optional[str]:

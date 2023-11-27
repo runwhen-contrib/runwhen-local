@@ -1,0 +1,266 @@
+from copy import deepcopy
+from dataclasses import dataclass
+import logging
+import os
+import sqlite3
+import tempfile
+from template import render_template_file
+from typing import Any
+import subprocess
+
+# import models
+from component import Setting, SettingDependency, Context
+from exceptions import WorkspaceBuilderException
+from enrichers.generation_rule_types import PlatformHandler, PLATFORM_HANDLERS_PROPERTY_NAME
+from resources import Registry, REGISTRY_PROPERTY_NAME
+from utils import read_file, write_file
+
+logger = logging.getLogger(__name__)
+
+DOCUMENTATION = "Index resources using CloudQuery"
+
+CLOUD_CONFIG_SETTING = Setting("CLOUD_CONFIG",
+                               "cloudConfig",
+                               Setting.Type.DICT,
+                               "Configuration/credential info for the cloud input sources",
+                               dict())
+
+SETTINGS = (
+    SettingDependency(CLOUD_CONFIG_SETTING, False),
+)
+
+@dataclass
+class CloudQueryResourceTypeSpec:
+    # The name of the resource type in the resource registry
+    resource_type_name: str
+    # The name of the table in the CloudQuery database
+    cloudquery_table_name: str
+    # The fields from the CQ table to incorporate into the resource
+    # FIXME: Potentially support renaming of the fields by making this a dict?
+    fields: dict[str, str]
+
+
+@dataclass
+class CloudQueryPlatformSpec:
+    name: str
+    config_file_name: str
+    # The path/name of the template file used to generate the config file for this platform
+    config_template_name: str
+    environment_variables: dict[str, str]
+    # The info for the resource types supported for this platform
+    resource_type_specs: list[CloudQueryResourceTypeSpec]
+
+
+platform_specs = [
+    CloudQueryPlatformSpec("azure",
+                           config_file_name="azure.yaml",
+                           config_template_name="azure-config.yaml",
+                           environment_variables={
+                               "AZURE_SUBSCRIPTION_ID": "subscriptionId",
+                               "AZURE_TENANT_ID": "tenantId",
+                               "AZURE_CLIENT_ID": "clientId",
+                               "AZURE_CLIENT_SECRET": "clientSecret"
+                           },
+                           resource_type_specs=[
+                               CloudQueryResourceTypeSpec(resource_type_name="ComputeVirtualMachine",
+                                                          cloudquery_table_name="azure_compute_virtual_machines",
+                                                          fields={
+                                                              "name": "name",
+                                                              "tags": "tags",
+                                                              "properties": "properties",
+                                                              "instance": "instance_view",
+                                                          }),
+                           ])
+]
+
+def init_cloudquery_config(cloud_config_data: dict[str, Any],
+                           cloud_config_dir: str,
+                           db_file_path: str) -> dict[str, str]:
+    cq_process_environment_vars = dict()
+
+    # Set up a template loader func to load from the CloudQuery template dir
+    templates_dir = "indexers/cloudquery_templates"
+    template_loader_func = lambda name: read_file(os.path.join(templates_dir, name))
+
+    # Create the sqlite destination config file
+    sqlite_config_path = os.path.join(cloud_config_dir, "sqlite.yaml")
+    template_variables = {"database_path": db_file_path}
+    sqlite_config_text = render_template_file("sqlite-config.yaml", template_variables, template_loader_func)
+    write_file(sqlite_config_path, sqlite_config_text)
+
+    for platform_spec in platform_specs:
+        platform_name = platform_spec.name
+        platform_config_data = cloud_config_data.get(platform_name)
+        if platform_config_data is None:
+            continue
+
+        # Set up any environment variables for the platform
+        for env_var_name, config_name in platform_spec.environment_variables.items():
+            env_var_value = platform_config_data.get(config_name)
+            if env_var_value is not None:
+                cq_process_environment_vars[env_var_name] = env_var_value
+
+        # Start the template variables from the platform config dict. That way the template
+        # for a platform can support platform-specific configuration options without having
+        # to hard-code anything in the platform spec.
+        # NB: We do the deep copy just to be safe, since the root_config_data argument is
+        # owned by the caller, so we shouldn't modify it.
+        template_variables = deepcopy(platform_config_data)
+        template_variables["destination_plugin_name"] = "sqlite"
+        tables = [resource_type_spec.cloudquery_table_name for resource_type_spec in platform_spec.resource_type_specs]
+        template_variables["tables"] = tables
+        config_file_path = os.path.join(cloud_config_dir, platform_spec.config_file_name)
+        config_text = render_template_file(platform_spec.config_template_name, template_variables, template_loader_func)
+        write_file(config_file_path, config_text)
+
+    return cq_process_environment_vars
+
+# def old_init_cloudquery_config(cloud_config_data: dict[str, Any],
+#                            cloud_config_dir: str,
+#                            db_file_path: str) -> dict[str, str]:
+#     # In some cases state is passed to the cloudquery plugins via environment
+#     # variables rather than from the configuration file. Typically, this is
+#     # for auth/credential state, presumably because you don't want to
+#     # require the user to save that sensitive state to the file system.
+#     # So we build up the set of environment variables that will be passed
+#     # to the subprocess we use to run the cloudquery tool.
+#     cq_process_env_vars = dict()
+#
+#     # # Set up a jinja sandbox environment that's used to render the configuration
+#     # # files for the relevant cloudquery plugins.
+#     # jinja_env = SandboxedEnvironment(loader=FileSystemLoader("enrichers/cloudquery_templates"),
+#     #                                  trim_blocks=True, lstrip_blocks=True)
+#
+#     # Set up a template loader func to load from the CloudQuery template dir
+#     templates_dir = "indexers/cloudquery_templates"
+#     template_loader_func = lambda name: read_file(os.path.join(templates_dir, name))
+#
+#     # Create the sqlite destination config file
+#     sqlite_config_path = os.path.join(cloud_config_dir, "sqlite.yaml")
+#     template_variables = {"database_path": db_file_path}
+#     sqlite_config_text = render_template_file("sqlite-config.yaml", template_variables, template_loader_func)
+#     write_file(sqlite_config_path, sqlite_config_text)
+#
+#     azure_config_data = cloud_config_data.get("azure", None)
+#     if azure_config_data:
+#         # Set up the authentication environment variables for Azure
+#         # FIXME: It seems like there can only be one subscription ID here for
+#         # authentication, so why does the config file have fields that indicate
+#         # support for multiple subscriptions. Presumably there must be a way to
+#         # authenticate for multiple subscriptions.
+#         subscription_id = azure_config_data.get("subscriptionId")
+#         tenant_id = azure_config_data.get("tenantId")
+#         client_id = azure_config_data.get("clientId")
+#         client_secret = azure_config_data.get("clientSecret")
+#         if subscription_id and tenant_id and client_id and client_secret:
+#             cq_process_env_vars["AZURE_SUBSCRIPTION_ID"] = subscription_id
+#             cq_process_env_vars["AZURE_TENANT_ID"] = tenant_id
+#             cq_process_env_vars["AZURE_CLIENT_ID"] = client_id
+#             cq_process_env_vars["AZURE_CLIENT_SECRET"] = client_secret
+#         else:
+#             raise WorkspaceBuilderUserException("Incomplete Azure auth configuration")
+#
+#         # Create the CloudQuery config file for Azure
+#         # FIXME: This shouldn't be hard-coded.
+#         # It should come from the load of the gen rules to know which tables are being used
+#         tables = ["compute_virtual_machines"]
+#         template_variables = {
+#             "destination_plugin_name": "sqlite",
+#             "tables": [f"azure_{table_name}" for table_name in tables]
+#         }
+#         subscriptions = azure_config_data.get("subscriptions")
+#         if subscriptions:
+#             template_variables["subscriptions"] = subscriptions
+#         skip_subscriptions = azure_config_data.get("skipSubscriptions")
+#         if skip_subscriptions:
+#             template_variables["skip_subscriptions"] = skip_subscriptions
+#
+#         azure_config_path = os.path.join(cloud_config_dir, "azure.yaml")
+#         azure_config_text = render_template_file("azure-config.yaml", template_variables, template_loader_func)
+#         write_file(azure_config_path, azure_config_text)
+#
+#     return cq_process_env_vars
+
+
+
+def index(context: Context):
+    logger.debug("CloudQuery indexing beginning")
+
+    cloud_config_data = context.get_setting("CLOUD_CONFIG")
+    if not cloud_config_data:
+        return
+
+    platform_handlers: dict[str, PlatformHandler] = context.get_property(PLATFORM_HANDLERS_PROPERTY_NAME)
+
+    registry: Registry = context.get_property(REGISTRY_PROPERTY_NAME)
+    with tempfile.TemporaryDirectory() as cq_temp_dir:
+        # Create a config directory in the temp directory where we'll put all the CloudQuery config files
+        cloudquery_config_dir = os.path.join(cq_temp_dir, "config")
+        os.makedirs(cloudquery_config_dir)
+
+        # Create the CloudQuery source/destination config files
+        sqlite_database_file_path = os.path.join(cq_temp_dir, "db.sql")
+        env_vars = init_cloudquery_config(cloud_config_data, cloudquery_config_dir, sqlite_database_file_path)
+
+        # Invoke CloudQuery to scan for resources from all the configured platforms
+        path = os.getenv("PATH")
+        env_vars["PATH"] = path
+        try:
+            process_info = subprocess.run(["cloudquery", "sync", f"{cloudquery_config_dir}"], capture_output=True, env=env_vars)
+        except Exception as e:
+            raise e
+
+        # Convert the tables from the sqlite DB to resources in the resource registry
+        sql_connection = sqlite3.connect(sqlite_database_file_path)
+        cursor = sql_connection.cursor()
+        for platform_spec in platform_specs:
+            platform_handler = platform_handlers[platform_spec.name]
+            for resource_type_spec in platform_spec.resource_type_specs:
+                # table_name = f"{platform_spec.name}_{resource_type_spec.cloudquery_table_name}"
+                table_name = resource_type_spec.cloudquery_table_name
+                # Extract the fields we need from the sqlite table.
+                # It looks like the results from the "keys" and "items" methods for the dict return
+                # things in a consistent order, so in theory we could just use those, but it's unclear
+                # whether that's something that's guaranteed or just an implementation detail, so we
+                # do use items() both here (which determines the order of the fields in the rows
+                # returned from the SELECT query) and below when we use the field values from the
+                # row to initialize the resource attributes.
+                # FIXME: There's probably a more Pythonic way to do this using zip or something like that.
+                cloudquery_field_names = [field_name for _, field_name in resource_type_spec.fields.items()]
+                joined_cloudquery_field_names = ", ".join(cloudquery_field_names)
+                try:
+                    response = cursor.execute(f"SELECT {joined_cloudquery_field_names} FROM {table_name}")
+                except sqlite3.OperationalError as e:
+                    # If no instances of the table were discovered, then the table will not exist in the
+                    # database, and the SQL execution raises an OperationalError. We don't want to treat
+                    # that as an error, so we just continue in that case.
+                    # FIXME: Are there are other errors that could occur here that we should handle differently?
+                    # Should probably verify that the exception is due to the table not being found.
+                    # Seems like the only way you can do that is to parse the error message, which is sort of ugly.
+                    # FIXME: Revisit this, because this was added when there was a bug with the construction
+                    # of the table name, so it's possible
+                    continue
+                table_rows = response.fetchall()
+                resource_name = None
+                for table_row in table_rows:
+                    # Use the values from the row to set up the resource attributes
+                    resource_attributes = dict()
+                    for i, item in enumerate(resource_type_spec.fields.items()):
+                        attribute_name = item[0]
+                        if attribute_name == "name":
+                            resource_name = attribute_name
+                        else:
+                            resource_attributes[attribute_name] = table_row[i]
+                    if not resource_name:
+                        raise WorkspaceBuilderException("No name specified for a resource indexed by CloudQuery")
+                    qualified_resource_name = platform_handler.get_qualified_name(resource_name, resource_attributes)
+                    # FIXME: Probably need some extra logic here to create a properly qualified resource
+                    # name for platforms that support a scoping/namespace mechanism. Need to investigate
+                    # exactly how this works for various platforms like Azure.
+                    registry.add_resource(platform_spec.name,
+                                          resource_type_spec.resource_type_name,
+                                          resource_name,
+                                          qualified_resource_name,
+                                          resource_attributes)
+
+        logger.debug("CloudQuery indexing ending")
