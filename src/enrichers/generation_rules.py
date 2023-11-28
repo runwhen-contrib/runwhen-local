@@ -219,7 +219,7 @@ class ResourcePropertyMatchPredicate(MatchPredicate):
             elif prop == "name":
                 name = resource.name
                 if matches_pattern(name, self.pattern, self.string_match_mode):
-                    logger.debug(f"DEBUG: Match found for property {p} with name {name}")
+                    logger.debug(f"DEBUG: Match found for property {prop} with name {name}")
                     return True
             else:
                 # Check if it's one of the platform-specific built-in values
