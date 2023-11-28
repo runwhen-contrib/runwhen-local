@@ -19,12 +19,23 @@ import datetime
 import time
 import ruamel.yaml
 import subprocess
+import logging
 from robot.api import TestSuite
 from tempfile import NamedTemporaryFile
 from functools import lru_cache
 from git import Repo, GitCommandError
 from concurrent.futures import ThreadPoolExecutor
 
+logger = logging.getLogger(__name__)
+handler = logging.StreamHandler(sys.stdout)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+# Check for the environment variable and set the log level
+if os.environ.get('DEBUG_LOGGING') == 'true':
+    logger.setLevel(logging.DEBUG)
+else:
+    logger.setLevel(logging.INFO)
 
 @lru_cache(maxsize=2048)
 
@@ -148,6 +159,26 @@ def cmd_expansion(keyword_arguments, parsed_runbook_config):
 
     return cmd
 
+def task_name_expansion(task_name, parsed_runbook_config):
+    """
+    Cleans up the task title as sent in from robot parsing.
+    Tries to substitute any dynamic vars with config provided  
+
+
+    Args:
+        task_name (object): The cmd arguments as parsed from robot.  
+        parsed_runbook_config (object): The parsed runbook config content.
+
+    Returns:
+        An expanded task title with substituted variables. 
+    """
+    for var in parsed_runbook_config["spec"]["configProvided"]:
+        task_name = task_name.replace('${'+ var["name"] +'}', var["value"])
+        logger.debug(f"Tailored var name {var['name']} for {var['value']}")       
+
+    logger.debug(f"Task Title Substitution: return {task_name}")
+    return task_name
+
 def remove_auth_commands(command):
     """
     Removes common authentication patterns in cli output, as it's assumed that the user is already authenticated, or is authenticated 
@@ -213,13 +244,17 @@ def search_keywords(parsed_robot, parsed_runbook_config, search_list, meta):
             if hasattr(keyword, 'name'):
                 for item in search_list:
                     if item in keyword.args:
-                        name_snake_case = re.sub(r'\W+', '_', task["name"].lower())
+                        task_name=task_name_expansion(task["name"], parsed_runbook_config)
+                        task_name_generalized = task["name"].replace('`', '').replace('${', '').replace('}', '')
+                        name_snake_case = re.sub(r'\W+', '_', task_name_generalized.lower())
                         command = {
-                            "name": task["name"],
+                            "name": f"{task_name}",
                             "command": cmd_expansion(keyword.args, parsed_runbook_config)
                         }
+                        logger.debug(f"Searching for command name in meta: {name_snake_case}")
                         for cmd_meta in meta['commands']:
                             if cmd_meta['name'] == name_snake_case:
+                                logger.debug(f"Found meta for {name_snake_case}")       
                                 command['explanation'] = cmd_meta.get('explanation', "No command explanation available")
                                 command['multi_line_details'] = cmd_meta.get('multi_line_details', "No multi-line explanation available")
                                 command['doc_links'] = cmd_meta.get('doc_links', [])
@@ -701,6 +736,7 @@ def warm_git_cache(runbook_files):
         runbook_robot_files = find_files(f"{owner}_{repo}_{ref}-cache", 'runbook.robot')
         for runbook in runbook_robot_files: 
             parsed_robot=parse_robot_file(runbook)
+            logger.debug(f"DEBUG: Create Unique Author List - Runbook Details: {parsed_robot}")       
             author = ''.join(parsed_robot["author"].split('\n'))
             fetch_github_profile_icon(author)
 

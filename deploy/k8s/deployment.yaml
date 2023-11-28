@@ -19,12 +19,17 @@ spec:
         image: ghcr.io/runwhen-contrib/runwhen-local:latest
         imagePullPolicy: Always
         ports:
-          - containerPort: 8081
-          - containerPort: 8000
-          - containerPort: 7687
+          - name: mkdocs
+            containerPort: 8081
+            protocol: TCP
+          - name: django
+            containerPort: 8000
+            protocol: TCP
         env: 
         - name: AUTORUN_WORKSPACE_BUILDER_INTERVAL
           value: "1800"
+        - name: RW_LOCAL_TERMINAL_DISABLED
+          value: "true"
         volumeMounts:
         - name: shared-volume
           mountPath: "/shared"
@@ -34,12 +39,26 @@ spec:
         - name: configmap-volume
           mountPath: "/shared/workspaceInfo.yaml"
           subPath: "workspaceInfo.yaml"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: mkdocs
+          initialDelaySeconds: 10
+          periodSeconds: 20
+          failureThreshold: 20
         readinessProbe:
           tcpSocket:
-            port: 7687
+            port: 8000
           initialDelaySeconds: 10
           periodSeconds: 5
-          failureThreshold: 3
+          failureThreshold: 5
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "1024Mi"
+            cpu: "1"
       volumes:
       - name: shared-volume
         emptyDir: {}
