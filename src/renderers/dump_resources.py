@@ -1,27 +1,12 @@
 import datetime
-import os
-import sys
-import logging
 from typing import Any
 import yaml
 
 from component import Context
-from resources import Resource, Registry
+from resources import Registry, REGISTRY_PROPERTY_NAME
 from indexers.kubetypes import KUBERNETES_PLATFORM, KubernetesResourceType, get_cluster
 
-logger = logging.getLogger(__name__)
-handler = logging.StreamHandler(sys.stdout)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-handler.setFormatter(formatter)
-logger.addHandler(handler)
-# Check for the environment variable and set the log level
-if os.environ.get('DEBUG_LOGGING') == 'true':
-    logger.setLevel(logging.DEBUG)
-else:
-    logger.setLevel(logging.INFO)
-
 DOCUMENTATION = "Render/dump Kubernetes resource state to a YAML file"
-
 
 def _dump_resource_state(registry: Registry, resource_type_name: str, cluster_name: str) -> list[Any]:
     instances = list()
@@ -34,7 +19,7 @@ def _dump_resource_state(registry: Registry, resource_type_name: str, cluster_na
 
 
 def render(context: Context):
-    registry = context.properties["registry"]
+    registry = context.properties[REGISTRY_PROPERTY_NAME]
 
     # Initialize the top-level state in the dump dict
     dump = dict()
