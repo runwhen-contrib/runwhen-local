@@ -58,6 +58,16 @@ class KubernetesPlatformHandler(PlatformHandler):
         namespace = get_namespace(resource)
         return namespace.lod if namespace else LevelOfDetail.DETAILED
 
+    def get_resource_match_property_value(self, resource: Resource, property_name: str) -> Optional[str]:
+        if property_name == "cluster":
+            return get_cluster(resource).name
+        elif property_name == "context":
+            return get_context(resource)
+        elif property_name == "namespace":
+            return get_namespace(resource).name
+        else:
+            return None
+
     def get_resource_property_values(self, resource: Resource, property_name: str) -> Optional[list[Any]]:
         property_name = property_name.lower()
         if property_name == "labels":

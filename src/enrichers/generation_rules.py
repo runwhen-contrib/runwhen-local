@@ -590,7 +590,8 @@ def generate_output_item(generation_rule_info: GenerationRuleInfo,
 def collect_emitted_slxs(generation_rule_info: GenerationRuleInfo,
                          resource: Resource,
                          level_of_detail: LevelOfDetail,
-                         slxs: dict[str, SLXInfo]):
+                         slxs: dict[str, SLXInfo],
+                         context):
     generation_rule = generation_rule_info.generation_rule
     for slx in generation_rule.slxs:
         # See if the SLX has anything to output, i.e. has some output item that's not
@@ -604,7 +605,7 @@ def collect_emitted_slxs(generation_rule_info: GenerationRuleInfo,
                 break
 
         if emit_slx:
-            slx_info = SLXInfo(slx, resource, level_of_detail, generation_rule_info)
+            slx_info = SLXInfo(slx, resource, level_of_detail, generation_rule_info, context)
             logger.debug(f"DEBUG: Collect Emitted SLXs: emit {slx_info}")
             slxs[slx_info.full_name] = slx_info
 
@@ -807,6 +808,7 @@ def load(context: Context) -> None:
 
 
 def enrich(context: Context) -> None:
+    logger.debug("Beginning generation_rules.enrich")
     map_customization_rules_path = context.get_setting("MAP_CUSTOMIZATION_RULES")
     map_customization_rules = MapCustomizationRules.load(map_customization_rules_path) \
         if map_customization_rules_path else MapCustomizationRules()
@@ -903,7 +905,7 @@ def enrich(context: Context) -> None:
                                                  base_template_variables,
                                                  context)
 
-                    collect_emitted_slxs(generation_rule_info, resource, level_of_detail, slxs)
+                    collect_emitted_slxs(generation_rule_info, resource, level_of_detail, slxs, context)
 
     # Assign the shortened names to the enabled SLXs, including detecting and resolving any name conflicts.
     workspace_name = getattr(workspace, "short_name")
@@ -952,3 +954,5 @@ def enrich(context: Context) -> None:
             path = f"{workspace_path}/personas/{short_name}.yaml"
             output_item = RendererOutputItem(path, "persona.yaml", persona_template_variables)
             renderer_output_items[path] = output_item
+
+    logger.debug("Ending generation_rules.enrich")

@@ -60,6 +60,9 @@ class PlatformHandler: #(ABC):
     def get_level_of_detail(self, resource: Resource):
         return LevelOfDetail.DETAILED
 
+    def get_resource_match_property_value(self, resource: Resource, property_name: str) -> Optional[str]:
+        return None
+
     def get_resource_property_values(self, resource: Resource, property_name: str) -> Optional[list[Any]]:
         """
         Handle any special property values supported by the platform.
