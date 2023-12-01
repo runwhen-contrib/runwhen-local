@@ -24,6 +24,7 @@ from resources import (
 )
 from template import render_template_string
 from .code_collection import (
+    GenerationRuleFileSpec,
     CodeCollection,
     get_request_code_collections,
     get_code_collection,
@@ -461,21 +462,15 @@ class GenerationRuleInfo:
     in the generation rule.
     """
     generation_rule: GenerationRule
-    generation_rule_name: str
+    generation_rule_file_spec: GenerationRuleFileSpec
     code_collection: CodeCollection
-    ref_name: str
-    code_bundle: str
 
     def __init__(self, generation_rule: GenerationRule,
-                 generation_rule_name: str,
-                 code_collection: CodeCollection = None,
-                 ref_name: str = None,
-                 code_bundle: str = None):
+                 generation_rule_file_spec: GenerationRuleFileSpec,
+                 code_collection: CodeCollection = None):
         self.generation_rule = generation_rule
-        self.generation_rule_name = generation_rule_name
+        self.generation_rule_file_spec = generation_rule_file_spec
         self.code_collection = code_collection
-        self.ref_name = ref_name
-        self.code_bundle = code_bundle
 
 
 def get_template_variables(output_item: OutputItem,
@@ -532,8 +527,8 @@ def get_template_variables(output_item: OutputItem,
         template_variables['repo_url'] = generation_rule_info.code_collection.repo_url
     except Exception as e:
         raise e
-    template_variables['ref'] = generation_rule_info.ref_name
-
+    template_variables['ref'] = generation_rule_info.generation_rule_file_spec.ref_name
+    template_variables['generation_rule_file_path'] = generation_rule_info.generation_rule_file_spec.path
     for name, template_string in output_item.template_variables.items():
         value = None
         if platform_handler:
@@ -577,8 +572,8 @@ def generate_output_item(generation_rule_info: GenerationRuleInfo,
 
     code_collection = generation_rule_info.code_collection
     if code_collection:
-        ref_name = generation_rule_info.ref_name
-        code_bundle_name = generation_rule_info.code_bundle
+        ref_name = generation_rule_info.generation_rule_file_spec.ref_name
+        code_bundle_name = generation_rule_info.generation_rule_file_spec.code_bundle_name
         template_loader_func = lambda name: code_collection.get_template_text(ref_name, code_bundle_name, name)
     else:
         template_loader_func = None
@@ -765,7 +760,7 @@ def load(context: Context) -> None:
         code_bundle_names = code_collection.get_code_bundle_names(ref_name, code_collection_config)
         for code_bundle_name in code_bundle_names:
             generation_rules_configs = code_collection.get_generation_rules_configs(ref_name, code_bundle_name)
-            for generation_rules_name, generation_rules_config_text in generation_rules_configs:
+            for generation_rule_file_spec, generation_rules_config_text in generation_rules_configs:
                 generation_rules_config = yaml.safe_load(generation_rules_config_text)
                 spec_config = generation_rules_config["spec"]
                 # NOTE: The Kubernetes dependency here is just for backward compatibility, since
@@ -780,10 +775,8 @@ def load(context: Context) -> None:
                                                                            default_platform_name,
                                                                            context)
                     generation_rule_info = GenerationRuleInfo(generation_rule,
-                                                              generation_rules_name,
-                                                              code_collection,
-                                                              ref_name,
-                                                              code_bundle_name)
+                                                              generation_rule_file_spec,
+                                                              code_collection)
                     generation_rules.append(generation_rule_info)
                     for slx in generation_rule.slxs:
                         shortened_base_name = slx.shortened_base_name

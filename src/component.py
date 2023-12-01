@@ -3,6 +3,7 @@ from enum import Enum
 from functools import total_ordering
 from types import ModuleType
 from typing import Any, Callable, Optional, AnyStr, Union
+import typing
 from importlib import import_module
 
 from outputter import Outputter
@@ -18,6 +19,8 @@ class Setting:
     they depend upon by defining a SETTINGS variable in the module where
     the component is implemented.
     """
+    # FIXME: Should probably name this something different to avoid the name
+    # conflict with the Type import from typing
     class Type(Enum):
         BOOLEAN = "boolean"
         INTEGER = "integer"
@@ -30,16 +33,16 @@ class Setting:
 
     name: str
     json_name: str
+    # FIXME: Should rename this to avoid the shadowing of the built-in "type" method
     type: Type
-    enum_class: Enum
-    default_value: Optional[Union[bool, int, float, str, dict]]
+    enum_class: typing.Type[Enum]
+    default_value: Optional[Union[bool, int, float, str, dict, list, Enum]]
     documentation: str
-    enum_class: Enum
     enum_constructor: Callable[[Any], Enum]
 
     def __init__(self, name: str, json_name: str, type: Type, documentation: str,
-                 default_value: Optional[Union[bool, int, float, str, dict, list]] = None,
-                 enum_class: Enum=None, enum_constructor=None):
+                 default_value: Optional[Union[bool, int, float, str, dict, list, Enum]] = None,
+                 enum_class: typing.Type[Enum]=None, enum_constructor=None):
         self.name = name
         self.json_name = json_name
         self.type = type
