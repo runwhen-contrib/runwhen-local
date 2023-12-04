@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/4.1/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -129,6 +130,8 @@ REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "workspace_builder.exceptions.handle",
 }
 
+debug_logging = os.environ.get('DEBUG_LOGGING', "false").lower()
+root_log_level = "DEBUG" if debug_logging == 'true' or debug_logging == "1" else "INFO"
 
 LOGGING = {
     "version": 1,
@@ -141,7 +144,7 @@ LOGGING = {
     "loggers": {
         "root": {
             "handlers": ["console"],
-            "level": "INFO",
+            "level": root_log_level,
         },
     },
 }

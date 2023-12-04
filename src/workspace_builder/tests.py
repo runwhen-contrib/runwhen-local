@@ -31,17 +31,16 @@ BASE_REQUEST_DATA = {
     "workspaceOutputPath": "workspace",
     "defaultLocation": "northamerica-northeast2-01",
     "mapCustomizationRules": "map-customization-rules-test",
-    # "namespaces": ["cert-manager", "vault", "runwhen-local", "artifactory", "kube-system"],
-    # "codeCollections": [
-    #     {"repoURL": f"file://{git_repo_root}/rw-public-codecollection", "branch": "main"},
-    #     {"repoURL": f"file://{git_repo_root}/rw-cli-codecollection", "branch": "main"}
-    #     # , "codeBundles": ["k8s-namespace-healthcheck"]
-    #     # {
-    #     #     "repoURL": "https://github.com/runwhen-contrib/rw-cli-codecollection",
-    #     #     "branch": "main",
-    #     #     "codeBundles": ["k8s-namespace-healthcheck"],
-    #     # }
-    # ]
+    "codeCollections": [
+        {"repoURL": f"file://{git_repo_root}/rw-public-codecollection", "branch": "main"},
+        {"repoURL": f"file://{git_repo_root}/rw-cli-codecollection", "branch": "main"}
+        # , "codeBundles": ["k8s-namespace-healthcheck"]
+        # {
+        #     "repoURL": "https://github.com/runwhen-contrib/rw-cli-codecollection",
+        #     "branch": "main",
+        #     "codeBundles": ["k8s-namespace-healthcheck"],
+        # }
+    ]
 }
 
 def read_file(file_path: str, mode="r") -> Union[str, bytes]:
@@ -127,13 +126,15 @@ class ProductionComponentTestCase(TestCase):
         archive.extractall(TEST_OUTPUT_DIRECTORY)
 
     def test_generation_rules_workspace_gen(self):
-        self.run_common("kubeapi,runwhen_default_workspace,hclod,generation_rules,render_output_items")
+        self.run_common("kubeapi,runwhen_default_workspace,generation_rules,render_output_items")
 
-    def test_generation_rules_workspace_gen_no_indexing(self):
-        self.run_common("generation_rules,render_output_items")
+    # Need to implement some sort of dump/load feature to the resource registry
+    # for this to make sense now that we're not using neo4j anymore.
+    # def test_generation_rules_workspace_gen_no_indexing(self):
+    #     self.run_common("generation_rules,render_output_items")
 
     def test_dump_resources(self):
-        self.run_common("kubeapi,runwhen_default_workspace,hclod,generation_rules,render_output_items,dump_resources")
+        self.run_common("kubeapi,runwhen_default_workspace,generation_rules,render_output_items,dump_resources")
 
     def test_info(self):
         response = self.client.get("/info/")

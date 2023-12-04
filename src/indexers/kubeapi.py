@@ -1,6 +1,6 @@
 """
 Index assets that we can find by querying K8s API servers
-to fetch live clusters, Namepsaces, Ingresses, Services,
+to fetch live clusters, Namespaces, Ingresses, Services,
 Deployments, StatefulSets, etc.
 """
 import logging
@@ -24,9 +24,19 @@ from component import Setting, SettingDependency, Context, KUBECONFIG_SETTING
 # product/resource discovery/graphing service across multiple IaaS platforms it might
 # be useful to have the notion of different indexing components. But we'll cross that
 # bridge when we get to it...
-from enrichers.generation_rules import ResourceTypeSpec, ResourceType as GenRuleResourceType, CUSTOM_RESOURCE_TYPE_SPECS
-from enrichers.hclod import NAMESPACE_LODS_SETTING, DEFAULT_LOD_SETTING
-from .kubetypes import KUBERNETES_PLATFORM, ResourceType
+from enrichers.generation_rules import RESOURCE_TYPE_SPECS_PROPERTY
+# FIXME: Would be cleaner if this code didn't depend on any enricher/genrule code.
+# This would make it easier to split out resource indexing code out into a standalone
+# service or use it for some function outside of the workspace builder use case.
+# And the level of detail handling doesn't really belong here.
+# Should think some more about how to get rid of this dependency.
+# One option would be to not do the level of detail filtering here via a custom
+# filter function that's specified by a higher-level component.
+# Or something like that...
+from enrichers.generation_rule_types import LevelOfDetail
+from enrichers.generation_rules import DEFAULT_LOD_SETTING
+from .kubetypes import KUBERNETES_PLATFORM, KubernetesResourceType, KubernetesResourceTypeSpec
+from resources import Registry, REGISTRY_PROPERTY_NAME
 from . import kubeapi_parsers
 
 logger = logging.getLogger(__name__)
@@ -37,6 +47,11 @@ NAMESPACES_SETTING = Setting("NAMESPACES",
                              "Persona data used to initialize persona files",
                              list())
 
+NAMESPACE_LODS_SETTING = Setting("NAMESPACE_LODS",
+                                 "namespaceLODs",
+                                 Setting.Type.DICT,
+                                 "Level of Detail (LOD) settings for different Kubernetes namespace",
+                                 default_value=dict())
 
 DOCUMENTATION = "Index assets from a Kubernetes configuration"
 # FIXME: Is there value in specifying the kube and neo4j settings explicitly
@@ -76,8 +91,9 @@ def index(component_context: Context):
     namespace_lods = component_context.get_setting("NAMESPACE_LODS")
     custom_namespace_names = component_context.get_setting("NAMESPACES")
     default_lod = component_context.get_setting("DEFAULT_LOD")
-    custom_resource_type_specs = component_context.get_property(CUSTOM_RESOURCE_TYPE_SPECS)
-    registry = component_context.registry
+    all_accessed_resource_type_specs = component_context.get_property(RESOURCE_TYPE_SPECS_PROPERTY)
+    accessed_resource_type_specs = all_accessed_resource_type_specs.get(KUBERNETES_PLATFORM)
+    registry: Registry = component_context.get_property(REGISTRY_PROPERTY_NAME)
 
     # NOTE: In theory we should just call kubernetes_config.load_config here to load
     # the config file, but there is a bug in that method where the name of the kwarg
@@ -116,7 +132,7 @@ def index(component_context: Context):
         # for the cluster, even though its resources might be the union of scans across
         # multiple contexts. But I don't think we currently really use the context attribute
         # for anything, so I don't think this is a big deal.
-        cluster = registry.lookup_resource(KUBERNETES_PLATFORM, ResourceType.CLUSTER.value, cluster_name)
+        cluster = registry.lookup_resource(KUBERNETES_PLATFORM, KubernetesResourceType.CLUSTER.value, cluster_name)
         if cluster:
             cluster_namespaces = getattr(cluster, "namespaces")
         else:
@@ -126,14 +142,14 @@ def index(component_context: Context):
                 'namespaces': cluster_namespaces
             }
             cluster = registry.add_resource(KUBERNETES_PLATFORM,
-                                            ResourceType.CLUSTER.value,
+                                            KubernetesResourceType.CLUSTER.value,
                                             cluster_name,
                                             cluster_name,
                                             cluster_attributes)
 
         logger.info(f"Scanning Kubernetes cluster {cluster_name} from context {context_name}")
 
-        with kubernetes_config.new_client_from_config(config_file=kubeconfig_path, context=context_name) as api_client:
+        with (kubernetes_config.new_client_from_config(config_file=kubeconfig_path, context=context_name) as api_client):
             core_api_client = client.CoreV1Api(api_client=api_client)
             custom_objects_api_client = client.CustomObjectsApi(api_client=api_client)
 
@@ -267,23 +283,19 @@ def index(component_context: Context):
                 # the same name in different clusters. Should have syntax in the LOD configuration
                 # that let's you qualify by cluster name. For example, a key format that's
                 # "<cluster-name>:<namespace-name>" or something like that.
-                namespace_lod = namespace_lods.get(namespace_name, default_lod)
-                if namespace_lod == 0:
+                namespace_lod_config = namespace_lods.get(namespace_name)
+                namespace_lod = LevelOfDetail.construct_from_config(namespace_lod_config) \
+                    if namespace_lod_config is not None else default_lod
+                if namespace_lod == LevelOfDetail.NONE:
                     continue
                 try:
                     raw_resource = core_api_client.read_namespace(namespace_name)
                     namespace_attributes = kubeapi_parsers.parse_namespace(raw_resource)
-                    # Set up a dummy value for the lod attribute.
-                    # This will be set with the real value in the hclod enricher, but we
-                    # want to set it here so that the attribute is defined.
-                    # FIXME: This whole lod initialization process is pretty convoluted
-                    # right now and could use a cleanup pass, especially when we generalize
-                    # to support non-Kubernetes platform/resources.
                     namespace_attributes['cluster'] = cluster
-                    namespace_attributes['lod'] = 0
+                    namespace_attributes['lod'] = namespace_lod
                     # namespace_attributes['resources'] = list()
                     namespace = registry.add_resource(KUBERNETES_PLATFORM,
-                                                      ResourceType.NAMESPACE.value,
+                                                      KubernetesResourceType.NAMESPACE.value,
                                                       namespace_name,
                                                       namespace_qualified_name,
                                                       namespace_attributes)
@@ -312,9 +324,9 @@ def index(component_context: Context):
                 #
                 apps_api_client = client.AppsV1Api(api_client=api_client)
                 app_info = (
-                    ('Deployment', apps_api_client.list_namespaced_deployment, ResourceType.DEPLOYMENT),
-                    ('DaemonSet', apps_api_client.list_namespaced_daemon_set, ResourceType.DAEMON_SET),
-                    ('StatefulSet', apps_api_client.list_namespaced_stateful_set, ResourceType.STATEFUL_SET),
+                    ('Deployment', apps_api_client.list_namespaced_deployment, KubernetesResourceType.DEPLOYMENT),
+                    ('DaemonSet', apps_api_client.list_namespaced_daemon_set, KubernetesResourceType.DAEMON_SET),
+                    ('StatefulSet', apps_api_client.list_namespaced_stateful_set, KubernetesResourceType.STATEFUL_SET),
                 )
                 # app_items = list()
                 # Query for the application instances.
@@ -358,7 +370,7 @@ def index(component_context: Context):
                         paths = ingress_attributes['paths']
                         ingress_attributes["namespace"] = namespace
                         ingress = registry.add_resource(KUBERNETES_PLATFORM,
-                                                        ResourceType.INGRESS.value,
+                                                        KubernetesResourceType.INGRESS.value,
                                                         ingress_name,
                                                         ingress_qualified_name,
                                                         ingress_attributes)
@@ -392,7 +404,7 @@ def index(component_context: Context):
                             ingress = ingresses_connected_services.get(service_qualified_name)
                             service_attributes['ingress'] = ingress
                         service = registry.add_resource(KUBERNETES_PLATFORM,
-                                                        ResourceType.SERVICE.value,
+                                                        KubernetesResourceType.SERVICE.value,
                                                         service_name,
                                                         service_qualified_name,
                                                         service_attributes)
@@ -428,7 +440,7 @@ def index(component_context: Context):
                         pvc_attributes["namespace"] = namespace
                         # r['cluster_name'] = cluster_name
                         persistentvolumeclaim = registry.add_resource(KUBERNETES_PLATFORM,
-                                                    ResourceType.PVC.value,
+                                                    KubernetesResourceType.PVC.value,
                                                     pvc_name,
                                                     pvc_qualified_name,
                                                     pvc_attributes)
@@ -446,7 +458,7 @@ def index(component_context: Context):
                     logger.debug(f"kube API scan for namespace {namespace_name}: {len(ret.items)} pods")
                     for raw_resource in ret.items:
                         phase = raw_resource.status.phase
-                        # FIXME: Seems like non-running pods should have already beeen filtered out by
+                        # FIXME: Seems like non-running pods should have already been filtered out by
                         # the field_selector in the list call? So not sure why/if the following lines
                         # are needed?
                         if phase != "Running":
@@ -457,7 +469,7 @@ def index(component_context: Context):
                         pod_attributes["namespace"] = namespace
                         # r['cluster_name'] = cluster_name
                         pod = registry.add_resource(KUBERNETES_PLATFORM,
-                                                    ResourceType.POD.value,
+                                                    KubernetesResourceType.POD.value,
                                                     pod_name,
                                                     pod_qualified_name,
                                                     pod_attributes)
@@ -473,20 +485,23 @@ def index(component_context: Context):
                 #
                 # Index the custom resources
                 #
-                if custom_resource_type_specs:
-                    for custom_resource_type_spec in custom_resource_type_specs:
-                        group = custom_resource_type_spec.group
-                        version = custom_resource_type_spec.version
+                if accessed_resource_type_specs:
+                    for resource_type_spec in accessed_resource_type_specs:
+                        if resource_type_spec.resource_type_name != KubernetesResourceType.CUSTOM.value:
+                            continue
+                        group = resource_type_spec.group
+                        version = resource_type_spec.version
                         # FIXME: Some remaining inconsistencies between kind vs. plural_name.
                         # Should probably change the field in ResourceTypeSpec to be plural_name, since
                         # it's really not the same as the kind field of the resource.
-                        plural_name = custom_resource_type_spec.kind
+                        plural_name = resource_type_spec.kind
                         if version:
-                            wildcard_spec = ResourceTypeSpec(GenRuleResourceType.CUSTOM,
-                                                             group=group,
-                                                             version=None,
-                                                             kind=plural_name)
-                            if wildcard_spec in custom_resource_type_specs:
+                            wildcard_spec = KubernetesResourceTypeSpec(KUBERNETES_PLATFORM,
+                                                                       KubernetesResourceType.CUSTOM.value,
+                                                                       group,
+                                                                       None,
+                                                                       plural_name)
+                            if wildcard_spec in accessed_resource_type_specs:
                                 continue
                             versions = [version]
                         else:
@@ -500,7 +515,6 @@ def index(component_context: Context):
                                                                                               plural=plural_name)
                                 for raw_resource in ret['items']:
                                     resource_name = raw_resource['metadata']['name']
-                                    kwargs = dict()
                                     custom_name = f"{plural_name}|{group}|{version}|{resource_name}"
                                     custom_qualified_name = get_qualified_name(namespace_qualified_name, custom_name)
                                     custom_attributes = kubeapi_parsers.parse_custom_resource(raw_resource,
@@ -509,7 +523,7 @@ def index(component_context: Context):
                                                                                               plural_name)
                                     custom_attributes["namespace"] = namespace
                                     custom_resource = registry.add_resource(KUBERNETES_PLATFORM,
-                                                                            ResourceType.CUSTOM.value,
+                                                                            KubernetesResourceType.CUSTOM.value,
                                                                             custom_name,
                                                                             custom_qualified_name,
                                                                             custom_attributes)

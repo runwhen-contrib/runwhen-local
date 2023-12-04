@@ -1,132 +1,12 @@
+from dataclasses import dataclass
 from enum import Enum
+from typing import Union
+
 from exceptions import WorkspaceBuilderException
 import logging
 from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-
-# @dataclass
-# class Resource:
-#     name: str
-#     resource_type: "ResourceType"
-#     fields: dict[str, Any]
-#
-#
-# @dataclass
-# class ResourceType:
-#     name: str
-#     namespace: "Namespace"
-#     instances: dict[str, Resource]
-#
-#
-# @dataclass
-# class Namespace:
-#     name: str
-#     platform: "Platform"
-#     resource_types: dict[str, ResourceType]
-#
-#
-# @dataclass
-# class Platform:
-#     name: str
-#     namespaces: dict[str, Namespace]
-#
-#
-# class Registry:
-#     """
-#     A resource registry is a simple in-memory map of discovered/indexed resources.
-#     It models a platform/namespace/resource-type/resource-name hierarchy, which
-#     is mostly modeled from Kubernetes, but I think it should be flexible enough to
-#     handle other platforms too. For platforms that don't have namespaces there
-#     can be just a single "default" namespace. The current implementation doesn't
-#     try to model Kubernetes hierarchical namespaces, but that could be added if it
-#     proves necessary.
-#
-#     The data structure that maintains the resource is organized in several
-#     levels. At the top level there is a dictionary that maps from a platform
-#     name to the registered resources for that platform. A platform in this
-#     case refers to a cloud platform from which the resources were discovered,
-#     e.g. Kubernetes, AWS, Azure, etc. At the next level, a platform has namespaces
-#     where each namespace provides a scope for resource types and resources.
-#     At the next level the resources are groups by the type of the resource,
-#     where the types are platform-specific. For example, Kubernetes has namespaces,
-#     services, deployments, etc. while Azure has virtual machines, load balancers, etc.
-#     At the next level the resource instances are indexed by the name of the resource.
-#     Finally, the resource itself is represented as a dict of field names/values.
-#
-#     The resource registry is very loosely typed. The set of platforms,
-#     resource types, and field names is purely determined by the
-#     indexing components that populate the registry. The only
-#     structural requirement is that the resources have a name that is
-#     unique within the scope of a platform and resource type, i.e.
-#     a <platform,resource-type,name> tuple must be unique across the
-#     entire registry.
-#
-#     Currently, the implementation is super simple to support the current
-#     operational model of the workspace builder, i.e. indexing from scratch
-#     every time. So it doesn't support things like deleting resources or
-#     doing incremental updates of the resource registry.
-#     """
-#     platforms: dict[str, Platform]
-#
-#     def __init__(self):
-#         self.registry_map = dict()
-#
-#     def add_resource(self,
-#                      platform_name: str,
-#                      namespace_name: str,
-#                      resource_type_name: str,
-#                      resource_name: str,
-#                      resource_fields: dict[str, Any]):
-#         """
-#         Add a new resource to the registry.
-#
-#         Note: The specified dict of field names/value is added directly to the registry's
-#         internal data structure, so the registry assumes ownership of it and the caller
-#         shouldn't make any subsequent modifications to it.
-#         """
-#         platform = self.platforms.get(platform_name)
-#         if not platform:
-#             platform = Platform(platform_name, dict())
-#             self.platforms[platform_name] = platform
-#         namespace = platform.namespaces.get(namespace_name)
-#         if not namespace:
-#             namespace = Namespace(namespace_name, platform, dict())
-#             platform.namespaces[namespace_name] = namespace
-#         resource_type = namespace.resource_types.get(resource_type_name)
-#         if not resource_type:
-#             resource_type = ResourceType(resource_type_name, namespace, dict())
-#             namespace.resource_types[resource_type_name] = resource_type
-#         resource = Resource(resource_name, resource_type, resource_fields)
-#         resource_type.instances[resource_name] = resource
-#
-#     def lookup_resource(self,
-#                         platform_name: str,
-#                         namespace_name: str,
-#                         resource_type_name: str,
-#                         resource_name: str) -> Optional[Resource]:
-#         """
-#         Lookup a Resource instance with the specified platform/namespace/resource-type
-#         """
-#         resource_type = self.lookup_resources_type(platform_name, namespace_name, resource_type_name)
-#         if not resource_type:
-#             return None
-#         return resource_type.instances.get(resource_name)
-#
-#     def lookup_resources_type(self,
-#                               platform_name: str,
-#                               namespace_name: str,
-#                               resource_type_name: str) -> Optional[ResourceType]:
-#         """
-#         Lookup a ResourceType object with the specified platform/namespace
-#         """
-#         platform = self.platforms.get(platform_name)
-#         if not platform:
-#             return None
-#         namespace = platform.namespaces.get(namespace_name)
-#         if not namespace:
-#             return None
-#         return namespace.resource_types.get(resource_type_name)
 
 
 # Platform name to use for built-in resource types, e.g. workspace
@@ -137,6 +17,7 @@ logger = logging.getLogger(__name__)
 # not in the context of thinking of the resource discovery/registration
 # process as a separate component. Needs more thought...
 RUNWHEN_PLATFORM = "runwhen"
+REGISTRY_PROPERTY_NAME = "registry"
 
 class RunWhenResourceType(Enum):
     WORKSPACE = "workspace"
@@ -182,10 +63,107 @@ class Platform:
         self.resource_types = dict()
 
 
+@dataclass
+class ResourceTypeSpec:
+    """
+    Specification of a resource type. This is basically just the combination of the
+    resource type name qualified by the platform name, but has logic for parsing the
+    info from either a string or a dict, which is used to handle the way the resource
+    type is specified in the generation rules.
+
+    This class can be subclassed for different platform in their PlatformHandler to
+    include other attributes that only apply to that platform.
+    """
+    platform_name: str
+    resource_type_name: str
+
+    # def __init__(self, platform_name: str, resource_type_name: str):
+    #     self.platform_name = platform_name
+    #     self.resource_type_name = resource_type_name
+    #
+    # def __eq__(self, other):
+    #     if not isinstance(other, ResourceTypeSpec):
+    #         # don't attempt to compare against unrelated types
+    #         return NotImplemented
+    #     return self.platform_name == other.platform_name and self.resource_type_name == other.resource_type_name
+
+    def get_resource_type_name(self):
+        return self.resource_type_name
+
+    @staticmethod
+    def parse_resource_type_name(config: Union[str, dict[str, Any]]):
+        """
+        Parse the resource type name out of the resource type spec config.
+        """
+        if isinstance(config, str):
+            separator_index = config.find(':')
+            resource_type_name = config[separator_index+1:] if separator_index > 0 else config
+        elif isinstance(config, dict):
+            resource_type_name = config.get("resourceType")
+        else:
+            raise WorkspaceBuilderException(f'Unexpected type ("{type(config)}") for ResourceTypeSpec; '
+                                            f'expected str or dict.')
+        return resource_type_name
+
+    @staticmethod
+    def parse_platform_name(config: Union[str, dict[str, Any]],
+                            default_platform_name: str) -> tuple[str, Union[str, dict[str, Any]]]:
+        if isinstance(config, str):
+            separator_index = config.find(':')
+            if separator_index > 0:
+                platform_name = config[:separator_index]
+                remaining_config = config[separator_index+1:]
+            else:
+                platform_name = default_platform_name
+                remaining_config = config
+        elif isinstance(config, dict):
+            platform_name = config.get('platform', default_platform_name)
+            remaining_config = config
+        else:
+            raise WorkspaceBuilderException(f'Unexpected type ("{type(config)}") for ResourceTypeSpec; '
+                                            f'expected str or dict.')
+        return platform_name, remaining_config
+
+    @staticmethod
+    def construct_from_config(config: Union[str, dict[str, Any]], default_platform_name: str) -> "ResourceTypeSpec":
+        """
+        Construct a ResourceTypeSpec from configuration in a generation rule.
+        The spec can be either a string or a dict. If it's a string, the expected format
+        is "kind.group/version", e.g. "workspaces.runwhen.com/v1".
+        The kind field is the lower-case plural form of the kind.
+        The version can be omitted (along with the slash), which maps to matching all available versions.
+        :param config:
+        :param default_platform_name:
+        :return:
+        """
+        platform_name, remaining_config = ResourceTypeSpec.parse_platform_name(config, default_platform_name)
+        if isinstance(remaining_config, str):
+            resource_type_name = remaining_config
+        elif isinstance(remaining_config, dict):
+            resource_type_name = config.get("resourceType")
+            if not resource_type_name:
+                raise WorkspaceBuilderException(f'Resource type spec must specify a "resourceType" field')
+        else:
+            raise WorkspaceBuilderException(f'Unexpected type ("{type(config)}") for ResourceTypeSpec config; '
+                                            f'expected str or dict.')
+        return ResourceTypeSpec(platform_name, resource_type_name)
+
+
 class Registry:
     """
     A registry of the resources that have been discovered/indexed across multiple
     cloud platforms.
+
+    FIXME: The current implementation isn't thread-safe and would cause problems
+    if there were current requests operating on the same registry, at least if
+    there were requests that were making updates to the registry (e.g.
+    incremental indexing support) while others were accessing the contents.
+    Currently, this isn't a problem, because the registry is rebuilt for each
+    new request and isn't accessed out the scope of that (single-threaded)
+    request. But if we eventually make the indexing/registration process
+    more stateful with support incremental updates, and add methods for other
+    clients to access the resource contents, then we'll need to think
+    through the thread-safety issues.
     """
     platforms: dict[str, Platform]
 
@@ -221,7 +199,7 @@ class Registry:
             resource_type = ResourceType(resource_type_name, platform)
             platform.resource_types[resource_type_name] = resource_type
         # Check if there's an existing resource with the same qualified name.
-        # This could happen if an indexer might make multiple passes over the
+        # This could happen if an indexer might make multiple passes over
         # the same set of resources, e.g. Kubernetes scanning a cluster multiple
         # time because the kubeconfig has multiple context for the same cluster,
         # but presumably with different user credentials.

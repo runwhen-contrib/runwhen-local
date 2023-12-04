@@ -1,53 +1,37 @@
 import os
 import re
 from enum import Enum
-from typing import Any, Optional, Union
+from typing import Any, Optional
 import logging
 
 import yaml
 
+from component import Context
 from exceptions import WorkspaceBuilderException, WorkspaceBuilderUserException
 from name_utils import make_qualified_slx_name
 from resources import Resource
-from indexers.kubetypes import KUBERNETES_PLATFORM, get_cluster, get_namespace, get_context
+from .generation_rule_types import PlatformHandler, PLATFORM_HANDLERS_PROPERTY_NAME
 from .match_predicate import MatchPredicate, StringMatchMode
-from .match_predicate import base_construct_match_predicate_from_config, match_resource_path, matches_pattern
+from .match_predicate import base_construct_match_predicate_from_config, match_path, matches_pattern
 
 logger = logging.getLogger(__name__)
 
-# Check for the environment variable and set the log level
-if os.environ.get('DEBUG_LOGGING') == 'true':
-    logger.setLevel(logging.DEBUG)
-else:
-    logger.setLevel(logging.INFO)
-
-
-def get_qualifier_value(qualifier: str, resource: Resource) -> str:
+def get_qualifier_value(qualifier: str, resource: Resource, context: Context) -> str:
     qualifier = qualifier.lower()
-    # FIXME: This has a lot of Kubernetes dependencies/assumptions and is pretty kludgy.
-    # Should clean up to make it more indexer/platform-agnostic to work with indexers for
-    # other cloud platforms.
-    # Probably this will entail refactoring the indexer-specific logic into the indexers,
-    # which would then be called from this (and other) indexer-independent code.
     if qualifier == 'resource':
         return resource.name
-    else:
-        platform = resource.resource_type.platform.name
-        if platform != KUBERNETES_PLATFORM:
-            raise WorkspaceBuilderException(f"Unsupported platform: {platform}")
-        if qualifier == 'namespace':
-            return get_namespace(resource).name
-        elif qualifier == 'cluster':
-            return get_cluster(resource).name
-        elif qualifier == 'context':
-            return get_context(resource)
-        else:
-            raise WorkspaceBuilderException(f"Unknown qualifier type for SLX name: {qualifier}")
+    platform_handlers: dict[str, PlatformHandler] = context.get_property(PLATFORM_HANDLERS_PROPERTY_NAME)
+    platform_name = resource.resource_type.platform.name
+    platform_handler = platform_handlers[platform_name]
+    value = platform_handler.get_resource_match_property_value(resource, qualifier)
+    if value is None:
+        raise WorkspaceBuilderException(f'Unresolved qualifier value for SLX name: "{qualifier}"')
+    return value
 
 
 class SLXInfo:
     """
-    This is basically the SLX config state plus other info that's derived
+    This is basically the SLX config state plus other info that's derived from that.
     """
     name: str
     base_name: str
@@ -60,7 +44,7 @@ class SLXInfo:
     # FIXME: Problem with circular import detail with type annotation for LOD
     # level_of_detail: LevelOfDetail
 
-    def __init__(self, slx, resource: Resource, level_of_detail, generation_rule_info):
+    def __init__(self, slx, resource: Resource, level_of_detail, generation_rule_info, context: Context):
         # FIXME: Currently, it doesn't work to specify the type hint for the
         # slx member due to circular import dependencies with generation_rules.
         # Should be able to resolve by refactoring some of the class definitions
@@ -70,7 +54,7 @@ class SLXInfo:
         # because this class is a source of data to the customization rules,
         # and we want the base name to be a top-level setting for that.
         self.base_name = slx.base_name
-        self.qualifiers = {q: get_qualifier_value(q, resource) for q in slx.qualifiers}
+        self.qualifiers = {q: get_qualifier_value(q, resource, context) for q in slx.qualifiers}
         self.qualifier_values = [self.qualifiers[q] for q in slx.qualifiers]
         self.full_name = make_qualified_slx_name(slx.base_name, self.qualifier_values, None)
         self.resource = resource
@@ -86,7 +70,7 @@ class SLXInfo:
         # At some point, it makes sense to revisit some of the data structure
         # decisions based on how the code has evolved.
         # Also, note that we don't have a type hint for this member to avoid circular
-        # dependencies between this moulde and generation_rules, which is also
+        # dependencies between this module and generation_rules, which is also
         # a smell that the data structures aren't as clean as they should be...
         self.generation_rule_info = generation_rule_info
 
@@ -99,26 +83,16 @@ class SLXInfo:
         except Exception as e:
             return f"SLXInfo(repr error: {e})"
 
-class MatchProperty(Enum):
-    NAME = "name"
-    FULL_NAME = "full-name"
-    BASE_NAME = "base-name"
-    QUALIFIED_NAME = "qualified-name"
-    NAMESPACE = "namespace"
-    CLUSTER = "cluster"
-
 
 class SLXPropertyMatchPredicate(MatchPredicate):
 
     TYPE_NAME: str = "pattern"
 
-    # FIXME: Should maybe make this just be a string to avoid the awkward union typing.
-    # Then might make sense to get rid of the MatchProperty enum?
-    match_property: Union[MatchProperty, str]
+    match_property: str
     match_pattern: re.Pattern
     string_match_mode: StringMatchMode
 
-    def __init__(self, match_property: MatchProperty, match_pattern: str,
+    def __init__(self, match_property: str, match_pattern: str,
                  string_match_mode: StringMatchMode = StringMatchMode.EXACT):
         self.match_property = match_property
         self.match_pattern = re.compile(match_pattern)
@@ -126,21 +100,15 @@ class SLXPropertyMatchPredicate(MatchPredicate):
 
     @staticmethod
     def construct_from_config(predicate_config: dict[str, Any]) -> "SLXPropertyMatchPredicate":
-        match_property_value = predicate_config.get("matchProperty")
-        if not match_property_value:
+        match_property = predicate_config.get("matchProperty")
+        if not match_property:
             # Temporary backwards-compatibility code to handle the old name for this.
             # FIXME: Should get rid of this soon once any existing customization rules
             # have been updated to the new name.
-            match_property_value = predicate_config.get("matchType")
-        if not match_property_value:
+            match_property = predicate_config.get("matchType")
+        if not match_property:
             raise WorkspaceBuilderException('A "matchProperty" field must be specified for '
                                             'a SLX property match predicate')
-        try:
-            match_property = MatchProperty(match_property_value.lower())
-        except Exception as e:
-            # If it's not one of the pre-defined property value, then we treat it as
-            # a path property that's resolved against the raw Kubernetes resource data
-            match_property = match_property_value
         match_pattern = predicate_config.get("pattern")
         if not match_pattern:
             raise WorkspaceBuilderUserException('A "pattern" field is required for a property match predicate.')
@@ -148,27 +116,24 @@ class SLXPropertyMatchPredicate(MatchPredicate):
         string_match_mode = StringMatchMode(string_match_mode_value.lower())
         return SLXPropertyMatchPredicate(match_property, match_pattern, string_match_mode)
 
-    def matches(self, slx_info: SLXInfo, variables: dict[str, Any]) -> bool:
-        if self.match_property == MatchProperty.NAME:
+    def matches(self, slx_info: SLXInfo) -> bool:
+        lower_case_match_property = self.match_property.lower()
+        if lower_case_match_property == "name":
             match_value = slx_info.name
-        elif self.match_property == MatchProperty.FULL_NAME:
+        elif lower_case_match_property == "full-name":
             match_value = slx_info.full_name
-        elif self.match_property == MatchProperty.BASE_NAME:
+        elif lower_case_match_property == "base-name":
             match_value = slx_info.base_name
-        elif self.match_property == MatchProperty.QUALIFIED_NAME:
+        elif lower_case_match_property == "qualified-name":
             match_value = slx_info.qualified_name
-        elif self.match_property == MatchProperty.NAMESPACE:
-            match_value = slx_info.qualifiers.get('namespace')
-        elif self.match_property == MatchProperty.CLUSTER:
-            match_value = slx_info.qualifiers.get('cluster')
         else:
-            path = self.match_property
+            match_value = slx_info.qualifiers.get(lower_case_match_property)
+            if match_value is None:
+                def match_func(value: str) -> bool:
+                    return matches_pattern(value, self.match_pattern, self.string_match_mode)
 
-            def match_func(value: str) -> bool:
-                return matches_pattern(value, self.match_pattern, self.string_match_mode)
-
-            match = match_resource_path(slx_info.resource.resource, path, match_func)
-            return match
+                match = match_path(getattr(slx_info.resource, "resource"), self.match_property, match_func)
+                return match
         if match_value is None:
             return False
         match = matches_pattern(match_value, self.match_pattern, self.string_match_mode)
@@ -179,19 +144,20 @@ class GroupPropertyMatchPredicate(MatchPredicate):
 
     TYPE_NAME: str = "pattern"
 
-    match_property: MatchProperty
+    match_property: str
     match_pattern: re.Pattern
     string_match_mode: StringMatchMode
 
-    def __init__(self, match_property: MatchProperty, match_pattern: re.Pattern, string_match_mode: StringMatchMode):
+    def __init__(self, match_property: str, match_pattern: re.Pattern, string_match_mode: StringMatchMode):
         self.match_property = match_property
         self.match_pattern = match_pattern
         self.string_match_mode = string_match_mode
 
     @staticmethod
     def construct_from_config(predicate_config: dict[str, Any]) -> "GroupPropertyMatchPredicate":
-        match_property_config = predicate_config.get("matchProperty")
-        match_property = MatchProperty(match_property_config.lower()) if match_property_config else MatchProperty.NAME
+        match_property = predicate_config.get("matchProperty")
+        if not match_property:
+            match_property = "name"
         match_pattern = predicate_config.get("pattern")
         if not match_pattern:
             raise WorkspaceBuilderUserException('A "pattern" field is required for a property match predicate.')
@@ -199,11 +165,11 @@ class GroupPropertyMatchPredicate(MatchPredicate):
         string_match_mode = StringMatchMode(string_match_mode_value.lower())
         return GroupPropertyMatchPredicate(match_property, match_pattern, string_match_mode)
 
-    def matches(self, group_info: str, variables: dict[str, Any]) -> bool:
-        if self.match_property != MatchProperty.NAME:
+    def matches(self, group_info: str) -> bool:
+        if self.match_property != "name":
             raise WorkspaceBuilderUserException('Currently group property matches only support the "name" property')
         # TODO: Currently the group info is just the group name, so it's the same as the name property
-        # Eventually the group info will include more info about the group, e.g. any qualifiers/substitutions
+        # Eventually the group info may include more info about the group, e.g. any qualifiers/substitutions
         # that were used when the group was created via a group rule.
         match_value = group_info
         match = matches_pattern(match_value, self.match_pattern, self.string_match_mode)
@@ -258,8 +224,8 @@ class GroupRule:
         priority = group_rule_config.get('priority', 0)
         return GroupRule(match_predicate, group_name, priority)
 
-    def match(self, slx_info: SLXInfo, variables: dict[str, Any]) -> Optional[str]:
-        matches = self.match_predicate.matches(slx_info, variables)
+    def match(self, slx_info: SLXInfo) -> Optional[str]:
+        matches = self.match_predicate.matches(slx_info)
         if not matches:
             return None
         return self.group_name
@@ -299,12 +265,12 @@ class RelationshipRule:
         matches = [construct_match_predicate_func(mc, construct_match_predicate_func) for mc in match_configs]
         return RelationshipRule(subject, verb, matches)
 
-    def match(self, info: Any, variables: dict[str, Any]) -> bool:
+    def match(self, info: Any,) -> bool:
         for match_predicate in self.matches:
             # TODO: Do we need to return the match_predicate somehow to continue
             # processing the rule? Probably not in the simple cases, but might
             # be useful in more complicated cases.
-            if match_predicate.matches(info, variables):
+            if match_predicate.matches(info):
                 return True
         return False
 
@@ -406,29 +372,25 @@ class MapCustomizationRules:
         merged_map_customization_rules = MapCustomizationRules.merge(map_customization_rules_list)
         return merged_map_customization_rules
 
-    def match_group_rules(self, slx_info: SLXInfo, variables: dict[str, Any]) -> Optional[str]:
+    def match_group_rules(self, slx_info: SLXInfo) -> Optional[str]:
         for group_rule in self.group_rules:
-            group = group_rule.match(slx_info, variables)
+            group = group_rule.match(slx_info)
             if group:
                 return group
         return None
 
-    def _match_relationship_rules(self, match_info,
-                                  variables: dict[str, Any],
+    @staticmethod
+    def _match_relationship_rules(match_info,
                                   relationship_rules: list[RelationshipRule]) -> tuple[Optional[str],
                                                                                        Optional[RelationshipVerb]]:
         for relationship_rule in relationship_rules:
-            matches = relationship_rule.match(match_info, variables)
+            matches = relationship_rule.match(match_info)
             if matches:
                 return relationship_rule.subject, relationship_rule.verb
         return None, None
 
-    def match_group_relationship_rules(self,
-                                       group_info: str,
-                                       variables: dict[str, Any]) -> tuple[Optional[str], Optional[RelationshipVerb]]:
-        return self._match_relationship_rules(group_info, variables, self.group_relationship_rules)
+    def match_group_relationship_rules(self, group_info: str) -> tuple[Optional[str], Optional[RelationshipVerb]]:
+        return self._match_relationship_rules(group_info, self.group_relationship_rules)
 
-    def match_slx_relationship_rules(self,
-                                     slx_info: SLXInfo,
-                                     variables: dict[str, Any]) -> tuple[Optional[str], Optional[RelationshipVerb]]:
-        return self._match_relationship_rules(slx_info, variables, self.slx_relationship_rules)
+    def match_slx_relationship_rules(self, slx_info: SLXInfo) -> tuple[Optional[str], Optional[RelationshipVerb]]:
+        return self._match_relationship_rules(slx_info, self.slx_relationship_rules)

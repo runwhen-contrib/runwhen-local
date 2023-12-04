@@ -167,6 +167,14 @@ class CodeCollectionConfig:
         return False
 
 
+@dataclass
+class GenerationRuleFileSpec:
+    repo_url: str
+    ref_name: str
+    code_bundle_name: str
+    generation_rule_file_name: str
+    path: str
+
 class CodeCollection:
     repo_url: str
     auth_user: Optional[str]
@@ -256,7 +264,9 @@ class CodeCollection:
             workspace_builder_tree = None
         return workspace_builder_tree
 
-    def get_generation_rules_configs(self, ref_name: str, code_bundle_name: str):
+    def get_generation_rules_configs(self,
+                                     ref_name: str,
+                                     code_bundle_name: str) -> list[tuple[GenerationRuleFileSpec, str]]:
         workspace_builder_tree = self.get_runwhen_tree(ref_name, code_bundle_name)
         if not workspace_builder_tree:
             return list()
@@ -282,7 +292,14 @@ class CodeCollection:
                                                     f"generation-rule={generation_rule_name}")
                 generation_rule_bytes: bytes = generation_rule_blob.data_stream.read()
                 generation_rule_text = generation_rule_bytes.decode('utf-8')
-                generation_rules.append((generation_rule_name, generation_rule_text))
+                # FIXME: Not great to have the hard-coded path component strings in here
+                generation_rule_file_path = f"codebundles/{code_bundle_name}/.runwhen/generation-rules/{generation_rule_name}"
+                generation_rule_file_spec = GenerationRuleFileSpec(self.repo_url,
+                                                                   ref_name,
+                                                                   code_bundle_name,
+                                                                   generation_rule_name,
+                                                                   generation_rule_file_path)
+                generation_rules.append((generation_rule_file_spec, generation_rule_text))
         except WorkspaceBuilderObjectNotFoundException:
             # If a path couldn't be resolved, it's likely indicative of a bug in the code bundle,
             # e.g. missing or misnamed "generation-rules" directory. We treat this as an error,
