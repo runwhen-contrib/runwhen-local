@@ -12,7 +12,7 @@ from name_utils import make_qualified_slx_name
 from resources import Resource
 from .generation_rule_types import PlatformHandler, PLATFORM_HANDLERS_PROPERTY_NAME
 from .match_predicate import MatchPredicate, StringMatchMode
-from .match_predicate import base_construct_match_predicate_from_config, match_resource_path, matches_pattern
+from .match_predicate import base_construct_match_predicate_from_config, match_path, matches_pattern
 
 logger = logging.getLogger(__name__)
 
@@ -132,7 +132,7 @@ class SLXPropertyMatchPredicate(MatchPredicate):
                 def match_func(value: str) -> bool:
                     return matches_pattern(value, self.match_pattern, self.string_match_mode)
 
-                match = match_resource_path(getattr(slx_info.resource, "resource"), self.match_property, match_func)
+                match = match_path(getattr(slx_info.resource, "resource"), self.match_property, match_func)
                 return match
         if match_value is None:
             return False

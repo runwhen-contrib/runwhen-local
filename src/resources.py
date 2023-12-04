@@ -21,7 +21,6 @@ REGISTRY_PROPERTY_NAME = "registry"
 
 class RunWhenResourceType(Enum):
     WORKSPACE = "workspace"
-    VARIABLES = "variables"
 
 
 class Resource:
@@ -90,6 +89,21 @@ class ResourceTypeSpec:
 
     def get_resource_type_name(self):
         return self.resource_type_name
+
+    @staticmethod
+    def parse_resource_type_name(config: Union[str, dict[str, Any]]):
+        """
+        Parse the resource type name out of the resource type spec config.
+        """
+        if isinstance(config, str):
+            separator_index = config.find(':')
+            resource_type_name = config[separator_index+1:] if separator_index > 0 else config
+        elif isinstance(config, dict):
+            resource_type_name = config.get("resourceType")
+        else:
+            raise WorkspaceBuilderException(f'Unexpected type ("{type(config)}") for ResourceTypeSpec; '
+                                            f'expected str or dict.')
+        return resource_type_name
 
     @staticmethod
     def parse_platform_name(config: Union[str, dict[str, Any]],

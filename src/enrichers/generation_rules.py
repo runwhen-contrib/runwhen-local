@@ -35,7 +35,7 @@ from .match_predicate import (
     AndMatchPredicate,
     StringMatchMode,
     base_construct_match_predicate_from_config,
-    match_resource_path,
+    match_path,
     matches_pattern,
     Visitor as MatchPredicateVisitor
 )
@@ -103,16 +103,8 @@ RESOURCE_TYPE_SPECS_PROPERTY = "resource-type-specs"
 PLATFORM_NAME_KEY_NAME = "platform"
 
 
-def get_resources(context: Context,
-                  resource_type_spec: ResourceTypeSpec,
-                  variables: dict[str, Any]) -> Sequence[Union[Resource, dict[str, Any]]]:
+def get_resources(context: Context, resource_type_spec: ResourceTypeSpec) -> Sequence[Resource]:
     platform_name = resource_type_spec.platform_name
-    resource_type_name = resource_type_spec.resource_type_name
-    if platform_name == RUNWHEN_PLATFORM:
-        if resource_type_name == RunWhenResourceType.VARIABLES.value:
-            return [variables]
-        else:
-            raise WorkspaceBuilderException(f"Unsupported resource type: {RUNWHEN_PLATFORM}:{resource_type_name}")
     platform_handlers: dict[str, PlatformHandler] = context.get_property(PLATFORM_HANDLERS_PROPERTY_NAME)
     platform_handler = platform_handlers.get(platform_name)
     if not platform_handler:
@@ -138,14 +130,14 @@ class GenerationRuleMatchInfo:
     context: Context
 
 
-def construct_resource_type_spec(resource_type_spec_config: dict[str, Any],
+def construct_resource_type_spec(resource_type_spec_config: Union[str, dict[str, Any]],
                                  default_platform_name: str,
                                  context:Context):
-        platform_handlers: dict[str, PlatformHandler] = context.get_property(PLATFORM_HANDLERS_PROPERTY_NAME)
-        platform_name, _ = ResourceTypeSpec.parse_platform_name(resource_type_spec_config, default_platform_name)
-        platform_handler = platform_handlers[platform_name]
-        resource_type_spec = platform_handler.construct_resource_type_spec(resource_type_spec_config)
-        return resource_type_spec
+    platform_handlers: dict[str, PlatformHandler] = context.get_property(PLATFORM_HANDLERS_PROPERTY_NAME)
+    platform_name, _ = ResourceTypeSpec.parse_platform_name(resource_type_spec_config, default_platform_name)
+    platform_handler = platform_handlers[platform_name]
+    resource_type_spec = platform_handler.construct_resource_type_spec(resource_type_spec_config)
+    return resource_type_spec
 
 
 class ResourcePropertyMatchPredicate(MatchPredicate):
@@ -198,7 +190,7 @@ class ResourcePropertyMatchPredicate(MatchPredicate):
             if string_match_mode_config else StringMatchMode.SUBSTRING
         return ResourcePropertyMatchPredicate(resource_type_spec, pattern, properties, string_match_mode)
 
-    def matches_resource(self, resource: Union[Resource, dict[str, Any]], context: Context):
+    def matches_resource(self, resource: Resource, context: Context):
         # FIXME: This is sort of kludgy due to the union typing of the resource variable
         # between the Kubernetes resource and the variables dict. There's probably
         # a cleaner way to handle it, but this works for now.
@@ -212,12 +204,7 @@ class ResourcePropertyMatchPredicate(MatchPredicate):
             return matches_pattern(v, self.pattern, self.string_match_mode)
 
         for prop in self.properties:
-            if type(resource) == dict:
-                # The "resource" is the custom variables, so treat the property value as
-                # a path to be resolved relative to the root of the variables.
-                if match_resource_path(resource, prop, match_func):
-                    return True
-            elif prop == "name":
+            if prop == "name":
                 name = resource.name
                 if matches_pattern(name, self.pattern, self.string_match_mode):
                     logger.debug(f"DEBUG: Match found for property {prop} with name {name}")
@@ -230,7 +217,7 @@ class ResourcePropertyMatchPredicate(MatchPredicate):
                         if matches_pattern(value, self.pattern, self.string_match_mode):
                             return True
                 else:
-                    if match_resource_path(resource.resource, prop, match_func):
+                    if match_path(resource.resource, prop, match_func):
                         return True
         return False
 
@@ -239,7 +226,7 @@ class ResourcePropertyMatchPredicate(MatchPredicate):
         variables = generation_rule_match_info.variables
         context = generation_rule_match_info.context
         if self.resource_type_spec:
-            resources = get_resources(context, self.resource_type_spec, variables)
+            resources = get_resources(context, self.resource_type_spec)
             for resource in resources:
                 if self.matches_resource(resource, context):
                     resource_type_name = self.resource_type_spec.get_resource_type_name()
@@ -277,8 +264,42 @@ class ResourcePathExistsMatchPredicate(MatchPredicate):
         def match_func(value: str) -> bool:
             return (value is not None) or self.match_empty
         resource = generation_rule_match_info.resource
-        return match_resource_path(resource.resource, self.path, match_func)
+        return match_path(resource.resource, self.path, match_func)
 
+
+class CustomVariableMatchPredicate(MatchPredicate):
+
+    TYPE_NAME: str = "custom-variable"
+
+    path: str
+    pattern: re.Pattern
+    string_match_mode: StringMatchMode
+
+    def __init__(self, path: str, pattern: re.Pattern, string_match_mode: StringMatchMode):
+        self.path = path
+        self.pattern = pattern
+        self.string_match_mode = string_match_mode
+
+    @staticmethod
+    def construct_from_config(predicate_config: dict[str, Any]) -> "CustomVariableMatchPredicate":
+        path = predicate_config.get("path")
+        if not path:
+            raise WorkspaceBuilderException('A non-empty path must be specified for a '
+                                            'variable property match predicate')
+        pattern_config: str = predicate_config.get("pattern")
+        if not pattern_config:
+            raise WorkspaceBuilderException('A non-empty pattern must be specified for a '
+                                            'variable property match predicate')
+        pattern = re.compile(pattern_config)
+        string_match_mode_config: str = predicate_config.get("mode")
+        string_match_mode = StringMatchMode[string_match_mode_config.upper()] \
+            if string_match_mode_config else StringMatchMode.SUBSTRING
+        return CustomVariableMatchPredicate(path, pattern, string_match_mode)
+
+    def matches(self, generation_rule_match_info: GenerationRuleMatchInfo) -> bool:
+        def match_func(v: str) -> bool:
+            return matches_pattern(v, self.pattern, self.string_match_mode)
+        return match_path(generation_rule_match_info.variables, self.path, match_func)
 
 
 @dataclass
@@ -406,18 +427,47 @@ class GenerationRule:
         # name variables, which are needed to construct the match predicates, without having to pass
         # those things around as explicit parameters to all the match predicate construction methods.
         # Arguably a bit kludgy (or maybe elegant?)
-        def construct_match_predicate_from_config(predicate_config: dict[str, Any],
+        def construct_match_predicate_from_config(match_predicate_config: dict[str, Any],
                                                   parent_construct_from_config) -> MatchPredicate:
-            match_predicate_type = predicate_config.get('type')
+            match_predicate_type = match_predicate_config.get('type')
             if match_predicate_type == ResourcePropertyMatchPredicate.TYPE_NAME:
-                mp = ResourcePropertyMatchPredicate.construct_from_config(predicate_config,
-                                                                          gen_rule_platform_name,
-                                                                          context)
-            elif match_predicate_type == ResourcePathExistsMatchPredicate.TYPE_NAME:
-                mp = ResourcePathExistsMatchPredicate.construct_from_config(predicate_config)
-            else:
-                mp = base_construct_match_predicate_from_config(predicate_config, parent_construct_from_config)
-            return mp
+                # This next block is some somewhat kludgy backwards compatibility code to
+                # handle the original way that a custom variable match was specified, i.e.
+                # a "pattern" match predicate where the "resourceType" value was "variables".
+                # This is now handled by a different match predicate specifically for matching
+                # custom variables, so the following code parses the old format, converts it
+                # to the new format then falls through to the rest of the code that checks
+                # for other predicate types, and eventually handles the "variables" match
+                # predicate type.
+                resourceType = match_predicate_config.get("resourceType")
+                if resourceType and resourceType.lower() == 'variables':
+                    properties = match_predicate_config.get("properties")
+                    if properties and isinstance(properties, list) and len(properties) == 1:
+                        path = properties[0]
+                        pattern = match_predicate_config.get("pattern")
+                        string_match_mode = match_predicate_config.get("mode")
+                        match_predicate_config = {
+                            "type": CustomVariableMatchPredicate.TYPE_NAME,
+                            "path": path,
+                            "pattern": pattern
+                        }
+                        if string_match_mode:
+                            match_predicate_config["mode"] = string_match_mode
+                        match_predicate_type = CustomVariableMatchPredicate.TYPE_NAME
+                        # Fall through to the checks for the other match predicate types
+                    else:
+                        raise WorkspaceBuilderException('Expected old variables match predicate to have a '
+                                                        '"properties" list field with a single element of the '
+                                                        'path in the custom variables to match against.')
+                else:
+                    return ResourcePropertyMatchPredicate.construct_from_config(match_predicate_config,
+                                                                                gen_rule_platform_name,
+                                                                                context)
+            if match_predicate_type == ResourcePathExistsMatchPredicate.TYPE_NAME:
+                return ResourcePathExistsMatchPredicate.construct_from_config(match_predicate_config)
+            if match_predicate_type == CustomVariableMatchPredicate.TYPE_NAME:
+                return CustomVariableMatchPredicate.construct_from_config(match_predicate_config)
+            return base_construct_match_predicate_from_config(match_predicate_config, parent_construct_from_config)
 
         match_predicates = [construct_match_predicate_from_config(mpc, construct_match_predicate_from_config)
                             for mpc in match_predicate_configs]
@@ -852,34 +902,11 @@ def enrich(context: Context) -> None:
     for generation_rule_info in generation_rule_infos:
         generation_rule = generation_rule_info.generation_rule
         for resource_type_spec in generation_rule.resource_type_specs:
-            resources = get_resources(context, resource_type_spec, base_template_variables)
+            resources = get_resources(context, resource_type_spec)
             for resource in resources:
                 platform_name = resource.resource_type.platform.name
                 platform_handler = platform_handlers[platform_name]
                 level_of_detail = platform_handler.get_level_of_detail(resource)
-                # # Currently, the level of detail logic depends on the hclod enricher component
-                # # to tag the namespaces with the configured LOD value. So it must be enabled
-                # # and must execute before this component. Could manage this with a component
-                # # dependency, but support for that is not completely fleshed out at this point.
-                # # Alternatively, we could just read the relevant LOD settings directly here
-                # # and not rely on the tags in the namespace model instances.
-                # try:
-                #     # Wrap this logic in a try block to catch the cases where the
-                #     # kubernetes_resource instance is not a KubernetesNamespacedResource
-                #     # or if the hclod enricher was not enabled and didn't set the lod attribute.
-                #     # The other error that could occur is if the integer lod value in the setting
-                #     # doesn't map to a value LevelOfDetail enum value.
-                #     # In all those cases, we just catch it and default to full level of detail.
-                #     # FIXME: Should improve this so you don't get the warning for resource/model
-                #     # types that don't have an associated namespace
-                #     namespace = get_namespace
-                #     level_of_detail_value = get_namespace(resource).lod
-                #     level_of_detail = LevelOfDetail.construct_from_config(level_of_detail_value)
-                # except Exception as e:
-                #     # FIXME: Should catch narrower exception
-                #     logger.warning(f"Level of detail lookup failed; defaulting to full LOD; "
-                #                    f"resource type={type(resource)}")
-                #     level_of_detail = LevelOfDetail.DETAILED
                 resource_type_name = resource_type_spec.get_resource_type_name()
                 base_template_variables['resources'][resource_type_name] = resource
                 generation_rule_match_info = GenerationRuleMatchInfo(resource, base_template_variables, context)

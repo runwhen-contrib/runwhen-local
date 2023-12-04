@@ -166,8 +166,7 @@ def path_to_components(path: str, separator_char=None) -> list[str]:
         components = path.split('/')
     return components
 
-
-def _match_resource_path(data, path_components: list[str], match_func) -> bool:
+def _match_path(data, path_components: list[str], match_func) -> bool:
     at_end_of_path = len(path_components) == 0
 
     if isinstance(data, str):
@@ -184,10 +183,10 @@ def _match_resource_path(data, path_components: list[str], match_func) -> bool:
         if item is None:
             return False
         remaining_components = path_components[1:]
-        return _match_resource_path(item, remaining_components, match_func)
+        return _match_path(item, remaining_components, match_func)
     if isinstance(data, Iterable):
         for item in data:
-            if _match_resource_path(item, path_components, match_func):
+            if _match_path(item, path_components, match_func):
                 return True
         return False
     else:
@@ -196,7 +195,7 @@ def _match_resource_path(data, path_components: list[str], match_func) -> bool:
         return at_end_of_path and match_func(str(data))
 
 
-def match_resource_path(data: Any, path: str, match_func) -> bool:
+def match_path(data: Any, path: str, match_func) -> bool:
     path_components = path_to_components(path)
-    match = _match_resource_path(data, path_components, match_func)
+    match = _match_path(data, path_components, match_func)
     return match
