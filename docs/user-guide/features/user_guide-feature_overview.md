@@ -1,10 +1,14 @@
----
-description: This page highlights some of the features of RunWhen Local
----
+# Troubleshooting Cheat Sheet
 
-# Features
+The Troubleshooting Cheat Sheet first performs a discovery process and builds up an inventory of your Kubernetes and cloud resources, matching them with troubleshooting commands that are from open-source "CodeCollection" libraries (such as [this](https://github.com/runwhen-contrib/rw-cli-codecollection)). See [Broken link](broken-reference "mention")for more details on how this works.&#x20;
 
-## Your Troubleshooting Home Page
+{% hint style="info" %}
+See our [RunWhen Authors](https://docs.runwhen.com/public/runwhen-authors/getting-started-with-codecollection-development) for more about open source troubleshooting CodeCollections.&#x20;
+{% endhint %}
+
+
+
+## Troubleshooting Home Page
 
 When discovery is complete, the RunWhen Local home page provides a main search bar to help you find useful troubleshooting commands, along with some details about the discovery process, such as:
 
@@ -65,8 +69,6 @@ If you want to understand what each command does, click the **What does it do? t
 
 
 ### Running Commands from the Terminal
-
-
 
 {% hint style="danger" %}
 The built in terminal provides **unauthenticated access** to the container, with access to tools like `kubectl`. This feature should be disabled ([terminal-configuration.md](../user\_guide-advanced\_configuration/terminal-configuration.md "mention")) if running in a shared cluster - or the service account permissions thoroughly reviewed.&#x20;
