@@ -157,17 +157,24 @@ def cmd_expansion(keyword_arguments, parsed_runbook_config):
         file_path=file_path.replace("'","")
         logger.debug(f"Rendering bash file path: {file_path}")
         raw_script_url=generate_raw_git_url(git_url=parsed_runbook_config["spec"]["codeBundle"]["repoUrl"], ref=parsed_runbook_config["spec"]["codeBundle"]["ref"], file_path=file_path)
+        env=""
+        for var in parsed_runbook_config["spec"]["configProvided"]:
+            env += f"{var['name']}={var['value']};"
         matched_cmd_override = None
         for arg in cmd_components:
+            arg=arg.strip()
+            logger.debug(f"Bash File Arg: {arg}")
             if arg.strip().startswith("\'cmd_override"):
+                logger.debug(f"Command Override Detected: {arg}")
                 matched_cmd_override = arg
                 break
         if matched_cmd_override is not None:
             cmd_parts=matched_cmd_override.split()
             cmd_arguments=' '.join(cmd_parts[1:])
-            cmd_components[0]="curl -s {raw_script_url} | bash -s {cmd_arguments}"
+            cmd_arguments=cmd_arguments.strip("'")
+            cmd_components[0]=f"{env} curl -s {raw_script_url} | bash -s {cmd_arguments}"
         else: 
-            cmd_components[0]=f"curl -s {raw_script_url} | bash"
+            cmd_components[0]=f"{env} curl -s {raw_script_url} | bash"
         logger.debug(f"Rendering bash file after split: {cmd_components}") 
         cmd_str=cmd_components[0]      
     else: 
