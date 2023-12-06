@@ -121,7 +121,7 @@ def cmd_expansion(keyword_arguments, parsed_runbook_config):
 
     ## Clean up the parsed cmd from robot
     cmd_components = cmd_components.lstrip('(').rstrip(')')
-    # cmd_components = cmd_components.rstrip(')')
+
     logger.debug(f"Command Components: {cmd_components}")       
     ## Split by comma if comma is not wrapped in single or escaped quotes
     ## this is needed to separate the command from the args as 
