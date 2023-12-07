@@ -29,12 +29,6 @@ In the following example, we omit all content from the default `codeCollection` 
 
 ```
 codeCollections:
-  - repoURL: "https://github.com/runwhen-contrib/rw-public-codecollection.git"
-    ref: main
-    codeBundles: ["!*"]
-  - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection.git"
-    tag: main
-    codeBundles: ["!*"]
   - repoURL: "https://github.com/stewartshea/rw-cli-codecollection.git"
     ref: main
     codeBundles: ["*"]
