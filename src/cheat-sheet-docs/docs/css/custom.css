@@ -501,8 +501,8 @@ hr.custom-hr {
 }
 
 .author-avatar {
-  width: 60px;
-  height: 60px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   object-fit: cover;
   margin-right: 10px;
@@ -515,7 +515,7 @@ hr.custom-hr {
 }
 
 .author-name {
-  font-size: 18px;
+  font-size: 14px;
   font-weight: bold;
   margin: 0;
 }
