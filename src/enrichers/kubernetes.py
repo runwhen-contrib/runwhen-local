@@ -57,19 +57,24 @@ class KubernetesPlatformHandler(PlatformHandler):
 
         return result
 
-    def get_level_of_detail(self, resource: Resource):
+    def get_level_of_detail(self, resource: Resource) -> LevelOfDetail:
         namespace = get_namespace(resource)
         return namespace.lod if namespace else LevelOfDetail.DETAILED
 
-    def get_resource_match_property_value(self, resource: Resource, property_name: str) -> Optional[str]:
-        if property_name == "cluster":
+    @staticmethod
+    def get_common_resource_property_values(resource: Resource, qualifier_name: str) -> Optional[str]:
+        if qualifier_name == "cluster":
             return get_cluster(resource).name
-        elif property_name == "context":
+        elif qualifier_name == "context":
             return get_context(resource)
-        elif property_name == "namespace":
+        elif qualifier_name == "namespace":
             return get_namespace(resource).name
         else:
+            # FIXME: Should we treat this as an error, i.e. raise Exception?
             return None
+
+    def get_resource_qualifier_value(self, resource: Resource, qualifier_name: str) -> Optional[str]:
+        return self.get_common_resource_property_values(resource, qualifier_name)
 
     def get_resource_property_values(self, resource: Resource, property_name: str) -> Optional[list[Any]]:
         property_name = property_name.lower()
@@ -88,7 +93,8 @@ class KubernetesPlatformHandler(PlatformHandler):
         else:
             return None
 
-    def add_template_variables(self, resource: Resource, template_variables: dict[str, Any]) -> None:
+    def get_standard_template_variables(self, resource: Resource) -> dict[str, Any]:
+        template_variables = dict()
         cluster = get_cluster(resource)
         if cluster:
             template_variables['cluster'] = cluster
@@ -98,13 +104,7 @@ class KubernetesPlatformHandler(PlatformHandler):
         namespace = get_namespace(resource)
         if namespace:
             template_variables['namespace'] = namespace
+        return template_variables
 
-    def resolve_template_variable_value(self, resource: Resource, template_value_str: str) -> Optional[Any]:
-        if template_value_str == "cluster":
-            return get_cluster(resource)
-        elif template_value_str == "context":
-            return get_context(resource)
-        elif template_value_str == "namespace":
-            return get_namespace(resource)
-        else:
-            return None
+    def resolve_template_variable_value(self, resource: Resource, variable_name: str) -> Optional[Any]:
+        return self.get_common_resource_property_values(resource, variable_name)
