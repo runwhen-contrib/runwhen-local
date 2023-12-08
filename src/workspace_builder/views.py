@@ -69,6 +69,7 @@ class RunView(APIView):
                 if value is not None:
                     if setting.type == Setting.Type.FILE and not using_default_value:
                         try:
+                            # FIXME: Fix the problem with the type inferencing for "value" to address the type warning
                             tar_stream = io.BytesIO(value)
                             archive = tarfile.open(fileobj=tar_stream, mode="r")
                             setting_temp_directory = tempfile.TemporaryDirectory()
@@ -95,10 +96,6 @@ class RunView(APIView):
             outputter = TarFileOutputter()
             context = Context(setting_values, outputter)
             context.set_property(REGISTRY_PROPERTY_NAME, Registry())
-            # FIXME: This should call component.run_components to avoid code duplication.
-            # Would need to resolve differences in how they're called, i.e. separate lists for
-            # the indexers, enrichers, renders, vs. a single list.
-            # (Or else should get rid of run_components).
             run_components(context, components)
 
             outputter.close()

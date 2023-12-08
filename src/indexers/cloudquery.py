@@ -11,8 +11,12 @@ import subprocess
 # import models
 from component import Setting, SettingDependency, Context
 from exceptions import WorkspaceBuilderException
-from enrichers.generation_rule_types import PlatformHandler, PLATFORM_HANDLERS_PROPERTY_NAME
-from resources import Registry, REGISTRY_PROPERTY_NAME
+from enrichers.generation_rule_types import (
+    PlatformHandler,
+    PLATFORM_HANDLERS_PROPERTY_NAME,
+    RESOURCE_TYPE_SPECS_PROPERTY
+)
+from resources import Registry, REGISTRY_PROPERTY_NAME, ResourceTypeSpec
 from utils import read_file, write_file
 
 logger = logging.getLogger(__name__)
@@ -31,10 +35,22 @@ SETTINGS = (
 
 @dataclass
 class CloudQueryResourceTypeSpec:
+    """
+    Information about each CloudQuery resource type/table.
+
+    FIXME: This is a sort of confusing class name, since it's actually unrelated to the
+    ResourceTypeSpec class used by the resource registry and platform handlers.
+    Should come up with different terminology for this and the related CloudQueryPlatformSpec.
+    """
+
     # The name of the resource type in the resource registry
     resource_type_name: str
     # The name of the table in the CloudQuery database
     cloudquery_table_name: str
+    # We should always index this table even if it's not directly referenced by a gen rule
+    # This is for things like namespaces & resource groups that would be set up in the platform handler
+    # to be referenced from name qualifiers, match rules, templates, etc.
+    mandatory: bool
 
 
 @dataclass
@@ -62,16 +78,20 @@ platform_specs = [
                                # IMPORTANT!!! The ResourceGroup resource type must be the first entry here so that
                                # they're all created before processing the other resource types, which
                                # set a resource_group field that points to their parent resource group instance.
-                               CloudQueryResourceTypeSpec(resource_type_name="ResourceGroup",
-                                                          cloudquery_table_name="azure_resources_resource_groups"),
-                               CloudQueryResourceTypeSpec(resource_type_name="ComputeVirtualMachine",
-                                                          cloudquery_table_name="azure_compute_virtual_machines"),
+                               CloudQueryResourceTypeSpec(resource_type_name="resource_group",
+                                                          cloudquery_table_name="azure_resources_resource_groups",
+                                                          mandatory=True),
+                               CloudQueryResourceTypeSpec(resource_type_name="virtual_machine",
+                                                          cloudquery_table_name="azure_compute_virtual_machines",
+                                                          mandatory=False),
                            ])
 ]
 
 def init_cloudquery_config(cloud_config_data: dict[str, Any],
                            cloud_config_dir: str,
-                           db_file_path: str) -> dict[str, str]:
+                           db_file_path: str,
+                           accessed_resource_type_specs: dict[str, list[ResourceTypeSpec]]
+                           ) -> tuple[dict[str, str], list[tuple[CloudQueryPlatformSpec, list[CloudQueryResourceTypeSpec]]]]:
     cq_process_environment_vars = dict()
 
     # Set up a template loader func to load from the CloudQuery template dir
@@ -84,11 +104,39 @@ def init_cloudquery_config(cloud_config_data: dict[str, Any],
     sqlite_config_text = render_template_file("sqlite-config.yaml", template_variables, template_loader_func)
     write_file(sqlite_config_path, sqlite_config_text)
 
+    platform_tables: list[tuple[CloudQueryPlatformSpec, list[CloudQueryResourceTypeSpec]]] = list()
+
     for platform_spec in platform_specs:
         platform_name = platform_spec.name
         platform_config_data = cloud_config_data.get(platform_name)
         if platform_config_data is None:
             continue
+
+        cq_resource_type_specs = list()
+        tables = list()
+
+        # First add any mandatory resource types
+        for cq_resource_type_spec in platform_spec.resource_type_specs:
+            if cq_resource_type_spec.mandatory:
+                cq_resource_type_specs.append(cq_resource_type_spec)
+                tables.append(cq_resource_type_spec.cloudquery_table_name)
+
+        # cq_resource_type_spec.resource_type_name not in added_mandatory_resource_type_specs
+        for resource_type_spec in accessed_resource_type_specs.get(platform_name, list()):
+            resource_type_name = resource_type_spec.resource_type_name
+            for cq_resource_type_spec in platform_spec.resource_type_specs:
+                if cq_resource_type_spec.resource_type_name == resource_type_name:
+                    break
+            else:
+                cq_resource_type_spec = CloudQueryResourceTypeSpec(resource_type_name, resource_type_name)
+            if not cq_resource_type_spec.mandatory:
+                cq_resource_type_specs.append(cq_resource_type_spec)
+                tables.append(cq_resource_type_spec.cloudquery_table_name)
+
+        if len(cq_resource_type_specs) == 0:
+            continue
+
+        platform_tables.append((platform_spec, cq_resource_type_specs))
 
         # Set up any environment variables for the platform
         for env_var_name, config_name in platform_spec.environment_variables.items():
@@ -103,13 +151,13 @@ def init_cloudquery_config(cloud_config_data: dict[str, Any],
         # owned by the caller, so we shouldn't modify it.
         template_variables = deepcopy(platform_config_data)
         template_variables["destination_plugin_name"] = "sqlite"
-        tables = [resource_type_spec.cloudquery_table_name for resource_type_spec in platform_spec.resource_type_specs]
+        # tables = [resource_type_spec.cloudquery_table_name for resource_type_spec in platform_spec.resource_type_specs]
         template_variables["tables"] = tables
         config_file_path = os.path.join(cloud_config_dir, platform_spec.config_file_name)
         config_text = render_template_file(platform_spec.config_template_name, template_variables, template_loader_func)
         write_file(config_file_path, config_text)
 
-    return cq_process_environment_vars
+    return cq_process_environment_vars, platform_tables
 
 def index(context: Context):
     logger.debug("CloudQuery indexing beginning")
@@ -119,72 +167,81 @@ def index(context: Context):
         return
 
     platform_handlers: dict[str, PlatformHandler] = context.get_property(PLATFORM_HANDLERS_PROPERTY_NAME)
+    accessed_resource_type_specs: dict[str, list[ResourceTypeSpec]] = context.get_property(RESOURCE_TYPE_SPECS_PROPERTY)
 
     registry: Registry = context.get_property(REGISTRY_PROPERTY_NAME)
     with tempfile.TemporaryDirectory() as cq_temp_dir:
         # Create a config directory in the temp directory where we'll put all the CloudQuery config files
-        cloudquery_config_dir = os.path.join(cq_temp_dir, "config")
-        os.makedirs(cloudquery_config_dir)
+        cq_config_dir = os.path.join(cq_temp_dir, "config")
+        os.makedirs(cq_config_dir)
 
         # Create the CloudQuery source/destination config files
         sqlite_database_file_path = os.path.join(cq_temp_dir, "db.sql")
-        env_vars = init_cloudquery_config(cloud_config_data, cloudquery_config_dir, sqlite_database_file_path)
+        env_vars, cq_platform_infos = init_cloudquery_config(cloud_config_data,
+                                                             cq_config_dir,
+                                                             sqlite_database_file_path,
+                                                             accessed_resource_type_specs)
 
-        # Invoke CloudQuery to scan for resources from all the configured platforms
-        path = os.getenv("PATH")
-        env_vars["PATH"] = path
-        try:
-            process_info = subprocess.run(["cloudquery", "sync", f"{cloudquery_config_dir}"], capture_output=True, env=env_vars)
-        except Exception as e:
-            # This exception handling is just to aid in debugging/development.
-            # Can remove it once things are more settled.
-            raise e
+        if len(cq_platform_infos) > 0:
+            # Invoke CloudQuery to scan for resources from all the configured platforms
+            path = os.getenv("PATH")
+            env_vars["PATH"] = path
+            try:
+                process_info = subprocess.run(["cloudquery", "sync", f"{cq_config_dir}"],
+                                              capture_output=True,
+                                              env=env_vars)
+            except Exception as e:
+                # This exception handling is just to aid in debugging/development.
+                # Can remove it once things are more settled.
+                raise e
 
-        # Convert the tables from the sqlite DB to resources in the resource registry
-        sql_connection = sqlite3.connect(sqlite_database_file_path)
-        cursor = sql_connection.cursor()
-        for platform_spec in platform_specs:
-            platform_handler = platform_handlers[platform_spec.name]
-            for resource_type_spec in platform_spec.resource_type_specs:
-                # table_name = f"{platform_spec.name}_{resource_type_spec.cloudquery_table_name}"
-                table_name = resource_type_spec.cloudquery_table_name
-                # Extract the fields we need from the sqlite table.
-                # Would simplify the spec for the platform and I don't think it's really buying us that
-                # much in terms of performance/efficiency to only fetch a subset, since we'll probably
-                # always want to get the full instance_view of the resource, which is likely the
-                # biggest field. So could just do a SELECT * and then use the description field in the
-                # response to get the field names.
-                try:
-                    response = cursor.execute(f"SELECT * FROM {table_name}")
-                    # response = cursor.execute(f"SELECT {joined_cloudquery_field_names} FROM {table_name}")
-                except sqlite3.OperationalError as e:
-                    # If no instances of the table were discovered, then the table will not be defined in the
-                    # database, and the SQL execution raises an OperationalError. We don't want to treat
-                    # that as an error, so we just continue in that case.
-                    # FIXME: Are there are other errors that could occur here that we should handle differently?
-                    # Should probably verify that the exception is due to the table not being found.
-                    # Seems like the only way you can do that is to parse the error message, which is sort of ugly.
-                    continue
-                table_rows = response.fetchall()
-                field_descriptions = response.description
-                # resource_name = None
-                for table_row in table_rows:
-                    # Combine the field descriptions and the row values to set up the resource attributes.
-                    resource_attributes = dict()
-                    for i in range(len(field_descriptions)):
-                        attribute_name = field_descriptions[i][0]
-                        attribute_value = table_row[i]
-                        resource_attributes[attribute_name] = attribute_value
-                    # Call the platform handler to extract the name and qualified name from the
-                    # resource attributes and possibly make alterations to the attributes.
-                    resource_name, qualified_resource_name = \
-                        platform_handler.process_resource_attributes(resource_attributes,
-                                                                     resource_type_spec.resource_type_name,
-                                                                     registry)
-                    registry.add_resource(platform_spec.name,
-                                          resource_type_spec.resource_type_name,
-                                          resource_name,
-                                          qualified_resource_name,
-                                          resource_attributes)
+            # Convert the tables from the sqlite DB to resources in the resource registry
+            sql_connection = sqlite3.connect(sqlite_database_file_path)
+            cursor = sql_connection.cursor()
+            for cq_platform_spec, cq_resource_type_specs in cq_platform_infos:
+                platform_config_data = cloud_config_data.get(cq_platform_spec.name, dict())
+                platform_handler = platform_handlers[cq_platform_spec.name]
+                for cq_resource_type_spec in cq_resource_type_specs:
+                    # table_name = f"{platform_spec.name}_{resource_type_spec.cloudquery_table_name}"
+                    # table_name = resource_type_spec.cloudquery_table_name
+                    # Extract the fields we need from the sqlite table.
+                    # Would simplify the spec for the platform and I don't think it's really buying us that
+                    # much in terms of performance/efficiency to only fetch a subset, since we'll probably
+                    # always want to get the full instance_view of the resource, which is likely the
+                    # biggest field. So could just do a SELECT * and then use the description field in the
+                    # response to get the field names.
+                    try:
+                        response = cursor.execute(f"SELECT * FROM {cq_resource_type_spec.cloudquery_table_name}")
+                        # response = cursor.execute(f"SELECT {joined_cloudquery_field_names} FROM {table_name}")
+                    except sqlite3.OperationalError as e:
+                        # If no instances of the table were discovered, then the table will not be defined in the
+                        # database, and the SQL execution raises an OperationalError. We don't want to treat
+                        # that as an error, so we just continue in that case.
+                        # FIXME: Are there are other errors that could occur here that we should handle differently?
+                        # Should probably verify that the exception is due to the table not being found.
+                        # Seems like the only way you can do that is to parse the error message, which is sort of ugly.
+                        continue
+                    table_rows = response.fetchall()
+                    field_descriptions = response.description
+                    # resource_name = None
+                    for table_row in table_rows:
+                        # Combine the field descriptions and the row values to set up the resource attributes.
+                        resource_attributes = dict()
+                        for i in range(len(field_descriptions)):
+                            attribute_name = field_descriptions[i][0]
+                            attribute_value = table_row[i]
+                            resource_attributes[attribute_name] = attribute_value
+                        # Call the platform handler to extract the name and qualified name from the
+                        # resource attributes and possibly make alterations to the attributes.
+                        resource_name, qualified_resource_name = \
+                            platform_handler.process_resource_attributes(resource_attributes,
+                                                                         cq_resource_type_spec.resource_type_name,
+                                                                         platform_config_data,
+                                                                         context)
+                        registry.add_resource(cq_platform_spec.name,
+                                              cq_resource_type_spec.resource_type_name,
+                                              resource_name,
+                                              qualified_resource_name,
+                                              resource_attributes)
 
         logger.debug("CloudQuery indexing ending")

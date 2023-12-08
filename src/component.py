@@ -210,9 +210,10 @@ class Context:
         self.outputter = outputter
         self.properties = dict()
 
-    def get_setting(self, name: str) -> Any:
-        setting = all_settings.get(name)
-        return self.setting_values.get(name, setting.default_value)
+    def get_setting(self, setting: Union[str, Setting]) -> Any:
+        if isinstance(setting, str):
+            setting = all_settings.get(setting)
+        return self.setting_values.get(setting.name, setting.default_value)
 
     def write_file(self, path: str, data: AnyStr) -> None:
         self.outputter.write_file(path, data)

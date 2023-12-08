@@ -23,7 +23,7 @@ def get_qualifier_value(qualifier: str, resource: Resource, context: Context) ->
     platform_handlers: dict[str, PlatformHandler] = context.get_property(PLATFORM_HANDLERS_PROPERTY_NAME)
     platform_name = resource.resource_type.platform.name
     platform_handler = platform_handlers[platform_name]
-    value = platform_handler.get_resource_match_property_value(resource, qualifier)
+    value = platform_handler.get_resource_qualifier_value(resource, qualifier)
     if value is None:
         raise WorkspaceBuilderException(f'Unresolved qualifier value for SLX name: "{qualifier}"')
     return value

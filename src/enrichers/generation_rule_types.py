@@ -7,6 +7,9 @@ from resources import Resource, ResourceTypeSpec, Registry, REGISTRY_PROPERTY_NA
 
 PLATFORM_HANDLERS_PROPERTY_NAME = "platform-handlers"
 
+# The value of this is a dict whose key is platform names and value is a set of resource type names
+RESOURCE_TYPE_SPECS_PROPERTY = "resource-type-specs"
+
 class LevelOfDetail(Enum):
     """
     A setting that is used to control how much information to generate.
@@ -46,7 +49,8 @@ class PlatformHandler:
     def process_resource_attributes(self,
                                     resource_attributes: dict[str,Any],
                                     resource_type_name: str,
-                                    registry: Registry) -> tuple[str, str]:
+                                    platform_config_data: Optional[dict[str,Any]],
+                                    context: Context) -> tuple[str, str]:
         """
         This is primarily for use by the CloudQuery indexer to handle the processing of the raw
         resource attributes obtained from CloudQuery to the data that's used to create the resource
@@ -70,7 +74,7 @@ class PlatformHandler:
         resource_type = registry.lookup_resource_type(self.name, resource_type_spec.resource_type_name)
         return resource_type.instances.values() if resource_type else list()
 
-    def get_level_of_detail(self, resource: Resource):
+    def get_level_of_detail(self, resource: Resource) -> LevelOfDetail:
         """
         Return the level of detail associated with the specified resource. Platforms
         override this to implement whatever platform-specific logic they support, if any.
@@ -79,7 +83,7 @@ class PlatformHandler:
         """
         return LevelOfDetail.DETAILED
 
-    def get_resource_match_property_value(self, resource: Resource, property_name: str) -> Optional[str]:
+    def get_resource_qualifier_value(self, resource: Resource, qualfifier_name: str) -> Optional[str]:
         return None
 
     def get_resource_property_values(self, resource: Resource, property_name: str) -> Optional[list[Any]]:
@@ -94,7 +98,7 @@ class PlatformHandler:
         """
         return None
 
-    def add_template_variables(self, resource: Resource, template_variables: dict[str, Any]) -> None:
+    def get_standard_template_variables(self, resource: Resource) -> dict[str, Any]:
         """
         Add any platform-specific template variables to the dictionary that will be passed to jinja.
         Typically, this will be attributes derived from the resource that was matched (e.g. for
@@ -103,16 +107,16 @@ class PlatformHandler:
         Adding these standard/built-in template variables simplifies things for template authors,
         so they don't need to explicitly declare these common variables in generation rules.
         """
-        pass
+        return dict()
 
-    def resolve_template_variable_value(self, resource: Resource, template_value_str: str) -> Optional[Any]:
+    def resolve_template_variable_value(self, resource: Resource, variable_name: str) -> Optional[Any]:
         """
         Resolve a platform-specific custom/special value for a template variable.
         For example, the Kubernetes platform supports special values like "namespace"
         and "cluster" for the value derived from the matching resource, although this
         is sort of obsolete/unncessary at this point (see FIXME not below).
 
-        FIXME: Not sure this is really needed anymore. In the early version of the WB the
+        FIXME: I'm not sure this is really needed anymore. In the early version of the WB the
         idea was that all of the template variables used in the templates for a gen rule
         needed to be specified explicitly in the gen rule. But that turned out to be
         annoying for the gen rule developer, since there were a few common ones that were
