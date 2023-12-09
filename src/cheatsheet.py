@@ -128,7 +128,9 @@ def cmd_expansion(keyword_arguments, parsed_runbook_config):
     ## parsed by the robot parser
     split_regex = re.compile(r'''((?:[^,'"]|'(?:(?:\\')|[^'])*'|"(?:\\"|[^"])*")+)''')
     cmd_components = split_regex.split(cmd_components)[1::2]
-    if cmd_components[0].startswith('\'cmd='): 
+    logger.debug(f"Command: {cmd_components[0]}")      
+    logger.debug(f"Arguments: {cmd_components[1]}")        
+    if cmd_components[0].startswith(("\'cmd=", "cmd=", "\"cmd=")): 
         cmd_components[0] = cmd_components[0].replace('cmd=', '')
 
         ## Substitute in the proper binary

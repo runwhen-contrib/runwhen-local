@@ -71,7 +71,8 @@ tags:
     <div class="command-details">
     What does it do?
     </div>
-    {{ command["explanation"] | string | indent(4) }}
+    <p class="command-explanation">
+    {{ command["explanation"] | string | indent(4) }} </p>
     <div class="command-details">
     Command
     </div>
