@@ -9,6 +9,8 @@ tags:
 {% endif %}
 ---
 
+
+
 <table class="invisible-table">
   <tr>
     <td class="icon-cell">
@@ -20,14 +22,15 @@ tags:
 <div class="author-block">
   <img src="/github_profile_cache/{{ author_details["profile_icon_path"].split('/')[-1] }}" alt="Profile Avatar" class="author-avatar">
   <div class="author-info">
-    <a href="{{ author_details["url"] }}" target="_blank">
-    <h3 class="author-name">{{ author_details["username"] }}</a></h3>
-  <p class="author-bio">
-      <img src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/terminal.svg" alt="Icon 1" class="bio-icon">
-    {{ command_count }} Troubleshooting Commands</p>
       <p class="author-bio">
-     <img src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/calendar_month.svg" alt="Icon 1" class="bio-icon">
-    Last updated {{ commit_age }} </p>
+        <img src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/terminal.svg" alt="Icon 1" class="bio-icon">
+        {{ command_count }} Troubleshooting Commands</p>
+      <p class="author-bio">
+        <img src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/calendar_month.svg" alt="Icon 1" class="bio-icon">
+        Last updated {{ commit_age }} </p>
+      <p class="author-bio">
+        <img src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/edit_note.svg" alt="Icon 1" class="bio-icon">
+      Contributed by <a href="{{ author_details["url"] }}" target="_blank">{{ author_details["username"] }}</a></p>
   </div>
 </div>
   
@@ -68,7 +71,8 @@ tags:
     <div class="command-details">
     What does it do?
     </div>
-    {{ command["explanation"] | string | indent(4) }}
+    <p class="command-explanation">
+    {{ command["explanation"] | string | indent(4) }} </p>
     <div class="command-details">
     Command
     </div>
@@ -80,7 +84,7 @@ tags:
     <span id="copiedMessage{{ loop.index }}" class="copied-message">Copied to clipboard</span>
     </div>
     ???- info "Learn more"
-          This multi-line command is auto-generated and used for educational purposes. Copying and pasting the multi-line text might not function as expected.
+          This multi-line content is auto-generated and used for educational purposes. Copying and pasting the multi-line text might not function as expected.
             
             {{ command["multi_line_details"] | string | indent(12) }}
 

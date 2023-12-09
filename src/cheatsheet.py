@@ -25,6 +25,7 @@ from tempfile import NamedTemporaryFile
 from functools import lru_cache
 from git import Repo, GitCommandError
 from concurrent.futures import ThreadPoolExecutor
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 handler = logging.StreamHandler(sys.stdout)
@@ -115,40 +116,75 @@ def cmd_expansion(keyword_arguments, parsed_runbook_config):
     """
     cmd = {}
     cmd_components = str(keyword_arguments)
+    logger.debug(f"Pre-rendered command components: {cmd_components}")       
+    logger.debug(f"Runbook config: {parsed_runbook_config}")       
 
     ## Clean up the parsed cmd from robot
     cmd_components = cmd_components.lstrip('(').rstrip(')')
-    cmd_components = cmd_components.rstrip(')')
-    cmd_components = cmd_components.replace('cmd=', '')
-    ## TODO Search for render_in_commandlist=true to include in docs. Can't do this right now 
-    ## until we update codebundles that we're using for this. 
 
+    logger.debug(f"Command Components: {cmd_components}")       
     ## Split by comma if comma is not wrapped in single or escaped quotes
     ## this is needed to separate the command from the args as 
     ## parsed by the robot parser
     split_regex = re.compile(r'''((?:[^,'"]|'(?:(?:\\')|[^'])*'|"(?:\\"|[^"])*")+)''')
     cmd_components = split_regex.split(cmd_components)[1::2]
+    logger.debug(f"Command: {cmd_components[0]}")      
+    logger.debug(f"Arguments: {cmd_components[1]}")        
+    if cmd_components[0].startswith(("\'cmd=", "cmd=", "\"cmd=")): 
+        cmd_components[0] = cmd_components[0].replace('cmd=', '')
 
-    ## Substitute in the proper binary
-    ## TODO Consider a check for Distribution type
-    ## Jon Funk mentioned that distrubiton type might not be used 
-    cmd_str=cmd_components[0]
+        ## Substitute in the proper binary
+        ## TODO Consider a check for Distribution type
+        ## Jon Funk mentioned that distrubiton type might not be used 
+        cmd_str=cmd_components[0]
 
-    ## Remove authentication commands 
-    cmd_str=remove_auth_commands(cmd_str)
+        ## Remove authentication commands 
+        cmd_str=remove_auth_commands(cmd_str)
 
-    # Identify env keys (often secrets) and strip the additional $ and .key 
-    # before passing into the next stage
-    cmd_str = replace_env_key(cmd_str)
-    if "binary_name" in cmd_str: 
-        cmd_str = cmd_str.replace('${binary_name}', parsed_runbook_config["spec"]["servicesProvided"][0]["name"])
-    if "BINARY_USED" in cmd_str: 
-        cmd_str = cmd_str.replace('${BINARY_USED}', parsed_runbook_config["spec"]["servicesProvided"][0]["name"])
-    if "KUBERNETES_DISTRIBUTION_BINARY" in cmd_str: 
-        cmd_str = cmd_str.replace('${KUBERNETES_DISTRIBUTION_BINARY}', parsed_runbook_config["spec"]["servicesProvided"][0]["name"])
-    
+        # Identify env keys (often secrets) and strip the additional $ and .key 
+        # before passing into the next stage
+        cmd_str = replace_env_key(cmd_str)
+        if "binary_name" in cmd_str: 
+            cmd_str = cmd_str.replace('${binary_name}', parsed_runbook_config["spec"]["servicesProvided"][0]["name"])
+        if "BINARY_USED" in cmd_str: 
+            cmd_str = cmd_str.replace('${BINARY_USED}', parsed_runbook_config["spec"]["servicesProvided"][0]["name"])
+        if "KUBERNETES_DISTRIBUTION_BINARY" in cmd_str: 
+            cmd_str = cmd_str.replace('${KUBERNETES_DISTRIBUTION_BINARY}', parsed_runbook_config["spec"]["servicesProvided"][0]["name"])
+    elif cmd_components[0].startswith('\'bash_file='): 
+        logger.debug(f"Rendering bash file: {cmd_components[0]}")
+        script=cmd_components[0].replace('bash_file=','')
+        codebundle_path_parts=parsed_runbook_config['spec']['codeBundle']['pathToRobot'].split('/')
+        codebundle_directory_path='/'.join(codebundle_path_parts[:-1])
+        file_path=f"{codebundle_directory_path}/{script}"
+        file_path=file_path.replace("'","")
+        logger.debug(f"Rendering bash file path: {file_path}")
+        raw_script_url=generate_raw_git_url(git_url=parsed_runbook_config["spec"]["codeBundle"]["repoUrl"], ref=parsed_runbook_config["spec"]["codeBundle"]["ref"], file_path=file_path)
+        env=""
+        for var in parsed_runbook_config["spec"]["configProvided"]:
+            env += f"{var['name']}={var['value']};"
+        matched_cmd_override = None
+        for arg in cmd_components:
+            arg=arg.strip()
+            logger.debug(f"Bash File Arg: {arg}")
+            if arg.strip().startswith("\'cmd_override"):
+                logger.debug(f"Command Override Detected: {arg}")
+                matched_cmd_override = arg
+                break
+        if matched_cmd_override is not None:
+            cmd_parts=matched_cmd_override.split()
+            cmd_arguments=' '.join(cmd_parts[1:])
+            cmd_arguments=cmd_arguments.strip("'")
+            cmd_components[0]=f"{env} curl -s {raw_script_url} | bash -s {cmd_arguments}"
+        else: 
+            cmd_components[0]=f"{env} curl -s {raw_script_url} | bash"
+        logger.debug(f"Rendering bash file after split: {cmd_components}") 
+        cmd_str=cmd_components[0]      
+    else: 
+        cmd_str="Could not render command"
     # Set var for public command before configProvided substitutiuon
     # This is used for the Explain function and guarantees no sensitive information
+    ## TODO check if we still need this since all explanation functions are handled 
+    ## by github actions on the repo and stored in meta, instead of during rendering
     cmd["public"] = remove_escape_chars(cmd_str)
 
 
@@ -158,6 +194,47 @@ def cmd_expansion(keyword_arguments, parsed_runbook_config):
     cmd["private"] = remove_escape_chars(cmd_str)
 
     return cmd
+
+def generate_raw_git_url(git_url, file_path, ref):
+    """
+    Generates the raw Git URL for a file and checks if it is accessible.
+    Currently supports GitHub, with a structure to add more providers.
+
+    :param git_url: URL to the Git repository (e.g., GitHub)
+    :param file_path: Path to the file in the repository
+    :param ref: Git reference (branch, tag, or commit hash)
+    :return: Raw URL if accessible, None otherwise
+    """
+    def get_github_raw_url(parsed_url, file_path, ref):
+        # Transform the GitHub URL to its raw version
+        # Example: https://github.com/user/repo.git/blob/main/file -> https://raw.githubusercontent.com/user/repo/main/file
+        parts = parsed_url.path.split('/')
+        user = parts[1]
+        repo = parts[2].replace('.git', '')  # Remove .git if present
+        return f"https://raw.githubusercontent.com/{user}/{repo}/{ref}/{file_path}"
+
+
+    parsed_url = urlparse(git_url)
+    raw_url = None
+    logger.debug(f"Parsing git url: {git_url}")
+
+    if 'github.com' in parsed_url.netloc:
+        raw_url = get_github_raw_url(parsed_url, file_path, ref)
+    # Add more conditions here for other Git providers
+    # elif 'otherprovider.com' in parsed_url.netloc:
+    #     raw_url = get_other_provider_raw_url(parsed_url, file_path, ref)
+
+    if raw_url:
+        try:
+            response = requests.get(raw_url)
+            response.raise_for_status()  # Will raise an HTTPError if the HTTP request returned an unsuccessful status code
+            return raw_url
+        except requests.RequestException as e:
+            print(f"Error accessing {raw_url}: {e}")
+            return None
+
+    return None
+
 
 def task_name_expansion(task_name, parsed_runbook_config):
     """
@@ -820,7 +897,7 @@ def cheat_sheet(directory_path):
     env_check()
     update_last_scan_time()
     auth_details=generate_auth_details()
-    search_list = ['render_in_commandlist=true']
+    search_list = ['render_in_commandlist=true', 'show_in_rwl_cheatsheet=true']
     runbook_files = find_files(directory_path, 'runbook.yaml')
     workspace_files = find_files(directory_path, 'workspace.yaml')
     with open("/shared/workspaceInfo.yaml", 'r') as workspace_info_file:
