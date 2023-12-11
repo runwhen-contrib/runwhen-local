@@ -202,22 +202,6 @@ With your content uploaded, and secrets uploaded, your map will be ready and act
 
 <script>
 
-function updateLink() {
-    let workspaceName = document.getElementById('workspaceName').value;
-    if (workspaceName) {
-        let uploadInfolink = document.getElementById('dynamicUploadInfoLink');
-        uploadInfolink.href = "{{ app_url }}/workspace/" +workspaceName + "/configuration/workspace#" 
-        let secretlink = document.getElementById('dynamicSecretLink');
-        secretlink.href = "{{ app_url }}/workspace/" +workspaceName + "/configuration/secrets#" 
-        let maplink = document.getElementById('dynamicMapLink');
-        maplink.href = "{{ app_url }}/map/" +workspaceName
-        // update checkmark
-        const checkmark = document.getElementById("checkmark");
-        const attention = document.getElementById("attention");
-        checkmark.style.display = "inline";
-        attention.style.display = "none";
-    }
-}
 function uploadFile() {
     const fileUploadInfo = document.getElementById('fileUploadInfo');
     const file = fileUploadInfo.files[0];
