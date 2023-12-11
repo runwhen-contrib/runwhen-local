@@ -16,16 +16,22 @@ Workspace Builder generated a total of: **{{ slx_count }} SLXs**
 
 - <a href="{{ app_url }}/" target="_blank">Login to RunWhen Platform Beta Instance</a>
 - <a href="{{ app_url }}/?addWorkspace=true" target="_blank">Create a workspace</a>
-- Put that cool workspace name that you created in this box: <br>
-<input type="text" class="theme-input" id="workspaceName">   <div id="attention" style="display: inline;"><img src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/priority_high.svg" alt="Info Icon" style="filter: invert(28%) sepia(25%) saturate(2976%) hue-rotate(329deg) brightness(101%) contrast(74%);"></div><a href="javascript:void(0)" onclick="updateLink()"><div id="checkmark" style="display: none;"><img src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/check_circle.svg" alt="Info Icon" style="filter: invert(44%) sepia(12%) saturate(2789%) hue-rotate(71deg) brightness(93%) contrast(96%);"></div><a href="javascript:void(0)" onclick="updateLink()"><br>Submit</a>
-
 
 ## 2. Preparing for Upload
 
-- <a href="#" id="dynamicUploadInfoLink" target="_blank">Download the **Automated Workspace Builder Config File**</a><span class="info-icon"><img src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/info.svg"><span class="tooltip">Was your workspace name added in step 1?</span></span>
+- Fetch your `uploadInfo.yaml` file: 
+
+    ???+ "Option 1 - From the workspace creation form"
+         <img src="../assets/uploadInfo1.gif" />
+
+    ??? "Option 2 - From the workspace configuration page"
+        - Navigate to **Configuration --> Workspace --> Workspace Tools**
+        - Select **Automated Workspace Builder Config File**
+        <img src="../assets/uploadInfo2.gif" />
+
 - Add this file to the RunWhen Local container with **one of the following options**: 
 
-    ??? "Option 1 - Direct Upload (Recommended for first time users)"
+    ???+ "Option 1 - Direct Upload (Recommended for first time users)"
         Upload the `uploadInfo.yaml` for one-time use. This file may be removed when the container restarts.  
         <input type="file" id="fileUploadInfo">
         <div class="card">
@@ -87,17 +93,13 @@ Workspace Builder generated a total of: **{{ slx_count }} SLXs**
 
 
 ## 3. Upload Workspace Configuration
-- Browse the configuration data to review the content that will be uploaded
-    - From your local filesystem (if running locally) - `tree $workdir/shared/output/workspaces`
-    - From the in-browser terminal - `tree /shared/output/workspaces`
+
+<button id="runUploadOverwriteButton" class="md-button">Upload</button>
+
+!!! tip Reviewing Configuration Files
+    All configuration data that is uploaded is stored at `shared/output/workspaces` for your review. 
   
   
-
--  Upload the configuration data with **ONE** of the following options:
-
-<button id="runUploadPreserveButton" class="md-button">Upload (Preserve Existing Configurations)</button>
-<button id="runUploadOverwriteButton" class="md-button">Upload (Overwrite Existing Configurations)</button>
-
 ## 4. Creating Secrets
 In order for the RunWhen Platform to connect with your cluster(s) and cloud resources, **secrets** are required in your workspace. 
 
@@ -185,37 +187,21 @@ In order for the RunWhen Platform to connect with your cluster(s) and cloud reso
 
     To create the secret:
 
-    - Click <a href="#" id="dynamicSecretLink" target="_blank">**this link** </a><span class="info-icon"><img src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/info.svg"><span class="tooltip">Was your workspace name added in step 1?</span></span>
+    - Add the secret from the workspace creation modal, OR: 
+    - Navigate to Configuration -> Secrets
     - Select **+ ADD SECRET**
     - Set the **Secret Key**
     - Set the **Secret Value**
     - Select **ADD AND SAVE**
+    <img src="../assets/secret.gif" />
     
 {% endif %}
 
 ## 5. Browse your New Workspace Map
-With your content uploaded, and secrets uploaded, your map should now be ready for interaction: 
-
-- 🎉 Click <a href="#" id="dynamicMapLink" target="_blank">**this link** </a><span class="info-icon"><img src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/info.svg"><span class="tooltip">Was your workspace name added in step 1?</span></span> to see your new workspace map
+With your content uploaded, and secrets uploaded, your map will be ready and active within a few minutes 🎉
 
 <script>
 
-function updateLink() {
-    let workspaceName = document.getElementById('workspaceName').value;
-    if (workspaceName) {
-        let uploadInfolink = document.getElementById('dynamicUploadInfoLink');
-        uploadInfolink.href = "{{ app_url }}/workspace/" +workspaceName + "/configuration/workspace#" 
-        let secretlink = document.getElementById('dynamicSecretLink');
-        secretlink.href = "{{ app_url }}/workspace/" +workspaceName + "/configuration/secrets#" 
-        let maplink = document.getElementById('dynamicMapLink');
-        maplink.href = "{{ app_url }}/map/" +workspaceName
-        // update checkmark
-        const checkmark = document.getElementById("checkmark");
-        const attention = document.getElementById("attention");
-        checkmark.style.display = "inline";
-        attention.style.display = "none";
-    }
-}
 function uploadFile() {
     const fileUploadInfo = document.getElementById('fileUploadInfo');
     const file = fileUploadInfo.files[0];
