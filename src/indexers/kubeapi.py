@@ -84,7 +84,7 @@ class GroupVersionInfo:
 
 
 def index(component_context: Context):
-    logger.debug("starting kube API scan")
+    logger.debug("Starting kube API scan")
 
     # Access the settings/properties that we need
     kubeconfig_path = component_context.get_setting("KUBECONFIG")

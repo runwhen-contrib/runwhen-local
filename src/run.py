@@ -115,15 +115,16 @@ def create_kubeconfig():
 
     return kubeconfig
 
-def status_update(update, append_mode=True):
-    status_fpath = "/shared/output/.status"
-    status_update = f"{update}\n"  # Add a newline character to separate updates
-    print(status_update)
-    
-    file_mode = 'a' if append_mode else 'w'
+def status_update(update, status_file_path, append_mode=True):
+    if cheat_sheet_enabled:
+        # status_fpath = "/shared/output/.status"
+        update_line = f"{update}\n"  # Add a newline character to separate updates
+        print(update_line)
 
-    with open(status_fpath, file_mode) as status_file:
-        status_file.write(status_update)
+        file_mode = 'a' if os.path.exists(status_file_path) and append_mode else 'w'
+
+        with open(status_file_path, file_mode) as status_file:
+            status_file.write(update_line)
 
 def main():
     parser = ArgumentParser(description="Run onboarding script to generate initial workspace and SLX info")
@@ -152,7 +153,7 @@ def main():
                         help=f'Host/port info for where the {SERVICE_NAME} REST service is running. '
                              f'Format is <host>:<port>')
     parser.add_argument('-c', '--components', action='store',
-                        default="reset_models,kubeapi,runwhen_default_workspace,hclod,generation_rules,render_output_items")
+                        default="kubeapi,cloudquery,runwhen_default_workspace,generation_rules,render_output_items")
     parser.add_argument('-o', '--output', action='store', dest='output_path', default="output",
                         help="Path to output directory for generated files. "
                              "The path is relative to the base directory.")
@@ -228,6 +229,7 @@ def main():
     custom_definitions = dict()
     personas = dict()
     code_collections = None
+    cloud_config = None
 
     # Read the information from the uploadInfo.yaml file.
     # In theory, we should only need to do this if we're going to try to upload
@@ -293,6 +295,7 @@ def main():
             custom_definitions = workspace_info.get("custom", dict())
             personas = workspace_info.get("personas", dict())
             code_collections = workspace_info.get("codeCollections")
+            cloud_config = workspace_info.get("cloudConfig")
 
     # If a setting has still not been set, try an environment variable as a last resort
     # FIXME: With the switch to having default values for the command line args, these
@@ -324,6 +327,8 @@ def main():
         namespaces_string = os.getenv("WB_NAMESPACES")
         if namespaces_string:
             namespaces = [ns.strip() for ns in namespaces_string.split(',')]
+    if not cloud_config:
+        cloud_config = os.getenv("WB_CLOUD_CONFIG")
 
     # Add any custom definitions that were made as command line arguments to any custom
     # settings that came from the workspace info file
@@ -377,14 +382,11 @@ def main():
         output = os.getenv('MB_OUTPUT')
     output_path = os.path.join(base_directory, output)
 
+    if cheat_sheet_enabled:
+        status_file_path = os.path.join(output_path, ".status")
+
     if args.command == RUN_COMMAND:
         request_data = dict()
-        if not args.components:
-            fatal("Error: at least one component must be specified to run")
-        if not kubeconfig_path:
-            fatal("Error: a kubeconfig file must be specified to scan")
-        kubeconfig_data = read_file(kubeconfig_path, "rb")
-        encoded_kubeconfig_data = base64.b64encode(kubeconfig_data).decode('utf-8')
 
         # If a map customization rules path was specified, then encode the contents of
         # the file or directory and add it as a request data field.
@@ -411,8 +413,13 @@ def main():
             elif map_customization_rules != CUSTOMIZATION_RULES_DEFAULT:
                 fatal("Error: Map customization rules path does not exist")
 
+        if not args.components:
+            fatal("Error: at least one component must be specified to run")
         request_data['components'] = args.components
-        request_data['kubeconfig'] = encoded_kubeconfig_data
+        if os.path.exists(kubeconfig_path):
+            kubeconfig_data = read_file(kubeconfig_path, "rb")
+            encoded_kubeconfig_data = base64.b64encode(kubeconfig_data).decode('utf-8')
+            request_data['kubeconfig'] = encoded_kubeconfig_data
         if workspace_name:
             request_data['workspaceName'] = workspace_name
         if workspace_owner_email:
@@ -431,11 +438,14 @@ def main():
             request_data['namespaces'] = namespaces
         if code_collections:
             request_data['codeCollections'] = code_collections
+        if cloud_config:
+            request_data['cloudConfig'] = cloud_config
 
-        # Update cheat sheet status by copying index
-        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-        status_update(f"Discovery started at: {timestamp} ", append_mode=False)
-        status_update("Discovering resources...")
+        if cheat_sheet_enabled:
+            # Update cheat sheet status by copying index
+            timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+            status_update(f"Discovery started at: {timestamp} ", status_file_path, append_mode=False)
+            status_update("Discovering resources...", status_file_path)
         # Invoke the workspace builder /run REST endpoint
         run_url = f"http://{rest_service_host}:{rest_service_port}/run/"
         response = call_rest_service_with_retries(lambda: requests.post(run_url, json=request_data))
@@ -475,9 +485,9 @@ def main():
         # run.sh script handle calling it after invoking this tool.
         if cheat_sheet_enabled:
             # Update cheat sheet status by copying index
-            status_update("Starting cheat sheet rendering...")
+            status_update("Starting cheat sheet rendering...", status_file_path)
             cheatsheet.cheat_sheet(output_path)
-            status_update("Cheat sheet rendering completed.")
+            status_update("Cheat sheet rendering completed.", status_file_path)
 
         # Note: Handling of the upload flag is done below, so that the code can be shared
         # with the upload command

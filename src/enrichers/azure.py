@@ -108,23 +108,7 @@ class AzurePlatformHandler(PlatformHandler):
             # The instance_view attribute corresponds most closely to the raw resource data
             # that a gen rule author might want to probe. We rename it to "resource" to be
             # consistent across different indexers and that's what the Kubernetes indexer uses.
-            # The content of that field is JSON text, so we deserialize to Python objects,
-            # so that the elements can be access from match predicates and/or template variables.
-            instance_view_str = resource_attributes['instance_view']
-            instance_view_data = json.loads(instance_view_str)
-            resource_attributes['resource'] = instance_view_data
-            del resource_attributes['instance_view']
-
-        # Similarly the tags data is JSON text that we deserialize
-        # FIXME: Should possibly just have code at the top-level CloudQuery indexer level
-        # that checks for JSON fields (or is perhaps configured in the platform spec) and
-        # automatically deserializes them?
-        # At least in the Azure case, there are a bunch of fields that are JSON that ideally
-        # should be converted.
-        tags_str = resource_attributes.get('tags')
-        if tags_str is not None:
-            tags_data = json.loads(tags_str)
-            resource_attributes['tags'] = tags_data
+            resource_attributes['resource'] = resource_attributes.pop('instance_view')
 
         del resource_attributes['name']
         return name, qualified_name
