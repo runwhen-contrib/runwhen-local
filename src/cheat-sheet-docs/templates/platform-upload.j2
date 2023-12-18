@@ -202,6 +202,7 @@ With your content uploaded, and secrets uploaded, your map will be ready and act
 
 <script>
 
+
 function uploadFile() {
     const fileUploadInfo = document.getElementById('fileUploadInfo');
     const file = fileUploadInfo.files[0];
@@ -230,26 +231,6 @@ function uploadFile() {
     });
 }
 
-document.getElementById('runUploadPreserveButton').addEventListener('click', function() {
-    event.preventDefault();
-    const loadingPopup = showLoadingMessage();
-    fetch('/run-upload-to-runwhenplatform-keep-existing')
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            return response.text();
-        })
-        .then(data => {
-            document.body.removeChild(loadingPopup);
-            showCommandOutput(data);
-        })
-        .catch(error => {
-            document.body.removeChild(loadingPopup);
-            showCommandOutput(error.message);
-            console.error('There was a problem with the upload operation:', error.message);
-        });
-});
 document.getElementById('runUploadOverwriteButton').addEventListener('click', function() {
     event.preventDefault();
     // Call the /run-discovery endpoint using the fetch API
