@@ -314,6 +314,8 @@ def search_keywords(parsed_robot, parsed_runbook_config, search_list, meta):
         meta = {
             "commands": []
         }
+    def is_unique_command(commands, command):
+        return not any(c['name'] == command['name'] and c['command'] == command['command'] for c in commands)
 
     commands = []
     for task in parsed_robot['tasks']:
@@ -321,7 +323,7 @@ def search_keywords(parsed_robot, parsed_runbook_config, search_list, meta):
             if hasattr(keyword, 'name'):
                 for item in search_list:
                     if item in keyword.args:
-                        task_name=task_name_expansion(task["name"], parsed_runbook_config)
+                        task_name = task_name_expansion(task["name"], parsed_runbook_config)
                         task_name_generalized = task["name"].replace('`', '').replace('${', '').replace('}', '')
                         name_snake_case = re.sub(r'\W+', '_', task_name_generalized.lower())
                         command = {
@@ -340,7 +342,9 @@ def search_keywords(parsed_robot, parsed_runbook_config, search_list, meta):
                             command['explanation'] = "No command explanation available"  # Executed if no match is found
                             command['multi_line_details'] = "No multi-line explanation available"
                             command['doc_links'] = []
-                        commands.append(command)
+
+                        if is_unique_command(commands, command):
+                            commands.append(command)
     return commands
 
 def parse_yaml (fpath):
@@ -442,47 +446,6 @@ def update_last_scan_time():
     except Exception as e:
         print(f"An error occurred while updating the file: {e}")
 
-# def discovery_summary(resource_dump_file):
-#     summary = {}
-#     try:
-#         with open(resource_dump_file, 'r') as file:
-#             data = yaml.safe_load(file)
-            
-#             # Summarize Clusters
-#             clusters = data["clusters"]
-#             summary["num_clusters"] = len(clusters)
-#             summary["cluster_names"] = list(clusters.keys())
-
-#             total_ingresses = 0
-#             total_namespaces = 0
-#             total_pods = 0 
-#             total_daemonsets = 0 
-#             total_statefulsets = 0 
-#             for cluster in clusters.values():
-#                 ingresses = cluster.get('ingresses', [])
-#                 total_ingresses += len(ingresses)
-#                 namespaces = cluster.get('namespaces', [])
-#                 total_namespaces += len(namespaces)
-#                 pods = cluster.get('pods', [])
-#                 total_pods += len(pods)
-#                 daemonsets = cluster.get('daemonSets', [])
-#                 total_daemonsets += len(daemonsets)
-#                 statefulsets = cluster.get('statefulSets', [])
-#                 total_statefulsets += len(statefulsets)
-
-#             summary["num_namespaces"] = total_namespaces
-#             summary["num_ingresses"] = total_ingresses
-#             summary["num_pods"] = total_pods
-#             summary["num_daemonsets"] = total_daemonsets
-#             summary["num_statefulsets"] = total_statefulsets
-
-
-#             return summary
-            
-#     except FileNotFoundError:
-#         print("Resource Dump File not found.")
-#     except yaml.YAMLError as e:
-#         print(f"Error while parsing YAML: {e}")  
     
 
 def generate_index(summarized_resources, workspace_details, command_generation_summary_stats, slx_count): 
