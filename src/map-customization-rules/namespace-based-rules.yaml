@@ -82,3 +82,9 @@ spec:
         pattern: "sa-check"
         matchMode: substring
       group: "{{namespace.name}} ({{cluster.name}})"
+    - match:
+        type: pattern
+        matchType: base-name
+        pattern: "loki-hlthck"
+        matchMode: substring
+      group: "{{namespace.name}} ({{cluster.name}})"
