@@ -9,6 +9,16 @@
       </div>
     </div>
   {% endif %}
+    <div id="feedback-banner" class="fade-announcement">
+      <div class="fade-announcement-text">
+        📢   Your feedback is is valuable! Chat with us about improving RunWhen Local and <a href="https://github.com/orgs/runwhen-contrib/discussions/391" target="_blank"><b>receive a $100 Amazon Gift Card</b></a> in return! <button onclick="closeBanner()" style="color: white"> &nbsp &nbsp &nbsp &nbsp Hide Banner</button>
+        <script>
+          function closeBanner() {
+            document.getElementById('feedback-banner').style.display = 'none';
+          }
+        </script>
+      </div>
+    </div>
 {% endblock %}
 
 {% block content %}
