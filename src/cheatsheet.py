@@ -314,6 +314,8 @@ def search_keywords(parsed_robot, parsed_runbook_config, search_list, meta):
         meta = {
             "commands": []
         }
+    def is_unique_command(commands, command):
+        return not any(c['name'] == command['name'] and c['command'] == command['command'] for c in commands)
 
     commands = []
     for task in parsed_robot['tasks']:
@@ -321,7 +323,7 @@ def search_keywords(parsed_robot, parsed_runbook_config, search_list, meta):
             if hasattr(keyword, 'name'):
                 for item in search_list:
                     if item in keyword.args:
-                        task_name=task_name_expansion(task["name"], parsed_runbook_config)
+                        task_name = task_name_expansion(task["name"], parsed_runbook_config)
                         task_name_generalized = task["name"].replace('`', '').replace('${', '').replace('}', '')
                         name_snake_case = re.sub(r'\W+', '_', task_name_generalized.lower())
                         command = {
@@ -340,8 +342,10 @@ def search_keywords(parsed_robot, parsed_runbook_config, search_list, meta):
                             command['explanation'] = "No command explanation available"  # Executed if no match is found
                             command['multi_line_details'] = "No multi-line explanation available"
                             command['doc_links'] = []
-                        commands.append(command)
-    return commands
+
+                        if is_unique_command(commands, command):
+                            commands.append(command)
+
 
 def parse_yaml (fpath):
     with open(fpath, 'r') as file:
