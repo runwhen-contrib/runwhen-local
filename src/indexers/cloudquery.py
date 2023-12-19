@@ -128,7 +128,7 @@ def init_cloudquery_config(cloud_config_data: dict[str, Any],
                 if cq_resource_type_spec.resource_type_name == resource_type_name:
                     break
             else:
-                cq_resource_type_spec = CloudQueryResourceTypeSpec(resource_type_name, resource_type_name)
+                cq_resource_type_spec = CloudQueryResourceTypeSpec(resource_type_name, resource_type_name, False)
             if not cq_resource_type_spec.mandatory:
                 cq_resource_type_specs.append(cq_resource_type_spec)
                 tables.append(cq_resource_type_spec.cloudquery_table_name)

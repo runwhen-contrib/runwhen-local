@@ -443,8 +443,8 @@ class GenerationRule:
                 # to the new format then falls through to the rest of the code that checks
                 # for other predicate types, and eventually handles the "variables" match
                 # predicate type.
-                resourceType = match_predicate_config.get("resourceType")
-                if resourceType and resourceType.lower() == 'variables':
+                resource_type = match_predicate_config.get("resourceType")
+                if resource_type and resource_type.lower() == 'variables':
                     properties = match_predicate_config.get("properties")
                     if properties and isinstance(properties, list) and len(properties) == 1:
                         path = properties[0]
