@@ -87,6 +87,9 @@ ENV PATH "$PATH:/root/google-cloud-sdk/bin/"
 # FIXME - this crashed builds on nov 1 - skipping for now
 # RUN gcloud components install gke-gcloud-auth-plugin --quiet
 
+# Install Azure CLI
+RUN curl -sL https://aka.ms/InstallAzureCLIDeb | bash
+
 # Install lnav (https://github.com/tstack/lnav)
 ENV LNAV_VERSION 0.11.2
 RUN wget https://github.com/tstack/lnav/releases/download/v${LNAV_VERSION}/lnav-${LNAV_VERSION}-x86_64-linux-musl.zip\
