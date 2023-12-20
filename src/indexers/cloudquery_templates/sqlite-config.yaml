@@ -1,0 +1,7 @@
+kind: destination
+spec:
+  name: sqlite
+  path: cloudquery/sqlite
+  version: "v2.4.10"
+  spec:
+    connection_string: {{database_path}}

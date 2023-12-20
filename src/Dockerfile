@@ -87,6 +87,9 @@ ENV PATH "$PATH:/root/google-cloud-sdk/bin/"
 # FIXME - this crashed builds on nov 1 - skipping for now
 # RUN gcloud components install gke-gcloud-auth-plugin --quiet
 
+# Install Azure CLI
+RUN curl -sL https://aka.ms/InstallAzureCLIDeb | bash
+
 # Install lnav (https://github.com/tstack/lnav)
 ENV LNAV_VERSION 0.11.2
 RUN wget https://github.com/tstack/lnav/releases/download/v${LNAV_VERSION}/lnav-${LNAV_VERSION}-x86_64-linux-musl.zip\
@@ -110,15 +113,19 @@ RUN wget -O /tmp/oc.tar.gz https://mirror.openshift.com/pub/openshift-v4/clients
     && tar -xzf /tmp/oc.tar.gz -C /usr/local/bin/ \
     && rm /tmp/oc.tar.gz
 
+# Download the cloudquery CLI
+RUN curl -L https://github.com/cloudquery/cloudquery/releases/download/cli-v3.19.4/cloudquery_linux_amd64 -o /usr/local/bin/cloudquery \
+    && chmod a+x /usr/local/bin/cloudquery
+
 # RunWhen customizations
 ADD . $RUNWHEN_HOME
 
 
 RUN mkdir $RUNWHEN_SHARED \
     && usermod -g 0 runwhen -G 0  \
-    &&  chown -R runwhen:0 $RUNWHEN_HOME $RUNWHEN_SHARED \ 
+    && chown -R runwhen:0 $RUNWHEN_HOME $RUNWHEN_SHARED \
     && chmod g=u /etc/passwd \
-    && chmod -R g+w ${RUNWHEN_HOME} ${RUNWHEN_SHARED}  
+    && chmod -R g+w ${RUNWHEN_HOME} ${RUNWHEN_SHARED}
 
 
 # Reverse Proxy Bits

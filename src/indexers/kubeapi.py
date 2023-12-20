@@ -66,7 +66,7 @@ DOCUMENTATION = "Index assets from a Kubernetes configuration"
 # in the first part by the user in their local environment.
 # Need to think about this some more...
 SETTINGS = (
-    SettingDependency(KUBECONFIG_SETTING, True),
+    SettingDependency(KUBECONFIG_SETTING, False),
     SettingDependency(NAMESPACES_SETTING, False),
     SettingDependency(NAMESPACE_LODS_SETTING, False),
     SettingDependency(DEFAULT_LOD_SETTING, False)
@@ -84,10 +84,13 @@ class GroupVersionInfo:
 
 
 def index(component_context: Context):
-    logger.debug("starting kube API scan")
+    logger.debug("Starting kube API scan")
 
     # Access the settings/properties that we need
     kubeconfig_path = component_context.get_setting("KUBECONFIG")
+    if not kubeconfig_path:
+        return
+
     namespace_lods = component_context.get_setting("NAMESPACE_LODS")
     custom_namespace_names = component_context.get_setting("NAMESPACES")
     default_lod = component_context.get_setting("DEFAULT_LOD")

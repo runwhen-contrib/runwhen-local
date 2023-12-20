@@ -1,0 +1,29 @@
+kind: source
+spec:
+  # Source spec section
+  name: "azure"
+  path: "cloudquery/azure"
+  version: "v9.4.0"
+  destinations: ["{{destination_plugin_name}}"]
+  tables: [
+    {% for table_name in tables %}
+    "{{table_name}}",
+    {% endfor %}
+  ]
+  spec:
+    # Optional parameters
+    subscriptions: [
+      {% for subscription in subscriptions %}
+      "{{subscription}}",
+      {% endfor %}
+    ]
+    # cloud_name: ""
+    # concurrency: 50000
+    # discovery_concurrency: 400
+    skip_subscriptions: [
+      {% for subscription in skip_subscriptions %}
+      "{{subscription}}",
+      {% endfor %}
+    ]
+    # normalize_ids: false
+    # oidc_token: ""

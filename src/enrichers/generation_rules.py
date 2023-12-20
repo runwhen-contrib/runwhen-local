@@ -8,10 +8,16 @@ import yaml
 from component import Context, Setting, SettingDependency, WORKSPACE_NAME_SETTING, WORKSPACE_OUTPUT_PATH_SETTING
 from exceptions import WorkspaceBuilderException
 from indexers.kubetypes import KUBERNETES_PLATFORM
-from indexers.kubetypes import get_namespace, get_cluster
 from name_utils import shorten_name, make_qualified_slx_name, make_slx_name
-from .generation_rule_types import PLATFORM_HANDLERS_PROPERTY_NAME, PlatformHandler, LevelOfDetail
+from .generation_rule_types import (
+    PLATFORM_HANDLERS_PROPERTY_NAME,
+    PlatformHandler,
+    LevelOfDetail,
+    RESOURCE_TYPE_SPECS_PROPERTY
+)
+
 from .kubernetes import KubernetesPlatformHandler
+from .azure import AzurePlatformHandler, AZURE_PLATFORM
 from renderers.render_output_items import OUTPUT_ITEMS_PROPERTY
 from renderers.render_output_items import OutputItem as RendererOutputItem
 from resources import (
@@ -96,8 +102,6 @@ GROUPS_PROPERTY = "groups"
 SLXS_PROPERTY = "SLXS"
 SLX_RELATIONSHIPS_PROPERTY = "slx-relationships"
 GENERATION_RULES_PROPERTY = "generation-rules"
-# The value of this is a dict whose key is platform names and value is a set of resource type names
-RESOURCE_TYPE_SPECS_PROPERTY = "resource-type-specs"
 # This is the dict key name for specifying the platform name in gen rules
 # and the associated resource types.
 PLATFORM_NAME_KEY_NAME = "platform"
@@ -439,8 +443,8 @@ class GenerationRule:
                 # to the new format then falls through to the rest of the code that checks
                 # for other predicate types, and eventually handles the "variables" match
                 # predicate type.
-                resourceType = match_predicate_config.get("resourceType")
-                if resourceType and resourceType.lower() == 'variables':
+                resource_type = match_predicate_config.get("resourceType")
+                if resource_type and resource_type.lower() == 'variables':
                     properties = match_predicate_config.get("properties")
                     if properties and isinstance(properties, list) and len(properties) == 1:
                         path = properties[0]
@@ -524,7 +528,7 @@ class GenerationRuleInfo:
 
 
 def get_template_variables(output_item: OutputItem,
-                           resource: Any,
+                           resource: Resource,
                            base_template_variables: dict[str, Any],
                            generation_rule_info: GenerationRuleInfo,
                            context: Context) -> dict[str, Any]:
@@ -552,7 +556,8 @@ def get_template_variables(output_item: OutputItem,
         platform_name = resource.resource_type.platform.name
         platform_handlers: dict[str, PlatformHandler] = context.get_property(PLATFORM_HANDLERS_PROPERTY_NAME)
         platform_handler = platform_handlers[platform_name]
-        platform_handler.add_template_variables(resource, template_variables)
+        standard_template_variables = platform_handler.get_standard_template_variables(resource)
+        template_variables.update(standard_template_variables)
     else:
         platform_handler = None
 
@@ -716,9 +721,6 @@ def generate_slx_output_items(slx_info: SLXInfo,
     :return:
     """
     resource = slx_info.resource
-    # FIXME: Kubernetes dependency
-    namespace = get_namespace(resource)
-    cluster = get_cluster(resource)
     generation_rule_info = slx_info.generation_rule_info
 
     slx_base_template_variables = base_template_variables.copy()
@@ -743,10 +745,14 @@ def generate_slx_output_items(slx_info: SLXInfo,
         "resource": resource,
         "slx-info": slx_info
     }
-    if namespace:
-        customization_variables['namespace'] = namespace
-    if cluster:
-        customization_variables['cluster'] = cluster
+
+    # FIXME: This logic to set the standard template variables is a bit klunky and uses
+    # duplicated code. Should clean up / refactor.
+    platform_name = resource.resource_type.platform.name
+    platform_handlers: dict[str, PlatformHandler] = context.get_property(PLATFORM_HANDLERS_PROPERTY_NAME)
+    platform_handler = platform_handlers[platform_name]
+    standard_template_variables = platform_handler.get_standard_template_variables(resource)
+    customization_variables.update(standard_template_variables)
     group_name_template = map_customization_rules.match_group_rules(slx_info)
     if group_name_template:
         group_name = render_template_string(group_name_template, customization_variables)
@@ -792,7 +798,8 @@ def load(context: Context) -> None:
     # on all the platform handlers.
     # Could perhaps do some sort of dynamic discovery/loading/registration of all the platform handlers?
     platform_handlers = {
-        KUBERNETES_PLATFORM: KubernetesPlatformHandler(KUBERNETES_PLATFORM),
+        KUBERNETES_PLATFORM: KubernetesPlatformHandler(),
+        AZURE_PLATFORM: AzurePlatformHandler()
     }
     context.set_property(PLATFORM_HANDLERS_PROPERTY_NAME, platform_handlers)
     request_code_collections = context.get_setting("CODE_COLLECTIONS")
@@ -895,7 +902,6 @@ def enrich(context: Context) -> None:
         'shorten_name': shorten_name,
         'make_slx_name': make_slx_name,
         'make_slx_directory_name': make_qualified_slx_name,
-        'resources': dict(),
     }
 
     generation_rule_infos: list[GenerationRuleInfo] = context.get_property(GENERATION_RULES_PROPERTY)
@@ -903,12 +909,12 @@ def enrich(context: Context) -> None:
         generation_rule = generation_rule_info.generation_rule
         for resource_type_spec in generation_rule.resource_type_specs:
             resources = get_resources(context, resource_type_spec)
+            base_template_variables['resources'] = dict()
             for resource in resources:
                 platform_name = resource.resource_type.platform.name
                 platform_handler = platform_handlers[platform_name]
                 level_of_detail = platform_handler.get_level_of_detail(resource)
                 resource_type_name = resource_type_spec.get_resource_type_name()
-                base_template_variables['resources'][resource_type_name] = resource
                 generation_rule_match_info = GenerationRuleMatchInfo(resource, base_template_variables, context)
                 matches = generation_rule.match_predicate.matches(generation_rule_match_info)
                 if matches:
@@ -916,6 +922,11 @@ def enrich(context: Context) -> None:
                     # detection/resolution for these. I actually don't think we're using these for
                     # anything currently, so we might want to take out support for this to simplify
                     # things a bit.
+                    #
+                    # standard_template_variables = platform_handler.get_standard_template_variables(resource)
+                    # resource_template_variables = base_template_variables.copy()
+                    # resource_template_variables.update(standard_template_variables)
+                    base_template_variables['resources'][resource_type_name] = resource
                     for output_item in generation_rule.output_items:
                         if should_emit_output_item(output_item, level_of_detail):
                             generate_output_item(generation_rule_info,
