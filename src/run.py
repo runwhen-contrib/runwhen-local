@@ -13,6 +13,8 @@ from typing import Union
 import requests
 import yaml
 
+from utils import transform_client_cloud_config
+
 debug_suppress_cheat_sheet = os.getenv("WB_DEBUG_SUPPRESS_CHEAT_SHEET")
 cheat_sheet_enabled = (debug_suppress_cheat_sheet is None or
                       debug_suppress_cheat_sheet.lower() == 'false' or
@@ -296,6 +298,8 @@ def main():
             personas = workspace_info.get("personas", dict())
             code_collections = workspace_info.get("codeCollections")
             cloud_config = workspace_info.get("cloudConfig")
+            if cloud_config:
+                transform_client_cloud_config(cloud_config)
 
     # If a setting has still not been set, try an environment variable as a last resort
     # FIXME: With the switch to having default values for the command line args, these
@@ -470,6 +474,9 @@ def main():
         # other data. Maybe a safer approach would be to delete the workspaces
         # subdirectory instead of wiping the top-level output directory.
         os.makedirs(output_path, exist_ok=True)
+        workspaces_path = os.path.join(output_path, "workspaces")
+        if os.path.exists(workspaces_path):
+            shutil.rmtree(workspaces_path)
         archive_text = response_data["output"]
         archive_bytes = base64.b64decode(archive_text)
         archive_file_obj = io.BytesIO(archive_bytes)

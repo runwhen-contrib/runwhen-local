@@ -16,6 +16,7 @@ from enrichers.generation_rule_types import (
     PLATFORM_HANDLERS_PROPERTY_NAME,
     RESOURCE_TYPE_SPECS_PROPERTY
 )
+from exceptions import WorkspaceBuilderException
 from resources import Registry, REGISTRY_PROPERTY_NAME, ResourceTypeSpec
 from utils import read_file, write_file
 
@@ -84,7 +85,24 @@ platform_specs = [
                                CloudQueryResourceTypeSpec(resource_type_name="virtual_machine",
                                                           cloudquery_table_name="azure_compute_virtual_machines",
                                                           mandatory=False),
-                           ])
+                           ]),
+    CloudQueryPlatformSpec("gcp",
+                           config_file_name="gcp.yaml",
+                           config_template_name="gcp-config.yaml",
+                           environment_variables={
+                               "GOOGLE_APPLICATION_CREDENTIALS": "applicationCredentialsFile"
+                           },
+                           resource_type_specs=[
+                               # IMPORTANT!!! The project resource type must be the first entry here so that
+                               # they're all created before processing the other resource types, which
+                               # set a resource_group field that points to their parent resource group instance.
+                               CloudQueryResourceTypeSpec(resource_type_name="project",
+                                                          cloudquery_table_name="gcp_projects",
+                                                          mandatory=True),
+                               CloudQueryResourceTypeSpec(resource_type_name="compute_instance",
+                                                          cloudquery_table_name="gcp_compute_instances",
+                                                          mandatory=False),
+                           ]),
 ]
 
 def init_cloudquery_config(cloud_config_data: dict[str, Any],
@@ -131,7 +149,8 @@ def init_cloudquery_config(cloud_config_data: dict[str, Any],
                 cq_resource_type_spec = CloudQueryResourceTypeSpec(resource_type_name, resource_type_name, False)
             if not cq_resource_type_spec.mandatory:
                 cq_resource_type_specs.append(cq_resource_type_spec)
-                tables.append(cq_resource_type_spec.cloudquery_table_name)
+                if cq_resource_type_spec.cloudquery_table_name not in tables:
+                    tables.append(cq_resource_type_spec.cloudquery_table_name)
 
         if len(cq_resource_type_specs) == 0:
             continue
@@ -156,14 +175,33 @@ def init_cloudquery_config(cloud_config_data: dict[str, Any],
         config_file_path = os.path.join(cloud_config_dir, platform_spec.config_file_name)
         config_text = render_template_file(platform_spec.config_template_name, template_variables, template_loader_func)
         write_file(config_file_path, config_text)
+        logger.info(f"Wrote config file for platform {platform_name}; tables={tables}")
 
     return cq_process_environment_vars, platform_tables
+
+def transform_cloud_config(cloud_config: dict[str, Any],
+                           cq_temp_dir: str,
+                           platform_handlers: dict[str, PlatformHandler]) -> None:
+    """
+    Give the platform handlers a shot at transforming the cloud config data before
+    we use it to set up the CloudQuery config files. Currently, this is just used
+    as a hook to do the processing of file-based data to copy the inline file data
+    to a temp file and replace the value with the path to the temp file. But the
+    platform handler could make other changes to the config if it makes sense for
+    that handler.
+    """
+    for platform_spec in platform_specs:
+        platform_name = platform_spec.name
+        platform_cloud_config = cloud_config.get(platform_name)
+        if platform_cloud_config:
+            platform_handler = platform_handlers[platform_name]
+            platform_handler.transform_cloud_config(platform_cloud_config, cq_temp_dir)
 
 def index(context: Context):
     logger.info("Starting CloudQuery indexing")
 
-    cloud_config_data = context.get_setting("CLOUD_CONFIG")
-    if cloud_config_data:
+    cloud_config = context.get_setting("CLOUD_CONFIG")
+    if cloud_config:
         platform_handlers: dict[str, PlatformHandler] = context.get_property(PLATFORM_HANDLERS_PROPERTY_NAME)
         accessed_resource_type_specs: dict[str, list[ResourceTypeSpec]] = context.get_property(RESOURCE_TYPE_SPECS_PROPERTY)
 
@@ -173,13 +211,20 @@ def index(context: Context):
             cq_config_dir = os.path.join(cq_temp_dir, "config")
             os.makedirs(cq_config_dir)
 
+            # Let the platform handlers transform the cloud config data.
+            # NB: We do the deep copy just to be safe, since the root_config_data argument is
+            # owned by the caller, so we shouldn't modify it.
+            cloud_config = deepcopy(cloud_config)
+            transform_cloud_config(cloud_config, cq_temp_dir, platform_handlers)
+
             # Create the CloudQuery source/destination config files
             sqlite_database_file_path = os.path.join(cq_temp_dir, "db.sql")
-            env_vars, cq_platform_infos = init_cloudquery_config(cloud_config_data,
+            env_vars, cq_platform_infos = init_cloudquery_config(cloud_config,
                                                                  cq_config_dir,
                                                                  sqlite_database_file_path,
                                                                  accessed_resource_type_specs)
 
+            common_error_message = "Error running CloudQuery to discover resources"
             if len(cq_platform_infos) > 0:
                 # Invoke CloudQuery to scan for resources from all the configured platforms
                 path = os.getenv("PATH")
@@ -188,16 +233,30 @@ def index(context: Context):
                     process_info = subprocess.run(["cloudquery", "sync", f"{cq_config_dir}"],
                                                   capture_output=True,
                                                   env=env_vars)
+                    # Do some debug logging of the info from the CloudQuery run
+                    stderr_text = process_info.stdout.decode('utf-8')
+                    stdout_text = process_info.stderr.decode('utf-8')
+                    logger.debug("Results for subprocess run of cloudquery:")
+                    logger.debug(f"args={process_info.args}")
+                    logger.debug(f"return-code={process_info.returncode}")
+                    logger.debug(f"stderr: {stderr_text}")
+                    logger.debug(f"stdout: {stdout_text}")
+                    # If there was a failure code from CloudQuery, then raise an  exception
+                    if process_info.returncode != 0:
+                        error_message = f"{common_error_message}: " \
+                                        f"return-code={process_info.returncode}; " \
+                                        f"stderr={stderr_text}; " \
+                                        f"stdout={stdout_text}"
+                        raise WorkspaceBuilderException(error_message)
                 except Exception as e:
-                    # This exception handling is just to aid in debugging/development.
-                    # Can remove it once things are more settled.
-                    raise e
+                    error_message = f"{common_error_message}; error launching CloudQuery; {str(e)}"
+                    raise WorkspaceBuilderException(error_message) from e
 
                 # Convert the tables from the sqlite DB to resources in the resource registry
                 sql_connection = sqlite3.connect(sqlite_database_file_path)
                 cursor = sql_connection.cursor()
                 for cq_platform_spec, cq_resource_type_specs in cq_platform_infos:
-                    platform_config_data = cloud_config_data.get(cq_platform_spec.name, dict())
+                    platform_config_data = cloud_config.get(cq_platform_spec.name, dict())
                     platform_handler = platform_handlers[cq_platform_spec.name]
                     for cq_resource_type_spec in cq_resource_type_specs:
                         # table_name = f"{platform_spec.name}_{resource_type_spec.cloudquery_table_name}"

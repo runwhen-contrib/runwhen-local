@@ -46,6 +46,25 @@ class PlatformHandler:
     def construct_resource_type_spec(self, config: Union[str, dict[str, Any]]) -> ResourceTypeSpec:
         return ResourceTypeSpec.construct_from_config(config, self.name)
 
+    def transform_cloud_config(self, cloud_config: dict[str, Any], cq_temp_dir: str) -> None:
+        """
+        This is called at the beginning of the CloudQuery indexer's index method
+        for any platform handlers that have a settings block defined in cloudConfig.
+        It gives the platform handler a chance to tweak the cloud config before the
+        CloudQuery indexer begins its generic processing of the platform settings.
+        The main use case of this currently is to do the conversion of inline file
+        data in the cloud config to write the data to a temp file and replace the
+        cloud config setting with the path to the temp file. This is necessary
+        because settings in the cloud config are not handled like top-level
+        settings are handled in the component framework, so there's no automatic
+        handling of the file data like we get with top-level file-based settings.
+        So if there's any file-based settings in the cloud config (e.g. Kubernetes
+        kubeconfig, GCP app credentials file, etc.) then the file conversion
+        should happen here.
+        """
+        # By default, don't do anything and just leave the cloud config unchanged
+        pass
+
     def process_resource_attributes(self,
                                     resource_attributes: dict[str,Any],
                                     resource_type_name: str,

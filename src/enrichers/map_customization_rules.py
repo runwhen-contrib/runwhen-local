@@ -132,7 +132,11 @@ class SLXPropertyMatchPredicate(MatchPredicate):
                 def match_func(value: str) -> bool:
                     return matches_pattern(value, self.match_pattern, self.string_match_mode)
 
-                match = match_path(getattr(slx_info.resource, "resource"), self.match_property, match_func)
+                try:
+                    resource = getattr(slx_info.resource, "resource")
+                except AttributeError:
+                    resource = slx_info.resource
+                match = match_path(resource, self.match_property, match_func)
                 return match
         if match_value is None:
             return False

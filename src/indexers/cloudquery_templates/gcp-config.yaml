@@ -1,0 +1,17 @@
+kind: source
+spec:
+  name: "gcp"
+  path: "cloudquery/gcp"
+  version: "v9.9.2"
+  destinations: ["{{destination_plugin_name}}"]
+  tables: [
+    {% for table_name in tables %}
+    "{{table_name}}",
+    {% endfor %}
+  ]
+  spec:
+    project_ids: [
+      {% for project in projects %}
+      "{{project}}",
+      {% endfor %}
+    ]

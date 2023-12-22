@@ -18,6 +18,7 @@ from .generation_rule_types import (
 
 from .kubernetes import KubernetesPlatformHandler
 from .azure import AzurePlatformHandler, AZURE_PLATFORM
+from .gcp import GCPPlatformHandler, GCP_PLATFORM
 from renderers.render_output_items import OUTPUT_ITEMS_PROPERTY
 from renderers.render_output_items import OutputItem as RendererOutputItem
 from resources import (
@@ -799,7 +800,8 @@ def load(context: Context) -> None:
     # Could perhaps do some sort of dynamic discovery/loading/registration of all the platform handlers?
     platform_handlers = {
         KUBERNETES_PLATFORM: KubernetesPlatformHandler(),
-        AZURE_PLATFORM: AzurePlatformHandler()
+        AZURE_PLATFORM: AzurePlatformHandler(),
+        GCP_PLATFORM: GCPPlatformHandler(),
     }
     context.set_property(PLATFORM_HANDLERS_PROPERTY_NAME, platform_handlers)
     request_code_collections = context.get_setting("CODE_COLLECTIONS")
@@ -852,6 +854,11 @@ def load(context: Context) -> None:
         if len(slx_list) > 1:
             for i, slx in enumerate(slx_list):
                 slx.shortened_base_name = f"{slx.shortened_base_name}{i+1}"
+
+    logger.debug("Loaded resource type specs:")
+    for platform_name, resource_type_spec_list in resource_type_specs.items():
+        resource_type_names = [rts.resource_type_name for rts in resource_type_spec_list]
+        logger.debug(f"platform={platform_name}; resource-types={resource_type_names}")
 
     context.set_property(GENERATION_RULES_PROPERTY, generation_rules)
     context.set_property(RESOURCE_TYPE_SPECS_PROPERTY, resource_type_specs)

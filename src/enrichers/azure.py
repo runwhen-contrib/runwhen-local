@@ -10,7 +10,7 @@ AZURE_PLATFORM = "azure"
 
 def get_resource_group(resource: Resource) -> Optional[Resource]:
     # FIXME: Shouldn't use hard-coded string here
-    if resource.resource_type.name == "ResourceGroup":
+    if resource.resource_type.name == "resource_group":
         return resource
     try:
         return getattr(resource, "resource_group")
@@ -33,11 +33,6 @@ class AzurePlatformHandler(PlatformHandler):
         name: str = resource_attributes['name']
         qualified_name = name
         if resource_type_name == "resource_group":
-            # FIXME: Add level-of-detail logic here to set a 'lod' field based on a
-            # user-specified resourceGroupLODs configuration setting keyed by the
-            # resource group name, modeled on what we currently do with Kubernetes
-            # namespace resources. Or, alternatively, should possibly get rid of any
-            # LOD handling by the indexing logic.
             # Set the 'lod' (level-of-detail) resource attribute from the per-resource-group
             # setting in the Azure cloud config or set to the default value if it's unspecified
             # FIXME: It's a big kludgy to have the level of detail setting in the resource,
@@ -112,10 +107,6 @@ class AzurePlatformHandler(PlatformHandler):
 
         del resource_attributes['name']
         return name, qualified_name
-
-    # TODO: Override other methods (e.g. get_resource_property_values, add_template_variables)
-    # to handle Azure-specific logic. Probably, minimally, should handle Azure tags similar to the
-    # way we handle Kubernetes labels/annotations.
 
     def get_level_of_detail(self, resource: Resource) -> Optional[LevelOfDetail]:
         resource_group = get_resource_group(resource)
