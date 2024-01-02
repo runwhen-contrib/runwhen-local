@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Any
 
 from exceptions import WorkspaceBuilderException
-
+from resources import Resource
 
 class StringMatchMode(Enum):
     EXACT = "exact"
@@ -175,11 +175,27 @@ def _match_path(data, path_components: list[str], match_func) -> bool:
         # Note: We need to special-case str here because it is an Iterable instance
         # and would get handled by the Iterable case below, which we don't want.
         return at_end_of_path and match_func(data)
-    elif isinstance(data, dict):
+    if isinstance(data, dict) or isinstance(data, Resource):
         if at_end_of_path:
             return False
         next_component = path_components[0]
-        item = data.get(next_component)
+        if isinstance(data, dict):
+            item = data.get(next_component)
+        else:
+            # FIXME: This handling for looking up attributes in the top-level
+            # resource data was added for handling data from the gcp indexer,
+            # but it seems pretty kludgy. I think it would probably be better
+            # to just always convert the complete info about the resource
+            # (i.e. *all* of the attributes/columns returned in the
+            # CloudQuery results into a single dictionary that's set as the
+            # "resource" value of the Resource object, which is consistent
+            # with how the Kubernetes indexer works. In that case the only
+            # other attributes of the Resource would be just the specially-handled
+            # ones (e.g. name, tags, etc.). Should discuss this with Shea.
+            try:
+                item = getattr(data, next_component)
+            except AttributeError:
+                item = None
         if item is None:
             return False
         remaining_components = path_components[1:]
@@ -189,10 +205,9 @@ def _match_path(data, path_components: list[str], match_func) -> bool:
             if _match_path(item, path_components, match_func):
                 return True
         return False
-    else:
-        # If there are still more path components, but we've reached a scalar value,
-        # then we can't resolve the rest of the path, which we treat as a mismatch.
-        return at_end_of_path and match_func(str(data))
+    # If there are still more path components, but we've reached a scalar value,
+    # then we can't resolve the rest of the path, which we treat as a mismatch.
+    return at_end_of_path and match_func(str(data))
 
 
 def match_path(data: Any, path: str, match_func) -> bool:

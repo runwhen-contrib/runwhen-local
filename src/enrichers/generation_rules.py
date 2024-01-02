@@ -222,7 +222,11 @@ class ResourcePropertyMatchPredicate(MatchPredicate):
                         if matches_pattern(value, self.pattern, self.string_match_mode):
                             return True
                 else:
-                    if match_path(resource.resource, prop, match_func):
+                    try:
+                        resource_data = getattr(resource, "resource")
+                    except AttributeError:
+                        resource_data = resource
+                    if match_path(resource_data, prop, match_func):
                         return True
         return False
 
