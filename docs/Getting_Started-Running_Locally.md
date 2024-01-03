@@ -5,10 +5,10 @@ description: >-
   your environment.
 ---
 
-# Running Locally
+# Running Locally with Docker
 
 {% hint style="info" %}
-The following steps allow you to safely run RunWhen from your own laptop, with the ability to inspect all generated configuration files and command list documentation without the need to interact with the RunWhen API.
+The following steps allow you to safely run RunWhen from your own laptop (with docker/podman), with the ability to inspect all generated configuration files and command list documentation without the need to interact with the RunWhen API.
 {% endhint %}
 
 {% hint style="info" %}
