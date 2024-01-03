@@ -84,10 +84,7 @@ ENV NODE_PATH="/var/lib/neo4j/node_modules"
 # Install gcloud
 RUN curl -sSL https://sdk.cloud.google.com | bash
 ENV PATH "$PATH:/root/google-cloud-sdk/bin/"
-# FIXME - this crashed builds on nov 1 - skipping for now
-# I (RobV) did try enabling this as part of some other debugging I did and it didn't crash for me.
-# But it turned out I didn't need it, so I'm leaving it disabled for now.
-# RUN gcloud components install gke-gcloud-auth-plugin --quiet
+RUN gcloud components install gke-gcloud-auth-plugin --quiet
 
 # Install Azure CLI
 RUN curl -sL https://aka.ms/InstallAzureCLIDeb | bash
