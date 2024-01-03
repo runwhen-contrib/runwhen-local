@@ -8,22 +8,23 @@ Google Cloud Platform discovery is supported from 0.5.0 onwards.&#x20;
 
 Google Cloud Platform discovery leverages [cloudquery](https://github.com/cloudquery/cloudquery) with the GCP source plugin to build up an inventory of cloud resources that should be matched with troubleshooting commands. &#x20;
 
-It's recommended to create a service principal for use with RunWhen Local and the CloudQuery discovery component:&#x20;
+It's recommended to create a [service account ](https://cloud.google.com/iam/docs/service-accounts-create)for use with RunWhen Local and the CloudQuery discovery component:&#x20;
 
 ```
-export SUBSCRIPTION_ID=<YOUR_SUBSCRIPTION_ID>
-az account set --subscription $SUBSCRIPTION_ID
-az provider register --namespace 'Microsoft.Security'
-
-# Create a service-principal for the plugin
-az ad sp create-for-rbac --name runwhen-local-sp --scopes /subscriptions/$SUBSCRIPTION_ID --role Reader
+export PROJECT_ID=[project-id]
+export KEY_FILE=GCPServiceAccountKeyWorkspaceBuilder.json
+export SA_NAME=runwhen-local-sa
+gcloud iam service-accounts create $SA_NAME \
+    --description="Service Account for RunWhen Discovery" \
+    --display-name="RunWhen Discovery Service Account"
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+    --member="serviceAccount:$SA_NAME@$PROJECT_ID.iam.gserviceaccount.com" \
+    --role="roles/viewer"
+gcloud iam service-accounts keys create $KEY_FILE \
+    --iam-account=$SA_NAME@$PROJECT_ID.iam.gserviceaccount.com
 ```
 
-The output of that command is then mapped into the [#azure-workspaceinfo-configuration](google-cloud-platform.md#azure-workspaceinfo-configuration "mention") section as follows:&#x20;
-
-* appID: clientId
-* password:clientSecret
-* tenant:tenantId
+The output will be a service account file called `GCPServiceAccountKeyWorkspaceBuilder.json` which needs to be copied to the `shared` directory that is accessible to the RunWhen Local container image.&#x20;
 
 ### GCP CloudQuery Version Details
 
@@ -32,14 +33,14 @@ The output of that command is then mapped into the [#azure-workspaceinfo-configu
 
 ### GCP WorkspaceInfo Configuration
 
-To perform discovery of Microsoft Azure resources, provide the appropriate Azure credentials inside of the workspaceInfo.yaml under the `cloudConfig` section. For example:&#x20;
+To perform discovery of Google Cloud resources, provide the path to the GCP service account credentials inside of the workspaceInfo.yaml under the `cloudConfig` section. For example:&#x20;
 
 ```
 cloudConfig:
   gcp:
-    applicationCredentialsFile: GCPServiceAccountKeyWorkspaceBuilder.json
+    applicationCredentialsFile: /shared/GCPServiceAccountKeyWorkspaceBuilder.json
     projects:
-    - project1
+    - [project-id]
     projectLevelOfDetails:
-      project1: basic
+      [project-id]: basic
 ```
