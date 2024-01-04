@@ -268,6 +268,55 @@ When the process has completed, you can navigate to [http://localhost:8081](http
 
 <figure><img src="assets/gs_view_cheat_sheet.png" alt=""><figcaption></figcaption></figure>
 
+###
+
+### Optional: Add a CLI Shortcut
+
+If you would like a shortcut from the CLI to open your cheatsheet, the following may help:&#x20;
+
+{% tabs %}
+{% tab title="Linux/MacOS" %}
+* **Open Terminal**: This can usually be found in your applications or by searching.
+* **Edit the Bash Profile**:
+  * For **Linux**, you'll typically edit the `.bashrc` file. For **macOS**, you'll edit the `.bash_profile` or `.zshrc` if you're using zsh.
+  * Use a text editor like nano or vim. For example, type `nano ~/.bashrc` (Linux) or `nano ~/.bash_profile` (macOS) and press Enter.
+* **Add the Alias**:
+  *   At the end of the file, add the following line:
+
+      ```bash
+      alias runwhen-local='open http://127.0.0.1:8081 &>/dev/null &'
+      ```
+  * For macOS, `open` is the command to open the URL in your default browser. For Linux, you might need to use `xdg-open` instead of `open`.
+* **Save and Exit**:
+  * For nano, press `CTRL + X`, then `Y` to confirm, and `Enter` to exit.
+  * For vim, press `Esc`, type `:wq`, and press `Enter`.
+* **Activate the Alias**:
+  * To make the alias available, you need to reload the profile. Type `source ~/.bashrc` (Linux) or `source ~/.bash_profile` (macOS) and press Enter.
+* **Test the Alias**:
+  * Simply type `runwhen-local` in your terminal and press Enter. It should open your default browser to the specified website.
+{% endtab %}
+
+{% tab title="Microsoft PowerShell" %}
+* **Check if a Profile Already Exists**:
+  * In PowerShell, type `Test-Path $PROFILE` and press Enter. If it returns `True`, then you already have a profile.
+* **Create or Edit the Profile**:
+  * If you don't have a profile, create one by typing `New-Item -path $PROFILE -type file -force`.
+  * Open the profile in a text editor, such as Notepad, by typing `notepad $PROFILE`.
+* **Add the Function and Alias to Your Profile**:
+  *   Add the following lines to the profile script:
+
+      ```powershell
+      function Open-RunWhenLocal { Start-Process "http://127.0.0.1:8081" }
+      Set-Alias -Name runwhen-local Open-RunWhenLocal
+      ```
+  * Save and close the file.
+* **Reload Your Profile** (or restart PowerShell):
+  * Type `. $PROFILE` to reload your profile in the current session.
+* **Test the Alias Again**:
+  * Type `runwhen-local` and press Enter. It should open your default browser to the specified website.
+{% endtab %}
+{% endtabs %}
+
 ### Cleanup
 
 * Cleaning up the running container and image

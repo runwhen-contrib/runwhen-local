@@ -6,6 +6,16 @@ description: >-
 
 # Jumping Back In
 
+### Opening RunWhen Local from the Command Line
+
+If you added a command line alias, you might be able to open your cheat sheet from your terminal, for example:&#x20;
+
+```
+$ runwhen-local
+```
+
+See [this link](https://docs.runwhen.com/public/v/runwhen-local/user-guide/getting-started/getting\_started-running\_locally#optional-add-a-cli-shortcut) for the instructions if deployed locally, and [this link](https://docs.runwhen.com/public/v/runwhen-local/user-guide/getting-started/getting\_started-running\_in\_kubernetes#optional-add-a-cli-shortcut) for the instructions if deployed in Kubernetes.&#x20;
+
 ### Checking if it was [Getting\_Started-Running\_Locally.md](../Getting\_Started-Running\_Locally.md "mention")
 
 To check if RunWhen Local was deployed on your local machine with Docker / Podman:&#x20;
