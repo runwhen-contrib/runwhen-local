@@ -1,4 +1,35 @@
+---
+layout:
+  title:
+    visible: true
+  description:
+    visible: true
+  tableOfContents:
+    visible: true
+  outline:
+    visible: true
+  pagination:
+    visible: true
+---
+
 # Getting Started
+
+### Deployment Options
+
+RunWhen Local is distributed as a container image and can be deployed:&#x20;
+
+* Locally on your laptop/PC with Docker/Podman
+* In Kubernetes via manifests or Helm
+
+### Choosing a Deployment Method
+
+
+
+|   | Locally (Docker/Podman) | Kubernetes |
+| - | ----------------------- | ---------- |
+|   |                         |            |
+|   |                         |            |
+|   |                         |            |
 
 
 
