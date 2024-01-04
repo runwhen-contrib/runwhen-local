@@ -1,7 +1,7 @@
 # Microsoft Azure
 
 {% hint style="info" %}
-Microsoft Azure Discovery is supported from 0.5.0 onwards.&#x20;
+Microsoft Azure Discovery is supported from 0.5.0 onwards and supports discovery of resources **outside of Kubernetes,** such as VMs, load balancers, database instances, and so on. Kubernetes resources discovery configuration is covered in [getting-started](../../getting-started/ "mention")
 {% endhint %}
 
 ### Azure Credentials
