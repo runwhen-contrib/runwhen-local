@@ -1,3 +1,4 @@
+import base64
 import datetime
 import json
 import os
@@ -6,7 +7,7 @@ from typing import Any, AnyStr, Union
 
 from kubernetes.dynamic.resource import ResourceInstance
 
-from exceptions import WorkspaceBuilderException
+from exceptions import WorkspaceBuilderException, WorkspaceBuilderObjectNotFoundException
 
 
 def _apply_resource_attribute_map(resource, obj):
@@ -123,3 +124,31 @@ def get_version_info() -> dict[str, Any]:
     #     json_info = f.read()
     info = json.loads(json_info)
     return info
+
+def transform_client_cloud_config(cloud_config: dict[str, dict[str,str]]) -> None:
+    """
+    Automatically do a path->data transformation for any cloud config setting whose
+    name ends in "File".
+
+    TODO: Not 100% sure it's the right thing to do to have this generic code that does
+    the file path -> data transformations. It does mean that we don't need to have any
+    platform-specific knowledge about which settings are files, but it could cause
+    problems if for some reason a platform wants to have a setting in its cloud config
+    that ends in "File" but is actually not file data. We can wait to see if that
+    turns out to be a problem in practice and only then come up with a different approach
+    (presumably something like an explicit list of all of the cloud config settings
+    that should be handled as files).
+
+    FIXME: This method doesn't really belong in this utils module, so probably should
+    move it somewhere else.
+    """
+    for platform_name, platform_config in cloud_config.items():
+        for key, value in platform_config.items():
+            if key.endswith("File") and isinstance(value, str):
+                try:
+                    file_data = read_file(value, "rb")
+                    encoded_file_data = base64.b64encode(file_data).decode('utf-8')
+                    platform_config[key] = encoded_file_data
+                except Exception as e:
+                    raise WorkspaceBuilderObjectNotFoundException(f"File not found for cloud config setting: "
+                                                                  f"path={platform_name}/{key}; value={value}") from e

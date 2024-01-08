@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Any
 
 from exceptions import WorkspaceBuilderException
-
+from resources import Resource
 
 class StringMatchMode(Enum):
     EXACT = "exact"
@@ -175,7 +175,7 @@ def _match_path(data, path_components: list[str], match_func) -> bool:
         # Note: We need to special-case str here because it is an Iterable instance
         # and would get handled by the Iterable case below, which we don't want.
         return at_end_of_path and match_func(data)
-    elif isinstance(data, dict):
+    if isinstance(data, dict):
         if at_end_of_path:
             return False
         next_component = path_components[0]
@@ -189,10 +189,9 @@ def _match_path(data, path_components: list[str], match_func) -> bool:
             if _match_path(item, path_components, match_func):
                 return True
         return False
-    else:
-        # If there are still more path components, but we've reached a scalar value,
-        # then we can't resolve the rest of the path, which we treat as a mismatch.
-        return at_end_of_path and match_func(str(data))
+    # If there are still more path components, but we've reached a scalar value,
+    # then we can't resolve the rest of the path, which we treat as a mismatch.
+    return at_end_of_path and match_func(str(data))
 
 
 def match_path(data: Any, path: str, match_func) -> bool:
