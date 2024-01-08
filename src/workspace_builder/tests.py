@@ -12,6 +12,7 @@ from typing import Any, Union
 from django.test import TestCase
 
 from exceptions import WorkspaceBuilderException
+from utils import transform_client_cloud_config
 
 TEST_OUTPUT_DIRECTORY = "TestOutput"
 
@@ -48,7 +49,7 @@ BASE_REQUEST_DATA = {
         #     "codeBundles": ["k8s-namespace-healthcheck"],
         # },
     ],
-    # "cloudConfig": {
+    "cloudConfig": {
     #     "azure": {
     #         # To enable testing of the cloudquery Azure indexing you need to
     #         # define the 4 environments variables below either in the shell from
@@ -68,8 +69,14 @@ BASE_REQUEST_DATA = {
     #     #     "kubeconfig": "kubeconfig",
     #     #     "namespaceLODs": {"kube-system": 0, "kube-public": 0},
     #     # }
-    # }
-
+    #     "gcp": {
+    #         "applicationCredentialsFile": "GCPServiceAccountKeyWorkspaceBuilder.json",
+    #         "projects": ["iron-radio-408515"],
+    #         "projectLevelOfDetails": {
+    #            "iron-radio-408515": "basic"
+    #         }
+    #     }
+    }
 }
 
 def read_file(file_path: str, mode="r") -> Union[str, bytes]:
@@ -88,6 +95,9 @@ def build_rest_request_data(base_data: dict[str, Any], **kwargs) -> str:
         if key == "kubeconfig":
             data = read_file(request_data[key], "rb")
             request_data[key] = b64encode(data).decode('utf-8')
+        elif key == "cloudConfig":
+            cloud_config_data = request_data[key]
+            transform_client_cloud_config(cloud_config_data)
         elif key == 'mapCustomizationRules':
             map_customization_rules_path = request_data[key]
             # FIXME: This code is (mostly) copied from pgrun.py.
@@ -155,7 +165,7 @@ class ProductionComponentTestCase(TestCase):
         archive.extractall(TEST_OUTPUT_DIRECTORY)
 
     def test_generation_rules_workspace_gen(self):
-        self.run_common("kubeapi,cloudquery,runwhen_default_workspace,generation_rules,render_output_items")
+        self.run_common("kubeapi,cloudquery,runwhen_default_workspace,generation_rules,render_output_items,dump_resources")
 
     # Need to implement some sort of dump/load feature to the resource registry
     # for this to make sense now that we're not using neo4j anymore.

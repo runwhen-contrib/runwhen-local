@@ -45,7 +45,7 @@ RUN poetry install
 
 # Final Image Stage
 FROM node-base AS app
-LABEL org.opencontainers.image.description The RunWhen Local container image is a local tool to scan your Kubernetes based clusters and provide human readable and searchable troubleshooting documentation and commands.
+LABEL org.opencontainers.image.description="The RunWhen Local container image is a local tool to scan your Kubernetes based clusters and provide human readable and searchable troubleshooting documentation and commands."
 RUN groupadd -r runwhen && useradd --no-log-init -r -g runwhen runwhen
 
 ENV RUNWHEN_HOME='/workspace-builder' \
@@ -65,11 +65,11 @@ RUN apt-get update \
 WORKDIR $RUNWHEN_HOME
 
 RUN pip install --no-cache-dir \
-    mkdocs \    
-    mkdocs-material \   
-    mkdocs-print-site-plugin \  
-    pymdown-extensions \    
-    ruamel.yaml \   
+    mkdocs \
+    mkdocs-material \
+    mkdocs-print-site-plugin \
+    pymdown-extensions \
+    ruamel.yaml \
     gitpython
 
 RUN npm install \
@@ -84,8 +84,7 @@ ENV NODE_PATH="/var/lib/neo4j/node_modules"
 # Install gcloud
 RUN curl -sSL https://sdk.cloud.google.com | bash
 ENV PATH "$PATH:/root/google-cloud-sdk/bin/"
-# FIXME - this crashed builds on nov 1 - skipping for now
-# RUN gcloud components install gke-gcloud-auth-plugin --quiet
+RUN gcloud components install gke-gcloud-auth-plugin --quiet
 
 # Install Azure CLI
 RUN curl -sL https://aka.ms/InstallAzureCLIDeb | bash
@@ -96,7 +95,7 @@ RUN wget https://github.com/tstack/lnav/releases/download/v${LNAV_VERSION}/lnav-
     && unzip lnav-${LNAV_VERSION}-x86_64-linux-musl.zip \
     && rm lnav-${LNAV_VERSION}-x86_64-linux-musl.zip \
     && cd lnav-${LNAV_VERSION} \
-    && mkdir -p /home/runwhen/.lnav/formats/installed \ 
+    && mkdir -p /home/runwhen/.lnav/formats/installed \
     && mv lnav /usr/local/bin
 
 # Install and validate kubectl
