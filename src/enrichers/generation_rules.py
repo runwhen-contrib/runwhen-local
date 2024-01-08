@@ -561,22 +561,14 @@ def get_template_variables(output_item: OutputItem,
     else:
         platform_handler = None
 
-    # FIXME: Probably don't need this anymore after we simplified the templating
-    # scheme to get rid of the generic header template that included the 'kind' field.
+
     output_item_type = output_item.type.lower()
-    if output_item_type == 'slx':
-        kind = "ServiceLevelX"
-    elif output_item_type == 'sli':
-        kind = "ServiceLevelIndicator"
-    elif output_item_type == 'slo':
-        kind = "ServiceLevelObjective"
-    elif output_item_type == 'runbook':
-        kind = "Runbook"
-    elif output_item_type == 'taskset':
-        kind = "TaskSet"
-    else:
-        raise WorkspaceBuilderException(f"Unsupported output item type: {output_item.type}")
-    template_variables['kind'] = kind
+    # Check if the item is a workflow, as it has different path requirements
+    # which are handled later on
+    if output_item_type == 'workflow':
+         template_variables['is_workflow'] = True
+    else: 
+        template_variables['is_workflow'] = False
 
     try:
         template_variables['repo_url'] = generation_rule_info.code_collection.repo_url
@@ -615,7 +607,15 @@ def generate_output_item(generation_rule_info: GenerationRuleInfo,
                                                 generation_rule_info,
                                                 context)
     path_template = output_item.path
-    path = render_template_string(path_template, template_variables)
+    
+    # Check if the item is a workflow file, and if so, fix the path to 
+    # create a filename based on the SLX and put it in the workflows directory
+    if template_variables['is_workflow'] == True:
+        workflow_name=template_variables['slx_name'].split("--")[-1]
+        path = f"{template_variables['workspace_path']}/workflows/{workflow_name}.yaml"
+    else: 
+        path = render_template_string(path_template, template_variables)
+
     # Only emit the output item if it's a path we haven't seen/emitted yet.
     # The assumption is that output items triggered from different match
     # rules/sources but with the same template variable values (and thus the
