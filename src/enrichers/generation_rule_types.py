@@ -65,20 +65,19 @@ class PlatformHandler:
         # By default, don't do anything and just leave the cloud config unchanged
         pass
 
-    def process_resource_attributes(self,
-                                    resource_attributes: dict[str,Any],
-                                    resource_type_name: str,
-                                    platform_config_data: Optional[dict[str,Any]],
-                                    context: Context) -> tuple[str, str]:
+    def parse_resource_data(self,
+                            resource_data: dict[str,Any],
+                            resource_type_name: str,
+                            platform_config_data: Optional[dict[str,Any]],
+                            context: Context) -> tuple[str, str, dict[str, Any]]:
         """
         This is primarily for use by the CloudQuery indexer to handle the processing of the raw
         resource attributes obtained from CloudQuery to the data that's used to create the resource
         in the registry. The return value is a tuple of:
             (<resource-name>, <qualified-resource-name>, <resource-attributes>)
         """
-        name = resource_attributes['name']
-        del resource_attributes['name']
-        return name, name
+        name = resource_data['name']
+        return name, name, dict()
 
     def get_resources(self, resource_type_spec: ResourceTypeSpec, context: Context) -> Sequence[Resource]:
         """

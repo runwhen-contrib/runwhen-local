@@ -175,27 +175,11 @@ def _match_path(data, path_components: list[str], match_func) -> bool:
         # Note: We need to special-case str here because it is an Iterable instance
         # and would get handled by the Iterable case below, which we don't want.
         return at_end_of_path and match_func(data)
-    if isinstance(data, dict) or isinstance(data, Resource):
+    if isinstance(data, dict):
         if at_end_of_path:
             return False
         next_component = path_components[0]
-        if isinstance(data, dict):
-            item = data.get(next_component)
-        else:
-            # FIXME: This handling for looking up attributes in the top-level
-            # resource data was added for handling data from the gcp indexer,
-            # but it seems pretty kludgy. I think it would probably be better
-            # to just always convert the complete info about the resource
-            # (i.e. *all* of the attributes/columns returned in the
-            # CloudQuery results into a single dictionary that's set as the
-            # "resource" value of the Resource object, which is consistent
-            # with how the Kubernetes indexer works. In that case the only
-            # other attributes of the Resource would be just the specially-handled
-            # ones (e.g. name, tags, etc.). Should discuss this with Shea.
-            try:
-                item = getattr(data, next_component)
-            except AttributeError:
-                item = None
+        item = data.get(next_component)
         if item is None:
             return False
         remaining_components = path_components[1:]

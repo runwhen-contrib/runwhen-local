@@ -222,10 +222,7 @@ class ResourcePropertyMatchPredicate(MatchPredicate):
                         if matches_pattern(value, self.pattern, self.string_match_mode):
                             return True
                 else:
-                    try:
-                        resource_data = getattr(resource, "resource")
-                    except AttributeError:
-                        resource_data = resource
+                    resource_data = getattr(resource, "resource")
                     if match_path(resource_data, prop, match_func):
                         return True
         return False
@@ -273,7 +270,8 @@ class ResourcePathExistsMatchPredicate(MatchPredicate):
         def match_func(value: str) -> bool:
             return (value is not None) or self.match_empty
         resource = generation_rule_match_info.resource
-        return match_path(resource.resource, self.path, match_func)
+        resource_data = getattr(resource, "resource")
+        return match_path(resource_data, self.path, match_func)
 
 
 class CustomVariableMatchPredicate(MatchPredicate):

@@ -47,22 +47,23 @@ class GCPPlatformHandler(PlatformHandler):
         if isinstance(projects, str):
             cloud_config["projects"] = [p.strip() for p in projects.split(",")]
 
-    def process_resource_attributes(self,
-                                    resource_attributes: dict[str,Any],
-                                    resource_type_name: str,
-                                    platform_config_data: dict[str,Any],
-                                    context: Context) -> tuple[str, str]:
+    def parse_resource_data(self,
+                            resource_data: dict[str,Any],
+                            resource_type_name: str,
+                            platform_config_data: dict[str,Any],
+                            context: Context) -> tuple[str, str, dict[str, Any]]:
+        resource_attributes = dict()
         if resource_type_name == "project":
-            name: str = resource_attributes['project_id']
+            name: str = resource_data['project_id']
             qualified_name = name
             project_level_of_detail_config = platform_config_data.get("projectLevelOfDetails", dict())
             project_lod_value = project_level_of_detail_config.get(name)
             resource_attributes['lod'] = LevelOfDetail.construct_from_config(project_lod_value) \
                 if project_lod_value is not None else context.get_setting("DEFAULT_LOD")
         else:
-            name: str = resource_attributes['name']
+            name: str = resource_data['name']
             qualified_name = name
-            project_id = resource_attributes.get("project_id")
+            project_id = resource_data.get("project_id")
             if project_id:
                 registry: Registry = context.get_property(REGISTRY_PROPERTY_NAME)
                 project_resource_type = registry.lookup_resource_type(GCP_PLATFORM, "project")
@@ -73,7 +74,7 @@ class GCPPlatformHandler(PlatformHandler):
                             break
                 qualified_name = f"{project_id}/{name}"
 
-        return name, qualified_name
+        return name, qualified_name, resource_attributes
 
     def get_level_of_detail(self, resource: Resource) -> Optional[LevelOfDetail]:
         project = get_project(resource)

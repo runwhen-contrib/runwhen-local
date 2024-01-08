@@ -283,7 +283,7 @@ def index(context: Context):
                         # resource_name = None
                         for table_row in table_rows:
                             # Combine the field descriptions and the row values to set up the resource attributes.
-                            resource_attributes = dict()
+                            resource_data = dict()
                             for i in range(len(field_descriptions)):
                                 attribute_name = field_descriptions[i][0]
                                 attribute_value = table_row[i]
@@ -291,7 +291,7 @@ def index(context: Context):
                                 # to convert to Python data, so that the data can be accessed/navigated
                                 # by match predicates and template variable expressions. If the data,
                                 # is not JSON, then an exception will be raised and ignored and we just
-                                # use the original value.
+                                # use the original string value.
                                 # FIXME: I think this should do the right thing for all expected values,
                                 # but there are tons of different CloudQuery platforms and tables that
                                 # I haven't looked at, so it's possible that there are cases where this
@@ -301,14 +301,15 @@ def index(context: Context):
                                         attribute_value = yaml.safe_load(attribute_value)
                                     except yaml.YAMLError as e:
                                         pass
-                                resource_attributes[attribute_name] = attribute_value
+                                resource_data[attribute_name] = attribute_value
                             # Call the platform handler to extract the name and qualified name from the
                             # resource attributes and possibly make alterations to the attributes.
-                            resource_name, qualified_resource_name = \
-                                platform_handler.process_resource_attributes(resource_attributes,
-                                                                             cq_resource_type_spec.resource_type_name,
-                                                                             platform_config_data,
-                                                                             context)
+                            resource_name, qualified_resource_name, resource_attributes = \
+                                platform_handler.parse_resource_data(resource_data,
+                                                                     cq_resource_type_spec.resource_type_name,
+                                                                     platform_config_data,
+                                                                     context)
+                            resource_attributes['resource'] = resource_data
                             registry.add_resource(cq_platform_spec.name,
                                                   cq_resource_type_spec.resource_type_name,
                                                   resource_name,

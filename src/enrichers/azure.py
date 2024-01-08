@@ -1,7 +1,5 @@
 from typing import Any, Optional
 
-import json
-
 from component import Context
 from resources import Resource, Registry, REGISTRY_PROPERTY_NAME
 from .generation_rule_types import PlatformHandler, LevelOfDetail
@@ -23,15 +21,17 @@ class AzurePlatformHandler(PlatformHandler):
     def __init__(self):
         super().__init__(AZURE_PLATFORM)
 
-    def process_resource_attributes(self,
-                                    resource_attributes: dict[str,Any],
-                                    resource_type_name: str,
-                                    platform_config_data: dict[str,Any],
-                                    context: Context) -> tuple[str, str]:
+    def parse_resource_data(self,
+                            resource_data: dict[str,Any],
+                            resource_type_name: str,
+                            platform_config_data: dict[str,Any],
+                            context: Context) -> tuple[str, str, dict[str, Any]]:
         # FIXME: This assumes that all Azure tables have name and id fields/attributes.
         # Seems likely, but not 100% sure this is a valid assumption.
-        name: str = resource_attributes['name']
+        name: str = resource_data['name']
         qualified_name = name
+        tags = resource_data.get('tags', dict())
+        resource_attributes = {'tags': tags}
         if resource_type_name == "resource_group":
             # Set the 'lod' (level-of-detail) resource attribute from the per-resource-group
             # setting in the Azure cloud config or set to the default value if it's unspecified
@@ -57,7 +57,7 @@ class AzurePlatformHandler(PlatformHandler):
             resource_attributes['lod'] = LevelOfDetail.construct_from_config(resource_group_lod_value) \
                 if resource_group_lod_value is not None else context.get_setting("DEFAULT_LOD")
         else:
-            id: str = resource_attributes['id']
+            id: str = resource_data['id']
             resource_groups_component_name = "resourceGroups/"
             resource_group_start = id.find(resource_groups_component_name)
             if resource_group_start >= 0:
@@ -96,17 +96,7 @@ class AzurePlatformHandler(PlatformHandler):
                                 break
                     qualified_name = f"{resource_group_name}/{name}"
 
-        # Slightly kludgy to modify the input attributes and return them as the attributes,
-        # but this works with the existing CloudQuery indexer and is unlikely to change and
-        # save the cost of making a copy of the attributes.
-        if "instance_view" in resource_attributes:
-            # The instance_view attribute corresponds most closely to the raw resource data
-            # that a gen rule author might want to probe. We rename it to "resource" to be
-            # consistent across different indexers and that's what the Kubernetes indexer uses.
-            resource_attributes['resource'] = resource_attributes.pop('instance_view')
-
-        del resource_attributes['name']
-        return name, qualified_name
+        return name, qualified_name, resource_attributes
 
     def get_level_of_detail(self, resource: Resource) -> Optional[LevelOfDetail]:
         resource_group = get_resource_group(resource)
@@ -128,12 +118,13 @@ class AzurePlatformHandler(PlatformHandler):
 
     def get_resource_property_values(self, resource: Resource, property_name: str) -> Optional[list[Any]]:
         property_name = property_name.lower()
+        tags = getattr(resource, "tags")
         if property_name == "tags":
-            return list(resource.tags.keys()) + list(resource.tags.values())
+            return list(tags.keys()) + list(tags.values())
         elif property_name == "tag-keys":
-            return list(resource.tags.keys())
+            return list(tags.keys())
         elif property_name == "tag-values":
-            return list(resource.tags.values())
+            return list(tags.values())
         else:
             # Note, the property value may be a path within the
             return None
