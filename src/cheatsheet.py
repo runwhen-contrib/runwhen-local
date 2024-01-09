@@ -392,28 +392,6 @@ def fetch_robot_source(parsed_runbook_config):
     file_path = os.path.join(local_path, robot_file_path)
     return file_path
 
-# def generate_slx_hints(runbook_path):
-#     """
-#     From the runbook path, find the SLX and generate text hints. 
-
-#     Args:
-#         runbook_path (str): The path to the runbook yaml. 
-
-#     Returns:
-#         Object 
-#     """
-#     parsed_slx=parse_yaml(runbook_path.replace('runbook', 'slx'))
-#     slx_hints = {}
-#     slx_hints["slug"] = f'{parsed_slx["spec"]["alias"]}'.replace(' ','-')
-#     slx_hints["icon"] = parsed_slx["spec"]["imageURL"] if "imageURL" in parsed_slx["spec"] else "https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/cloud_default.svg"    
-#     slx_hints["slx_short_name"] = f'{parsed_slx["metadata"]["name"]}'.split('--')[1].strip()
-#     slx_hints["nice_name"]=f'{parsed_slx["spec"]["alias"]}  '
-#     slx_hints["statement"]=f'{parsed_slx["spec"]["statement"]}'
-#     slx_hints["as_measured_by"]=f'<strong>As Measured By:</strong> {parsed_slx["spec"]["asMeasuredBy"]}'
-#     slx_hints["namespace"] = parsed_slx.get("spec", {}).get("additionalContext", {}).get("namespace", None)
-#     slx_hints["cluster"] = parsed_slx.get("spec", {}).get("additionalContext", {}).get("cluster", None)
-#     return slx_hints
-
 def generate_slx_hints(runbook_path):
     """
     From the runbook path, find the SLX and generate text hints, including specific tags from additionalContext.
