@@ -416,10 +416,10 @@ def fetch_robot_source(parsed_runbook_config):
 
 def generate_slx_hints(runbook_path):
     """
-    From the runbook path, find the SLX and generate text hints, including tags from additionalContext. 
+    From the runbook path, find the SLX and generate text hints, including specific tags from additionalContext.
 
     Args:
-        runbook_path (str): The path to the runbook yaml. 
+        runbook_path (str): The path to the runbook yaml.
 
     Returns:
         Object 
@@ -434,9 +434,12 @@ def generate_slx_hints(runbook_path):
         "as_measured_by": f'<strong>As Measured By:</strong> {parsed_slx["spec"]["asMeasuredBy"]}'
     }
 
-    # Create a dictionary of tags from additionalContext
+    # Define the list of specific tags you want to include
+    allowed_tags = ["namespace", "cluster", "project"]
+
+    # Create a dictionary of specific tags from additionalContext
     additional_context = parsed_slx.get("spec", {}).get("additionalContext", {})
-    slx_hints["tags"] = {key: value for key, value in additional_context.items()}
+    slx_hints["tags"] = {key: value for key, value in additional_context.items() if key in allowed_tags}
 
     return slx_hints
 
