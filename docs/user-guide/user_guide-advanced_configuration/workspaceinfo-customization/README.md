@@ -2,7 +2,7 @@
 
 RunWhen Local's primary configuration is provided in a file called `workspaceInfo.yaml`. This file is used to specify:&#x20;
 
-* Which cloud resources to discovery and index
+* Which resources to discover and index (currently supporting Kubernetes, Microsoft Azure, and Google Cloud Platform)
 * Which CodeCollection repositories to scan for applicable troubleshooting commands
 * Additional workspace customizations to apply if uploading to a [RunWhen Platform workspace](https://docs.runwhen.com/public/runwhen-platform/feature-overview/workspaces)
 
