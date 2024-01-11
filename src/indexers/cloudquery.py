@@ -230,9 +230,14 @@ def index(context: Context):
                 path = os.getenv("PATH")
                 env_vars["PATH"] = path
                 try:
-                    process_info = subprocess.run(["cloudquery", "sync", f"{cq_config_dir}"],
-                                                  capture_output=True,
-                                                  env=env_vars)
+                    if os.environ.get('DEBUG_LOGGING') == 'true':
+                        process_info = subprocess.run(["cloudquery", "--log-level", "debug", "sync", f"{cq_config_dir}"],
+                                                    capture_output=True,
+                                                    env=env_vars)
+                    else: 
+                        process_info = subprocess.run(["cloudquery", "sync", f"{cq_config_dir}"],
+                                                    capture_output=True,
+                                                    env=env_vars)                        
                     # Do some debug logging of the info from the CloudQuery run
                     stderr_text = process_info.stdout.decode('utf-8')
                     stdout_text = process_info.stderr.decode('utf-8')
