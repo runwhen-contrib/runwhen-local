@@ -229,7 +229,6 @@ def main():
     upload_token = None
     namespace_lods = None
     custom_definitions = dict()
-    personas = dict()
     code_collections = None
     cloud_config = None
 
@@ -295,7 +294,6 @@ def main():
                 namespaces = workspace_info.get("namespaces")
             namespace_lods = workspace_info.get('namespaceLODs')
             custom_definitions = workspace_info.get("custom", dict())
-            personas = workspace_info.get("personas", dict())
             code_collections = workspace_info.get("codeCollections")
             cloud_config = workspace_info.get("cloudConfig")
             if cloud_config:
@@ -325,8 +323,6 @@ def main():
         default_lod = os.getenv("WB_DEFAULT_LOD")
     if not namespace_lods:
         namespace_lods = os.getenv("WB_NAMESPACE_LODS")
-    if not personas:
-        personas = os.getenv("WB_PERSONAS")
     if not namespaces:
         namespaces_string = os.getenv("WB_NAMESPACES")
         if namespaces_string:
@@ -381,13 +377,10 @@ def main():
     else:
         map_customization_rules_path = os.path.join(base_directory, map_customization_rules)
 
-    output = args.output_path
-    if not output:
-        output = os.getenv('MB_OUTPUT')
-    output_path = os.path.join(base_directory, output)
-
-    if cheat_sheet_enabled:
-        status_file_path = os.path.join(output_path, ".status")
+    if len(args.output_path) == 0:
+        fatal("Name of output directory (--output arg) must not be empty.")
+    output_path = os.path.join(base_directory, args.output_path)
+    status_file_path = os.path.join(output_path, ".status")
 
     if args.command == RUN_COMMAND:
         request_data = dict()
@@ -436,8 +429,6 @@ def main():
             request_data['namespaceLODs'] = namespace_lods
         if custom_definitions:
             request_data['customDefinitions'] = custom_definitions
-        if personas:
-            request_data['personas'] = personas
         if namespaces:
             request_data['namespaces'] = namespaces
         if code_collections:

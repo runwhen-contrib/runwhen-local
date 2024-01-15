@@ -19,16 +19,11 @@ from enrichers.generation_rule_types import (
 from exceptions import WorkspaceBuilderException
 from resources import Registry, REGISTRY_PROPERTY_NAME, ResourceTypeSpec
 from utils import read_file, write_file
+from .common import CLOUD_CONFIG_SETTING
 
 logger = logging.getLogger(__name__)
 
 DOCUMENTATION = "Index resources using CloudQuery"
-
-CLOUD_CONFIG_SETTING = Setting("CLOUD_CONFIG",
-                               "cloudConfig",
-                               Setting.Type.DICT,
-                               "Configuration/credential info for the cloud input sources",
-                               dict())
 
 SETTINGS = (
     SettingDependency(CLOUD_CONFIG_SETTING, False),
