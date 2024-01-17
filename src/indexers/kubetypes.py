@@ -8,6 +8,9 @@ from typing import Optional
 # circular import issues, since they also need to be accessed by the
 # generation rules module. Should revisit the module dependencies at some
 # point to see if there's a way to clean up the module dependencies.
+# FIXME: The generation rules code should no longer import this, so it may
+# make sense to fold this back in to kubeapi.py and/or combine with
+# kubeapi_parsers.py.
 
 KUBERNETES_PLATFORM = "kubernetes"
 
