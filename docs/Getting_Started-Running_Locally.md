@@ -66,10 +66,6 @@ The **output directory** is shared so that you can easily review the generated c
 If using Podman with macOS, make sure`$workdir/output` resides in `/Users`.
 {% endhint %}
 
-{% hint style="warning" %}
-All keys with the value **placeholder** are required, but the value can be left as `placeholder` (they are only used when uploading content to the RunWhen platform for AI assisted troubleshooting)
-{% endhint %}
-
 {% tabs %}
 {% tab title="Kubernetes/GKE" %}
 ```
@@ -81,12 +77,8 @@ chmod -R 777 $workdir/shared
 
 cat <<EOF > $workdir/shared/workspaceInfo.yaml
 workspaceName: my-workspace
-# All content with [placeholder] is only updated
-# and auto-generated when using the RunWhen Platform
-# leave it as [placeholder] if only using RunWhen Local
-# See https://docs.runwhen.com/public/v/runwhen-local/user-guide/user_guide-advanced_configuration
 workspaceOwnerEmail: tester@my-company.com
-defaultLocation: placeholder
+defaultLocation: [placeholder]
 defaultLOD: 2
 namespaceLODs:
   kube-system: 0
@@ -96,20 +88,10 @@ custom:
   kubernetes_distribution: Kubernetes
   kubernetes_distribution_binary: kubectl
   
-  # Possible values are gcp, aws, none
-  cloud_provider: gcp
-  
-  # Possible values are gmp, promql, none
-  prometheus_provider: gmp
-
-  # If using GCP and wanting to use GCP integrations  
-  gcp_project_id: placeholder 
-  
   # Secret names are used when integrating the RunWhen Platform
   # with your enviornment. RunWhen has no access to this data, 
   # as the secret name and content comes from your own configuration. 
   kubeconfig_secret_name: kubeconfig
-  gcp_ops_suite_sa: ops-suite-sa
 EOF
 chmod 655 $workdir/shared/workspaceInfo.yaml
 ```
@@ -156,7 +138,7 @@ EOF
 {% endtabs %}
 
 {% hint style="info" %}
-Everything in the workspaceInfo.yaml file that has a \[placeholder] beside it is not required for RunWhen Local to function . They are required when uploading configurations to the RunWhen Platform and are generated automatically when needed.
+Everything in the workspaceInfo.yaml file that has a \[placeholder] beside it is not required for RunWhen Local to perform discovery or render the Troubleshooting Cheat Sheet. These values are required, however, when [uploading](user-guide/features/upload-to-runwhen-platform.md) configurations to the RunWhen Platform (and are generated automatically when this activity is performed).
 {% endhint %}
 
 ### Generating your Kubeconfig
@@ -222,23 +204,42 @@ Run this command within the same terminal that was used to prepare $workdir.
 
 {% tabs %}
 {% tab title="Docker" %}
+{% code overflow="wrap" %}
 ```
 docker run --name RunWhenLocal -p 8081:8081 -v $workdir/shared:/shared -d ghcr.io/runwhen-contrib/runwhen-local:latest
 ```
+{% endcode %}
 {% endtab %}
 
-{% tab title="Podman Machine (macOS x86)" %}
+{% tab title="Podman (macOS x86)" %}
+{% code overflow="wrap" %}
 ```
 # Run the container image
 podman run --name RunWhenLocal -p 8081:8081 -v $workdir/shared:/shared  --userns=keep-id:uid=999,gid=999 ghcr.io/runwhen-contrib/runwhen-local:latest
 ```
+{% endcode %}
 {% endtab %}
 
-{% tab title="Podman Machine (macOS amd64)" %}
+{% tab title="Podman (macOS amd64)" %}
+{% code overflow="wrap" %}
 ```
 # Run the container image
 podman run --platform=linux/arm64 --name RunWhenLocal -p 8081:8081 -v $workdir/shared:/shared  --userns=keep-id:uid=999,gid=999 ghcr.io/runwhen-contrib/runwhen-local:latest
 ```
+{% endcode %}
+{% endtab %}
+
+{% tab title="Podman (Linux with SELinux)" %}
+{% hint style="info" %}
+With SELinux enabled, adding "--security-opt label=disable" can get things going quickly so to prevent access denied errors when the pod tries to access the shared volume mount.
+{% endhint %}
+
+{% code overflow="wrap" %}
+```
+# Run the container image
+podman run --platform=linux/arm64 --name RunWhenLocal -p 8081:8081 -v $workdir/shared:/shared --security-opt label=disable --userns=keep-id:uid=999,gid=999 ghcr.io/runwhen-contrib/runwhen-local:latest
+```
+{% endcode %}
 {% endtab %}
 {% endtabs %}
 
