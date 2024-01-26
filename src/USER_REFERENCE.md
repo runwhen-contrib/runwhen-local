@@ -61,8 +61,8 @@ above table for reference purposes.
 The primary configuration file is the workspace info file, typically named workspaceInfo.yaml.
 It contains information about:
 * basic information for creating the RunWhen workspace
-* cloud platforms to scan to discover resources and credentials for accessing them
-* RunWhen code collections to scan for matching code bundles
+* which cloud platforms to scan to discover resources and credentials for accessing them
+* which RunWhen code collections to scan for matching code bundles
 * custom information used by specific code bundles
 
 The top-level structure of the workspace info file is:
@@ -89,7 +89,7 @@ custom:
   prometheus_provider: gmp
   # More custom configuration
 ```
-### Workspace Configuration Info
+### Basic Workspace Configuration Info
 There are several settings that are used to configure information in the workspace that's generated to be uploaded to the RunWhen platform to. The available settings are:
 
 | Label               | Description                                             |
@@ -112,11 +112,11 @@ The currently supported platforms are Kubernetes, Azure, and GCP.
 #### Kubernetes
 The supported fields for Kubernetes (block name = "kubernetes) are:
 
-| Field Name | Description                                                                 |
-|------|-----------------------------------------------------------------------------|
-| kubeconfig | The name of the kubeconfig file to use                                      |
-| namespaceLODs | Object/dictionary specifying level of detail values for specific namespaces |
-| namespaces | An explicit list of which namespaces to scan for resources                  |
+| Field Name     | Description                                                                 |
+|----------------|-----------------------------------------------------------------------------|
+| kubeconfigFile | The name of the kubeconfig file to use                                      |
+| namespaceLODs  | Object/dictionary specifying level of detail values for specific namespaces |
+| namespaces     | An explicit list of which namespaces to scan for resources                  |
 
 For the "kubeconfig" field you need to copy that file into the shared directory and the field value is
 just the name of that file.
@@ -142,8 +142,8 @@ The supported fields for Azure (block name = "azure") are:
 
 The first four fields are necessary for authenticating to Azure to index/discover resources. The workspace
 builder uses CloudQuery under the covers to do the indexing for Azure. The documentation for the
-Azure plugin to CloudQuery (TODO: link) contains more information about those fields and how to
-generate them using the Azure CLI.
+Azure plugin to CloudQuery (https://hub.cloudquery.io/plugins/source/cloudquery/azure/v11.4.2/docs)
+contains more information about those fields and how to generate them using the Azure CLI.
 
 The resourceGroupLevelOfDetails fields is similar to the namespaceLODs field for the Kubernetes plugin.
 The key/field name is the name of the resource group and the value is the level of detail value.
@@ -159,7 +159,8 @@ The supported fields for GCP (block name = "gcp") are:
 
 The "applicationCredentialsFile" is the name of the file in the shared directory to use to authenticate to GCP.
 This file is created/downloaded using the GCP CLI or web GUI. Similar to Azure, the GCP support is based on
-CloudQuery, so the documentation page for the CloudQuery GCP plugin (TODO: link) contains more details about
+CloudQuery, so the documentation page for the CloudQuery GCP plugin
+(https://hub.cloudquery.io/plugins/source/cloudquery/gcp/v11.5.1/docs) contains more details about
 the credentials file.
 
 The "projects" fields specifies the list of projects to index. In that case the application credentials
@@ -191,7 +192,7 @@ collection item in the list can be specified with either a simple string or a co
 collection object/block with info about the target code collection.
 
 For the string specification the string is just the URL of the git repo. The string can
-also be the special "defaults" value, which enables all of the built-in code collections.
+also be the special "defaults" value, which enables all the built-in code collections.
 This is useful if you want to enable most of the built-in code collections, but
 suppress/blacklist some of them. If you prefix the git URL with a "!" character, then
 that means to exclude that code collection rather than enable it. When using the string
@@ -222,7 +223,25 @@ field defaults to "include" you can just omit it for that use case.
 
 The "codeBundles" field is just a list of the names of the code bundles to enable. The code
 bundle name is the directory name of the code bundle in the codebundles directory in the code
-collection. TODO: Need to flesh this out a bit.
+collection. This field is optional. If it's omitted, then all code bundles are enabled. The
+code bundle value can be a file glob expression like you can use is the command line shell,
+so you can have wildcard expressions that match multiple code bundles. TODO: would be nice
+to have some examples here.
+
+The custom code collection configuration is useful for code collection authors. For new
+third-party code collections you can just add the new code collection to the list. If
+you're developing/testing a single code bundle, you can limit the workspace builder to
+just that code bundle:
+```yaml
+codeCollections:
+- repoURL: https://github.com/author-account/my-custom-code-collection.git
+  codeBundles:
+  - my-code-bundle
+```
+If you're developing new code bundles for one of the standard RunWhen code collections, then
+the easiest way to handle that is to fork the RunWhen repo and then stage your new code bundle
+code in the fork. Remember that you need to commit any changes you make to your local clone
+and push to the GitHub repo to make the new code accessible to the workspace builder.
 
 ### Custom Code Bundle Configuration
 Individual code bundles may require additional information to generate the SLX files in the generated workspace.
@@ -277,58 +296,20 @@ spec:
     verb: # Relationship/dependency direction, either "dependent-on" or "depended-on-by"
     matches: # Boolean predicate that matches other groups that are related to the subject group
 ```
-### SLX Groupings
 
-The RunWhen platform workspace/map GUI lets you group together related SLXs. These groupings may be
-based on the cloud platform scope or some related functionality. The style of grouping is a
-user preference and, in general, the workspace builder doesn't have the requisite  domain knowledge
-about the target cloud application to know how to group things, so it must be configured by the user
-in a "groupRules" block in a map customization file containing one or more group rules.
+### Match Predicates
+Both types of customization rules make use of a YAML structured object representing a boolean match predicate
+expression. All predicates have a common "type" field that indicates the type of the match predicate,
+i.e. a polymorphic type indicator. The leaf predicates that do the actual matching use regular
+expression to match against attributes of some target object, either an SLX instance (for SLX
+groupings) or group name (for group dependency relationships). Those match predicates are
+discussed in the following sections that discuss the different customizations.
 
-Each group rule contains two fields:
-
-| Field Name | Description                                                                    |
-|------------|--------------------------------------------------------------------------------|
-| match      | Boolean predicate that matches generated SLXs to assign to the specified group |
-| group      | Name of the group to which to assign the matching SLXs                         |
-
-The match predicate is a nested object representing a boolean predicate expression. All predicates
-have a common "type" field that indicates the type of the match predicate, e.g. a polymorphic type indicator.
-The predicate type that actually matches things is a "pattern" predicate. The fields of a pattern
-predicate are:
-
-| Field Name | Description                                                                               |
-|------------|-------------------------------------------------------------------------------------------|
-| type       | value is "pattern" for a pattern predicate                                                |
-| matchType  | Which property of a candidate SLX to match on (should probably be named matchProperty?)   |
-| pattern    | A regular expression pattern to match against the indicated matchType property of the SLX |
-| matchMode  | Type of match operation, either "substring" or "exact"; defaults to "substring"           |
-
-The supported values for the matchType are:
-
-| Type/Property Name | Description                                                                |
-|--------------------|----------------------------------------------------------------------------|
-| name               | Shortened name of the SLX                                                  |
-| qualified-name     | Qualified name of the SLX                                                  |
-| base-name          | Base name of the candidate SLX, minus any resource-specific qualifiers     |
-| full-name          | Full (unshortened) name of the SLX                                         |
-| <resource-path>    | A path in the full data of the discovered resource associated with the SLX |
-
-TODO: Need more information about the differences between the different matchType names.
-
-The pattern field uses the Python regular expression syntax (https://docs.python.org/3/library/re.html)
-
-The values for the "matchMode" field are:
-
-| Value     | Description                                                            |
-|-----------|------------------------------------------------------------------------|
-| substring | Matches if any substring of the matchType property matches the pattern |
-| exact     | Matches if the full name of the matchType property matches the pattern |
-
-Pattern predicates can also be combined with various boolean compound expressions.
+Additionally, there are predicate that combine child predicates in the usual boolean logical
+operations.
 
 The boolean AND operation is supported with an "and" predicate type. The predicate evaluates
-to true only if all of the child match predicates evaluate to true. The format is:
+to true only if all the child match predicates evaluate to true. The format is:
 
 | Field Name | Description                                |
 |------------|--------------------------------------------|
@@ -336,7 +317,7 @@ to true only if all of the child match predicates evaluate to true. The format i
 | matches    | List of child match predicates             |
 
 The boolean OR operation is supported with an "or" predicate type. The predicate evaluates
-to true if any of the child match predicates evaluate to true. The format is:
+to true if any of the child match predicates evaluates to true. The format is:
 
 | Field Name | Description                              |
 |------------|------------------------------------------|
@@ -351,6 +332,74 @@ evaluates to true if the child predicate evaluates to false. The format is:
 | type       | Value is "not" for a boolean NOT operation |
 | predicate  | Child match predicate                      |
 
-### Group Relationships
+### SLX Groups
 
-TODO
+The RunWhen platform workspace/map GUI lets you group together related SLXs. These groupings may be
+based on the cloud platform scope or some related functionality. The style of grouping is a
+user preference and, in general, the workspace builder doesn't have the requisite  domain knowledge
+about the target cloud application to know how to group things, so it must be configured by the user
+in a "groupRules" block in a map customization file containing one or more group rules. The
+workspace builder does have some simple standard group rules, but it is likely that users will
+have a different grouping model of their application and will want to override the defaults.
+
+Each group rule contains two fields:
+
+| Field Name | Description                                                                    |
+|------------|--------------------------------------------------------------------------------|
+| match      | Boolean predicate that matches generated SLXs to assign to the specified group |
+| group      | Name of the group to which to assign the matching SLXs                         |
+
+The "match" field is a match predicate described above.
+
+The predicate type that actually matches things is a "pattern" predicate. The fields of a pattern
+predicate are:
+
+| Field Name | Description                                                                               |
+|------------|-------------------------------------------------------------------------------------------|
+| type       | value is "pattern" for a pattern predicate                                                |
+| matchType  | Which property of a candidate SLX to match on (should probably be named matchProperty?)   |
+| pattern    | A regular expression pattern to match against the indicated matchType property of the SLX |
+| matchMode  | Type of match operation, either "substring" or "exact"; defaults to "substring"           |
+
+The supported values for the matchType are:
+
+| Type/Property Name | Description                                                                 |
+|--------------------|-----------------------------------------------------------------------------|
+| name               | Shortened name of the SLX                                                   |
+| qualified-name     | Qualified name of the SLX                                                   |
+| full-name          | Full (unshortened) name of the SLX                                          |
+| base-name          | Base name of the candidate SLX, i.e. minus any resource-specific qualifiers |
+| <resource-path>    | A path in the full data of the discovered resource associated with the SLX  |
+
+The "name" field is the name in the Kubernetes custom resource file. It is typically a shortened,
+not super human-friendly name including the workspace name, so you will typically not want to match on this.
+
+The "qualified name" is the same as the name field, minus the workspace name. Similary, it's not
+super-friendly, so not typically what you want to match on.
+
+The "full-name" is the full name of the SLX, not including the workspace name, and also not
+doing any shortening/mangling of the qualifier values.
+
+The "base-name" is the base name of the SLX, minus the resource-dependent qualifier values. This
+is the most common field to match, since it typically contains some indication of the
+component/purpose associated with the SLX.
+
+If the matchType value doesn't match one of these built-in values, then it is interpreted as
+a path expression into the raw resource data. The path expression is a slash-separated list
+of path components in the resource data. If one of the components in the path is a list,
+then the rest of the path is evaluated against each of the elements in the list and if
+any of them matches, then it's considered a match.
+
+The raw resource data is very platform and resource type dependent, so consult the documentation
+for the specific platforms for information about the structure of the data.
+
+The "pattern" field uses the Python regular expression syntax (https://docs.python.org/3/library/re.html)
+
+The values for the "matchMode" field are:
+
+| Value     | Description                                                            |
+|-----------|------------------------------------------------------------------------|
+| substring | Matches if any substring of the matchType property matches the pattern |
+| exact     | Matches if the full name of the matchType property matches the pattern |
+
+### Group Relationships
