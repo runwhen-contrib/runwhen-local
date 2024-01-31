@@ -86,9 +86,9 @@ class KubernetesPlatformHandler(PlatformHandler):
             return list(resource.labels.values())
         elif property_name == "annotations":
             return list(resource.annotations.keys()) + list(resource.annotations.values())
-        elif property_name == "annotations-keys":
+        elif property_name == "annotation-keys":
             return list(resource.annotations.keys())
-        elif property_name == "annotations-values":
+        elif property_name == "annotation-values":
             return list(resource.annotations.values())
         else:
             return None

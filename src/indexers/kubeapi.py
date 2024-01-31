@@ -138,8 +138,6 @@ def index(component_context: Context):
         # If no kubeconfig file was specified, then there's nothing to index and we can just return.
         if not kubeconfig_path:
             logger.info("No Kubernetes configuration found, so skipping Kubernetes indexing")
-            if temp_directory:
-                temp_directory.cleanup()
             return
 
         default_lod = component_context.get_setting("DEFAULT_LOD")
