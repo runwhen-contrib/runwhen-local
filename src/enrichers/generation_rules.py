@@ -981,18 +981,4 @@ def enrich(context: Context) -> None:
     output_item = RendererOutputItem(path, "workspace.yaml", workspace_template_variables)
     renderer_output_items[path] = output_item
 
-    # Generate the personas
-    persona_data = context.get_setting("PERSONAS")
-    if persona_data:
-        for short_name, data in persona_data.items():
-            persona_template_variables = {
-                'workspace': workspace,
-                'short_name': short_name,
-                'custom': custom_definitions
-            }
-            persona_template_variables.update(data)
-            path = f"{workspace_path}/personas/{short_name}.yaml"
-            output_item = RendererOutputItem(path, "persona.yaml", persona_template_variables)
-            renderer_output_items[path] = output_item
-
     logger.debug("Ending generation_rules.enrich")

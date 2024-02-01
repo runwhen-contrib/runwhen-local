@@ -19,16 +19,11 @@ from enrichers.generation_rule_types import (
 from exceptions import WorkspaceBuilderException
 from resources import Registry, REGISTRY_PROPERTY_NAME, ResourceTypeSpec
 from utils import read_file, write_file
+from .common import CLOUD_CONFIG_SETTING
 
 logger = logging.getLogger(__name__)
 
 DOCUMENTATION = "Index resources using CloudQuery"
-
-CLOUD_CONFIG_SETTING = Setting("CLOUD_CONFIG",
-                               "cloudConfig",
-                               Setting.Type.DICT,
-                               "Configuration/credential info for the cloud input sources",
-                               dict())
 
 SETTINGS = (
     SettingDependency(CLOUD_CONFIG_SETTING, False),
@@ -230,9 +225,14 @@ def index(context: Context):
                 path = os.getenv("PATH")
                 env_vars["PATH"] = path
                 try:
-                    process_info = subprocess.run(["cloudquery", "sync", f"{cq_config_dir}"],
-                                                  capture_output=True,
-                                                  env=env_vars)
+                    if os.environ.get('DEBUG_LOGGING') == 'true':
+                        process_info = subprocess.run(["cloudquery", "--log-level", "debug", "sync", f"{cq_config_dir}"],
+                                                    capture_output=True,
+                                                    env=env_vars)
+                    else: 
+                        process_info = subprocess.run(["cloudquery", "sync", f"{cq_config_dir}"],
+                                                    capture_output=True,
+                                                    env=env_vars)                        
                     # Do some debug logging of the info from the CloudQuery run
                     stderr_text = process_info.stdout.decode('utf-8')
                     stdout_text = process_info.stderr.decode('utf-8')

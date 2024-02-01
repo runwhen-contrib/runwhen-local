@@ -23,12 +23,10 @@ if not git_repo_root:
 
 
 BASE_REQUEST_DATA = {
-    "namespaceLODs": {"kube-system": 0, "kube-public": 0},
     "defaultLOD": 2,
     "defaultWorkspaceName": "my-workspace",
     "workspaceName": "my-workspace",
     "workspaceOwnerEmail": "test@runwhen.com",
-    "kubeconfig": "kubeconfig",
     "workspaceOutputPath": "workspace",
     "defaultLocation": "northamerica-northeast2-01",
     "mapCustomizationRules": "map-customization-rules-test",
@@ -65,10 +63,10 @@ BASE_REQUEST_DATA = {
     #             "WorkspaceBuilderTesting": "basic"
     #         }
     #     },
-    #     # "kubernetes": {
-    #     #     "kubeconfig": "kubeconfig",
-    #     #     "namespaceLODs": {"kube-system": 0, "kube-public": 0},
-    #     # }
+        "kubernetes": {
+            "kubeconfigFile": "kubeconfig",
+            "namespaceLODs": {"kube-system": 0, "kube-public": 0},
+        }
     #     "gcp": {
     #         "applicationCredentialsFile": "GCPServiceAccountKeyWorkspaceBuilder.json",
     #         "projects": ["iron-radio-408515"],
