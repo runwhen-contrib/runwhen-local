@@ -37,7 +37,30 @@ class LevelOfDetail(Enum):
 
 
 class PlatformHandler:
+    """
+    This is the class/interface that's called by the generation rules code to handle
+    any platform-specific logic, so that the generic generation rules code does not
+    have any dependencies on any specific platform. This was created as a pretty
+    direct refactoring of the code that existed in the initial version that only
+    supported Kubernetes and had lots of Kubernetes dependencies in the
+    generation rules code. There's a certain amount of redundancy in the methods
+    that are defined that could probably be cleaned up with another pass over the
+    code.
 
+    Also, initially this was only called by the generation rules code, but the
+    CloudQuery indexer also needed to have some platform-specific logic to handle
+    certain indexing features. Instead of having a completely separate platform
+    handler mechanism for the indexing those methods were just rolled into this
+    class. That does make things a little kludgy, though, because it means this
+    is used from both the indexer and enricher (generation rules) phases of the
+    workspace builder execution. For historical reasons this code is in the
+    enricher directory, but that's sort of arbitrary.
+
+    TODO: Should give some more thought to how the code is organized and
+    whether the overlap between the indexer and enricher phases is enough of a
+    problem that it would justify the complexity of having parallel platform
+    handler classes for the different phases. Probably not, at least at this point.
+    """
     name: str
 
     def __init__(self, name: str):
