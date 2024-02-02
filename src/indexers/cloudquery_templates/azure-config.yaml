@@ -3,7 +3,8 @@ spec:
   # Source spec section
   name: "azure"
   path: "cloudquery/azure"
-  version: "v11.4.2"
+  version: "v11.4.3"
+  registry: "cloudquery"
   destinations: ["{{destination_plugin_name}}"]
   tables: [
     {% for table_name in tables %}

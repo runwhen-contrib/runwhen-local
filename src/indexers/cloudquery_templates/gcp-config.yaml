@@ -3,6 +3,7 @@ spec:
   name: "gcp"
   path: "cloudquery/gcp"
   version: "v11.5.1"
+  registry: "cloudquery"
   destinations: ["{{destination_plugin_name}}"]
   tables: [
     {% for table_name in tables %}

@@ -113,7 +113,7 @@ RUN wget -O /tmp/oc.tar.gz https://mirror.openshift.com/pub/openshift-v4/clients
     && rm /tmp/oc.tar.gz
 
 # Download the cloudquery CLI
-RUN curl -L https://github.com/cloudquery/cloudquery/releases/download/cli-v3.19.4/cloudquery_linux_amd64 -o /usr/local/bin/cloudquery \
+RUN curl -L https://github.com/cloudquery/cloudquery/releases/download/cli-v5.3.0/cloudquery_linux_amd64 -o /usr/local/bin/cloudquery \
     && chmod a+x /usr/local/bin/cloudquery
 
 # RunWhen customizations
