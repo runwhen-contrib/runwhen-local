@@ -1,4 +1,4 @@
-FROM node:20-bullseye-slim AS node-base
+FROM node:21.6.1-bullseye-slim AS node-base
 
 RUN apt-get update && apt-get install -y \
     python3 \
