@@ -389,6 +389,10 @@ class SLX:
             self.shortened_base_name = self.base_name
         self.base_template_name = slx_config.get('baseTemplateName')
         self.qualifiers = slx_config.get('qualifiers', list())
+        # FIXME: This full name attribute assignment seems suspect.
+        # How can you get a full name without having a matching resource?
+        # Is this full_name value ever actually used?
+        # It looks like it's not, but need to double-check.
         self.full_name = make_qualified_slx_name(self.base_name, self.qualifiers, None)
         level_of_detail_value = slx_config.get("levelOfDetail", LevelOfDetail.DETAILED.name)
         self.level_of_detail = LevelOfDetail[level_of_detail_value.upper()]
