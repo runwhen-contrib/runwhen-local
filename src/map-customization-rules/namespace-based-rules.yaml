@@ -88,3 +88,9 @@ spec:
         pattern: "loki-hlthck"
         matchMode: substring
       group: "{{namespace.name}} ({{cluster.name}})"
+    - match:
+        type: pattern
+        matchType: base-name
+        pattern: "gitops-gh-fix"
+        matchMode: substring
+      group: "{{namespace.name}} ({{cluster.name}})"
