@@ -63,7 +63,7 @@ class Platform:
         self.resource_types = dict()
 
 
-@dataclass
+@dataclass(unsafe_hash=True)
 class ResourceTypeSpec:
     """
     Specification of a resource type. This is basically just the combination of the

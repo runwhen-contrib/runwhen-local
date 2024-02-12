@@ -17,6 +17,7 @@ from enrichers.generation_rule_types import (
     PLATFORM_HANDLERS_PROPERTY_NAME,
     RESOURCE_TYPE_SPECS_PROPERTY
 )
+from enrichers.generation_rules import GenerationRuleInfo
 from exceptions import WorkspaceBuilderException
 from resources import Registry, REGISTRY_PROPERTY_NAME, ResourceTypeSpec
 from utils import read_file, write_file
@@ -199,10 +200,11 @@ def init_cloudquery_table_info():
             premium_tables = get_premium_tables(table_doc_data)
             cloudquery_premium_table_info[platform_spec.name] = premium_tables
 
-def init_cloudquery_config(cloud_config_data: dict[str, Any],
+def init_cloudquery_config(context: Context,
+                           cloud_config_data: dict[str, Any],
                            cloud_config_dir: str,
                            db_file_path: str,
-                           accessed_resource_type_specs: dict[str, list[ResourceTypeSpec]]
+                           accessed_resource_type_specs: dict[str, dict[ResourceTypeSpec, list[GenerationRuleInfo]]]
                            ) -> tuple[dict[str, str], list[tuple[CloudQueryPlatformSpec, list[CloudQueryResourceTypeSpec]]]]:
     cq_process_environment_vars = dict()
 
@@ -240,7 +242,8 @@ def init_cloudquery_config(cloud_config_data: dict[str, Any],
 
         # cq_resource_type_spec.resource_type_name not in added_mandatory_resource_type_specs
         premium_tables = cloudquery_premium_table_info.get(platform_spec.name, list())
-        for resource_type_spec in accessed_resource_type_specs.get(platform_name, list()):
+        platform_accessed_resource_type_specs = accessed_resource_type_specs.get(platform_name, dict())
+        for resource_type_spec, generation_rule_infos in platform_accessed_resource_type_specs.items():
             resource_type_name = resource_type_spec.resource_type_name
             for cq_resource_type_spec in platform_spec.resource_type_specs:
                 if cq_resource_type_spec.resource_type_name == resource_type_name:
@@ -264,8 +267,16 @@ def init_cloudquery_config(cloud_config_data: dict[str, Any],
                     # them to go through the docker container logs, which they may not even have
                     # access to. So there should be a mechanism for accumulating warning messages
                     # in the context that are then reported back in the response.
-                    logger.warning('Suppressing access to premium table "%s"; '
-                                   'an account and API key is required for access.")', table_name)
+                    premium_table_warning = f'Suppressing access to premium table "{table_name}"; ' \
+                                            f'an account and API key is required for access.")'
+                    logger.warning(premium_table_warning)
+                    context.add_warning(premium_table_warning)
+                    for generation_rule_info in generation_rule_infos:
+                        generation_rule_info_str = generation_rule_info.get_info_string()
+                        suppressed_gen_rule_warning = f'Suppressing generation rule due to access to premium table: ' \
+                                                      f'table="{table_name}"; {generation_rule_info_str}'
+                        logger.warning(suppressed_gen_rule_warning)
+                        context.add_warning(suppressed_gen_rule_warning)
                 else:
                     cq_resource_type_specs.append(cq_resource_type_spec)
                     if table_name not in tables:
@@ -327,14 +338,8 @@ def index(context: Context):
     cloud_config = context.get_setting("CLOUD_CONFIG")
     if cloud_config:
         platform_handlers: dict[str, PlatformHandler] = context.get_property(PLATFORM_HANDLERS_PROPERTY_NAME)
-        accessed_resource_type_specs: dict[str, list[ResourceTypeSpec]] = context.get_property(RESOURCE_TYPE_SPECS_PROPERTY)
-
-        # FIXME: Debugging code; remove/disable before committing
-        # Current hack to test the checks for premium tables, since currently there aren't
-        # any generation rules that access any premium tables
-        # azure_resource_type_specs = accessed_resource_type_specs.get('azure')
-        # premium_table_resource_spec = ResourceTypeSpec("azure", "azure_monitor_action_groups")
-        # azure_resource_type_specs.append(premium_table_resource_spec)
+        accessed_resource_type_specs: dict[str, dict[ResourceTypeSpec, list[GenerationRuleInfo]]] = \
+            context.get_property(RESOURCE_TYPE_SPECS_PROPERTY)
 
         registry: Registry = context.get_property(REGISTRY_PROPERTY_NAME)
         with tempfile.TemporaryDirectory() as cq_temp_dir:
@@ -350,7 +355,8 @@ def index(context: Context):
 
             # Create the CloudQuery source/destination config files
             sqlite_database_file_path = os.path.join(cq_temp_dir, "db.sql")
-            env_vars, cq_platform_infos = init_cloudquery_config(cloud_config,
+            env_vars, cq_platform_infos = init_cloudquery_config(context,
+                                                                 cloud_config,
                                                                  cq_config_dir,
                                                                  sqlite_database_file_path,
                                                                  accessed_resource_type_specs)

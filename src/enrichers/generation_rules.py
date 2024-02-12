@@ -118,14 +118,19 @@ def get_resources(context: Context, resource_type_spec: ResourceTypeSpec) -> Seq
     return resources
 
 def update_resource_type_specs(resource_type_spec: ResourceTypeSpec,
-                               resource_type_specs: dict[str, list[ResourceTypeSpec]]):
+                               generation_rule_info: "GenerationRuleInfo",
+                               resource_type_specs: dict[str, dict[ResourceTypeSpec, list["GenerationRuleInfo"]]]):
     platform_name = resource_type_spec.platform_name
     platform_resource_type_specs = resource_type_specs.get(platform_name)
     if not platform_resource_type_specs:
-        platform_resource_type_specs = list()
+        platform_resource_type_specs = dict()
         resource_type_specs[platform_name] = platform_resource_type_specs
-    if resource_type_spec not in platform_resource_type_specs:
-        platform_resource_type_specs.append(resource_type_spec)
+    generation_rule_infos = platform_resource_type_specs.get(resource_type_spec)
+    if not generation_rule_infos:
+        generation_rule_infos = list()
+        platform_resource_type_specs[resource_type_spec] = generation_rule_infos
+    if generation_rule_info not in generation_rule_infos:
+        generation_rule_infos.append(generation_rule_info)
 
 
 @dataclass
@@ -242,9 +247,9 @@ class ResourcePropertyMatchPredicate(MatchPredicate):
         else:
             return self.matches_resource(resource, context)
 
-    def collect_resource_type_specs(self, resource_type_specs):
+    def collect_resource_type_specs(self, generation_rule_info, resource_type_specs):
         if self.resource_type_spec:
-            update_resource_type_specs(self.resource_type_spec, resource_type_specs)
+            update_resource_type_specs(self.resource_type_spec, generation_rule_info, resource_type_specs)
 
 
 class ResourcePathExistsMatchPredicate(MatchPredicate):
@@ -533,6 +538,17 @@ class GenerationRuleInfo:
         self.generation_rule_file_spec = generation_rule_file_spec
         self.code_collection = code_collection
 
+    def get_info_string(self) -> str:
+        code_collection_url = self.code_collection.repo_url
+        code_bundle_name = self.generation_rule_file_spec.code_bundle_name
+        generation_rule_file_name = self.generation_rule_file_spec.generation_rule_file_name
+        slx_base_names = [f'"{slx.base_name}"' for slx in self.generation_rule.slxs]
+        slx_base_names_str = ",".join(slx_base_names)
+        return f'code-collection="{code_collection_url}"; ' \
+               f'code-bundle="{code_bundle_name}"; ' \
+               f'generation-rule-file-name="{generation_rule_file_name}"; ' \
+               f'slx-base-names=[{slx_base_names_str}]'
+
 
 def get_template_variables(output_item: OutputItem,
                            resource: Resource,
@@ -782,10 +798,15 @@ def generate_slx_output_items(slx_info: SLXInfo,
 
 class CollectResourceTypeSpecsVisitor(MatchPredicateVisitor):
 
+    generation_rule_info: Optional[GenerationRuleInfo]
     resource_type_specs: dict[str, list[ResourceTypeSpec]]
 
     def __init__(self, resource_type_specs: dict[str, list[ResourceTypeSpec]]):
+        self.generation_rule_info = None
         self.resource_type_specs = resource_type_specs
+
+    def set_generation_rule_info(self, generation_rule_info: GenerationRuleInfo):
+        self.generation_rule_info = generation_rule_info
 
     def visit(self, match_predicate: "MatchPredicate"):
         try:
@@ -793,7 +814,7 @@ class CollectResourceTypeSpecsVisitor(MatchPredicateVisitor):
             # Could have a MatchPredicate subclass that defines the collect_resource_type_specs
             # that anything that supported that method would derive from. Then we could
             # use isinstance and cast to that. Or something like that...
-            match_predicate.collect_resource_type_specs(self.resource_type_specs)
+            match_predicate.collect_resource_type_specs(self.generation_rule_info, self.resource_type_specs)
         except AttributeError:
             # This match predicate didn't implement the collect_resource_type_specs
             # method so just ignore the error.
@@ -815,7 +836,7 @@ def load(context: Context) -> None:
 
     slxs_by_shortened_base_name = dict()
     generation_rules = list()
-    resource_type_specs: dict[str, list[ResourceTypeSpec]] = dict()
+    resource_type_specs: dict[str, dict[ResourceTypeSpec, list[GenerationRuleInfo]]] = dict()
     collect_resource_types_visitor = CollectResourceTypeSpecsVisitor(resource_type_specs)
 
     for code_collection_config in code_collection_configs:
@@ -851,7 +872,8 @@ def load(context: Context) -> None:
                             slxs_by_shortened_base_name[shortened_base_name] = slx_list
                         slx_list.append(slx)
                     for resource_type_spec in generation_rule.resource_type_specs:
-                        update_resource_type_specs(resource_type_spec, resource_type_specs)
+                        update_resource_type_specs(resource_type_spec, generation_rule_info, resource_type_specs)
+                        collect_resource_types_visitor.set_generation_rule_info(generation_rule_info)
                     generation_rule.match_predicate.accept(collect_resource_types_visitor)
 
     # Check for collisions in the generation of the shortened SLX base names

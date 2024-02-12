@@ -48,32 +48,32 @@ BASE_REQUEST_DATA = {
         # },
     ],
     "cloudConfig": {
-    #     "azure": {
-    #         # To enable testing of the cloudquery Azure indexing you need to
-    #         # define the 4 environments variables below either in the shell from
-    #         # which you're running the test or the run configuration in whatever
-    #         # IDE you're using. These environment variables are described in the
-    #         # documentation for the CloudQuery Azure plugin:
-    #         # https://hub.cloudquery.io/plugins/source/cloudquery/azure/v9.3.7/docs
-    #         "subscriptionId": os.getenv("WB_AZURE_SUBSCRIPTION_ID"),
-    #         "tenantId": os.getenv("WB_AZURE_TENANT_ID"),
-    #         "clientId": os.getenv("WB_AZURE_CLIENT_ID"),
-    #         "clientSecret": os.getenv("WB_AZURE_CLIENT_SECRET"),
-    #         "resourceGroupLevelOfDetails": {
-    #             "WorkspaceBuilderTesting": "basic"
-    #         }
-    #     },
+        # "azure": {
+        #     # To enable testing of the cloudquery Azure indexing you need to
+        #     # define the 4 environments variables below either in the shell from
+        #     # which you're running the test or the run configuration in whatever
+        #     # IDE you're using. These environment variables are described in the
+        #     # documentation for the CloudQuery Azure plugin:
+        #     # https://hub.cloudquery.io/plugins/source/cloudquery/azure/v9.3.7/docs
+        #     "subscriptionId": os.getenv("WB_AZURE_SUBSCRIPTION_ID"),
+        #     "tenantId": os.getenv("WB_AZURE_TENANT_ID"),
+        #     "clientId": os.getenv("WB_AZURE_CLIENT_ID"),
+        #     "clientSecret": os.getenv("WB_AZURE_CLIENT_SECRET"),
+        #     "resourceGroupLevelOfDetails": {
+        #         "WorkspaceBuilderTesting": "basic"
+        #     }
+        # },
         "kubernetes": {
             "kubeconfigFile": "kubeconfig",
             "namespaceLODs": {"kube-system": 0, "kube-public": 0},
         }
-    #     "gcp": {
-    #         "applicationCredentialsFile": "GCPServiceAccountKeyWorkspaceBuilder.json",
-    #         "projects": ["iron-radio-408515"],
-    #         "projectLevelOfDetails": {
-    #            "iron-radio-408515": "basic"
-    #         }
-    #     }
+        # "gcp": {
+        #     "applicationCredentialsFile": "GCPServiceAccountKeyWorkspaceBuilder.json",
+        #     "projects": ["iron-radio-408515"],
+        #     "projectLevelOfDetails": {
+        #        "iron-radio-408515": "basic"
+        #     }
+        # }
     }
 }
 
@@ -161,6 +161,10 @@ class ProductionComponentTestCase(TestCase):
             shutil.rmtree(TEST_OUTPUT_DIRECTORY)
         os.makedirs(TEST_OUTPUT_DIRECTORY)
         archive.extractall(TEST_OUTPUT_DIRECTORY)
+        print(response_data.get("message"))
+        warnings = response_data.get("warnings")
+        for warning in warnings:
+            print("WARNING: " + warning)
 
     def test_generation_rules_workspace_gen(self):
         self.run_common("kubeapi,cloudquery,runwhen_default_workspace,generation_rules,render_output_items,dump_resources")

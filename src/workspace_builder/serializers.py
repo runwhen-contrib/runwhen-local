@@ -82,6 +82,7 @@ class DirectoryItemSerializer(CommonItemSerializer):
 
 class CommonRunResultSerializer(serializers.Serializer):
     message = serializers.CharField()
+    warnings = serializers.ListField(child=serializers.CharField())
     outputType = serializers.CharField(source="output_type")
 
 

@@ -142,7 +142,7 @@ def index(component_context: Context):
 
         default_lod = component_context.get_setting("DEFAULT_LOD")
         all_accessed_resource_type_specs = component_context.get_property(RESOURCE_TYPE_SPECS_PROPERTY)
-        accessed_resource_type_specs = all_accessed_resource_type_specs.get(KUBERNETES_PLATFORM)
+        accessed_resource_type_specs = all_accessed_resource_type_specs.get(KUBERNETES_PLATFORM, dict()).keys()
         registry: Registry = component_context.get_property(REGISTRY_PROPERTY_NAME)
 
         # NOTE: In theory we should just call kubernetes_config.load_config here to load
@@ -535,52 +535,51 @@ def index(component_context: Context):
                     #
                     # Index the custom resources
                     #
-                    if accessed_resource_type_specs:
-                        for resource_type_spec in accessed_resource_type_specs:
-                            if resource_type_spec.resource_type_name != KubernetesResourceType.CUSTOM.value:
+                    for resource_type_spec in accessed_resource_type_specs:
+                        if resource_type_spec.resource_type_name != KubernetesResourceType.CUSTOM.value:
+                            continue
+                        group = resource_type_spec.group
+                        version = resource_type_spec.version
+                        # FIXME: Some remaining inconsistencies between kind vs. plural_name.
+                        # Should probably change the field in ResourceTypeSpec to be plural_name, since
+                        # it's really not the same as the kind field of the resource.
+                        plural_name = resource_type_spec.kind
+                        if version:
+                            wildcard_spec = KubernetesResourceTypeSpec(KUBERNETES_PLATFORM,
+                                                                       KubernetesResourceType.CUSTOM.value,
+                                                                       group,
+                                                                       None,
+                                                                       plural_name)
+                            if wildcard_spec in accessed_resource_type_specs:
                                 continue
-                            group = resource_type_spec.group
-                            version = resource_type_spec.version
-                            # FIXME: Some remaining inconsistencies between kind vs. plural_name.
-                            # Should probably change the field in ResourceTypeSpec to be plural_name, since
-                            # it's really not the same as the kind field of the resource.
-                            plural_name = resource_type_spec.kind
-                            if version:
-                                wildcard_spec = KubernetesResourceTypeSpec(KUBERNETES_PLATFORM,
-                                                                           KubernetesResourceType.CUSTOM.value,
-                                                                           group,
-                                                                           None,
-                                                                           plural_name)
-                                if wildcard_spec in accessed_resource_type_specs:
-                                    continue
-                                versions = [version]
-                            else:
-                                group_version_info = group_version_infos.get(group)
-                                versions = group_version_info.versions if group_version_info else list()
-                            try:
-                                for version in versions:
-                                    ret = custom_objects_api_client.list_namespaced_custom_object(group=group,
-                                                                                                  version=version,
-                                                                                                  namespace=namespace_name,
-                                                                                                  plural=plural_name)
-                                    for raw_resource in ret['items']:
-                                        resource_name = raw_resource['metadata']['name']
-                                        custom_name = f"{plural_name}|{group}|{version}|{resource_name}"
-                                        custom_qualified_name = get_qualified_name(namespace_qualified_name, custom_name)
-                                        custom_attributes = kubeapi_parsers.parse_custom_resource(raw_resource,
-                                                                                                  group,
-                                                                                                  version,
-                                                                                                  plural_name)
-                                        custom_attributes["namespace"] = namespace
-                                        custom_resource = registry.add_resource(KUBERNETES_PLATFORM,
-                                                                                KubernetesResourceType.CUSTOM.value,
-                                                                                custom_name,
-                                                                                custom_qualified_name,
-                                                                                custom_attributes)
-                                        # namespace.resources.append(custom_resource)
-                            except ApiException as e:
-                                # Just log and continue, instead of raising a fatal exception.
-                                logger.info(f"Error scanning for custom resource instances; skipping and continuing; "
-                                            f"error: {e}, group={group}, kind={plural_name}")
+                            versions = [version]
+                        else:
+                            group_version_info = group_version_infos.get(group)
+                            versions = group_version_info.versions if group_version_info else list()
+                        try:
+                            for version in versions:
+                                ret = custom_objects_api_client.list_namespaced_custom_object(group=group,
+                                                                                              version=version,
+                                                                                              namespace=namespace_name,
+                                                                                              plural=plural_name)
+                                for raw_resource in ret['items']:
+                                    resource_name = raw_resource['metadata']['name']
+                                    custom_name = f"{plural_name}|{group}|{version}|{resource_name}"
+                                    custom_qualified_name = get_qualified_name(namespace_qualified_name, custom_name)
+                                    custom_attributes = kubeapi_parsers.parse_custom_resource(raw_resource,
+                                                                                              group,
+                                                                                              version,
+                                                                                              plural_name)
+                                    custom_attributes["namespace"] = namespace
+                                    custom_resource = registry.add_resource(KUBERNETES_PLATFORM,
+                                                                            KubernetesResourceType.CUSTOM.value,
+                                                                            custom_name,
+                                                                            custom_qualified_name,
+                                                                            custom_attributes)
+                                    # namespace.resources.append(custom_resource)
+                        except ApiException as e:
+                            # Just log and continue, instead of raising a fatal exception.
+                            logger.info(f"Error scanning for custom resource instances; skipping and continuing; "
+                                        f"error: {e}, group={group}, kind={plural_name}")
 
     logger.info("Finished Kubernetes indexing")

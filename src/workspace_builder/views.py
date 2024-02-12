@@ -100,7 +100,9 @@ class RunView(APIView):
 
             outputter.close()
             archive_bytes = outputter.get_bytes()
-            run_result = ArchiveRunResult("Run completed successfully. Output saved as archive data.", archive_bytes)
+            run_result = ArchiveRunResult("Workspace builder completed successfully.",
+                                          context.warnings,
+                                          archive_bytes)
         except Exception as e:
             # FIXME: This exception handling block is just for debugging. Can eventually get rid of it.
             next_exc = e

@@ -474,7 +474,11 @@ def main():
         archive = tarfile.open(fileobj=archive_file_obj, mode="r")
         archive.extractall(output_path)
 
-        print("Workspace data generated successfully.")
+        message = response_data.get("message", "Workspace data generated successfully.")
+        warnings = response_data.get("warnings", list())
+        print(message)
+        for warning in warnings:
+            print("WARNING: " + warning)
 
         # Add cheat-sheet integration, which points at the output items and
         # generates the list of local commands that exist in the TaskSet.
