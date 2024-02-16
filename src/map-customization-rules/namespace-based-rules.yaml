@@ -94,3 +94,15 @@ spec:
         pattern: "gitops-gh-fix"
         matchMode: substring
       group: "{{namespace.name}} ({{cluster.name}})"
+    - match:
+        type: pattern
+        matchType: base-name
+        pattern: "gitops-gh-fix"
+        matchMode: substring
+      group: "{{namespace.name}} ({{cluster.name}})"
+    - match:
+        type: pattern
+        matchType: base-name
+        pattern: "jaeger-http"
+        matchMode: substring
+      group: "{{namespace.name}} ({{cluster.name}})"

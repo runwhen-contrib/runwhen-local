@@ -204,11 +204,13 @@ class Context:
     setting_values: dict[str, Any]
     outputter: Outputter
     properties: dict[str, Any]
+    warnings: list[str]
 
     def __init__(self, setting_values: dict[str, Any], outputter: Outputter):
         self.setting_values = setting_values
         self.outputter = outputter
         self.properties = dict()
+        self.warnings = list()
 
     def get_setting(self, setting: Union[str, Setting]) -> Any:
         if isinstance(setting, str):
@@ -223,6 +225,9 @@ class Context:
 
     def get_property(self, name: str, default_value: Any = None) -> Any:
         return self.properties.get(name, default_value)
+
+    def add_warning(self, warning: str):
+        self.warnings.append(warning)
 
 
 all_settings: dict[str, Setting]

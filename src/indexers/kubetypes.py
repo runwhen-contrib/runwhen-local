@@ -65,6 +65,9 @@ class KubernetesResourceTypeSpec(ResourceTypeSpec):
             return False
         return self.group == other.group and self.version == other.version and self.kind == other.kind
 
+    def __hash__(self):
+        return hash((super().__hash__(), self.group, self.version, self.kind))
+
     @staticmethod
     def construct_from_config(config: Union[str, dict[str, Any]]) -> "KubernetesResourceTypeSpec":
         """
