@@ -1,0 +1,11 @@
+apiVersion: runwhen.com/v1
+kind: MapCustomizationRules
+spec:
+  groupRules:
+    - match:
+        type: pattern
+        matchType: base-name
+        pattern: "gcp-function-health"
+        matchMode: substring
+        properties: [name]
+      group: "GCP Project {{project.name}} Resources"

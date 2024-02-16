@@ -33,10 +33,12 @@ class CommonRunResult:
     Common data for results from the /run endpoint.
     """
     message: str
+    warnings: list[str]
     output_type: str
 
-    def __init__(self, message: str, output_type: str):
+    def __init__(self, message: str, warnings: list[str], output_type: str):
         self.message = message
+        self.warnings = warnings
         self.output_type = output_type
 
 
@@ -47,8 +49,8 @@ class ArchiveRunResult(CommonRunResult):
     """
     output: bytes
 
-    def __init__(self, message: str, output: bytes):
-        super().__init__(message, "archive")
+    def __init__(self, message: str, warnings: list[str], output: bytes):
+        super().__init__(message, warnings, "archive")
         self.output = output
 
 
@@ -59,8 +61,8 @@ class FileItemRunResult(CommonRunResult):
     """
     output: DirectoryItem
 
-    def __init__(self, message: str, output: DirectoryItem):
-        super().__init__(message, "file-items")
+    def __init__(self, message: str, warnings: list[str], output: DirectoryItem):
+        super().__init__(message, warnings, "file-items")
         self.output = output
 
 
