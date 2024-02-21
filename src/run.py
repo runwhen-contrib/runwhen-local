@@ -155,7 +155,7 @@ def main():
                         help=f'Host/port info for where the {SERVICE_NAME} REST service is running. '
                              f'Format is <host>:<port>')
     parser.add_argument('-c', '--components', action='store',
-                        default="kubeapi,cloudquery,runwhen_default_workspace,generation_rules,render_output_items")
+                        default="load_resources,kubeapi,cloudquery,runwhen_default_workspace,generation_rules,render_output_items,dump_resources")
     parser.add_argument('-o', '--output', action='store', dest='output_path', default="output",
                         help="Path to output directory for generated files. "
                              "The path is relative to the base directory.")
@@ -172,8 +172,13 @@ def main():
                         help="Email address to use as the owner of the workspace")
     parser.add_argument('--default-location', action='store', dest="default_location",
                         help="Default location to use for the generated workspace")
-    parser.add_argument('--default-lod', action='store', dest='default_lod', type=int,
-                        help="Default level of detail to use; valid values are 0 (none), 1 (basic), 2 (detailed)")
+    parser.add_argument('--default-lod', action='store', dest='default_lod', type=str,
+                        help='Default level of detail to use; valid values are "none", "basic", and "detailed".')
+    parser.add_argument('--resource-dump-path', action='store', dest='resource_dump_path', type=str,
+                        help="Path (relative to output directory) to save a dump of the resource database state.")
+    parser.add_argument('--resource-load-file', action='store', dest='resource_load_file', type=str,
+                        help="Location (relative to the base directory) of a resource dump file to "
+                             "initialize the resource database state.")
     parser.add_argument('--upload-merge-mode', action='store', dest='upload_merge_mode',
                         choices=['keep-existing', 'keep-uploaded'], default="keep-existing",
                         help='On upload, how to merge conflicting SLXs; valid values are:\n'
@@ -220,7 +225,8 @@ def main():
     papi_url = args.papi_url
     default_lod = args.default_lod
     namespaces = [ns.strip() for ns in args.namespaces.split(',')] if args.namespaces else None
-
+    resource_dump_path = args.resource_dump_path
+    resource_load_file = args.resource_load_file
     base_directory = args.base_directory
     if not os.path.exists(base_directory):
         fatal(f'Base directory not found: {base_directory}')
@@ -264,7 +270,6 @@ def main():
         # anyone is really using at this point).
         pass
 
-
     # Parse the settings info for calling the REST service
     if args.workspace_info:
         workspace_info_path = os.path.join(base_directory, args.workspace_info)
@@ -292,6 +297,10 @@ def main():
                 default_lod = workspace_info.get("defaultLOD")
             if not namespaces:
                 namespaces = workspace_info.get("namespaces")
+            if not resource_dump_path:
+                resource_dump_path = workspace_info.get("resourceDumpPath")
+            if not resource_load_file:
+                resource_load_file = workspace_info.get("resourceLoadFile")
             namespace_lods = workspace_info.get('namespaceLODs')
             custom_definitions = workspace_info.get("custom", dict())
             code_collections = workspace_info.get("codeCollections")
@@ -435,6 +444,13 @@ def main():
             request_data['codeCollections'] = code_collections
         if cloud_config:
             request_data['cloudConfig'] = cloud_config
+        if resource_dump_path:
+            request_data['resourceDumpPath'] = resource_dump_path
+        if resource_load_file:
+            resource_load_path = os.path.join(base_directory, resource_load_file)
+            resource_load_data = read_file(resource_load_path, "rb")
+            encoded_resource_load_data = base64.b64encode(resource_load_data).decode('utf-8')
+            request_data['resourceLoadFile'] = encoded_resource_load_data
 
         if cheat_sheet_enabled:
             # Update cheat sheet status by copying index
