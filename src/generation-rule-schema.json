@@ -1,0 +1,262 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://runwhen.com/generation-rule-schema.json",
+  "title": "Generation Rule",
+  "description": "A generation rule in a code bundle",
+  "type": "object",
+  "properties": {
+    "apiVersion": {
+      "description": "The API version of the generation rule resource",
+      "type": "string"
+    },
+    "kind": {
+      "description": "The kind of the custom resource. It should always be \"GenerationRules\"",
+      "type": "string",
+      "pattern": "GenerationRules"
+    },
+    "metadata": {
+      "description": "Arbitrary metadata associated with generation rules file.",
+      "type": "object"
+    },
+    "spec": {
+      "description": "The specification of the generation rules",
+      "type": "object",
+      "properties": {
+        "platform": {
+          "description": "The cloud platform that this generation rule applies to.",
+          "type": "string"
+        },
+        "generationRules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "resourceTypes": {
+                "description": "The cloud resource types to evaluate this generation rule against.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/resourceTypeSpec"
+                }
+              },
+              "matchRules": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/matchPredicate"
+                }
+              },
+              "slxs": {
+                "type": "array",
+                "items": {
+                  "baseName": {
+                    "description": "The base name for the generated SLX",
+                    "type": "string"
+                  },
+                  "qualifiers": {
+                    "description": "Additional properties of the cloud resource with which to qualify the SLX name",
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "levelOfDetail": {
+                    "$ref": "#/$defs/levelOfDetail"
+                  },
+                  "baseTemplateName": {
+                    "description": "Base name of the template file to use to generate the SLX contents, which is augmented with the type of the SLX file. Defaults to the baseName property.",
+                    "type": "string"
+                  },
+                  "outputItems": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "description": "The type of SLX file to generate",
+                          "enum": [
+                            "slx",
+                            "sli",
+                            "slo",
+                            "runbook",
+                            "taskSet"
+                          ]
+                        },
+                        "templateName": {
+                          "description": "Override of the standard template name constructed from the baseTemplateName",
+                          "type": "string"
+                        },
+                        "templateVariables": {
+                          "description": "Custom variable values to make available to the template.",
+                          "type": "object"
+                        },
+                        "levelOfDetail": {
+                          "$ref": "#/$defs/levelOfDetail"
+                        }
+                      },
+                      "required": ["type"]
+                    }
+                  },
+                  "required": ["baseName", "outputItems"]
+                }
+              }
+            },
+            "required": ["resourceTypes", "matchRules", "slxs"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["generationRules"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["apiVersion", "kind", "spec"],
+  "$defs": {
+    "levelOfDetail": {
+      "description": "The minimum level of detail for the candidate cloud resource for the SLX to be generated.",
+      "enum": [
+        "none",
+        "basic",
+        "detailed",
+        0,
+        1,
+        2
+      ]
+    },
+    "resourceTypeSpec": {
+      "description": "Specification of a cloud resource type",
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "platform": {
+              "type": "string"
+            },
+            "resourceType": {
+              "type": "string"
+            }
+          },
+          "required": ["resourceType"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "andMatchPredicate": {
+      "description": "A match predicate representing a logical and operation",
+      "type": "object",
+      "properties": {
+        "type": {
+          "description": "The type of the match predicate, which is \"and\" for an and match predicate.",
+          "const": "and"
+        },
+        "matches": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/matchPredicate"
+          }
+        }
+      },
+      "required": ["type", "matches"],
+      "additionalProperties": false
+    },
+    "orMatchPredicate": {
+      "description": "A match predicate representing a logical or operation",
+      "type": "object",
+      "properties": {
+        "type": {
+          "description": "The type of the match predicate, which is \"or\" for an or match predicate.",
+          "const": "or"
+        },
+        "matches": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/matchPredicate"
+          }
+        }
+      },
+      "required": ["type", "matches"],
+      "additionalProperties": false
+    },
+    "notMatchPredicate": {
+      "description": "A match predicate representing a logical not operation",
+      "type": "object",
+      "properties": {
+        "type": {
+          "description": "The type of the match predicate, which is \"not\" for a not match predicate.",
+          "const": "not"
+        },
+        "match": {
+          "$ref": "#/$defs/matchPredicate"
+        },
+        "matches": {
+          "$ref": "#/$defs/matchPredicate"
+        },
+        "predicate": {
+          "$ref": "#/$defs/matchPredicate"
+        }
+      },
+      "required": ["type"],
+      "additionalProperties": false
+    },
+    "patternMatchPredicate": {
+      "description": "A match predicate testing if a property of the candidate cloud resource matches a regular expression",
+      "type": "object",
+      "properties": {
+        "type": {
+          "description": "The type of the match predicate, which is \"pattern\" for a pattern match predicate.",
+          "const": "pattern"
+        },
+        "pattern": {
+          "description": "Regular expression to to match the resource property against",
+          "type": "string"
+        },
+        "properties": {
+          "description": "Array of properties of the candidate cloud resource to test against the regular expression",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "resourceType": {
+          "description": "Cloud resource type spec to evaluate the match predicate against.",
+          "$ref": "#/$defs/resourceTypeSpec"
+        },
+        "mode": {
+          "enum": ["exact", "substring"]
+        }
+      },
+      "required": ["type", "pattern", "properties"],
+      "additionalProperties": false
+    },
+    "existsMatchPredicate": {
+      "description": "A match predicate testing if a field exists in the data of the candidate cloud resource",
+      "type": "object",
+      "properties": {
+        "type": {
+          "description": "The type of the match predicate, which is \"exists\" for an exists match predicate.",
+          "const": "exists"
+        },
+        "path": {
+          "description": "Path that must exist in the candidate cloud resource for the match predicate to resolve to true",
+          "type": "string"
+        },
+        "matchEmpty": {
+          "description": "If true, the match predicate resolves to true, even if the path resolves to an element that is null or empty. Defaults to false.",
+          "type": "boolean"
+        }
+      },
+      "required": ["type", "path"],
+      "additionalProperties": false
+    },
+    "matchPredicate": {
+      "oneOf": [
+        { "$ref": "#/$defs/andMatchPredicate" },
+        { "$ref": "#/$defs/orMatchPredicate" },
+        { "$ref": "#/$defs/notMatchPredicate" },
+        { "$ref": "#/$defs/patternMatchPredicate" },
+        { "$ref": "#/$defs/existsMatchPredicate" }
+      ]
+    }
+  }
+}
