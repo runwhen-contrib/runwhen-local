@@ -14,6 +14,7 @@ import requests
 import yaml
 
 from utils import transform_client_cloud_config
+from utils import get_proxy_config
 
 debug_suppress_cheat_sheet = os.getenv("WB_DEBUG_SUPPRESS_CHEAT_SHEET")
 cheat_sheet_enabled = (debug_suppress_cheat_sheet is None or
@@ -443,7 +444,7 @@ def main():
             status_update("Discovering resources...", status_file_path)
         # Invoke the workspace builder /run REST endpoint
         run_url = f"http://{rest_service_host}:{rest_service_port}/run/"
-        response = call_rest_service_with_retries(lambda: requests.post(run_url, json=request_data))
+        response = call_rest_service_with_retries(lambda: requests.post(run_url, json=request_data, proxies=get_proxy_config(run_url)))
         # FIXME: The current fatal error handling approach is a little iffy, in case there's ever a
         # a case where there's some final cleanup we want to do. But for now that's not an issue.
         check_rest_service_error(response, args.command, args.verbose)

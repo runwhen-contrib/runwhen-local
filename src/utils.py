@@ -2,6 +2,9 @@ import base64
 import datetime
 import json
 import os
+import fnmatch
+from urllib.parse import urlparse
+
 from collections.abc import Sequence
 from typing import Any, AnyStr, Union
 
@@ -152,3 +155,26 @@ def transform_client_cloud_config(cloud_config: dict[str, dict[str,str]]) -> Non
                 except Exception as e:
                     raise WorkspaceBuilderObjectNotFoundException(f"File not found for cloud config setting: "
                                                                   f"path={platform_name}/{key}; value={value}") from e
+
+def get_proxy_config(url):
+    """
+    Checks for HTTP_PROXY, HTTPS_PROXY, and NO_PROXY environment variables
+    and returns a dictionary with proxy settings if the URL should not bypass the proxy.
+
+    Args:
+        url (str): The URL for the request.
+
+    Returns:
+        dict: A dictionary with proxy settings or an empty dictionary if no proxies are configured or should be bypassed.
+    """
+    if 'NO_PROXY' in os.environ:
+        no_proxy = os.environ.get('NO_PROXY', '').split(',')
+        if any(fnmatch.fnmatch(urlparse(url).hostname, pattern) for pattern in no_proxy):
+            return {}
+
+    proxies = {}
+    if 'HTTP_PROXY' in os.environ:
+        proxies['http'] = os.environ['HTTP_PROXY']
+    if 'HTTPS_PROXY' in os.environ:
+        proxies['https'] = os.environ['HTTPS_PROXY']
+    return proxies

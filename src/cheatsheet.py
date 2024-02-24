@@ -20,6 +20,7 @@ import time
 import ruamel.yaml
 import subprocess
 import logging
+from utils import get_proxy_config
 from robot.api import TestSuite
 from tempfile import NamedTemporaryFile
 from functools import lru_cache
@@ -226,11 +227,15 @@ def generate_raw_git_url(git_url, file_path, ref):
 
     if raw_url:
         try:
-            response = requests.get(raw_url)
-            response.raise_for_status()  # Will raise an HTTPError if the HTTP request returned an unsuccessful status code
+            # Use the utility function to get proxy configuration
+            proxies = get_proxy_config(raw_url)
+
+            # Make the request with proxy configuration (if any)
+            response = requests.get(raw_url, proxies=proxies if proxies else None)
+            response.raise_for_status()  # Will raise an HTTPError for bad responses
             return raw_url
         except requests.RequestException as e:
-            print(f"Error accessing {raw_url}: {e}")
+            logger.error(f"Error accessing {raw_url}: {e}")
             return None
 
     return None
