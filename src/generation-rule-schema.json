@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://runwhen.com/generation-rule-schema.json",
-  "title": "Generation Rule",
-  "description": "A generation rule in a code bundle",
+  "$id": "https://runwhen.com/generation-rules-schema.json",
+  "title": "Generation Rules",
+  "description": "A list of generation rules associated with a code bundle.",
   "type": "object",
   "properties": {
     "apiVersion": {
@@ -10,16 +10,15 @@
       "type": "string"
     },
     "kind": {
-      "description": "The kind of the custom resource. It should always be \"GenerationRules\"",
-      "type": "string",
-      "pattern": "GenerationRules"
+      "description": "The kind of the custom resource. It must be \"GenerationRules\".",
+      "const": "GenerationRules"
     },
     "metadata": {
       "description": "Arbitrary metadata associated with generation rules file.",
       "type": "object"
     },
     "spec": {
-      "description": "The specification of the generation rules",
+      "description": "The specification of the generation rules.",
       "type": "object",
       "properties": {
         "platform": {
@@ -48,11 +47,11 @@
                 "type": "array",
                 "items": {
                   "baseName": {
-                    "description": "The base name for the generated SLX",
+                    "description": "The base name for the generated SLX.",
                     "type": "string"
                   },
                   "qualifiers": {
-                    "description": "Additional properties of the cloud resource with which to qualify the SLX name",
+                    "description": "Additional properties of the cloud resource with which to qualify the SLX name.",
                     "type": "array",
                     "items": {
                       "type": "string"
@@ -71,7 +70,7 @@
                       "type": "object",
                       "properties": {
                         "type": {
-                          "description": "The type of SLX file to generate",
+                          "description": "The type of SLX file to generate.",
                           "enum": [
                             "slx",
                             "sli",
@@ -81,7 +80,7 @@
                           ]
                         },
                         "templateName": {
-                          "description": "Override of the standard template name constructed from the baseTemplateName",
+                          "description": "Override of the standard template name constructed from the baseTemplateName.",
                           "type": "string"
                         },
                         "templateVariables": {
@@ -122,7 +121,7 @@
       ]
     },
     "resourceTypeSpec": {
-      "description": "Specification of a cloud resource type",
+      "description": "Specification of a cloud resource type.",
       "oneOf": [
         {
           "type": "string"
@@ -143,7 +142,7 @@
       ]
     },
     "andMatchPredicate": {
-      "description": "A match predicate representing a logical and operation",
+      "description": "A match predicate representing a logical and operation.",
       "type": "object",
       "properties": {
         "type": {
@@ -161,7 +160,7 @@
       "additionalProperties": false
     },
     "orMatchPredicate": {
-      "description": "A match predicate representing a logical or operation",
+      "description": "A match predicate representing a logical or operation.",
       "type": "object",
       "properties": {
         "type": {
@@ -179,7 +178,7 @@
       "additionalProperties": false
     },
     "notMatchPredicate": {
-      "description": "A match predicate representing a logical not operation",
+      "description": "A match predicate representing a logical not operation.",
       "type": "object",
       "properties": {
         "type": {
@@ -200,7 +199,7 @@
       "additionalProperties": false
     },
     "patternMatchPredicate": {
-      "description": "A match predicate testing if a property of the candidate cloud resource matches a regular expression",
+      "description": "A match predicate testing if a property of the candidate cloud resource matches a regular expression.",
       "type": "object",
       "properties": {
         "type": {
@@ -230,7 +229,7 @@
       "additionalProperties": false
     },
     "existsMatchPredicate": {
-      "description": "A match predicate testing if a field exists in the data of the candidate cloud resource",
+      "description": "A match predicate testing if a field exists in the data of the candidate cloud resource.",
       "type": "object",
       "properties": {
         "type": {
@@ -238,7 +237,7 @@
           "const": "exists"
         },
         "path": {
-          "description": "Path that must exist in the candidate cloud resource for the match predicate to resolve to true",
+          "description": "Path that must exist in the candidate cloud resource for the match predicate to resolve to true.",
           "type": "string"
         },
         "matchEmpty": {
