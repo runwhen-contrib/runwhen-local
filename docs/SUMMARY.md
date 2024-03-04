@@ -18,6 +18,7 @@
     * [Google Cloud Platform](user-guide/user\_guide-advanced\_configuration/workspaceinfo-customization/google-cloud-platform.md)
   * [Helm Configuration](user-guide/user\_guide-advanced\_configuration/helm-configuration.md)
   * [Terminal Configuration](user-guide/user\_guide-advanced\_configuration/terminal-configuration.md)
+  * [Proxy Configuration & Outbound Connections](user-guide/user\_guide-advanced\_configuration/proxy-configuration-and-outbound-connections.md)
 * [Stuck?Read This](User\_Guide-Stuck\_Read\_This.md)
 * [Privacy & Security](User\_Guide-Privacy\_and\_Security.md)
 * [Release Notes](User\_Guide-Release\_Notes.md)
