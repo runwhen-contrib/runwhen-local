@@ -1,5 +1,6 @@
 from enum import Enum
 from typing import Any, Optional, Sequence, Union
+import yaml
 
 from component import Context
 from exceptions import WorkspaceBuilderException
@@ -35,6 +36,28 @@ class LevelOfDetail(Enum):
             pass
         raise WorkspaceBuilderException(f"Invalid level of detail value: {config}")
 
+# FIXME: It feels a bit kludgy to me to do the LevelOfDetail YAML serialization/deserialization
+# this way by setting shared class properties of the yaml module. I made an attempt
+# to do it with to_yaml and from_yaml class_method, but I couldn't get it to work.
+# Also, there was some comment on the pyyaml repo that they had fixed a bug to enable
+# automatic/built-in serialization support for enum subclasses, but it wasn't working
+# for me. Maybe need to use a newer version of pyyaml? Also, should check if ruamel
+# has cleaned up the way this works and maybe switch to that. Anyway, this is what
+# I got to work for now.
+
+LEVEL_OF_DETAIL_TAG = "!LevelOfDetail"
+
+def level_of_detail_representer(dumper: yaml.SafeDumper, level_of_detail: LevelOfDetail) -> yaml.nodes.ScalarNode:
+    return dumper.represent_scalar(LEVEL_OF_DETAIL_TAG, level_of_detail.name)
+
+def level_of_detail_constructor(loader: yaml.SafeLoader, node: yaml.nodes.ScalarNode) -> LevelOfDetail:
+    name = loader.construct_scalar(node)
+    return LevelOfDetail[name]
+
+# FIXME: Should possibly set this on the unsafe versions too?
+# We don't use those currently, but there might be a case where we need them in the future.
+yaml.SafeDumper.add_representer(LevelOfDetail, level_of_detail_representer)
+yaml.SafeLoader.add_constructor(LEVEL_OF_DETAIL_TAG, level_of_detail_constructor)
 
 class PlatformHandler:
     """

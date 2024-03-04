@@ -22,6 +22,8 @@ if not git_repo_root:
           "code collection repos are cloned.")
 
 
+# FIXME: Should get rid of this embedded JSON version of the workspace info file and just
+# load it from an actual workspace info file.
 BASE_REQUEST_DATA = {
     "defaultLOD": 2,
     "defaultWorkspaceName": "my-workspace",
@@ -29,23 +31,12 @@ BASE_REQUEST_DATA = {
     "workspaceOwnerEmail": "test@runwhen.com",
     "workspaceOutputPath": "workspace",
     "defaultLocation": "northamerica-northeast2-01",
+    "resourceDumpPath": "resource-dump.yaml",
+    # "resourceLoadFile": "resource-dump.yaml",
     "mapCustomizationRules": "map-customization-rules-test",
     "codeCollections": [
-        "https://github.com/runwhen-contrib/rw-cli-codecollection",
-        "https://github.com/runwhen-contrib/rw-public-codecollection"
-        # {"repoURL": f"file://{git_repo_root}/rw-public-codecollection", "branch": "main"},
-        # {"repoURL": f"file://{git_repo_root}/rw-cli-codecollection", "branch": "main"}
-        # , "codeBundles": ["k8s-namespace-healthcheck"]
-        # {
-        #     "repoURL": f"file://{git_repo_root}/rw-cli-codecollection",
-        #     "branch": "robv-azure-test",
-        #     "codeBundles": ["az-vm-healthcheck"],
-        # },
-        # {
-        #     "repoURL": "https://github.com/runwhen-contrib/rw-cli-codecollection",
-        #     "branch": "main",
-        #     "codeBundles": ["k8s-namespace-healthcheck"],
-        # },
+        {"repoURL": f"file://{git_repo_root}/rw-public-codecollection", "branch": "main"},
+        {"repoURL": f"file://{git_repo_root}/rw-cli-codecollection", "branch": "main"}
     ],
     "cloudConfig": {
         # "azure": {
@@ -66,7 +57,7 @@ BASE_REQUEST_DATA = {
         "kubernetes": {
             "kubeconfigFile": "kubeconfig",
             "namespaceLODs": {"kube-system": 0, "kube-public": 0},
-        }
+        # }
         # "gcp": {
         #     "applicationCredentialsFile": "GCPServiceAccountKeyWorkspaceBuilder.json",
         #     "projects": ["iron-radio-408515"],
@@ -93,12 +84,15 @@ def build_rest_request_data(base_data: dict[str, Any], **kwargs) -> str:
         if key == "kubeconfig":
             data = read_file(request_data[key], "rb")
             request_data[key] = b64encode(data).decode('utf-8')
+        elif key == "resourceLoadFile":
+            data = read_file(request_data[key], "rb")
+            request_data[key] = b64encode(data).decode('utf-8')
         elif key == "cloudConfig":
             cloud_config_data = request_data[key]
             transform_client_cloud_config(cloud_config_data)
         elif key == 'mapCustomizationRules':
             map_customization_rules_path = request_data[key]
-            # FIXME: This code is (mostly) copied from pgrun.py.
+            # FIXME: This code is (mostly) copied from run.py.
             # Should figure out a way to factor this to eliminate the code duplication
             if not os.path.exists(map_customization_rules_path):
                 raise WorkspaceBuilderException("Map customization rules path does not exist")
@@ -167,7 +161,7 @@ class ProductionComponentTestCase(TestCase):
             print("WARNING: " + warning)
 
     def test_generation_rules_workspace_gen(self):
-        self.run_common("kubeapi,cloudquery,runwhen_default_workspace,generation_rules,render_output_items,dump_resources")
+        self.run_common("load_resources,kubeapi,cloudquery,runwhen_default_workspace,generation_rules,render_output_items,dump_resources")
 
     # Need to implement some sort of dump/load feature to the resource registry
     # for this to make sense now that we're not using neo4j anymore.
