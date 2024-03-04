@@ -112,6 +112,15 @@ def invoke_cloudquery(cq_command: str,
     # We need to set the PATH environment variable so that the cloudquery CLI can be found
     path = os.getenv("PATH")
     cq_env_vars["PATH"] = path
+    
+    # Check if HTTP_PROXY and HTTPS_PROXY are set in the OS environment and add them if they are
+    http_proxy = os.getenv("HTTP_PROXY")
+    https_proxy = os.getenv("HTTPS_PROXY")
+    if http_proxy:
+        cq_env_vars["HTTP_PROXY"] = http_proxy
+    if https_proxy:
+        cq_env_vars["HTTPS_PROXY"] = https_proxy
+
     common_error_message = "Error running CloudQuery to discover resources"
     try:
         # Construct the args to use to invoke the CloudQuery CLI

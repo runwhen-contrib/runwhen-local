@@ -1,13 +1,17 @@
 from dataclasses import dataclass
+import datetime
 from enum import Enum
 from typing import Union
 
-from exceptions import WorkspaceBuilderException
+import yaml
+
+from exceptions import WorkspaceBuilderException, WorkspaceBuilderUserException
 import logging
 from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+CURRENT_DUMP_FORMAT_VERSION = 2
 
 # Platform name to use for built-in resource types, e.g. workspace
 # TODO: Possibly makes sense to not treat the workspace as a resource that's
@@ -26,41 +30,61 @@ class RunWhenResourceType(Enum):
 class Resource:
     name: str
     qualified_name: str
-    resource_type: "ResourceType"
+    resource_type: Optional["ResourceType"]
 
     def __init__(self,
                  name: str,
                  qualified_name: str,
-                 resource_type: "ResourceType",
-                 attributes: Optional[dict[str, Any]]):
+                 resource_type: Optional["ResourceType"],
+                 **kw):
         self.name = name
         self.qualified_name = qualified_name
         self.resource_type = resource_type
-        if attributes:
-            self.set_attributes(attributes)
+        if kw:
+            self.set_attributes(kw)
 
     def set_attributes(self, attributes: dict[str, Any]):
         for key, value in attributes.items():
             setattr(self, key, value)
 
+
 class ResourceType:
     name: str
-    platform: "Platform"
+    platform: Optional["Platform"]
     instances: dict[str, Resource]
+    custom_attributes: set[str]
 
-    def __init__(self, name: str, platform: "Platform"):
+    def __init__(self, name: str, platform: Optional["Platform"], custom_attributes=None, instances=None):
         self.name = name
         self.platform = platform
-        self.instances = dict()
+        # The custom attributes will be dynamically updated as resources are added
+        # based on the custom attributes in the resource instance. This isn't super
+        # efficient since we update the custom attributes for each newly-added
+        # resource, even though they will typically always be the same. But this
+        # makes things a little easier to maintain, since there doesn't need to
+        # be some one-time initialization step that needs to know the complete
+        # set of custom attributes for each resource type. This can be revisited
+        # if this turns out to be a problem, but I'm pretty sure it'll be fine.
+        if custom_attributes is None:
+            custom_attributes = set()
+        self.custom_attributes = custom_attributes
+        if instances is None:
+            instances = dict()
+        self.instances = instances
+
+    def update_custom_attributes(self, custom_attributes: set[str]):
+        self.custom_attributes.update(custom_attributes)
 
 
 class Platform:
     name: str
     resource_types: dict[str, ResourceType]
 
-    def __init__(self, name: str):
+    def __init__(self, name: str, resource_types: dict[str, ResourceType]=None):
         self.name = name
-        self.resource_types = dict()
+        if resource_types is None:
+            resource_types = dict()
+        self.resource_types = resource_types
 
 
 @dataclass(unsafe_hash=True)
@@ -165,10 +189,14 @@ class Registry:
     clients to access the resource contents, then we'll need to think
     through the thread-safety issues.
     """
+
     platforms: dict[str, Platform]
 
-    def __init__(self):
-        self.platforms = dict()
+    def __init__(self, platforms=None):
+        if not platforms:
+            platforms = dict()
+        self.platforms = platforms
+
 
     @staticmethod
     def check_resource_type_is_string(resource_type_name):
@@ -198,6 +226,8 @@ class Registry:
         if not resource_type:
             resource_type = ResourceType(resource_type_name, platform)
             platform.resource_types[resource_type_name] = resource_type
+        custom_attributes = set(resource_attributes.keys())
+        resource_type.update_custom_attributes(custom_attributes)
         # Check if there's an existing resource with the same qualified name.
         # This could happen if an indexer might make multiple passes over
         # the same set of resources, e.g. Kubernetes scanning a cluster multiple
@@ -215,7 +245,33 @@ class Registry:
             if resource_attributes:
                 resource.set_attributes(resource_attributes)
         else:
-            resource = Resource(resource_name, resource_qualified_name, resource_type, resource_attributes)
+            # NB: The resource attributes from the different cloud platform indexers
+            # in some cases currently contains attributes that duplicate the built-in
+            # name, qualified_name and resource_type attributes. This was causing a
+            # function parameter clash between the explicit first few positional args
+            # and the keyword args. I fixed this by just turning everything into
+            # keyword args, at least from the calling perspective, and having the
+            # explicit name, qualified_name, and resource_type values override any
+            # duplicate setting in the resource attributes from the indexer.
+            # It would probably be ok to just update the resource_arguments
+            # argument in place rather than making a copy, but it seemed like
+            # bad form from the caller's perspective to have the called function
+            # modify the input argument, so I make a copy here just to be safe.
+            # TODO: It might be better/cleaner to clean up the indexer code to not
+            # populate any of the duplicate values in the resource_attributes
+            # argument, but OTOH that would require the indexer to know which
+            # attribute names it needs to avoid, which is sort of a funky
+            # contract between it and this resource code, so I'm not 100% sure
+            # that approach would actually be better. But worth thinking about
+            # some more at some point.
+            all_resource_attributes = resource_attributes.copy()
+            all_resource_attributes['name'] = resource_name
+            all_resource_attributes['qualified_name'] = resource_qualified_name
+            all_resource_attributes['resource_type'] = resource_type
+            try:
+                resource = Resource(**all_resource_attributes)
+            except Exception as e:
+                raise e
             resource_type.instances[resource_qualified_name] = resource
         return resource
 
@@ -239,3 +295,124 @@ class Registry:
         self.check_resource_type_is_string(resource_type_name)
         platform = self.platforms.get(platform_name)
         return platform.resource_types.get(resource_type_name) if platform else None
+
+    def dump(self) -> str:
+        text = yaml.safe_dump(self)
+        return text
+
+    @staticmethod
+    def load(data) -> "Registry":
+        registry = yaml.safe_load(data)
+        return registry
+
+
+RESOURCE_YAML_TAG = "!Resource"
+RESOURCE_TYPE_YAML_TAG = "!ResourceType"
+PLATFORM_YAML_TAG = "!Platform"
+REGISTRY_YAML_TAG = "!Registry"
+
+
+def resource_representer(dumper: yaml.representer.Representer, resource: "Resource"):
+    resource_type = resource.resource_type
+    mapping = {
+        "name": resource.name,
+        "qualified_name": resource.qualified_name,
+    }
+    for attribute in resource_type.custom_attributes:
+        try:
+            value = getattr(resource, attribute)
+            mapping[attribute] = value
+        except AttributeError:
+            pass
+    node = dumper.represent_mapping(RESOURCE_YAML_TAG, mapping)
+    return node
+
+
+def resource_constructor(constructor, node):
+    mapping = constructor.construct_mapping(node, True)
+    mapping['resource_type'] = None
+    resource = Resource(**mapping)
+    return resource
+
+def resource_type_representer(dumper: yaml.representer.Representer, resource_type):
+    mapping = {
+        "name": resource_type.name,
+        "instances": resource_type.instances,
+        "customAttributes": list(resource_type.custom_attributes),
+    }
+    node = dumper.represent_mapping(RESOURCE_TYPE_YAML_TAG, mapping)
+    return node
+
+def resource_type_constructor(constructor, node):
+    mapping = constructor.construct_mapping(node, True)
+    name = mapping.get('name')
+    platform = None
+    custom_attributes_list = mapping.get('customAttributes')
+    custom_attributes = set(custom_attributes_list)
+    instances = mapping.get('instances')
+    resource_type = ResourceType(name, platform, custom_attributes, instances)
+    if instances:
+        for resource in instances.values():
+            resource.resource_type = resource_type
+    return resource_type
+
+def platform_representer(dumper, platform):
+    mapping = {
+        "name": platform.name,
+        "resourceTypes": platform.resource_types,
+    }
+    node = dumper.represent_mapping(PLATFORM_YAML_TAG, mapping)
+    return node
+
+def platform_constructor(constructor, node):
+    mapping = constructor.construct_mapping(node, True)
+    name = mapping.get('name')
+    resource_types = mapping.get('resourceTypes')
+    platform = Platform(name, resource_types)
+    for resource_type in resource_types.values():
+        resource_type.platform = platform
+    return platform
+
+def registry_representer(dumper, registry):
+    mapping = {
+        "version": CURRENT_DUMP_FORMAT_VERSION,
+        "creationDate": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "description": "Dump of the resources collected during a run of the workspace builder tool",
+        "platforms": registry.platforms,
+    }
+    node = dumper.represent_mapping(REGISTRY_YAML_TAG, mapping)
+    return node
+
+def registry_constructor(constructor, node):
+    mapping = constructor.construct_mapping(node, True)
+    # Do some simple version checking to make sure the resource dump is in a format
+    # that we'll be able to deserialize. Currently, this is super simple and only
+    # supports loading a resource dump with the same exact version as the current
+    # resource dump version of this version of the workspace builder.
+    # TODO: In the future if/when we make changes to the resource dump format
+    # ideally we should have conversion code here to support loading older resource
+    # dumps. Although, since this is really a developer-facing feature it's
+    # probably acceptable to keep this current simple exact version match approach.
+    version = mapping.get('version')
+    if not version:
+        raise WorkspaceBuilderUserException("Invalid format for resource dump file.")
+    if version < CURRENT_DUMP_FORMAT_VERSION:
+        raise WorkspaceBuilderUserException("Resource dump file is in an unsupported older format. "
+                                            "The resource dump needs to be recreated with the current "
+                                            "workspace builder version")
+    if version > CURRENT_DUMP_FORMAT_VERSION:
+        raise WorkspaceBuilderUserException("Resource dump file is in an unsupported newer format. "
+                                            "Older versions of the workspace builder can't load dumps "
+                                            "created with newer versions, so the resource dump needs "
+                                            "to be recreated with the current version.")
+    platforms = mapping['platforms']
+    return Registry(platforms)
+
+yaml.SafeDumper.add_representer(Resource, resource_representer)
+yaml.SafeDumper.add_representer(ResourceType, resource_type_representer)
+yaml.SafeDumper.add_representer(Platform, platform_representer)
+yaml.SafeDumper.add_representer(Registry, registry_representer)
+yaml.SafeLoader.add_constructor(RESOURCE_YAML_TAG, resource_constructor)
+yaml.SafeLoader.add_constructor(RESOURCE_TYPE_YAML_TAG, resource_type_constructor)
+yaml.SafeLoader.add_constructor(PLATFORM_YAML_TAG, platform_constructor)
+yaml.SafeLoader.add_constructor(REGISTRY_YAML_TAG, registry_constructor)
