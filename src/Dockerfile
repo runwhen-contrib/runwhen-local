@@ -142,23 +142,6 @@ RUN mkdir -p /var/log/nginx /var/lib/nginx /run/nginx /usr/share/nginx/html && \
     find /etc/nginx /var/log/nginx /usr/share/nginx/html /var/lib/nginx -type d -exec chmod g+s {} \+
 
 
-# # Set ownership for Nginx directories and files
-# RUN chown -R runwhen:0 /etc/nginx/ \
-#     && chown -R runwhen:0 /var/log/nginx/ \
-#     && chown -R runwhen:0 /usr/share/nginx/html \
-#     && touch /run/nginx.pid \
-#     && chown runwhen:0 /run/nginx.pid \
-#     && chown -R runwhen:0 /var/lib/nginx/
-
-# # Set ownership for Nginx directories and files
-# RUN chown -R runwhen:runwhen /etc/nginx/ \
-#     && chown -R runwhen:runwhen /var/log/nginx/ \
-#     && chown -R runwhen:runwhen /usr/share/nginx/html \
-#     && touch /run/nginx.pid \
-#     && chown runwhen:runwhen /run/nginx.pid \
-#     && chown -R runwhen:runwhen /var/lib/nginx/
-
-
 USER runwhen
 EXPOSE 8081
 ENTRYPOINT ["/bin/sh", "-c", "./entrypoint.sh"]
