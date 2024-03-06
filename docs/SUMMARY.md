@@ -40,3 +40,7 @@
 
 * [GitHub Issues - Request or Share Commands, Report Bugs, Request Features](github-issues-request-or-share-commands-report-bugs-request-features.md)
 * [Roadmap](roadmap.md)
+
+*** 
+* [Genereation Rules](GENERATION_RULES.md)
+* [User Docs](USER_REFERENCE.md)
