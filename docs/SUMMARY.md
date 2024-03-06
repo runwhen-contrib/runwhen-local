@@ -14,8 +14,13 @@
   * [Upload to RunWhen Platform](user-guide/features/upload-to-runwhen-platform.md)
 * [Advanced Configuration](user-guide/user\_guide-advanced\_configuration/README.md)
   * [WorkspaceInfo Customization](user-guide/user\_guide-advanced\_configuration/workspaceinfo-customization/README.md)
-    * [Microsoft Azure](user-guide/user\_guide-advanced\_configuration/workspaceinfo-customization/microsoft-azure.md)
-    * [Google Cloud Platform](user-guide/user\_guide-advanced\_configuration/workspaceinfo-customization/google-cloud-platform.md)
+    * [Level of Detail](user-guide/user\_guide-advanced\_configuration/workspaceinfo-customization/level-of-detail.md)
+    * [Cloud Configuration](user-guide/user\_guide-advanced\_configuration/workspaceinfo-customization/cloud-configuration/README.md)
+      * [Google Cloud Platform](user-guide/user\_guide-advanced\_configuration/workspaceinfo-customization/cloud-configuration/google-cloud-platform.md)
+      * [Microsoft Azure](user-guide/user\_guide-advanced\_configuration/workspaceinfo-customization/cloud-configuration/microsoft-azure.md)
+      * [Kubernetes Configuration](user-guide/user\_guide-advanced\_configuration/workspaceinfo-customization/cloud-configuration/kubernetes-configuration.md)
+    * [CodeCollection Configuration](user-guide/user\_guide-advanced\_configuration/workspaceinfo-customization/codecollection-configuration.md)
+  * [Group / Map Customizations](user-guide/user\_guide-advanced\_configuration/user\_reference.md)
   * [Helm Configuration](user-guide/user\_guide-advanced\_configuration/helm-configuration.md)
   * [Terminal Configuration](user-guide/user\_guide-advanced\_configuration/terminal-configuration.md)
   * [Proxy Configuration & Outbound Connections](user-guide/user\_guide-advanced\_configuration/proxy-configuration-and-outbound-connections.md)
@@ -40,7 +45,3 @@
 
 * [GitHub Issues - Request or Share Commands, Report Bugs, Request Features](github-issues-request-or-share-commands-report-bugs-request-features.md)
 * [Roadmap](roadmap.md)
-
-*** 
-* [Genereation Rules](GENERATION_RULES.md)
-* [User Docs](USER_REFERENCE.md)

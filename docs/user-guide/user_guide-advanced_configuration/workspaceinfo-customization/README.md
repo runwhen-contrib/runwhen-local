@@ -6,37 +6,36 @@ RunWhen Local's primary configuration is provided in a file called `workspaceInf
 * Which CodeCollection repositories to scan for applicable troubleshooting commands
 * Additional workspace customizations to apply if uploading to a [RunWhen Platform workspace](https://docs.runwhen.com/public/runwhen-platform/feature-overview/workspaces)
 
-### CodeCollection Discovery Customizations
+The top-level structure of the workspace info file is:
 
-The workspace builder component of RunWhen Local scans public git repositories to match troubleshooting commands with the resources it discovers in your cluster or cloud provider.&#x20;
-
-Each individual git repository is considered a `codeCollection`, which contains one or more `codeBundle(s)`. Each `codeBundle` folder contains :&#x20;
-
-* SLI or Troubleshooting Task code
-* Generation Rules
-* Templates&#x20;
-
-#### Default CodeCollection Discovery
-
-By default, RunWhen Local scans the `main` branch of the following `codeCollections`:&#x20;
-
-* [https://github.com/runwhen-contrib/rw-cli-codecollection](https://github.com/runwhen-contrib/rw-cli-codecollection)
-* [https://github.com/runwhen-contrib/rw-public-codecollection](https://github.com/runwhen-contrib/rw-public-codecollection)
-
-#### Changing the CodeCollection Discovery Configuration
-
-The `workspaceInfo.yaml` file supports the modification of which git repositories are used when generating the RunWhen Local content.&#x20;
-
-
-
-In the following example, we omit all content from the default `codeCollection` repositories, and use a fork of the repository instead:&#x20;
-
-```
+```yaml
+# Information about the RunWhen workspace
+workspaceName: my-workspace
+# More workspace config
+# Information about cloud platforms to scan to discover resources
+cloudConfig:
+  kubernetes:
+    # Kubernetes config
+  azure:
+    # Azure config
+  # Other platform configs
+  
+# Information about which code collections to scan for code bundles
 codeCollections:
-  - repoURL: "https://github.com/stewartshea/rw-cli-codecollection.git"
-    ref: main
-    codeBundles: ["*"]
-  - repoURL: "https://github.com/stewartshea/rw-public-codecollection.git"
-    ref: main
-    codeBundles: ["*"]
+- "https://github.com/runwhen-contrib/rw-public-codecollection.git"
+- # Another code collections to scan
+
+
+# Custom information about specific code bundles
+custom:
+  prometheus_provider: gmp
+  # More custom configuration
 ```
+
+#### Basic Workspace Configuration Info
+
+There are several settings that are used to configure information in the workspace that's generated to be uploaded to the RunWhen platform to. The available settings are:
+
+<table><thead><tr><th width="290">Label</th><th>Description</th></tr></thead><tbody><tr><td>workspaceName</td><td>The name of the workspace to generate</td></tr><tr><td>workspaceOwnerEmail</td><td>The email address of the owner of the workspace</td></tr><tr><td>defaultLocation</td><td>The location where the the workspace is hosted</td></tr><tr><td>defaultLOD</td><td>The default level of detail to user for cloud resources</td></tr></tbody></table>
+
+####
