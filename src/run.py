@@ -156,7 +156,7 @@ def main():
                         help=f'Host/port info for where the {SERVICE_NAME} REST service is running. '
                              f'Format is <host>:<port>')
     parser.add_argument('-c', '--components', action='store',
-                        default="load_resources,kubeapi,cloudquery,runwhen_default_workspace,generation_rules,render_output_items,dump_resources")
+                        default="load_resources,kubeapi,cloudquery,generation_rules,render_output_items,dump_resources")
     parser.add_argument('-o', '--output', action='store', dest='output_path', default="output",
                         help="Path to output directory for generated files. "
                              "The path is relative to the base directory.")
@@ -306,8 +306,6 @@ def main():
             custom_definitions = workspace_info.get("custom", dict())
             code_collections = workspace_info.get("codeCollections")
             cloud_config = workspace_info.get("cloudConfig")
-            if cloud_config:
-                transform_client_cloud_config(cloud_config)
 
     # If a setting has still not been set, try an environment variable as a last resort
     # FIXME: With the switch to having default values for the command line args, these
@@ -339,6 +337,9 @@ def main():
             namespaces = [ns.strip() for ns in namespaces_string.split(',')]
     if not cloud_config:
         cloud_config = os.getenv("WB_CLOUD_CONFIG")
+
+    if cloud_config:
+        transform_client_cloud_config(base_directory, cloud_config)
 
     # Add any custom definitions that were made as command line arguments to any custom
     # settings that came from the workspace info file
