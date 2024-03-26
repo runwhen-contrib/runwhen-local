@@ -5,7 +5,14 @@ import re
 from typing import Any, Union, Optional, Sequence
 import yaml
 
-from component import Context, Setting, SettingDependency, WORKSPACE_NAME_SETTING, WORKSPACE_OUTPUT_PATH_SETTING
+from component import (
+    Context,
+    Setting,
+    SettingDependency,
+    WORKSPACE_NAME_SETTING,
+    WORKSPACE_OWNER_EMAIL_SETTING,
+    WORKSPACE_OUTPUT_PATH_SETTING
+)
 from exceptions import WorkspaceBuilderException
 from indexers.kubetypes import KUBERNETES_PLATFORM
 from name_utils import shorten_name, make_qualified_slx_name, make_slx_name
@@ -22,12 +29,8 @@ from .gcp import GCPPlatformHandler, GCP_PLATFORM
 from renderers.render_output_items import OUTPUT_ITEMS_PROPERTY
 from renderers.render_output_items import OutputItem as RendererOutputItem
 from resources import (
-    RUNWHEN_PLATFORM,
-    RunWhenResourceType,
     Resource,
-    Registry,
     ResourceTypeSpec,
-    REGISTRY_PROPERTY_NAME
 )
 from template import render_template_string
 from .code_collection import (
@@ -91,6 +94,7 @@ CODE_COLLECTIONS_SETTING = Setting("CODE_COLLECTIONS",
 
 SETTINGS = (
     SettingDependency(WORKSPACE_NAME_SETTING, True),
+    SettingDependency(WORKSPACE_OWNER_EMAIL_SETTING, True),
     SettingDependency(WORKSPACE_OUTPUT_PATH_SETTING, True),
     SettingDependency(DEFAULT_LOD_SETTING, False),
     SettingDependency(MAP_CUSTOMIZATION_RULES_SETTING, False),
@@ -633,7 +637,7 @@ def generate_output_item(generation_rule_info: GenerationRuleInfo,
     
     # Check if the item is a workflow file, and if so, fix the path to 
     # create a filename based on the SLX and put it in the workflows directory
-    if template_variables['is_workflow'] == True:
+    if template_variables['is_workflow']:
         workflow_name=template_variables['slx_name'].split("--")[-1]
         path = f"{template_variables['workspace_path']}/workflows/{workflow_name}.yaml"
     else: 
@@ -833,7 +837,6 @@ def load(context: Context) -> None:
     context.set_property(PLATFORM_HANDLERS_PROPERTY_NAME, platform_handlers)
     request_code_collections = context.get_setting("CODE_COLLECTIONS")
     code_collection_configs = get_request_code_collections(request_code_collections)
-
     slxs_by_shortened_base_name = dict()
     generation_rules = list()
     resource_type_specs: dict[str, dict[ResourceTypeSpec, list[GenerationRuleInfo]]] = dict()
@@ -847,19 +850,43 @@ def load(context: Context) -> None:
         for code_bundle_name in code_bundle_names:
             generation_rules_configs = code_collection.get_generation_rules_configs(ref_name, code_bundle_name)
             for generation_rule_file_spec, generation_rules_config_text in generation_rules_configs:
-                generation_rules_config = yaml.safe_load(generation_rules_config_text)
-                spec_config = generation_rules_config["spec"]
+                try:
+                    generation_rules_config = yaml.safe_load(generation_rules_config_text)
+                except yaml.YAMLError as e:
+                    message = f'Skipping generation rules file that could not be parsed as YAML; ' \
+                              f'file="{generation_rule_file_spec.generation_rule_file_name}"; ' \
+                              f'code-bundle="{generation_rule_file_spec.code_bundle_name}"; ' \
+                              f'code-collection="{code_collection_config.repo_url}"; ' \
+                              f'exception={e}'
+                    logger.error(message)
+                    context.add_warning(message)
+                    continue
+                spec_config = generation_rules_config.get("spec", dict())
                 # NOTE: The Kubernetes dependency here is just for backward compatibility, since
                 # the existing gen rules were written before there was the notion of a platform,
                 # so they obviously don't specify one. Eventually/soon we should patch up the
                 # gen rules to make their associated platform explicit, and then we can remove
                 # this Kubernetes dependency.
                 default_platform_name = spec_config.get(PLATFORM_NAME_KEY_NAME, KUBERNETES_PLATFORM)
-                generation_rule_config_list = generation_rules_config["spec"]["generationRules"]
+                generation_rule_config_list = spec_config.get("generationRules", list())
                 for generation_rule_config in generation_rule_config_list:
-                    generation_rule = GenerationRule.construct_from_config(generation_rule_config,
-                                                                           default_platform_name,
-                                                                           context)
+                    try:
+                        generation_rule = GenerationRule.construct_from_config(generation_rule_config,
+                                                                               default_platform_name,
+                                                                               context)
+                    except Exception as e:
+                        message = f'Skipping generation rule that could not be loaded. The most common ' \
+                                  f'reason for this is when running an older version of RunWhen local and' \
+                                  f'trying to read a generation rule that uses newer features. The fix ' \
+                                  f'in that case is to upgrade to the current version of RunWhen Local; ' \
+                                  f'file="{generation_rule_file_spec.generation_rule_file_name}"; ' \
+                                  f'code-bundle="{generation_rule_file_spec.code_bundle_name}"; ' \
+                                  f'code-collection="{code_collection_config.repo_url}"; ' \
+                                  f'exception={e}'
+                        logger.error(message)
+                        context.add_warning(message)
+                        continue
+
                     generation_rule_info = GenerationRuleInfo(generation_rule,
                                                               generation_rule_file_spec,
                                                               code_collection)
@@ -899,13 +926,16 @@ def enrich(context: Context) -> None:
         if map_customization_rules_path else MapCustomizationRules()
 
     custom_definitions: dict[str, Any] = context.get_setting("CUSTOM_DEFINITIONS")
-    registry: Registry = context.get_property(REGISTRY_PROPERTY_NAME)
     renderer_output_items: dict[str, RendererOutputItem] = context.get_property(OUTPUT_ITEMS_PROPERTY)
     platform_handlers: dict[str, PlatformHandler] = context.get_property(PLATFORM_HANDLERS_PROPERTY_NAME)
 
     workspace_name = context.get_setting("WORKSPACE_NAME")
-    # workspace = models.RunWhenWorkspace.nodes.get(short_name=workspace_name)
-    workspace = registry.lookup_resource(RUNWHEN_PLATFORM, RunWhenResourceType.WORKSPACE.value, workspace_name)
+    workspace_owner_email: str = context.get_setting("WORKSPACE_OWNER_EMAIL")
+    workspace = {
+        "name": workspace_name,
+        "short_name": workspace_name,
+        "owner_email": workspace_owner_email
+    }
 
     slxs = context.get_property(SLXS_PROPERTY)
     if slxs is None:
@@ -974,7 +1004,7 @@ def enrich(context: Context) -> None:
                     collect_emitted_slxs(generation_rule_info, resource, level_of_detail, slxs, context)
 
     # Assign the shortened names to the enabled SLXs, including detecting and resolving any name conflicts.
-    workspace_name = getattr(workspace, "short_name")
+    workspace_name = workspace["name"]
     assign_slx_names(slxs, workspace_name)
 
     # Now that we've assigned the SLX names, we can generate the output items.

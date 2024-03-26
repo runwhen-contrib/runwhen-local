@@ -13,18 +13,7 @@ logger = logging.getLogger(__name__)
 
 CURRENT_DUMP_FORMAT_VERSION = 2
 
-# Platform name to use for built-in resource types, e.g. workspace
-# TODO: Possibly makes sense to not treat the workspace as a resource that's
-# stored in the resource registry and instead consider it as a separate entity
-# that is basically a parent/owner of the resource registry. I think that
-# makes sense at least in the context of the workspace builder, but possibly
-# not in the context of thinking of the resource discovery/registration
-# process as a separate component. Needs more thought...
-RUNWHEN_PLATFORM = "runwhen"
 REGISTRY_PROPERTY_NAME = "registry"
-
-class RunWhenResourceType(Enum):
-    WORKSPACE = "workspace"
 
 
 class Resource:
