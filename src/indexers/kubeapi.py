@@ -564,7 +564,7 @@ def index(component_context: Context):
                                                                                               plural=plural_name)
                                 for raw_resource in ret['items']:
                                     resource_name = raw_resource['metadata']['name']
-                                    custom_name = f"{plural_name}|{group}|{version}|{resource_name}"
+                                    custom_name = f"{plural_name}_{group}_{version}_{resource_name}"
                                     custom_qualified_name = get_qualified_name(namespace_qualified_name, custom_name)
                                     custom_attributes = kubeapi_parsers.parse_custom_resource(raw_resource,
                                                                                               group,
