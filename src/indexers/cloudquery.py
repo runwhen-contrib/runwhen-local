@@ -103,6 +103,32 @@ platform_specs = [
                                                           cloudquery_table_name="gcp_compute_instances",
                                                           mandatory=False),
                            ]),
+    CloudQueryPlatformSpec("aws",
+                           config_file_name="aws.yaml",
+                           config_template_name="aws-config.yaml",
+                           environment_variables={
+                               "AWS_ACCESS_KEY_ID": "awsAccessKeyId",
+                               "AWS_SECRET_ACCESS_KEY": "awsSecretAccessKey",
+                               "AWS_SESSION_TOKEN": "awsSessionToken",
+                           },
+                           resource_type_specs=[
+                               # IMPORTANT!!! The project resource type must be the first entry here so that
+                               # they're all created before processing the other resource types, which
+                               # set a resource_group field that points to their parent resource group instance.
+                               # FIXME: I played around with trying to use resource groups as a grouping
+                               # mechanism for assigning level of detail values like we do with
+                               # namespace, resource groups, project on the other cloud platform, but it
+                               # doesn't look like the actual instances that match a resource group spec
+                               # are returned by CQ. It requires an additional call to resolve the
+                               # instance query associated with the resource group that CQ isn't doing.
+                               # So for now I'm just going to disable this stuff.
+                               # CloudQueryResourceTypeSpec(resource_type_name="resource_group",
+                               #                            cloudquery_table_name="aws_resourcegroups_resource_groups",
+                               #                            mandatory=True),
+                               CloudQueryResourceTypeSpec(resource_type_name="ec2_instance",
+                                                          cloudquery_table_name="aws_ec2_instances",
+                                                          mandatory=False),
+                           ]),
 ]
 
 def invoke_cloudquery(cq_command: str,
@@ -112,7 +138,7 @@ def invoke_cloudquery(cq_command: str,
     # We need to set the PATH environment variable so that the cloudquery CLI can be found
     path = os.getenv("PATH")
     cq_env_vars["PATH"] = path
-    
+
     # Check if HTTP_PROXY and HTTPS_PROXY are set in the OS environment and add them if they are
     http_proxy = os.getenv("HTTP_PROXY")
     https_proxy = os.getenv("HTTPS_PROXY")
