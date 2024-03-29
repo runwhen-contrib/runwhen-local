@@ -103,6 +103,32 @@ platform_specs = [
                                                           cloudquery_table_name="gcp_compute_instances",
                                                           mandatory=False),
                            ]),
+    CloudQueryPlatformSpec("aws",
+                           config_file_name="aws.yaml",
+                           config_template_name="aws-config.yaml",
+                           environment_variables={
+                               "AWS_ACCESS_KEY_ID": "awsAccessKeyId",
+                               "AWS_SECRET_ACCESS_KEY": "awsSecretAccessKey",
+                               "AWS_SESSION_TOKEN": "awsSessionToken",
+                           },
+                           resource_type_specs=[
+                               # IMPORTANT!!! The project resource type must be the first entry here so that
+                               # they're all created before processing the other resource types, which
+                               # set a resource_group field that points to their parent resource group instance.
+                               # FIXME: I played around with trying to use resource groups as a grouping
+                               # mechanism for assigning level of detail values like we do with
+                               # namespace, resource groups, project on the other cloud platform, but it
+                               # doesn't look like the actual instances that match a resource group spec
+                               # are returned by CQ. It requires an additional call to resolve the
+                               # instance query associated with the resource group that CQ isn't doing.
+                               # So for now I'm just going to disable this stuff.
+                               # CloudQueryResourceTypeSpec(resource_type_name="resource_group",
+                               #                            cloudquery_table_name="aws_resourcegroups_resource_groups",
+                               #                            mandatory=True),
+                               CloudQueryResourceTypeSpec(resource_type_name="ec2_instance",
+                                                          cloudquery_table_name="aws_ec2_instances",
+                                                          mandatory=False),
+                           ]),
 ]
 
 def invoke_cloudquery(cq_command: str,
@@ -112,7 +138,6 @@ def invoke_cloudquery(cq_command: str,
     # We need to set the PATH environment variable so that the cloudquery CLI can be found
     path = os.getenv("PATH")
     cq_env_vars["PATH"] = path
-    
     # Check if HTTP_PROXY and HTTPS_PROXY are set in the OS environment and add them if they are
     http_proxy = os.getenv("HTTP_PROXY")
     https_proxy = os.getenv("HTTPS_PROXY")
@@ -167,10 +192,27 @@ def get_premium_tables(table_info_list: list[dict[str, Union[str, Any]]]) -> lis
             premium_tables += premium_relation_tables
     return premium_tables
 
-def init_cloudquery_table_info():
+def init_cloudquery_table_info(cloud_config):
     global cloudquery_premium_table_info
     if cloudquery_premium_table_info:
         return
+
+    cloudquery_config = cloud_config.get('cloudquery', dict())
+    cq_api_key = cloudquery_config.get('apiKey')
+    # I think the code below is the proper way to handle this if I'm correct that
+    # CQ now requires the API key to perform the table info command. But it's possible
+    # that this is just something funky about my environment, so, for now, I won't
+    # treat the lack of the API key as a fatal error for CQ indexing.
+    # if not cq_api_key:
+    #     # Previously it was possible to execute the table info command without specifying
+    #     # a CloudQuery API key, but it seems like that doesn't work anymore with the
+    #     # recent changes to the CloudQuery business model, so we abort out if the API
+    #     # key is not specified. And then later abort out of the entire CQ indexing if the
+    #     # cloudquery_premium_table_info variable hasn't been initialized, since currently
+    #     # that's required, and presumably none of the other indexing will work now without
+    #     # the API key either.
+    #     return
+
     with tempfile.TemporaryDirectory() as cq_temp_dir:
         cq_config_dir = os.path.join(cq_temp_dir, "config")
         cq_output_dir = os.path.join(cq_temp_dir, "docs")
@@ -198,6 +240,8 @@ def init_cloudquery_table_info():
             write_file(config_file_path, config_text)
 
         cq_env_vars = dict()
+        if cq_api_key:
+            cq_env_vars['CLOUDQUERY_API_KEY'] = cq_api_key
         invoke_cloudquery("tables", cq_config_dir, cq_env_vars, cq_output_dir)
 
         # Parse the generated table documentation
@@ -339,13 +383,25 @@ def transform_cloud_config(cloud_config: dict[str, Any],
 def index(context: Context):
     logger.info("Starting CloudQuery indexing")
 
+    cloud_config = context.get_setting("CLOUD_CONFIG")
+    cq_enabled = cloud_config is not None
+
     # FIXME: Ideally this should just get called once on startup, since it's independent of
     # the parameters for any particular request. But for now there's just a check on the global
     # variable to short-circuit repeated invocations.
-    init_cloudquery_table_info()
+    if cq_enabled:
+        init_cloudquery_table_info(cloud_config)
 
-    cloud_config = context.get_setting("CLOUD_CONFIG")
-    if cloud_config:
+    # It seems like CQ now requires an API key to be set, but I'm not sure if that's
+    # just something funky in my setup, so, at least for now, I'm not treating that
+    # as a fatal error for performing CQ indexing. So I'm disabling the code below for now.
+    # If it's confirmed that the API key is required, then the code below should be
+    # reenabled to avoid fatal errors for the overall workspace builder execution.
+    # global cloudquery_premium_table_info
+    # if not cloudquery_premium_table_info:
+    #     cq_enabled = False
+
+    if cq_enabled:
         platform_handlers: dict[str, PlatformHandler] = context.get_property(PLATFORM_HANDLERS_PROPERTY_NAME)
         accessed_resource_type_specs: dict[str, dict[ResourceTypeSpec, list[GenerationRuleInfo]]] = \
             context.get_property(RESOURCE_TYPE_SPECS_PROPERTY)

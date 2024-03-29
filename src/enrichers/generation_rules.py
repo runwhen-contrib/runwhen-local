@@ -26,6 +26,8 @@ from .generation_rule_types import (
 from .kubernetes import KubernetesPlatformHandler
 from .azure import AzurePlatformHandler, AZURE_PLATFORM
 from .gcp import GCPPlatformHandler, GCP_PLATFORM
+from .aws import AWSPlatformHandler, AWS_PLATFORM
+
 from renderers.render_output_items import OUTPUT_ITEMS_PROPERTY
 from renderers.render_output_items import OutputItem as RendererOutputItem
 from resources import (
@@ -833,6 +835,7 @@ def load(context: Context) -> None:
         KUBERNETES_PLATFORM: KubernetesPlatformHandler(),
         AZURE_PLATFORM: AzurePlatformHandler(),
         GCP_PLATFORM: GCPPlatformHandler(),
+        AWS_PLATFORM: AWSPlatformHandler(),
     }
     context.set_property(PLATFORM_HANDLERS_PROPERTY_NAME, platform_handlers)
     request_code_collections = context.get_setting("CODE_COLLECTIONS")

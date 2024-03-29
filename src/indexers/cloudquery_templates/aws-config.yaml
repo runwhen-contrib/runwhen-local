@@ -1,0 +1,32 @@
+kind: source
+spec:
+  # Source spec section
+  name: aws
+  path: cloudquery/aws
+  registry: cloudquery
+  version: "v24.3.3"
+  destinations: ["{{destination_plugin_name}}"]
+  tables: [
+    {% for table_name in tables %}
+    "{{table_name}}",
+    {% endfor %}
+  ]
+  spec:
+    # Optional parameters
+    # regions: []
+    # accounts: []
+    # org: nil
+    # concurrency: 50000
+    # initialization_concurrency: 4
+    # aws_debug: false
+    # max_retries: 10
+    # max_backoff: 30
+    # custom_endpoint_url: ""
+    # custom_endpoint_hostname_immutable: nil # required when custom_endpoint_url is set
+    # custom_endpoint_partition_id: "" # required when custom_endpoint_url is set
+    # custom_endpoint_signing_region: "" # required when custom_endpoint_url is set
+    # use_paid_apis: false
+    # table_options: nil
+    # scheduler: shuffle # options are: dfs, round-robin or shuffle
+    # use_nested_table_rate_limiting: false
+    # enable_api_level_tracing: false
