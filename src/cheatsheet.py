@@ -246,20 +246,24 @@ def task_name_expansion(task_name, parsed_runbook_config):
     Cleans up the task title as sent in from robot parsing.
     Tries to substitute any dynamic vars with config provided  
 
-
     Args:
-        task_name (object): The cmd arguments as parsed from robot.  
-        parsed_runbook_config (object): The parsed runbook config content.
+        task_name (str): The cmd arguments as parsed from robot.  
+        parsed_runbook_config (dict): The parsed runbook config content.
 
     Returns:
         An expanded task title with substituted variables. 
     """
-    for var in parsed_runbook_config["spec"]["configProvided"]:
-        task_name = task_name.replace('${'+ var["name"] +'}', var["value"])
-        logger.debug(f"Tailored var name {var['name']} for {var['value']}")       
-
     logger.debug(f"Task Title Substitution: return {task_name}")
+    for var in parsed_runbook_config["spec"]["configProvided"]:
+        # Ensure var["value"] is a string, even if it's None
+        value_str = str(var["value"]) if var["value"] is not None else ''
+        if var["value"] is None:
+            logger.warning(f"Variable '{var['name']}' has a None value; substituting with an empty string.")
+        task_name = task_name.replace('${'+ var["name"] +'}', value_str)
+        logger.debug(f"Tailored var name {var['name']} for {value_str}")       
+
     return task_name
+
 
 def remove_auth_commands(command):
     """
