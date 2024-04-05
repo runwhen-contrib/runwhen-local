@@ -101,6 +101,23 @@ def remove_escape_chars(cmd):
         cmd=cmd[1:-1]    
     return cmd
 
+def safe_substitute(original_string, placeholder, replacement):
+    """
+    Safely substitutes a placeholder in a string with the replacement value.
+    If the replacement is None or not a string, it substitutes with an empty string.
+
+    Args:
+        original_string (str): The original string with placeholders.
+        placeholder (str): The placeholder to be replaced.
+        replacement (any): The value to replace the placeholder with.
+
+    Returns:
+        str: The original string with the placeholder substituted.
+    """
+    # Ensure the replacement is a string to avoid any TypeError.
+    replacement = str(replacement) if isinstance(replacement, str) else ''
+    return original_string.replace(placeholder, replacement)
+
 def cmd_expansion(keyword_arguments, parsed_runbook_config):
     """
     Cleans up the command details as sent in from robot parsing.
@@ -139,18 +156,25 @@ def cmd_expansion(keyword_arguments, parsed_runbook_config):
         ## Jon Funk mentioned that distrubiton type might not be used 
         cmd_str=cmd_components[0]
 
+
+
         ## Remove authentication commands 
         cmd_str=remove_auth_commands(cmd_str)
-
-        # Identify env keys (often secrets) and strip the additional $ and .key 
-        # before passing into the next stage
+        # # Identify env keys (often secrets) and strip the additional $ and .key 
+        # # before passing into the next stage
         cmd_str = replace_env_key(cmd_str)
-        if "binary_name" in cmd_str: 
-            cmd_str = cmd_str.replace('${binary_name}', parsed_runbook_config["spec"]["servicesProvided"][0]["name"])
-        if "BINARY_USED" in cmd_str: 
-            cmd_str = cmd_str.replace('${BINARY_USED}', parsed_runbook_config["spec"]["servicesProvided"][0]["name"])
-        if "KUBERNETES_DISTRIBUTION_BINARY" in cmd_str: 
-            cmd_str = cmd_str.replace('${KUBERNETES_DISTRIBUTION_BINARY}', parsed_runbook_config["spec"]["servicesProvided"][0]["name"])
+
+        service_name = ""
+        if parsed_runbook_config.get("spec", {}).get("servicesProvided"):
+            service_name = parsed_runbook_config.get("spec", {}).get("servicesProvided", [{}])[0].get("name", "")
+            logger.debug(f"Safe substitution of {service_name}.")
+            cmd_str = safe_substitute(cmd_str, '${binary_name}', service_name)
+            cmd_str = safe_substitute(cmd_str, '${BINARY_USED}', service_name)
+            cmd_str = safe_substitute(cmd_str, '${KUBERNETES_DISTRIBUTION_BINARY}', service_name)
+        else:
+            # Optionally log a warning or handle the case where no services are provided
+            logger.warning("No services provided in 'servicesProvided'. Using empty string for service_name.")
+
     elif cmd_components[0].startswith('\'bash_file='): 
         logger.debug(f"Rendering bash file: {cmd_components[0]}")
         script=cmd_components[0].replace('bash_file=','')
