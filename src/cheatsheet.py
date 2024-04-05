@@ -214,8 +214,11 @@ def cmd_expansion(keyword_arguments, parsed_runbook_config):
 
 
     # Substitue available vars from config provided into the command
-    for var in parsed_runbook_config["spec"]["configProvided"]:
-        cmd_str = cmd_str.replace('${'+ var["name"] +'}', var["value"])
+    # for var in parsed_runbook_config["spec"]["configProvided"]:
+    #     cmd_str = cmd_str.replace('${'+ var["name"] +'}', var["value"])
+    for var in parsed_runbook_config["spec"].get("configProvided", []):
+        placeholder = '${' + var["name"] + '}'
+        cmd_str = safe_substitute(cmd_str, placeholder, var["value"])
     cmd["private"] = remove_escape_chars(cmd_str)
 
     return cmd
