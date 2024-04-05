@@ -186,7 +186,7 @@ def cmd_expansion(keyword_arguments, parsed_runbook_config):
         raw_script_url=generate_raw_git_url(git_url=parsed_runbook_config["spec"]["codeBundle"]["repoUrl"], ref=parsed_runbook_config["spec"]["codeBundle"]["ref"], file_path=file_path)
         env=""
         for var in parsed_runbook_config["spec"]["configProvided"]:
-            env += f"{var['name']}={var['value']} "
+            env += f"{var['name']}=\"{var['value']}\" "
         matched_cmd_override = None
         for arg in cmd_components:
             arg=arg.strip()
