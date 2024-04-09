@@ -34,6 +34,13 @@ class LevelOfDetail(Enum):
                 return LevelOfDetail[config.upper()]
         except (ValueError, KeyError):
             pass
+        # FIXME: I think this should probably be a WorkspaceBuilderUserException, since
+        # this would most likely be the result of someone using an incorrect value in
+        # their workspace info data and thus would be user error. I guess it could also
+        # come from a value in a gen rule for a code bundle, but presumably that should
+        # get caught by the code bundle author and not be something that normal end
+        # users would see. But, anyway, I need to think about it some more and would
+        # need more testing for regressions, although I think it would just work.
         raise WorkspaceBuilderException(f"Invalid level of detail value: {config}")
 
 # FIXME: It feels a bit kludgy to me to do the LevelOfDetail YAML serialization/deserialization
