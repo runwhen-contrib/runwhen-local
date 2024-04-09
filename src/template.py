@@ -1,12 +1,22 @@
+import logging
 from typing import Any
 
 from jinja2.loaders import FileSystemLoader
 from jinja2.sandbox import SandboxedEnvironment
 from jinja2.loaders import BaseLoader, ChoiceLoader
 from jinja2.exceptions import TemplateNotFound, TemplateError
+from jinja2 import Undefined
 
 from exceptions import WorkspaceBuilderException
 
+
+class CustomUndefined(Undefined):
+    def __str__(self):
+        # Log the missing variable or substitute with a placeholder
+        # Note: self._undefined_name gives the name of the missing variable
+        missing_var_name = self._undefined_name
+        logging.warning(f"Custom variable '{missing_var_name}' not defined. Substituting with placeholder.")
+        return "missing_workspaceInfo_custom_variable"
 
 class CustomTemplateLoader(BaseLoader):
     """
@@ -28,7 +38,7 @@ def render_template_string(template_string: str, template_variables: dict[str, A
         # FIXME: Should probably support a custom template loader here, but
         # currently this is only used for path expansion, which is unlikely
         # to require template inclusion.
-        env = SandboxedEnvironment(trim_blocks=True, lstrip_blocks=True)
+        env = SandboxedEnvironment(trim_blocks=True, lstrip_blocks=True, undefined=CustomUndefined)
         result = env.from_string(template_string).render(**template_variables)
         return result
     except TemplateNotFound as e:
@@ -60,7 +70,7 @@ def render_template_file(template_file_name: str,
         loaders = [FileSystemLoader("templates")]
         if template_loader_func:
             loaders.insert(0, CustomTemplateLoader(template_loader_func))
-        env = SandboxedEnvironment(loader=ChoiceLoader(loaders), trim_blocks=True, lstrip_blocks=True)
+        env = SandboxedEnvironment(loader=ChoiceLoader(loaders), trim_blocks=True, lstrip_blocks=True, undefined=CustomUndefined)
         template = env.get_template(template_file_name)
         return template.render(**template_variables)
     except TemplateNotFound as e:
