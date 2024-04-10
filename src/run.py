@@ -338,24 +338,10 @@ def main():
     if not cloud_config:
         cloud_config = os.getenv("WB_CLOUD_CONFIG")
 
-    if cloud_config:
-        transform_client_cloud_config(base_directory, cloud_config)
 
-    # Add any custom definitions that were made as command line arguments to any custom
-    # settings that came from the workspace info file
-    if args.custom_definitions:
-        for custom_definition in args.custom_definitions:
-            parts = custom_definition[0].split('=')
-            if len(parts) != 2:
-                print("Error: Invalid format for --define arg; expected <key>=<value>")
-                return 1
-            key, value = parts
-            key = key.strip()
-            if not key:
-                print("Error: Expected non-empty key for --define arg")
-                return 1
-            custom_definitions[key] = value.strip()
-
+    ## FIXME This is a quick hack to handle the transition from top-level object to 
+    ## cloudConfig configuration, ensuring to support in-cluster-auth, which is 
+    ## mostly for POCs but represents the fastest way to get up and running
     kubeconfig = args.kubeconfig
     kubeconfig_path = os.path.join(base_directory, kubeconfig)
 
@@ -374,11 +360,30 @@ def main():
             kubeconfig_file = os.path.join(base_directory, "in_cluster_kubeconfig.yaml")
             with open(kubeconfig_file, "w") as f:
                 f.write(yaml.dump(kubeconfig_data))
-            kubeconfig_path = kubeconfig_file
+            print(f"Copying {kubeconfig_file} to {kubeconfig_path}...")
+            shutil.copyfile(kubeconfig_file, kubeconfig_path)
             print("Using in-cluster Kubernetes auth...")
             print(f"Using auth from {base_directory}/{kubeconfig}...")
     else: 
         print(f"Using auth from {base_directory}/{kubeconfig}...")
+
+    if cloud_config:
+        transform_client_cloud_config(base_directory, cloud_config)
+
+    # Add any custom definitions that were made as command line arguments to any custom
+    # settings that came from the workspace info file
+    if args.custom_definitions:
+        for custom_definition in args.custom_definitions:
+            parts = custom_definition[0].split('=')
+            if len(parts) != 2:
+                print("Error: Invalid format for --define arg; expected <key>=<value>")
+                return 1
+            key, value = parts
+            key = key.strip()
+            if not key:
+                print("Error: Expected non-empty key for --define arg")
+                return 1
+            custom_definitions[key] = value.strip()
 
     map_customization_rules = args.customization_rules
     if not map_customization_rules:
