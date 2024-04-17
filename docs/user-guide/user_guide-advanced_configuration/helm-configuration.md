@@ -12,22 +12,92 @@ Values File: [https://github.com/runwhen-contrib/helm-charts/blob/main/charts/ru
 
 The following tables outline all available helm chart values and their defaults.
 
-### General Deployment Configuration
+### Global/Shared Settings
 
-<table><thead><tr><th width="213">Configuration Option</th><th>Type</th><th>Default Value</th><th>Description</th></tr></thead><tbody><tr><td>replicaCount</td><td>Integer</td><td>1</td><td>The number of replicas for the deployment.</td></tr><tr><td>image.repository</td><td>String</td><td>ghcr.io/runwhen-contrib/runwhen-local</td><td>The Docker image repository.</td></tr><tr><td>image.pullPolicy</td><td>String</td><td>Always</td><td>The image pull policy. Common values are 'Always', 'IfNotPresent', or 'Never'.</td></tr><tr><td>image.tag</td><td>String</td><td>latest</td><td>The Docker image tag.</td></tr><tr><td>imagePullSecrets</td><td>List</td><td>[]</td><td>A list of secret names for pulling Docker images from private repositories.</td></tr><tr><td>nameOverride</td><td>String</td><td></td><td>Override the name of the chart.</td></tr><tr><td>fullnameOverride</td><td>String</td><td></td><td>Override the full name of the chart.</td></tr></tbody></table>
+| Setting            | Type    | Default            | Description                                  |
+|--------------------|---------|--------------------|----------------------------------------------|
+| `workspaceName`    | String  | [workspace-name]   | Name of the workspace                        |
+| `imagePullSecrets` | List    | []                 | List of secret names for pulling images      |
+| `nameOverride`     | String  | ""                 | Overrides the default name of the chart      |
+| `fullnameOverride` | String  | ""                 | Overrides the full name of the chart         |
+| `podAnnotations`   | Map     | {}                 | Annotations to add to pods                   |
+| `nodeSelector`     | Map     | {}                 | Node labels for pod assignment               |
+| `tolerations`      | List    | []                 | Tolerations for pod assignment               |
+| `affinity`         | Map     | {}                 | Affinity rules for pod placement             |
 
-### Network Configuration
+### RunWhen Local Configuration
 
-<table><thead><tr><th width="213">Configuration Option</th><th>Type</th><th>Default Value</th><th>Description</th></tr></thead><tbody><tr><td>service.type</td><td>String</td><td>ClusterIP</td><td></td></tr><tr><td>service.port</td><td>Integer</td><td>8081</td><td></td></tr><tr><td>ingress.enabled</td><td>Boolean</td><td>False</td><td>Expose the application througn an ingress object</td></tr><tr><td>ingress.className</td><td>String</td><td></td><td></td></tr><tr><td>ingress.hosts</td><td>List</td><td>[{'host': 'chart-example.local', 'paths': [{'path': '/', 'pathType': 'Prefix'}]}]</td><td></td></tr><tr><td>ingress.tls</td><td>List</td><td>[]</td><td></td></tr></tbody></table>
+#### General Settings
 
-### Resource and Scheduling Configurations
+| Setting              | Type    | Default   | Description                                 |
+|----------------------|---------|-----------|---------------------------------------------|
+| `enabled`            | Boolean | true      | Toggle RunWhen Local component              |
+| `image.repository`   | String  | "ghcr.io/runwhen-contrib/runwhen-local" | Docker image repository |
+| `image.pullPolicy`   | String  | "Always"  | Image pull policy                           |
+| `image.tag`          | String  | "latest"  | Specific image tag to use                   |
 
-<table><thead><tr><th width="213">Configuration Option</th><th>Type</th><th>Default Value</th><th>Description</th></tr></thead><tbody><tr><td>resources.requests.memory</td><td>String</td><td>256Mi</td><td></td></tr><tr><td>resources.requests.cpu</td><td>String</td><td>250m</td><td></td></tr><tr><td>resources.limits.memory</td><td>String</td><td>1024Mi</td><td></td></tr><tr><td>resources.limits.cpu</td><td>String</td><td>1</td><td></td></tr><tr><td>tolerations</td><td>List</td><td>[]</td><td></td></tr></tbody></table>
 
-### Roles Based Access Control Configuration
+#### Service Account Settings
 
-<table><thead><tr><th width="213">Configuration Option</th><th>Type</th><th>Default Value</th><th>Description</th></tr></thead><tbody><tr><td>serviceAccount.create</td><td>Boolean</td><td>True</td><td>Specifies whether a service account should be created.</td></tr><tr><td>serviceAccount.name</td><td>String</td><td></td><td>The name of the service account to use or create.</td></tr><tr><td>serviceAccountRoles.namespaceRole.enabled</td><td>Boolean</td><td>False</td><td>Used to specify the namespaces that RunWhen Local services account can discover. Has no effect if <code>serviceAccountRole.ClusterView.enabled</code> is <code>True</code></td></tr><tr><td>serviceAccountRoles.namespaceRole.namespaces</td><td>List</td><td>[]</td><td>List of namespaces that RunWhen Local service account can discover. Always includes it's own namespace.</td></tr><tr><td>serviceAccountRoles.namespaceRole.rules</td><td>List</td><td>[{'apiGroups': [''], 'resources': ['*'], 'verbs': ['get', 'watch', 'list']}]</td><td>List of actions that the RunWhen Local service account will have on the list of namespaces specified in <code>serviceAccountRoles.namespaceRole.namespaces</code></td></tr><tr><td>serviceAccountRoles.clusterRoleView.enabled</td><td>Boolean</td><td>True</td><td>By default, RunWhen Local service account is bound to the cluster scoped <code>View</code> role.</td></tr><tr><td>serviceAccountRoles.advancedClusterRole.enabled</td><td>Boolean</td><td>False</td><td>Creates a customized role for the RunWhen Local service account with the actions specified in <code>serviceAccountRoles.advancedClusterRole.rules</code></td></tr><tr><td>serviceAccountRoles.advancedClusterRole.rules</td><td>List</td><td>[]</td><td>List of actions that the RunWhen Local service account can perform cluster-wide.</td></tr></tbody></table>
+| Setting               | Type    | Default   | Description                                  |
+|-----------------------|---------|-----------|----------------------------------------------|
+| `create`              | Boolean | true      | Whether to create a service account          |
+| `annotations`         | Map     | {}        | Annotations for the service account          |
+| `name`                | String  | "runwhen-local" | Name of the service account               |
 
-### Application Configuration
 
-<table><thead><tr><th width="213">Configuration Option</th><th>Type</th><th>Default Value</th><th>Description</th></tr></thead><tbody><tr><td>discoveryKubeconfig.inClusterAuth.enabled</td><td>Boolean</td><td>True</td><td></td></tr><tr><td>discoveryKubeconfig.secretProvided.enabled</td><td>Boolean</td><td>False</td><td></td></tr><tr><td>autoRun.discoveryInterval</td><td>Integer</td><td>14400</td><td></td></tr><tr><td>terminal.disabled</td><td>Boolean</td><td>True</td><td></td></tr><tr><td>uploadInfo</td><td>List</td><td>[]</td><td></td></tr><tr><td>workspaceInfo.defaultLocation</td><td>String</td><td>undefined</td><td></td></tr><tr><td>workspaceInfo.workspaceName</td><td>String</td><td>undefined</td><td></td></tr><tr><td>workspaceInfo.workspaceOwnerEmail</td><td>String</td><td>tester@my-company.com</td><td></td></tr><tr><td>workspaceInfo.defaultLOD</td><td>Integer</td><td>2</td><td></td></tr><tr><td>workspaceInfo.namespaceLODs.kube-system</td><td>Integer</td><td>0</td><td></td></tr><tr><td>workspaceInfo.namespaceLODs.kube-public</td><td>Integer</td><td>0</td><td></td></tr><tr><td>workspaceInfo.namespaceLODs.kube-node-lease</td><td>Integer</td><td>0</td><td></td></tr><tr><td>workspaceInfo.custom.kubernetes_distribution</td><td>String</td><td>Kubernetes</td><td></td></tr><tr><td>workspaceInfo.custom.kubernetes_distribution_binary</td><td>String</td><td>kubectl</td><td></td></tr><tr><td>workspaceInfo.custom.kubeconfig_secret_name</td><td>String</td><td>kubeconfig</td><td></td></tr></tbody></table>
+#### Roles and Permissions
+
+| Setting                      | Type    | Default | Description                                 |
+|------------------------------|---------|---------|---------------------------------------------|
+| `namespaceRole.enabled`      | Boolean | false   | Toggle role that applies to specific namespaces |
+| `clusterRoleView.enabled`    | Boolean | true    | Toggle cluster-wide read-only access       |
+| `advancedClusterRole.enabled`| Boolean | false   | Toggle customizable role with specified rules |
+
+
+#### Service and Ingress
+
+| Setting           | Type    | Default           | Description                                 |
+|-------------------|---------|-------------------|---------------------------------------------|
+| `type`            | String  | "ClusterIP"       | Type of service, e.g., `ClusterIP`          |
+| `port`            | Integer | 8081              | Port on which the service is exposed        |
+| `ingress.enabled` | Boolean | false             | Toggle ingress resource creation            |
+
+#### Resource Management
+
+| Setting           | Type    | Default   | Description                                 |
+|-------------------|---------|-----------|---------------------------------------------|
+| `requests.memory` | String  | "256Mi"   | Requested memory                            |
+| `requests.cpu`    | String  | "250m"    | Requested CPU                               |
+| `limits.memory`   | String  | "1024Mi"  | Memory limit                                |
+| `limits.cpu`      | String  | "1"       | CPU limit                                   |
+
+
+#### Discovery and Automation
+| Setting                             | Type    | Default   | Description                              |
+|-------------------------------------|---------|-----------|------------------------------------------|
+| `discoveryKubeconfig.inClusterAuth.enabled` | Boolean | true | Use in-cluster authentication            |
+| `autoRun.discoveryInterval`         | Integer | 14400     | Time interval for running discovery      |
+| `autoRun.uploadEnabled`             | Boolean | false     | Enable uploading data to the RunWhen Platform |
+| `autoRun.uploadMergeMode`           | String  | "keep-uploaded" | Strategy to merge data during uploads |
+
+### Runner Configuration
+
+| Setting       | Type    | Default                            | Description                              |
+|---------------|---------|------------------------------------|------------------------------------------|
+| `enabled`     | Boolean | false                              | Toggle Runner component                  |
+| `image`       | String  | "us-docker.pkg.dev/runwhen-nonprod-shared/public-images/runner:latest" | Docker image of the Runner               |
+| `controlAddr` | String  | "https://runner.beta.runwhen.com"  | Control address for managing the runner  |
+| `metrics.url` | String  | "https://runner-cortex-tenant.beta.runwhen.com/push" | Endpoint for pushing metrics            |
+
+#### Grafana Agent Configuration
+These settings are applied to the grafana-agent subchart. They are tuned for runner execution, please do not adjust.
+
+| Setting              | Type    | Default    | Description                              |
+|----------------------|---------|------------|------------------------------------------|
+| `agent.mode`         | String  | 'flow'     | Operation mode of the Grafana Agent      |
+| `configMap.create`   | Boolean | false      | Whether to create a configMap for the agent |
+| `volumes.extra.name` | String  | "tls-secret-volume" | Name of extra volumes                 |
+| `rbac.create`        | Boolean | false      | Whether to create RBAC settings          |
+| `serviceAccount.create` | Boolean | false   | Whether to create a service account for Grafana Agent |
+
