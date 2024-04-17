@@ -50,7 +50,7 @@ After the Helm Chart Installation, a few pods will be pending, as they will be w
 
 * Select **Create a Runner Registration Token** and provide a useful name for your runner location
 
-<figure><img src="../../.gitbook/assets/image (1).png" alt=""><figcaption></figcaption></figure>
+<figure><img src="../../.gitbook/assets/image (6).png" alt=""><figcaption></figcaption></figure>
 
 * Copy the provided token, and create a secret named **runner-registration-token**
 
