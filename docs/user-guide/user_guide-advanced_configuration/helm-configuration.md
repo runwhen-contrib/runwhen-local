@@ -12,7 +12,7 @@ Values File: [https://github.com/runwhen-contrib/helm-charts/blob/main/charts/ru
 
 The following tables outline all available helm chart values and their defaults.
 
-### Global/Shared Settings
+## Global/Shared Settings
 
 | Setting            | Type    | Default            | Description                                  |
 |--------------------|---------|--------------------|----------------------------------------------|
@@ -25,9 +25,9 @@ The following tables outline all available helm chart values and their defaults.
 | `tolerations`      | List    | []                 | Tolerations for pod assignment               |
 | `affinity`         | Map     | {}                 | Affinity rules for pod placement             |
 
-### RunWhen Local Configuration
+## RunWhen Local Configuration
 
-#### General Settings
+### General Settings
 
 | Setting              | Type    | Default   | Description                                 |
 |----------------------|---------|-----------|---------------------------------------------|
@@ -37,7 +37,7 @@ The following tables outline all available helm chart values and their defaults.
 | `image.tag`          | String  | "latest"  | Specific image tag to use                   |
 
 
-#### Service Account Settings
+### Service Account Settings
 
 | Setting               | Type    | Default   | Description                                  |
 |-----------------------|---------|-----------|----------------------------------------------|
@@ -46,7 +46,7 @@ The following tables outline all available helm chart values and their defaults.
 | `name`                | String  | "runwhen-local" | Name of the service account               |
 
 
-#### Roles and Permissions
+### Roles and Permissions
 
 | Setting                      | Type    | Default | Description                                 |
 |------------------------------|---------|---------|---------------------------------------------|
@@ -55,7 +55,7 @@ The following tables outline all available helm chart values and their defaults.
 | `advancedClusterRole.enabled`| Boolean | false   | Toggle customizable role with specified rules |
 
 
-#### Service and Ingress
+### Service and Ingress
 
 | Setting           | Type    | Default           | Description                                 |
 |-------------------|---------|-------------------|---------------------------------------------|
@@ -63,7 +63,7 @@ The following tables outline all available helm chart values and their defaults.
 | `port`            | Integer | 8081              | Port on which the service is exposed        |
 | `ingress.enabled` | Boolean | false             | Toggle ingress resource creation            |
 
-#### Resource Management
+### Resource Management
 
 | Setting           | Type    | Default   | Description                                 |
 |-------------------|---------|-----------|---------------------------------------------|
@@ -73,7 +73,8 @@ The following tables outline all available helm chart values and their defaults.
 | `limits.cpu`      | String  | "1"       | CPU limit                                   |
 
 
-#### Discovery and Automation
+### Discovery and Automation
+
 | Setting                             | Type    | Default   | Description                              |
 |-------------------------------------|---------|-----------|------------------------------------------|
 | `discoveryKubeconfig.inClusterAuth.enabled` | Boolean | true | Use in-cluster authentication            |
@@ -81,7 +82,7 @@ The following tables outline all available helm chart values and their defaults.
 | `autoRun.uploadEnabled`             | Boolean | false     | Enable uploading data to the RunWhen Platform |
 | `autoRun.uploadMergeMode`           | String  | "keep-uploaded" | Strategy to merge data during uploads |
 
-### Runner Configuration
+## Runner Configuration
 
 | Setting       | Type    | Default                            | Description                              |
 |---------------|---------|------------------------------------|------------------------------------------|
@@ -90,7 +91,7 @@ The following tables outline all available helm chart values and their defaults.
 | `controlAddr` | String  | "https://runner.beta.runwhen.com"  | Control address for managing the runner  |
 | `metrics.url` | String  | "https://runner-cortex-tenant.beta.runwhen.com/push" | Endpoint for pushing metrics            |
 
-#### Grafana Agent Configuration
+## Grafana Agent Configuration
 These settings are applied to the grafana-agent subchart. They are tuned for runner execution, please do not adjust.
 
 | Setting              | Type    | Default    | Description                              |
