@@ -1,64 +1,72 @@
 ---
 title: Home
 template: home.html
+hide:
+  - navigation
+  - toc
 ---
-<style>
-  /* Hide the left-hand navigation (sidebar) */
-.md-sidebar {
-  display: none;
-}
 
-</style>
-<div class="home-column-container">
+<div class="md-grid">
+  <h2>Top Troubleshooting Categories</h2><hr>
 
-<div class="home-column">
-  <h2> Explore </h2><hr>
-  <div class="card-grid" markdown>
-    <div class="card">
-        <img class="card-icon" src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/explore.svg" alt="Icon" />
-      <h6 class="card-title">
-      <a href="/list/">
-      Explore discovered commands
-      </a>
+  <div class="tag-card-grid" markdown>
+    {% for tag in tags_with_icons %}
+    <div class="tag-card">
+    <a href="/tags/#{{ tag.name | lower }}">
+        {% if tag.icon_url %}
+            <img class="tag-card-icon" src="{{ tag.icon_url }}" alt="{{ tag.name }} icon">
+        {% endif %}
+        <br>
+        {{ tag.name }}
+    </a>
     </div>
-    <div class="card">
-        <img class="card-icon" src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/info.svg" alt="Icon" />
-      <h6 class="card-title">
-      <a href="/about/">
-      About the RunWhen Local tool
-      </a>
-    </div>
-    <div class="card">
-        <img class="card-icon" src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/visibility_lock.svg" alt="Icon" />
-      <h6 class="card-title">
-      <a href="https://docs.runwhen.com/public/v/runwhen-local/user-guide/user_guide-privacy_and_security" target="_blank">
-      Learn about your privacy
-      </a>
+    {% endfor %}
+     <div class="tag-card">
+    <a href="/tags/">Browse All Categories</a>
     </div>
   </div>
 </div>
+<br><br>
+<div class="home-column-container">
 
+<div class="home-column">
+  <h2> RunWhen Platform Resources </h2><hr>
+  <div class="card-grid" markdown>
+    <div class="card">
+    <img class="card-icon" src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/cloud_upload.svg" alt="Icon" />
+    <a href="/platform-upload/"><br>
+    Upload Workspace Configuration to RunWhen Platform
+    </a>
+    </div>
+  </div>
+</div>
 <div class="home-column">
   <h2> Community Resources </h2><hr>
 
   <div class="card-grid" markdown>
-    <div class="card">
+    <div class="home-card">
         <img class="card-icon" src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/share.svg" alt="Icon" />
       <h6 class="card-title">
       <a href="https://github.com/runwhen-contrib/runwhen-local/issues/new?assignees=stewartshea&labels=runwhen-local%2Cawesome-command-contribution&projects=&template=awesome-command-contribution.yaml&title=%5Bawesome-command-contribution%5D+" target="_blank">
-      Share an <b>awesome command</b> and let us integrate it
+      Share an <b>awesome command</b>
       </a>
     </div>
-    <div class="card">
-      <a href="https://docs.runwhen.com/public/code-collection-development/getting-started-with-codecollection-development" target="_blank">
+    <div class="home-card">
+      <a href="https://docs.runwhen.com/public/v/runwhen-authors" target="_blank">
       <img class="card-icon" src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/code_blocks.svg" alt="Icon" />
-      <h6 class="card-title"> Join the RunWhen Authors program & write optimized commands for troubleshooting
+      <h6 class="card-title"> Join the (Paid) RunWhen Authors Program
       </a>
     </div>
-    <div class="card">
+    <div class="home-card">
         <a href="https://github.com/runwhen-contrib/runwhen-local/issues/new?assignees=stewartshea&labels=runwhen-local%2Cnew-command-request&projects=&template=commands-wanted.yaml&title=%5Bnew-command-request%5D+" target="_blank">
         <img class="card-icon" src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/help_center.svg" alt="Icon" />
-      <h6 class="card-title"> Request additional troubleshooting commands from the community
+      <h6 class="card-title"> Request help from the community
+      </a>
+    </div> 
+        <div class="home-card">
+        <a href="https://runwhen.slack.com/join/shared_invite/zt-1l7t3tdzl-IzB8gXDsWtHkT8C5nufm2A#/shared-invite/email" target="_blank">
+        <img class="card-icon" src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/slack_black.svg" alt="Icon" />
+      <h6 class="card-title"> Connect on Slack
       </a>
     </div> 
   </div>

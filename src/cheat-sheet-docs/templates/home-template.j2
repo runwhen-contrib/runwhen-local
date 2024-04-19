@@ -2,60 +2,30 @@
 {% extends "main.html" %}
 
 {% block header %}
-{% if not page.is_homepage %}
   {{ super() }}	
-{% endif %}
 {% endblock %} 
 
 {% block tabs %}
 {{ super() }}
 {% import "partials/language.html" as lang with context %}
-<header class="{{ class }}" data-md-component="header">
-  <div class="md-grid md-typeset"> 
-        <div class="custom-section">
-          <div class="home-title">
-              <span class="primary-color">runwhen</span>
-              <span class="accent-color">local</span>
-              <br><br>
-          </div>
-            <div class="md-search" data-md-component="search" role="dialog">
-              <form class="md-search__form" name="search">
-                <input type="text" class="md-search__input" name="query" aria-label="{{ lang.t('search.placeholder') }}" placeholder="{{ lang.t('search.placeholder') }}" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
-                <label class="md-search__icon md-icon" for="__search">
-                  {% include ".icons/material/magnify.svg" %}
-                  {% include ".icons/material/arrow-left.svg" %}
-                </label>
-                <nav class="md-search__options" aria-label="{{ lang.t('search') }}">
-                  {% if "search.share" in features %}
-                  <a href="javascript:void(0)" class="md-search__icon md-icon" title="{{ lang.t('search.share') }}" aria-label="{{ lang.t('search.share') }}" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
-                    {% include ".icons/material/share-variant.svg" %}
-                  </a>
-                  {% endif %}
-                  <button type="reset" class="md-search__icon md-icon" title="{{ lang.t('search.reset') }}" aria-label="{{ lang.t('search.reset') }}" tabindex="-1">
-                    {% include ".icons/material/close.svg" %}
-                  </button>
-                </nav>
-                {% if "search.suggest" in features %}
-                <div class="md-search__suggest" data-md-component="search-suggest"></div>
-                {% endif %}
-              </form>
-              <div class="md-search__output">
-                <div class="md-search__scrollwrap" data-md-scrollfix>
-                  <div class="md-search-result" data-md-component="search-result">
-                    <div class="md-search-result__meta">
-                      {{ lang.t("search.result.initializer") }}
-                    </div>
-                    <ol class="md-search-result__list" role="presentation"></ol>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>  
-{% endraw %}
 
-<h2 align="center"> <img class="main-page-search-icon" src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/local_library.svg" alt="Icon" /> Search in your local documentation  </h2><p align="center"><br><b>{{ command_generation_summary_stats["total_interesting_commands"] }}</b> indexed commands across <b>{{ summarized_resources["num_clusters"] }}</b> cluster(s), <b>{{ summarized_resources["groups"] }}</b> groups & <b>{{ slx_count }}</b> SLXs<br><br>Last generated at: <b>{{ current_date }}</b> <br> For cluster(s): <b>{{ cluster_names }}</b> <br> By: <b>{{ workspace_details["spec"]["permissions"][0]["user"] }}</b> <br>From: <b>{{ command_generation_summary_stats["num_unique_authors"] }} community authors</b></p>
+{% endraw %}
+<div class="custom-section">
+  <div class="home-title">
+      <br><br>
+      RunWhen | Troubleshooting Cheat Sheet
   </div>
-</header>
+  <div class="home-subtitle"><br><br>Discover the Troubleshooting Tasks from an <b>Expert Community</b><br>that powers the brain of the <b>RunWhen Platform Digital Assistants</b></p><br>
+  <div class="button-container">
+    <button type="button" class="front-page-button">{{ summarized_resources["num_clusters"] }} Kubernetes Cluster(s)</button>
+    <button type="button" class="front-page-button">{{ summarized_resources["groups"] }} Groups</button>
+  </div>
+  <p  class="home-subtitle"><b>{{ command_generation_summary_stats["total_interesting_commands"] }} customized tasks</b> across <b>{{total_codebundles}} codebundles</b> from <b>{{ command_generation_summary_stats["num_unique_authors"] }} contributors</b> </p>
+  <br>
+  </div>
+</div>
+</div>
+
 
 {% raw %}
 {% endblock %}

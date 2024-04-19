@@ -67,7 +67,7 @@ WORKDIR $RUNWHEN_HOME
 RUN pip install --no-cache-dir \
     mkdocs \
     mkdocs-material \
-    mkdocs-print-site-plugin \
+    mkdocs-macros-plugin \
     pymdown-extensions \
     ruamel.yaml \
     gitpython
