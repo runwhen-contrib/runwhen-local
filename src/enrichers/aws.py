@@ -1,3 +1,4 @@
+import logging, os
 from typing import Any, Optional
 
 from component import Context
@@ -5,7 +6,13 @@ from resources import Resource, Registry, REGISTRY_PROPERTY_NAME
 from .generation_rule_types import PlatformHandler, LevelOfDetail
 from exceptions import WorkspaceBuilderException
 AWS_PLATFORM = "aws"
+logger = logging.getLogger(__name__)
 
+# Check for the environment variable and set the log level
+if os.environ.get('DEBUG_LOGGING') == 'true':
+    logger.setLevel(logging.DEBUG)
+else:
+    logger.setLevel(logging.INFO)
 def get_resource_group(resource: Resource) -> Optional[Resource]:
     # FIXME: Shouldn't use hard-coded string here
     if resource.resource_type.name == "resource_group":
@@ -36,7 +43,16 @@ class ARN:
         if len(resource_parts) < 2:
             resource_parts = resource_info.split('/', 1)
         self.resource_type = resource_parts[0] if len(resource_parts) > 0 else None
-        self.resource_id = resource_parts[1] if len(resource_parts) > 1 else None
+        # we need to handle naming edge cases where a / and type are not included in the resource name
+        # eg: arn:aws:ec2:us-west-2:1234567890:instance/i-1234567890abcdef vs arn:aws:s3:::my_bucket
+        if self.resource_type is None:
+            self.resource_type = self.service
+        if len(resource_parts) > 1:
+            self.resource_id = resource_parts[1]
+        elif len(resource_parts) == 1 and '/' not in resource_parts[0]:
+            self.resource_id = resource_parts[0]
+        else:
+            self.resource_id = None
 
 class AWSPlatformHandler(PlatformHandler):
 
