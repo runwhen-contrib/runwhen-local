@@ -1085,3 +1085,77 @@ input[type="text"]:focus {
   height: 16px;
   /* filter: var(--icon-filter);  */
 }
+.demo-card {
+  max-width: 100%;
+  margin: auto;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  border-radius: 4px;
+  background-color: #fff;
+}
+
+.action-container {
+  display: flex;
+  align-items: center;
+  padding: 16px;
+}
+
+.action-container label,
+.action-container input {
+  margin-right: 8px; 
+  justify-content: right; 
+}
+
+.content-page-button {
+  margin-left: auto; /* This will push the button to the right */
+  background-color: var(--md-primary-color);
+  color: #ffffff;
+  border: none;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-family: "Railway", "Roboto", "Helvetica", "Arial", sans-serif;
+  font-weight: bold;
+  font-size: 16px;
+  border-radius: 4px;
+  transition: background-color 0.3s;
+}
+
+
+.md-typeset .action-container a.content-page-button, 
+.md-typeset .action-container a.action-button {
+  display: inline-block;
+  background-color: var(--md-primary-color);
+  color: #ffffff !important; /* Ensuring color overrides */
+  border: none;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-family: "Railway", "Roboto", "Helvetica", "Arial", sans-serif;
+  font-weight: bold;
+  font-size: 16px;
+  border-radius: 4px;
+  text-align: center;
+  text-decoration: none;
+  transition: background-color 0.3s;
+  margin-left: auto;
+}
+
+.md-typeset .action-container a.content-page-button:hover, 
+.md-typeset .action-container a.action-button:hover,
+.md-typeset .action-container a.content-page-button:focus, 
+.md-typeset .action-container a.action-button:focus {
+  color: #ffffff !important;
+}
+
+.md-typeset .action-container a.content-page-button:visited, 
+.md-typeset .action-container a.action-button:visited {
+  color: #ffffff !important;
+}
+
+.action-container .right-align {
+  text-align: right;
+}
+
+.action-container .button-container {
+  display: flex;
+  justify-content: flex-end;
+}
