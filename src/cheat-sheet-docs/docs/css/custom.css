@@ -1098,6 +1098,8 @@ input[type="text"]:focus {
   display: flex;
   align-items: center;
   padding: 16px;
+  width: 95%; /* Set the width of the divs */
+
 }
 
 .action-container label,
@@ -1158,4 +1160,10 @@ input[type="text"]:focus {
 .action-container .button-container {
   display: flex;
   justify-content: flex-end;
+}
+
+.action-container:not(:last-child) {
+  border-bottom: 1px solid #ccc; /* Adjust the color and thickness as needed */
+  padding-bottom: 10px; /* Provides some spacing between the content and the border */
+  margin-bottom: 10px; /* Provides some spacing between this div and the next */
 }
