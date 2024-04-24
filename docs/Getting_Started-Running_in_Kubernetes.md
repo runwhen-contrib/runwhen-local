@@ -46,7 +46,7 @@ helm install runwhen-local runwhen-contrib/runwhen-local -n $namespace --set wor
 </code></pre>
 
 {% hint style="warning" %}
-If you are interested in deploying the RunWhen Platform Private Runner, please see the[runner-agent.md](user-guide/features/runner-agent.md "mention") for additional Helm values.
+If you are interested in deploying the RunWhen Platform Private Runner, please see the[runner-agent](user-guide/features/runner-agent/ "mention") for additional Helm values.
 {% endhint %}
 {% endtab %}
 

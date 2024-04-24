@@ -3,7 +3,7 @@
 RunWhen Local generates workspace configuration files (see [workspace-builder.md](workspace-builder.md "mention")) that can be uploaded to the RunWhen Platform, automatically constructing a fully configured map of your resources and associated troubleshooting tasks.&#x20;
 
 {% hint style="info" %}
-If uploading your configuration for the first time, and using the Runner, please see [runner-agent.md](runner-agent.md "mention") before performing this step.&#x20;
+If uploading your configuration for the first time, and using the Runner, please see [runner-agent](runner-agent/ "mention") before performing this step.&#x20;
 {% endhint %}
 
 ### Uploading to the RunWhen Platform
