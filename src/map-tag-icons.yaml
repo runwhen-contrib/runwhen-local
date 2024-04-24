@@ -1,0 +1,29 @@
+icons:
+  - tags: ["AWS"]
+    url: "https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/Amazon_Web_Services_Logo.svg"
+  - tags: ["KUBERNETES", "K8S", "Kubernetes", "k8s"]
+    url: "https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/kubernetes-icon-color.svg"
+  - tags: ["OpenShift", "OPENSHIFT"]
+    url: "https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/OpenShift-LogoType.svg"
+  - tags: ["Argo", "ARGO", "ArgoCD", "ARGOCD"]
+    url: "https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/argo-icon-color.svg"
+  - tags: ["CLOUDWATCH","CloudWatch"]
+    url: "https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/aws/cloudwatch.svg"
+  - tags: ["AKS"]
+    url: "https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/azure/containers/10023-icon-service-Kubernetes-Services.svg"
+  - tags: ["Azure", "AZURE"]
+    url: "https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/azure-icon.svg"
+  - tags: ["EKS"]
+    url: "https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/amazon-eks.svg"
+  - tags: ["FluxCD", "FLUXCD", "Flux", "FLUX"]
+    url: "https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/flux-icon-color.svg"
+  - tags: ["GCP", "GCLOUD", "GOOGLE"]
+    url: "https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/google-cloud-platform.svg"
+  - tags: ["GKE"]
+    url: "https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/gcp/google_kubernetes_engine/google_kubernetes_engine.svg"
+  - tags: ["HTTP"]
+    url: "https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/code_blocks.svg"
+  - tags: ["GITHUB"]
+    url: "https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/github-mark.svg"
+  - tags: ["PATRONI", "POSTGRES", "POSTGRESQL"]
+    url: "https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/postgresql.svg"

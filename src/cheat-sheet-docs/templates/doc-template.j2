@@ -6,6 +6,11 @@ tags:
   - '{{ key }}: {{ value }}'
   {% endfor %}
 {% endif %}
+{% if parsed_robot['support_tags'] %}
+  {% for tag in parsed_robot['support_tags'] %}
+  - {{ tag }}
+  {% endfor %}
+{% endif %}
 ---
 
 

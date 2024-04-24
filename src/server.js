@@ -26,9 +26,9 @@ app.use(express.static('public'));
 // Route to handle file uploads
 app.post('/store-uploadinfo', upload.single('file'), (req, res) => {
     if (!req.file) {
-        return res.status(400).send('No file uploaded.');
+        return res.status(400).json({ success: false, message: 'No file uploaded.' });
     }
-    res.send('File uploaded successfully.');
+    res.json({ success: true, message: 'File uploaded successfully.' });
 });
 
 const server = app.listen(port, () => {

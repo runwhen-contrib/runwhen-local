@@ -27,12 +27,23 @@ from functools import lru_cache
 from git import Repo, GitCommandError
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urlparse
+from collections import Counter
+
 
 logger = logging.getLogger(__name__)
 handler = logging.StreamHandler(sys.stdout)
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
+
+# Mkdocs config dirs
+mkdocs_root='cheat-sheet-docs'
+docs_dir='docs'
+
+# Tags
+all_support_tags = []
+support_tags_to_remove = []
+
 # Check for the environment variable and set the log level
 if os.environ.get('DEBUG_LOGGING') == 'true':
     logger.setLevel(logging.DEBUG)
@@ -40,7 +51,6 @@ else:
     logger.setLevel(logging.INFO)
 
 @lru_cache(maxsize=2048)
-
 
 def parse_robot_file(fpath):
     """
@@ -54,10 +64,15 @@ def parse_robot_file(fpath):
     ret["doc"] = suite.doc  # The doc string
     ret["type"] = suite.name.lower()
     ret["tags"] = []
+    ret["supports"] = []
 
     for k, v in suite.metadata.items():
         if k.lower() in ["author", "name"]:
             ret[k.lower()] = v
+        if k.lower() in ["supports"]:
+            support_tags = re.split('\s*,\s*|\s+', v.strip().upper())
+            ret["support_tags"] = support_tags
+            all_support_tags.extend(support_tags)
     tasks = []
     for task in suite.tests:
         tags = [str(tag) for tag in task.tags if tag not in ["skipped"]]
@@ -491,7 +506,7 @@ def update_last_scan_time():
 
     
 
-def generate_index(summarized_resources, workspace_details, command_generation_summary_stats, slx_count): 
+def generate_index(all_support_tags_freq, summarized_resources, workspace_details, command_generation_summary_stats, slx_count): 
     index_path = f'cheat-sheet-docs/docs/index.md'
     home_path = f'cheat-sheet-docs/docs/overrides/home.html'
     index_template_file = "cheat-sheet-docs/templates/index-template.j2"
@@ -506,13 +521,24 @@ def generate_index(summarized_resources, workspace_details, command_generation_s
     cluster_list = [str(cluster) for cluster in summarized_resources["cluster_names"]]
     cluster_names = ', '.join(cluster_list)
 
+    top_10_support_tags = all_support_tags_freq.most_common(10)
+    top_10_support_tag_names = [tag for tag, freq in top_10_support_tags]
+    tag_icon_url_map = load_icon_urls_for_tags(
+        top_10_support_tag_names
+    )    
+    tags_with_icons = [{
+        "name": tag,
+        "icon_url": tag_icon_url_map.get(tag)
+    } for tag in top_10_support_tag_names]
+
     index_output = index_template.render(
         current_date=current_date,
         summarized_resources=summarized_resources,
         workspace_details=workspace_details,
         cluster_names=cluster_names,
         command_generation_summary_stats=command_generation_summary_stats, 
-        slx_count=slx_count
+        slx_count=slx_count,
+        tags_with_icons=tags_with_icons
     )
     home_output = home_template.render(
         current_date=current_date,
@@ -823,6 +849,24 @@ def warm_git_cache(runbook_files):
             author = ''.join(parsed_robot["author"].split('\n'))
             fetch_github_profile_icon(author)
 
+def clean_path(path):
+    """
+    Deletes the specified path, including all its contents if it is a directory,
+    or the file itself if it's just a file.
+    """
+    # Check if the path exists
+    if os.path.exists(path):
+        # Check if the path is a directory
+        if os.path.isdir(path):
+            # Remove the directory and all its contents
+            shutil.rmtree(path)
+            print(f"Directory '{path}' has been removed along with all its contents.")
+        else:
+            # It's a file, remove it
+            os.remove(path)
+            print(f"File '{path}' has been removed.")
+    else:
+        print(f"The path '{path}' does not exist.")
 
 def process_runbook(runbook, groups, search_list, template):
     parsed_runbook_config = parse_yaml(runbook)
@@ -853,7 +897,8 @@ def process_runbook(runbook, groups, search_list, template):
         interesting_commands=interesting_commands,
         command_count=len(interesting_commands),
         author_details=author_details,
-        commit_age=commit_age
+        commit_age=commit_age,
+        parsed_robot=parsed_robot
     )
     content_dir = f'cheat-sheet-docs/docs-tmp/{group_path}/'
     command_assist_md_output = f'{content_dir}{slx_hints["slug"]}.md'
@@ -882,6 +927,41 @@ command_generation_summary_stats = {}
 command_generation_summary_stats["total_interesting_commands"] = 0 
 command_generation_summary_stats["unique_authors"] = []
 command_generation_summary_stats["num_unique_authors"] = 0
+
+
+
+def load_icon_urls_for_tags(tags, filename="map-tag-icons.yaml", default_url="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/tag.svg"):
+    """
+    Load icon URLs for given tags from a YAML file, with a default URL for unmapped tags.
+
+    :param tags: A single tag or a list of tags to find icon URLs for.
+    :param filename: The path to the YAML file.
+    :param default_url: The default icon URL to use for tags not found in the map.
+    :return: A dictionary of tags to their icon URLs.
+    """
+    # Ensure tags is a list
+    if isinstance(tags, str):
+        tags = [tags]
+    
+    tag_icon_url_map = {}
+    try:
+        with open(filename, "r") as file:
+            data = yaml.safe_load(file)
+            icons = data.get("icons", [])
+            for tag in tags:
+                # Initialize each tag with a default URL
+                tag_icon_url_map[tag] = default_url
+                for icon in icons:
+                    if tag in icon.get("tags", []):
+                        # Update with specific URL if found
+                        tag_icon_url_map[tag] = icon.get("url")
+                        break
+    except FileNotFoundError:
+        print(f"File {filename} not found.")
+    except yaml.YAMLError as exc:
+        print(f"Error parsing YAML file: {exc}")
+    
+    return tag_icon_url_map
 
 #@timer
 def cheat_sheet(directory_path):
@@ -976,13 +1056,19 @@ def cheat_sheet(directory_path):
     command_generation_summary_stats["unique_authors"] = set(command_generation_summary_stats["unique_authors"])
     command_generation_summary_stats["num_unique_authors"] = len(command_generation_summary_stats["unique_authors"])
 
+    # Sort Global Tags
+    # If you need a deduplicated list of tags, you can extract keys from the Counter
+    all_support_tags_freq = Counter(all_support_tags)
+    deduplicated_support_tags = list(all_support_tags_freq.keys())
+
+
     # Generate stats and home page
     cluster_data = auth_details.get('kubernetes', {}).get('kubeconfig_details', {}).get('clusters', [])
     summarized_resources = {}
     summarized_resources["groups"] = len(groups)
     summarized_resources["num_clusters"] = len(cluster_data)
     summarized_resources["cluster_names"] = [cluster.get('name') for cluster in cluster_data]
-    generate_index(summarized_resources, workspace_details, command_generation_summary_stats, slx_count)
+    generate_index(all_support_tags_freq, summarized_resources, workspace_details, command_generation_summary_stats, slx_count)
 
 
 if __name__ == "__main__":

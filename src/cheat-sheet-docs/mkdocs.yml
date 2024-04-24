@@ -1,4 +1,4 @@
-site_name: Community Powered Troubleshooting Cheat Sheet
+site_name: Troubleshooting Cheat Sheet
 site_author: RunWhen Inc.
 dev_addr: 0.0.0.0:8082
 theme:
@@ -66,17 +66,8 @@ exclude_docs: |
   *.yaml
 plugins:
   - search
-  - tags
-  # - print-site:
-  #     add_to_navigation: true
-  #     add_full_urls: false
-  #     add_table_of_contents: true
-  #     toc_title: "Table of Contents"
-  #     toc_depth: 2
-  #     enumerate_headings: true
-  #     enumerate_figures: true
-  #     add_cover_page: true
-  # enabled: !ENV [PRINT_SITE, False]
+  - tags:
+      tags_file: tags.md
 
 markdown_extensions:
   # Python Markdown

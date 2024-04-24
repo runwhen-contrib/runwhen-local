@@ -53,8 +53,8 @@ table {
 }
 
 .md-button {
-  background-color: var(--md-primary-color);
-  color: #fff !important;
+  background-color: #ffffff;
+  color: var(--md-primary-color) !important;
 }
 
 .md-header__button img {
@@ -166,21 +166,41 @@ li {
   color: #858484;
 }
 
-.card-grid {
+ .card-grid {
   display: grid;
-  /* grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); */
+  /* grid-template-columns: repeat(1, 1fr); */
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
   grid-gap: 10px;
-}
+} 
+
 
 .card {
   display: flex;
-  align-items: center;
   background-color: #fff;
   border-radius: 4px;
-  /* box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   padding: 5px;
+  min-height: 75px;
 }
 
+.cc-card-grid {
+  display: grid;
+  grid-template-columns: 1fr; /* One column that fills the row */
+  gap: 20px;
+  justify-content: center;
+  padding: 20px;
+}
+
+.cc-card {
+  display: flex;
+  flex-direction: column; /* Stack the children vertically */
+  align-items: stretch; /* Stretch children to fill the width */
+  background-color: #fff;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 20px; /* Adjusted for consistent spacing */
+  min-height: 300px;
+} 
 .card-icon {
   flex-shrink: 0;
   width: 50px;
@@ -189,7 +209,38 @@ li {
   border-radius: 12px;
   padding: 9px;
   filter: brightness(0) saturate(100%) invert(39%) sepia(84%) saturate(907%) hue-rotate(188deg) brightness(95%) contrast(96%);
-  vertical-align: middle; /* Adjust the vertical alignment */
+  vertical-align: middle;
+  object-fit: contain; /* Contain the image within the element, preserving its aspect ratio */
+
+}
+
+.tag-card-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  /* grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); */
+  grid-gap: 10px;
+} 
+
+.tag-card {
+  display: flex;
+  flex-direction: column; /* Stack children vertically */
+  align-items: center; /* Center-align the flex items horizontally */
+  justify-content: center; /* Center-align the flex items vertically, if you want */
+  background-color: #fff;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 5px;
+  min-height: 75px;
+  text-align: center; /* Ensure the text is centered under the icon */
+}
+
+.tag-card-icon {
+  flex-shrink: 0;
+  width: 100px;
+  height: 100px;
+  margin-bottom: 10px; /* Add some space between the icon and the text */
+  border-radius: 12px;
+  padding: 9px;
 }
 
 .main-page-search-icon {
@@ -200,7 +251,7 @@ li {
   border-radius: 0px;
   padding: 15px 1px 0 1px; /* Adjust the top padding value as needed */
   filter: brightness(0) saturate(100%) invert(39%) sepia(84%) saturate(907%) hue-rotate(188deg) brightness(95%) contrast(96%);
-  vertical-align: baseline; /* or baseline */
+  /* vertical-align: baseline; or baseline */
 
 }
 
@@ -211,7 +262,7 @@ li {
 }
 
 .card-description {
-  font-size: 12px;
+  font-size: 14px;
   color: #666;
 }
 
@@ -226,13 +277,35 @@ li {
 }
 
 .custom-section {
-  position: relative; /* Add position relative to the parent container */
+  background-image: url('../assets/background_blue_dots.png');
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-position: top center;
+  position: relative;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
   align-items: center;
-  height: 30vh;
+  min-height: 30vh; /* Changed from height to min-height */
+  background-color: var(--md-primary-color);
+  color: #ffffff;
+  font-size: 2vw; /* Example of using viewport width for sizing */
 }
+
+/* Media query for larger screens */
+@media (min-width: 1024px) {
+  .custom-section {
+    font-size: 1.5rem; /* Fixed size for larger screens */
+  }
+}
+
+/* Media query for smaller screens */
+@media (max-width: 768px) {
+  .custom-section {
+    font-size: 1rem; /* Smaller font size for mobile devices */
+  }
+}
+
 
 .custom-section .md-search {
   position: relative; /* Change position to relative */
@@ -374,9 +447,16 @@ li {
 
 .home-title {
   font-family: "Railway", "Roboto", "Helvetica", "Arial", sans-serif;
-  font-size: 38px;
+  font-size: 28px;
   font-weight: bold;
-  text-transform: uppercase;
+  /* text-transform: uppercase; */
+}
+
+.home-subtitle {
+  font-family: "Railway", "Roboto", "Helvetica", "Arial", sans-serif;
+  font-size: 16px;
+  text-align: center;
+  color: #ffffff
 }
 
 .home-title .primary-color {
@@ -544,7 +624,7 @@ hr.custom-hr {
   background-color: var(--md-primary-color);
   color: #fff;
   padding: 20px;
-  font-family: 'Roboto', sans-serif;
+  font-family: "Railway", "Roboto", "Helvetica", "Arial", sans-serif;
   display: flex;
   align-items: center;
   justify-content: space-around;
@@ -859,4 +939,231 @@ input[type="text"]:focus {
 /* Show the tooltip on hover */
 .info-icon:hover .tooltip {
   display: block;
+}
+
+
+.button-container {
+  display: flex;
+  justify-content: space-around; /* Adjust as needed for your layout */
+  padding: 20px;
+}
+
+.front-page-button {
+  background-color: #ffffff;
+  color: var(--md-primary-color);
+  border: none;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-family: "Railway", "Roboto", "Helvetica", "Arial", sans-serif;
+  font-weight: bold;
+  font-size: 16px;
+  border-radius: 4px;
+  transition: background-color 0.3s;
+  margin: 0 20px; /* Adds horizontal margin */
+}
+
+.header-button {
+  background-color: #3f3f3f; 
+  color: #f8f8f2;
+  border: none;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-family: "Railway", "Roboto", "Helvetica", "Arial", sans-serif;
+  font-size: 16px;
+  border-radius: 4px;
+  transition: background-color 0.3s;
+  margin: 0 20px; 
+}
+
+.header-button:hover {
+  color: #ffffff !important;
+}
+
+.main-content .button-container .terraform-button:hover {
+  background-color: var(--md-accent-color); 
+  color: #ffffff !important;
+
+}
+
+
+/* .card-stats {
+  display: flex;
+  justify-content: space-between; 
+
+  flex-direction: column;
+  padding: 6px;
+  width: 100%; 
+
+} */
+
+/* .stat-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 1px 0;
+  font-size: 12px;
+} */
+/* .stat-item {
+  display: flex;
+  justify-content: space-between; 
+  align-items: center; 
+  width: 100%; 
+  font-size: 14px;
+}
+.stat-item span {
+  font-weight: bold;
+
+} */
+
+.card-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 10px; /* Add space between stat items */
+  padding: 6px;
+  width: 100%;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  font-size: 14px;
+}
+
+.stat-item span {
+  font-weight: bold;
+}
+
+.card-footer {
+  display: flex;
+  margin-top: auto;
+  padding: 10px;
+  align-items: center;
+  background-color: #f0f0f0; 
+  justify-content: center; 
+
+}
+
+.card-header {
+  display: flex;
+  justify-content: left; 
+  align-items: center;
+  width: 100%;
+}
+.header-content {
+  flex-grow: 1; /* Allows the header content to take up remaining space */
+  padding: 0 10px; /* Adds some padding around the text */
+}
+
+
+.home-card {
+  display: flex;
+  background-color: #fff;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 5px;
+  min-height: 75px;
+}
+
+.codebundle-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px; /* Space between icon and text */
+  padding: 5px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #24292e !important;
+  background-color: #fafbfc;
+  border: 1px solid rgba(27,31,35,.15);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.codebundle-button-icon {
+  width: 16px; 
+  height: 16px;
+  /* filter: var(--icon-filter);  */
+}
+.demo-card {
+  max-width: 100%;
+  margin: auto;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  border-radius: 4px;
+  background-color: #fff;
+}
+
+.action-container {
+  display: flex;
+  align-items: center;
+  padding: 16px;
+  width: 95%; /* Set the width of the divs */
+
+}
+
+.action-container label,
+.action-container input {
+  margin-right: 8px; 
+  justify-content: right; 
+}
+
+.content-page-button {
+  margin-left: auto; /* This will push the button to the right */
+  background-color: var(--md-primary-color);
+  color: #ffffff;
+  border: none;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-family: "Railway", "Roboto", "Helvetica", "Arial", sans-serif;
+  font-weight: bold;
+  font-size: 16px;
+  border-radius: 4px;
+  transition: background-color 0.3s;
+}
+
+
+.md-typeset .action-container a.content-page-button, 
+.md-typeset .action-container a.action-button {
+  display: inline-block;
+  background-color: var(--md-primary-color);
+  color: #ffffff !important; /* Ensuring color overrides */
+  border: none;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-family: "Railway", "Roboto", "Helvetica", "Arial", sans-serif;
+  font-weight: bold;
+  font-size: 16px;
+  border-radius: 4px;
+  text-align: center;
+  text-decoration: none;
+  transition: background-color 0.3s;
+  margin-left: auto;
+}
+
+.md-typeset .action-container a.content-page-button:hover, 
+.md-typeset .action-container a.action-button:hover,
+.md-typeset .action-container a.content-page-button:focus, 
+.md-typeset .action-container a.action-button:focus {
+  color: #ffffff !important;
+}
+
+.md-typeset .action-container a.content-page-button:visited, 
+.md-typeset .action-container a.action-button:visited {
+  color: #ffffff !important;
+}
+
+.action-container .right-align {
+  text-align: right;
+}
+
+.action-container .button-container {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.action-container:not(:last-child) {
+  border-bottom: 1px solid #ccc; /* Adjust the color and thickness as needed */
+  padding-bottom: 10px; /* Provides some spacing between the content and the border */
+  margin-bottom: 10px; /* Provides some spacing between this div and the next */
 }

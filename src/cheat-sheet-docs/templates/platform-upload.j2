@@ -3,108 +3,47 @@ search:
   exclude: true
 ---
 # RunWhen Platform Upload
-The Workspace Builder component of RunWhen Local generates all necessary configuration files to bootstrap a workspace within the RunWhen Platform, providing: 
+The Workspace Builder component of RunWhen Local generates configuration files that can be used in the RunWhen Platform, which provides: 
 
-- Collaborative maps
-- Collaborative & automated troubleshooting
+- Collaborative & interactive operational maps
+- Collaborative & automated troubleshooting sessions
 - Troubleshooting Digital Assistants
 - Automated workflows
 
-Workspace Builder generated a total of: **{{ slx_count }} SLXs**
-
-## 1. Setting Up a Workspace
-
-- <a href="{{ app_url }}/" target="_blank">Login to RunWhen Platform Beta Instance</a>
-- <a href="{{ app_url }}/?addWorkspace=true" target="_blank">Create a workspace</a>
-
-## 2. Preparing for Upload
-
-- Fetch your `uploadInfo.yaml` file: 
-
-    ???+ "Option 1 - From the workspace creation form"
-         <img src="../assets/uploadInfo1.gif" />
-
-    ??? "Option 2 - From the workspace configuration page"
-        - Navigate to **Configuration --> Workspace --> Workspace Tools**
-        - Select **Automated Workspace Builder Config File**
-        <img src="../assets/uploadInfo2.gif" />
-
-- Add this file to the RunWhen Local container with **one of the following options**: 
-
-    ???+ "Option 1 - Direct Upload (Recommended for first time users)"
-        Upload the `uploadInfo.yaml` for one-time use. This file may be removed when the container restarts.  
-        <input type="file" id="fileUploadInfo">
-        <div class="card">
-            <img class="card-icon" src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/cloud_upload.svg" alt="Icon" />
-            <h6 class="card-title">
-            <a href="javascript:void(0)" onclick="uploadFile()">Upload to Container</a>
-        </div>
-
-    ??? "Option 2 - Use the Built-In Terminal"
-        If the in-browser terminal is available: 
-
-        - copy the contents of `uploadInfo.yaml` into your clipboard
-        - open the terminal (top right corner)
-        - using `cat` or `vi`, paste the contents into `/shared/uploadInfo.yaml`
-        <img src="../assets/uploadInfo.gif" />
-
-    ??? "Option 3 - Use Your Terminal (Running Locally)"
-        From your own terminal, cp the `uploadInfo.yaml` file into `$workdir/shared/uploadInfo.yaml`:
-
-            cp /path/to/uploadInfo.yaml $workdir/shared/uploadInfo.yaml 
-
-    ??? "Option 4 - Update Helm (Running in Kubernetes)"
-        If using Helm, add the `uploadInfo.yaml` details as part of your values.yaml specification. The following **example** demonstrates a Helm configuration for use with FluxCD: 
-
-            apiVersion: helm.toolkit.fluxcd.io/v2beta1
-            kind: HelmRelease
-            metadata:
-                name: runwhen-local
-                namespace: runwhen-local
-            spec:
-            releaseName: runwhen-local
-            chart:
-                spec:
-                chart: runwhen-local
-                # https://github.com/runwhen-contrib/helm-charts/blob/main/charts/runwhen-local/values.yaml
-                version: 0.0.21
-                sourceRef:
-                    kind: HelmRepository
-                    name: runwhen-contrib
-                    namespace: flux-system
-                interval: 5m
-                values:
-                    image: 
-                        repository: ghcr.io/runwhen-contrib/runwhen-local
-                        tag: latest
-                    uploadInfo:
-                        defaultLocation: location-01-us-west1
-                        papiURL: https://papi.beta.runwhen.com
-                        token: [token]
-                        workspaceName: b-sandbox
-                        workspaceOwnerEmail: workspace-user@tester.com
-
-        See the [full values.yaml](https://github.com/runwhen-contrib/helm-charts/blob/main/charts/runwhen-local/values.yaml) for reference. 
-        > Note: When updating your Helm values, this can trigger a redeployment of the container and a new discovery will take place. 
-
-    ??? warning "Permission Issues"
-        If you experience permission issues, ensure that `$workdir/shared` has open permissions. The `runwhen` user in the container needs to read & write from this directory. If running locally in Docker/Podman, this directory is shared with your own filesystem and often owned by your local user. `chmod 777 $workdir/shared` may be required. 
+> Workspace Builder generated a total of: **{{ slx_count }} SLXs**
 
 
 
-## 3. Upload Workspace Configuration
+## QuickStart
+<div class="demo-card">
+    <div class="action-container">
+        <p>Don't have a RunWhen Workspace yet?</p>
+        <a href="{{ app_url }}/?addWorkspace=true" target="_blank" class="content-page-button action-button">Create a Workspace</a>
+    </div>
+    <div class="action-container">
+            <p>Want to use a self-hosted private runner?</p>
+            <a href="https://docs.runwhen.com/public/v/runwhen-local/user-guide/features/runner-agent" target="_blank" class="content-page-button action-button">Register a Runner</a>
+    </div>
+    <div class="action-container">
+        <p>Attach your Workspace Configuration and Upload</p>
+        <input type="file" id="fileUploadInfo" style="display:none;" onchange="handleFileSelect()">
+        <button id="runUploadOverwriteButton" class="content-page-button action-button">Upload Configuration</button>
+    </div>
+    <div class="action-container">
+        <p>Add Your Secrets (see section below for more details)</p>
+        <a href="https://docs.runwhen.com/public/runwhen-platform/feature-overview/secrets" target="_blank" class="content-page-button action-button">Learn about Secrets</a>
+    </div>
+    <div class="action-container">
+        <p>Check out the Workspace Map (it may take a few minutes to populate)</p>
+        <a id="dynamicLink" href="#" target="_blank" class="content-page-button action-button">See Workspace Map</a>
+    </div>
+</div>
 
-<button id="runUploadOverwriteButton" class="md-button">Upload</button>
-
-!!! tip Reviewing Configuration Files
-    All configuration data that is uploaded is stored at `shared/output/workspaces` for your review. 
-  
-  
-## 4. Creating Secrets
-In order for the RunWhen Platform to connect with your cluster(s) and cloud resources, **secrets** are required in your workspace. 
+### Required Secrets
+In order for the RunWhen Platform to run tasks in your cluster(s) and cloud resources, **secrets** are required in your workspace. 
 
 {% if 'kubernetes' in auth_details %}
-??? info "Kubeconfig Secret"
+??? note "Kubeconfig Secret"
     In order for RunWhen Platform to connect to your Kubernetes based clusters, a **secret** must be created in the form of a KUBECONFIG.
 
     Your Kubernetes auth type has been detected as: `{{ auth_details["kubernetes"]["type"] }}`  
@@ -135,8 +74,10 @@ In order for the RunWhen Platform to connect with your cluster(s) and cloud reso
             This step will create a service account with **Cluster Scoped View** access in the provided namespace for **all contexts**: 
 
             - Namespace: <input type="text" class="theme-input" id="saNamespaceName" value="runwhen-local">
-            - Service Account Name:  <input type="text" class="theme-input" id="saServiceAccountName" value="runwhen-local-sa">
-            - <button id="generateClusterViewSA" class="md-button">Generate Kubeconfig with ClusterView Permissions</button>
+            - Service Account Name:  <input type="text" class="theme-input" id="saServiceAccountName" value="runwhen-local-sa">  
+
+            <button id="generateClusterViewSA" class="content-page-button action-button">Generate Kubeconfig with ClusterView Permissions</button><br> 
+
             - Copy the contents of the new kubeconfig and paste them into the **Secret Value** with **one** of the following options: 
                 - From the built-in terminal: `cat /shared/generated-kubeconfig.yaml`
                 - From your Terminal (Running Locally with Docker/Podman): `cat $workdir/shared/generated-kubeconfig.yaml`
@@ -172,8 +113,10 @@ In order for the RunWhen Platform to connect with your cluster(s) and cloud reso
 
         This step will create an updated kubeconfig based on the in-cluster auth, along with the server endpoint: 
 
-        - Server Address: <input type="text" id="serverAddress" class="theme-input" placeholder="https://your.kubernetes.api.endpoint">
-        - <button id="generateKubeconfig" class="md-button">Generate Kubeconfig</button>
+        - Server Address: <input type="text" id="serverAddress" class="theme-input" placeholder="https://your.kubernetes.api.endpoint">  
+
+        <button id="generateKubeconfig" class="content-page-button action-button">Generate Kubeconfig</button><br>. 
+        
         - Copy the contents of the new kubeconfig and paste them into the **Secret Value** with **one** of the following options: 
             - From the built-in terminal: `cat /shared/generated-kubeconfig.yaml`
             - From kubectl (Running in Kubernetes - example only): `kubectl exec deployment/runwhen-local -n runwhen-local -- cat /shared/generated-kubeconfig.yaml`
@@ -197,61 +140,101 @@ In order for the RunWhen Platform to connect with your cluster(s) and cloud reso
     
 {% endif %}
 
-## 5. Browse your New Workspace Map
-With your content uploaded, and secrets uploaded, your map will be ready and active within a few minutes 🎉
+!!! info "Documentation"
+    For complete documentation on integrating RunWhen Local with the RunWhen Platform, see [this link](https://docs.runwhen.com/public/v/runwhen-local/user-guide/features/upload-to-runwhen-platform)
 
+<script src="https://cdn.jsdelivr.net/npm/js-yaml/dist/js-yaml.min.js"></script>
 <script>
 
+document.getElementById('runUploadOverwriteButton').addEventListener('click', function() {
+    document.getElementById('fileUploadInfo').click();
+});
 
-function uploadFile() {
-    const fileUploadInfo = document.getElementById('fileUploadInfo');
-    const file = fileUploadInfo.files[0];
-    
+function handleFileSelect() {
+    const file = document.getElementById('fileUploadInfo').files[0];
     if (!file) {
         showCommandOutput('Please select a file first.');
         return;
     }
+    uploadFile(file);
+}
 
-    const formData = new FormData();
-    formData.append('file', file);
+function uploadFile(file) {
+    // Read and parse the YAML file client-side
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        try {
+            const yamlContent = jsyaml.load(event.target.result); // Parse the YAML content
 
-    // Send the file to the server using Fetch API
-    fetch('/store-uploadinfo', {
-        method: 'POST',
-        body: formData
+            // Construct the URL using the parsed YAML data
+            const workspaceUrl = constructWorkspaceUrl(yamlContent);
+
+            // Optionally, you can update an href immediately here if needed
+            updateHref(workspaceUrl);
+
+            // Proceed to upload the file as before
+            const formData = new FormData();
+            formData.append('file', file);
+
+            fetch('/store-uploadinfo', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json()) // Parsing JSON response from server
+            .then(data => {
+                if (data.success) {
+                    return runAdditionalCommand();
+                } else {
+                    throw new Error(data.message);
+                }
+            })
+            .catch(error => {
+                showCommandOutput(error.message);
+                console.error('There was a problem with the upload operation:', error.message);
+            });
+        } catch (e) {
+            console.error('Error parsing YAML file:', e);
+            showCommandOutput('Failed to parse YAML file.');
+        }
+    };
+    reader.readAsText(file); // Read the file content as text
+}
+
+function constructWorkspaceUrl(yamlData) {
+    // Extract 'papiURL' and 'workspaceName' from YAML data
+    if (yamlData.papiURL && yamlData.workspaceName) {
+        const baseAppURL = yamlData.papiURL.replace('papi', 'app');
+        return `${baseAppURL}/map/${yamlData.workspaceName}`;
+    } else {
+        console.error('Necessary YAML data is missing');
+        return '#'; // Return a fallback or error URL
+    }
+}
+
+function updateHref(url) {
+    const dynamicLink = document.getElementById('dynamicLink');
+    dynamicLink.href = url; // Update the href attribute
+}
+
+function runAdditionalCommand() {
+    const loadingPopup = showLoadingMessage();
+    fetch('/run-upload-to-runwhenplatform-keep-uploaded')
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.text();
     })
-    .then(response => response.text())
     .then(data => {
+        document.body.removeChild(loadingPopup);
         showCommandOutput(data);
     })
     .catch(error => {
         document.body.removeChild(loadingPopup);
         showCommandOutput(error.message);
-        console.error('There was a problem with the upload operation:', error.message);
+        console.error('There was a problem with the subsequent operation:', error.message);
     });
 }
-
-document.getElementById('runUploadOverwriteButton').addEventListener('click', function() {
-    event.preventDefault();
-    // Call the /run-discovery endpoint using the fetch API
-    const loadingPopup = showLoadingMessage();
-    fetch('/run-upload-to-runwhenplatform-keep-uploaded')
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            return response.text();
-        })
-        .then(data => {
-            document.body.removeChild(loadingPopup);
-            showCommandOutput(data);
-        })
-        .catch(error => {
-            document.body.removeChild(loadingPopup);
-            showCommandOutput(error.message);
-            console.error('There was a problem with the upload operation:', error.message);
-        });
-});
 
 {% if 'user-provided' in auth_details['kubernetes']['type'] %}
 document.getElementById('generateClusterViewSA').addEventListener('click', function(event) {
@@ -379,7 +362,7 @@ function showLoadingMessage() {
     popup.classList.add("popup");
 
     const loadingMessage = document.createElement("p");
-    loadingMessage.innerText = "Running command, please wait...";
+    loadingMessage.innerText = "Please wait...";
 
     popup.appendChild(loadingMessage);
     popupContainer.appendChild(popup);
