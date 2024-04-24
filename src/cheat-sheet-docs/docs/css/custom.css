@@ -208,7 +208,7 @@ li {
   margin-right: 10px;
   border-radius: 12px;
   padding: 9px;
-  /* filter: brightness(0) saturate(100%) invert(39%) sepia(84%) saturate(907%) hue-rotate(188deg) brightness(95%) contrast(96%); */
+  filter: brightness(0) saturate(100%) invert(39%) sepia(84%) saturate(907%) hue-rotate(188deg) brightness(95%) contrast(96%);
   vertical-align: middle;
   object-fit: contain; /* Contain the image within the element, preserving its aspect ratio */
 
