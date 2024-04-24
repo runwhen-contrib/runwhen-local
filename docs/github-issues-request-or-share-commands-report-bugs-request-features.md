@@ -10,8 +10,8 @@ GitHub issues are:&#x20;
 
 Three primary templates are used for each of the topics above, and should make the effort of requesting a command or sharing a command easy.&#x20;
 
-<figure><img src=".gitbook/assets/image (1).png" alt=""><figcaption><p>GitHub Issue Templates</p></figcaption></figure>
+<figure><img src=".gitbook/assets/image (1) (1).png" alt=""><figcaption><p>GitHub Issue Templates</p></figcaption></figure>
 
-<figure><img src=".gitbook/assets/image (2).png" alt=""><figcaption><p>Requesting a Command</p></figcaption></figure>
+<figure><img src=".gitbook/assets/image (2) (1).png" alt=""><figcaption><p>Requesting a Command</p></figcaption></figure>
 
 <figure><img src=".gitbook/assets/image (3).png" alt=""><figcaption><p>Sharing an Awesome Command</p></figcaption></figure>
