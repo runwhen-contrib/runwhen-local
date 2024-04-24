@@ -11,6 +11,10 @@ spec:
     "{{table_name}}",
     {% endfor %}
   ]
+  skip_tables: [
+    "aws_s3_bucket_objects",
+    "aws_s3_bucket_object_grants",
+  ]
   spec:
     # Optional parameters
     # regions: []

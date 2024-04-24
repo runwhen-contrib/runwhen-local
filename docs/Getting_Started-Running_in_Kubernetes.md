@@ -32,6 +32,7 @@ For additional resources on creating a long-lived service account and Kubeconfig
 
 <pre><code># Customize the namespace name and path to kubeconfig as desired
 namespace=runwhen-local
+workspace=[my-runwhen-workspace]
 
 # Create the namespace
 <strong>kubectl create ns $namespace
@@ -41,8 +42,12 @@ helm repo add runwhen-contrib https://runwhen-contrib.github.io/helm-charts
 helm repo update
 
 # Install the RunWhen Local helm release 
-helm install runwhen-local runwhen-contrib/runwhen-local -n $namespace
+helm install runwhen-local runwhen-contrib/runwhen-local -n $namespace --set workspaceName=$workspace
 </code></pre>
+
+{% hint style="warning" %}
+If you are interested in deploying the RunWhen Platform Private Runner, please see the[runner-agent.md](user-guide/features/runner-agent.md "mention") for additional Helm values.
+{% endhint %}
 {% endtab %}
 
 {% tab title="Kubernetes Manifest Installation" %}
