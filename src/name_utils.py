@@ -15,11 +15,13 @@ def split_camel_cased_name(name: str) -> list[str]:
         result.append(pending_part)
     return result
 
+def sanitize_name(name: str) -> str:
+    """ Remove or replace characters that are unsuitable for file names. """
+    return name.replace(':', '-').replace('/', '-')
 
 def remove_vowels(name: str, keep_first_letter: bool) -> str:
     kept_letters = [name[i] for i in range(len(name)) if ((i == 0) and keep_first_letter) or (name[i] not in "aeiou")]
     return ''.join(kept_letters)
-
 
 def shorten_name(name: str, max_chars: int = 3, separator=None) -> str:
     if len(name) <= max_chars:
@@ -41,22 +43,17 @@ def shorten_name(name: str, max_chars: int = 3, separator=None) -> str:
     # the most sense, but we can iterate this based on real-world examples.
     parts = [remove_vowels(part, True) for part in parts]
     if separator is None:
-        separator = '-'
-        separator_count = len(parts) - 1
-        chars_per_part = (max_chars - separator_count) // len(parts)
-        if chars_per_part < 2:
-            separator = ''
-    separator_count = len(parts) - 1 if separator == '' else 0
-    chars_per_part = (max_chars - separator_count) // len(parts)
-    if chars_per_part == 0:
-        chars_per_part = 1
-    first_letters = [parts[i][0:chars_per_part] for i in range(min(max_chars, len(parts)))]
+        separator = '-' if len(parts) * 2 < max_chars else ''
+    chars_per_part = (max_chars - len(parts) + 1) // len(parts) if separator else 1
+    first_letters = [part[0:chars_per_part] for part in parts]
     tiny_name = separator.join(first_letters)
     return tiny_name
 
 
 def make_slx_name(workspace_name: str, qualified_slx_name: str) -> str:
-    return f"{workspace_name}--{qualified_slx_name}"
+    """ Ensure the slx name is safe for file naming. """
+    safe_qualified_slx_name = sanitize_name(qualified_slx_name)
+    return f"{workspace_name}--{safe_qualified_slx_name}"
 
 
 def make_qualified_slx_name(base_name: str, qualifiers: list[str], max_length=23) -> str:
@@ -78,7 +75,7 @@ def make_qualified_slx_name(base_name: str, qualifiers: list[str], max_length=23
         max_length = 1000000
     arg_count = len(qualifiers)
     if arg_count == 0:
-        return base_name
+        return sanitize_name(base_name)
 
     # The minus 1 at the end is to account for the dash between the
     # qualifiers/args and the base name suffix.
@@ -87,4 +84,4 @@ def make_qualified_slx_name(base_name: str, qualifiers: list[str], max_length=23
     shortened_args = [shorten_name(qualifiers[i].replace('_', '-'), chars_per_arg) for i in range(len(qualifiers))]
     args_string = '-'.join(shortened_args)
     qualified_slx_name = f"{args_string}-{base_name}"
-    return qualified_slx_name
+    return sanitize_name(qualified_slx_name)
