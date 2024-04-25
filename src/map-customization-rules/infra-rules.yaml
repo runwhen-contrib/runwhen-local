@@ -14,12 +14,12 @@ spec:
         pattern: "flux-reconcile"
         matchMode: exact
       group: "GitOps Infrastructure"
-    # - match:
-    #     type: pattern
-    #     matchType: cluster
-    #     pattern: ".+"
-    #     matchMode: substring
-    #   group: "Cluster Resources"
+    - match:
+        type: pattern
+        matchType: base-name
+        pattern: "eks-fargate-health"
+        matchMode: exact
+      group: "Cluster Resources"
     - match:
         type: pattern
         matchType: base-name
