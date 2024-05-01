@@ -1,8 +1,10 @@
 ---
-description: Information and installation details for the RunWhen Runner.
+description: >-
+  Information and installation details for the RunWhen Runner (the self-hosted
+  agent).
 ---
 
-# Runner (Agent)
+# Runner (Self-Hosted)
 
 {% hint style="info" %}
 The Runner installation is disabled by default and is not required with RunWhen Local unless also using the RunWhen Platform.&#x20;

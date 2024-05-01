@@ -12,7 +12,7 @@
   * [Workspace Builder](user-guide/features/workspace-builder.md)
   * [Troubleshooting Cheat Sheet](user-guide/features/user\_guide-feature\_overview.md)
   * [Built-In Terminal](user-guide/features/built-in-terminal.md)
-  * [Runner (Agent)](user-guide/features/runner-agent/README.md)
+  * [Runner (Self-Hosted)](user-guide/features/runner-agent/README.md)
     * [Runner Network Requirements](user-guide/features/runner-agent/runner-network-requirements.md)
   * [Upload to RunWhen Platform](user-guide/features/upload-to-runwhen-platform.md)
 * [Advanced Configuration](user-guide/user\_guide-advanced\_configuration/README.md)
