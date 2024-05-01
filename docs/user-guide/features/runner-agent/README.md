@@ -34,7 +34,7 @@ helm install runwhen-local runwhen-contrib/runwhen-local --set workspaceName=$wo
 
 &#x20;Please see [this link ](https://github.com/runwhen-contrib/helm-charts/blob/9fe6a5e778201e530f49e2ddc804206ec551a272/charts/runwhen-local/values.yaml#L186)for the runner specific helm chart values.
 
-The Runner installation of at least 3 pods:&#x20;
+The Runner installation consists of 3 or more pods:&#x20;
 
 * runner (the main control point for communicating with the RunWhen Platform)
 * metrics pods (used for sending SLI and Task metric data to the RunWhen Platform)
