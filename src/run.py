@@ -284,6 +284,8 @@ def main():
             # to name this just "workspace"
             if not workspace_name:
                 workspace_name = workspace_info.get('workspaceName')
+                if not isinstance(workspace_name, str):
+                    raise ValueError("Workspace name must be a string.")
             # We've moved the upload token and PAPI URL settings to the uploadInfo.yaml file,
             # but we'll keep support for the old way of putting it in the workspaceInfo.yaml file for
             # a little while to avoid breaking existing setups.
