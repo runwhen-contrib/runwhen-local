@@ -124,20 +124,30 @@ def create_kubeconfig():
     kubeconfig_yaml = yaml.dump(kubeconfig)
 
     if create_secret:
+        # Check if the secret exists and update or create accordingly
         try:
-            # Create a secret using kubectl
-            cmd = [
-                'kubectl', 'create', 'secret', 'generic', 'kubeconfig',
-                '--from-literal=kubeconfig=' + kubeconfig_yaml,
-                '--namespace=' + namespace,
-                '--dry-run=client', '-o', 'yaml'
-            ]
-            result = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, text=True)
-            apply_cmd = ['kubectl', 'apply', '-f', '-']
-            apply_process = subprocess.run(apply_cmd, input=result.stdout, check=True, stdout=subprocess.PIPE, text=True)
-            print("Kubeconfig secret created successfully.")
-        except subprocess.CalledProcessError as e:
-            print(f"Failed to create secret: {e}")
+            get_cmd = ['kubectl', 'get', 'secret', f"kubeconfig", '--namespace', namespace]
+            subprocess.run(get_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            exists = True
+        except subprocess.CalledProcessError:
+            exists = False
+
+        if exists:
+            # Update the existing secret
+            try:
+                update_cmd = ['kubectl', 'apply', '-f', '-']
+                subprocess.run(update_cmd, input=secret_yaml_str, check=True, text=True)
+                print("Secret updated successfully.")
+            except subprocess.CalledProcessError as e:
+                print(f"Failed to update secret: {str(e)}")
+        else:
+            # Create the new secret
+            try:
+                create_cmd = ['kubectl', 'create', '-f', '-']
+                subprocess.run(create_cmd, input=secret_yaml_str, check=True, text=True)
+                print("Secret created successfully.")
+            except subprocess.CalledProcessError as e:
+                print(f"Failed to create secret: {str(e)}")
 
     return kubeconfig
 
