@@ -89,7 +89,7 @@ custom:
   kubernetes_distribution_binary: kubectl
   
   # Secret names are used when integrating the RunWhen Platform
-  # with your enviornment. RunWhen has no access to this data, 
+  # with your environment. RunWhen has no access to this data, 
   # as the secret name and content comes from your own configuration. 
   kubeconfig_secret_name: kubeconfig
 EOF
@@ -101,7 +101,7 @@ chmod 655 $workdir/shared/workspaceInfo.yaml
 ```
 mkdir -p $workdir/shared/output
 
-# The ouput directory needs to be written to from the container image: 
+# The output directory needs to be written to from the container image: 
 chmod 777 $workdir/shared/output
 
 cat <<EOF > $workdir/shared/workspaceInfo.yaml
@@ -128,7 +128,7 @@ custom:
   # gcp_project_id: [gcp-project-id] 
   
   # Secret names are used when integrating the RunWhen Platform
-  # with your enviornment. RunWhen has no access to this data, 
+  # with your environment. RunWhen has no access to this data, 
   # as the secret name and content comes from your own configuration. 
   kubeconfig_secret_name: kubeconfig
   # gcp_ops_suite_sa: ops-suite-sa

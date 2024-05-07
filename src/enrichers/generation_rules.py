@@ -775,7 +775,7 @@ def generate_slx_output_items(slx_info: SLXInfo,
         "slx-info": slx_info
     }
 
-    # FIXME: This logic to set the standard template variables is a bit klunky and uses
+    # FIXME: This logic to set the standard template variables is a bit clunky and uses
     # duplicated code. Should clean up / refactor.
     platform_name = resource.resource_type.platform.name
     platform_handlers: dict[str, PlatformHandler] = context.get_property(PLATFORM_HANDLERS_PROPERTY_NAME)

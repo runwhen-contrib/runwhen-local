@@ -185,7 +185,7 @@ class PlatformHandler:
         Resolve a platform-specific custom/special value for a template variable.
         For example, the Kubernetes platform supports special values like "namespace"
         and "cluster" for the value derived from the matching resource, although this
-        is sort of obsolete/unncessary at this point (see FIXME not below).
+        is sort of obsolete/unnecessary at this point (see FIXME not below).
 
         FIXME: I'm not sure this is really needed anymore. In the early version of the WB the
         idea was that all of the template variables used in the templates for a gen rule

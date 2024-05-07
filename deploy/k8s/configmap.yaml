@@ -32,7 +32,7 @@ data:
       gcp_project_id: placeholder 
       
       # Secret names are used when integrating the RunWhen Platform
-      # with your enviornment. RunWhen has no access to this data, 
+      # with your environment. RunWhen has no access to this data, 
       # as the secret name and content comes from your own configuration. 
       kubeconfig_secret_name: kubeconfig
       gcp_ops_suite_sa: ops-suite-sa

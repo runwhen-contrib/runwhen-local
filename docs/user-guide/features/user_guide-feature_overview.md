@@ -80,7 +80,7 @@ A simple terminal has been added to the RunWhen Local application in order to pr
 
 ## Feedback <a href="#tool-feedback" id="tool-feedback"></a>
 
-This tool get's better with feedback and contributions from a growing community. If you are passionte about sharing your best troubleshooting commands or finding other commands that suit your needs, please consider sharing your experience in any of the following avenues:
+This tool gets better with feedback and contributions from a growing community. If you are passionte about sharing your best troubleshooting commands or finding other commands that suit your needs, please consider sharing your experience in any of the following avenues:
 
 * [Fill out a very short feedback form](https://docs.google.com/forms/d/e/1FAIpQLScuso8SQMdj9d-0VnxxBMcvdZrcZ2M389EbwE355flnkQOUFQ/viewform)
 * [Open up a GitHub issue](https://github.com/runwhen-contrib/runwhen-local/issues/new/choose)

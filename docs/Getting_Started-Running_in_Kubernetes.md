@@ -69,7 +69,7 @@ Deploying RunWhen Local to a Kubernetes cluster can be achieved with the followi
 * Service
   * A standard service will suffice to provide access to any running replicas. If not using an ingress object to expose the application outside of the cluster, users can use `kubectl port-forward` to access the RunWhen application through the service.
 * Ingress
-  * The ingress object supports access from outside of the cluster to the RunWhen conatiner. An example ingress manifest is not provided, as this will vary from cluster to cluster.
+  * The ingress object supports access from outside of the cluster to the RunWhen container. An example ingress manifest is not provided, as this will vary from cluster to cluster.
 * ConfigMap
   * Stores the `workspaceInfo.yaml` file, which is the main configuration file that is used to customize how RunWhen Local builds it's Troubleshooting Cheat Sheet. See [user\_guide-advanced\_configuration](user-guide/user\_guide-advanced\_configuration/ "mention")for more details on how to modify this file.
 * Secret
@@ -152,7 +152,7 @@ helm install runwhen-local runwhen-contrib/runwhen-local -n $namespace \
 
 <summary>Advanced Helm Deployment - Enable Built-in Terminal</summary>
 
-The built-in terminal is disable by default for Helm deployments (as otherws with access to the service could then run commands with the built-in kubeconfig).&#x20;
+The built-in terminal is disable by default for Helm deployments (as otherwise with access to the service could then run commands with the built-in kubeconfig).&#x20;
 
 To enable the terminal during helm installation:&#x20;
 

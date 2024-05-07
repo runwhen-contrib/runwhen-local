@@ -99,7 +99,7 @@ The supported values for the matchType are:
 
 The "name" field is the name in the Kubernetes custom resource file. It is typically a shortened, not super human-friendly name including the workspace name, so you will typically not want to match on this.
 
-The "qualified name" is the same as the name field, minus the workspace name. Similary, it's not super-friendly, so not typically what you want to match on.
+The "qualified name" is the same as the name field, minus the workspace name. Similarly, it's not super-friendly, so not typically what you want to match on.
 
 The "full-name" is the full name of the SLX, not including the workspace name, and also not doing any shortening/mangling of the qualifier values.
 
