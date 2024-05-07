@@ -6,6 +6,7 @@ import sys
 import tarfile
 import time
 import shutil
+import subprocess
 from argparse import ArgumentParser
 from http import HTTPStatus
 from typing import Union
@@ -77,9 +78,12 @@ def call_rest_service_with_retries(rest_call_proc, max_attempts=10, retry_delay=
             time.sleep(retry_delay)
 
 def create_kubeconfig():
+    create_secret = os.environ.get("RW_CREATE_KUBECONFIG_SECRET") == "true"
     api_server_host = os.environ.get("KUBERNETES_SERVICE_HOST")
     api_server_port = os.environ.get("KUBERNETES_SERVICE_PORT")
     api_server = f"https://{api_server_host}:{api_server_port}"
+    default_cluster_name = "default"
+    cluster_name = os.environ.get("KUBERNETES_CLUSTER_NAME", default_cluster_name)
 
     with open("/var/run/secrets/kubernetes.io/serviceaccount/token", "r") as f:
         token = f.read().strip()
@@ -87,34 +91,70 @@ def create_kubeconfig():
     with open("/var/run/secrets/kubernetes.io/serviceaccount/namespace", "r") as f:
         namespace = f.read().strip()
 
-    ca_path = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+    with open("/var/run/secrets/kubernetes.io/serviceaccount/ca.crt", "rb") as f:
+        ca_cert = base64.b64encode(f.read()).decode('utf-8')
 
     kubeconfig = {
         "apiVersion": "v1",
         "kind": "Config",
         "clusters": [{
-            "name": "default",
+            "name": cluster_name,
             "cluster": {
-                "certificate-authority": ca_path,
+                "certificate-authority-data": ca_cert,
                 "server": api_server
             }
         }],
         "contexts": [{
             "name": "default",
             "context": {
-                "cluster": "default",
+                "cluster": cluster_name,
                 "namespace": namespace,
                 "user": "default"
             }
         }],
         "current-context": "default",
         "users": [{
-            "name": "default",
+            "name": cluster_name,
             "user": {
                 "token": token
             }
         }]
     }
+
+    kubeconfig_yaml = yaml.dump(kubeconfig)
+    secret_name = f"kubeconfig"
+
+    if create_secret:
+        # Check if the secret exists and update or create accordingly
+        get_cmd = ['kubectl', 'get', 'secret', secret_name, '--namespace', namespace]
+        result = subprocess.run(get_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        exists = result.returncode == 0
+
+        secret_yaml = {
+            "apiVersion": "v1",
+            "kind": "Secret",
+            "metadata": {
+                "name": secret_name,
+                "namespace": namespace
+            },
+            "data": {
+                "kubeconfig": base64.b64encode(kubeconfig_yaml.encode('utf-8')).decode('utf-8')
+            },
+            "type": "Opaque"
+        }
+
+        secret_yaml_str = yaml.dump(secret_yaml)
+
+        if exists:
+            # Delete the existing secret
+            del_cmd = ['kubectl', 'delete', 'secret', secret_name, '--namespace', namespace]
+            subprocess.run(del_cmd, check=True)
+            print("Secret deleted successfully.")
+
+        # Create the new secret
+        create_cmd = ['kubectl', 'create', '-f', '-']
+        subprocess.run(create_cmd, input=secret_yaml_str, check=True, text=True)
+        print("Secret created successfully.")
 
     return kubeconfig
 
