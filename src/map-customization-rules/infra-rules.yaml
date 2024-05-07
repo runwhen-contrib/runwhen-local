@@ -29,6 +29,12 @@ spec:
     - match:
         type: pattern
         matchType: base-name
+        pattern: "cluster-resource"
+        matchMode: exact
+      group: "Cluster Resources"
+    - match:
+        type: pattern
+        matchType: base-name
         pattern: "gcp-quota"
         matchMode: exact
       group: "Cloud Provider Services"

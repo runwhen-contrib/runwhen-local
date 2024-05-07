@@ -58,10 +58,10 @@ then
         if [[ "$RW_LOCAL_UPLOAD_MERGE_MODE" == "keep-uploaded" ]]; 
         then
             echo "Merge Mode: keep-uploaded"
-            while true; do ./run.sh --upload --upload-merge-mode keep-uploaded; sleep $AUTORUN_WORKSPACE_BUILDER_INTERVAL; done
+            while true; do ./run.sh --upload --upload-merge-mode keep-uploaded --prune-stale-slxs; sleep $AUTORUN_WORKSPACE_BUILDER_INTERVAL; done
         else
             echo "Merge Mode: keep-existing"
-            while true; do ./run.sh --upload --upload-merge-mode keep-existing; sleep $AUTORUN_WORKSPACE_BUILDER_INTERVAL; done
+            while true; do ./run.sh --upload --upload-merge-mode keep-existing --prune-stale-slxs; sleep $AUTORUN_WORKSPACE_BUILDER_INTERVAL; done
         fi
     else
         while true; do ./run.sh; sleep $AUTORUN_WORKSPACE_BUILDER_INTERVAL; done
