@@ -228,7 +228,7 @@ def cmd_expansion(keyword_arguments, parsed_runbook_config):
     cmd["public"] = remove_escape_chars(cmd_str)
 
 
-    # Substitue available vars from config provided into the command
+    # Substitute available vars from config provided into the command
     # for var in parsed_runbook_config["spec"]["configProvided"]:
     #     cmd_str = cmd_str.replace('${'+ var["name"] +'}', var["value"])
     for var in parsed_runbook_config["spec"].get("configProvided", []):
@@ -997,7 +997,7 @@ def cheat_sheet(directory_path):
     # Try to fetch all git clones before processing anything deeper
     warm_git_cache(runbook_files)
     
-    # Generage customized upload page
+    # Generate customized upload page
     generate_platform_upload(workspace_info, slx_count, auth_details)
 
     ## TODO determine if we wish to support more than one workspace... 
@@ -1035,7 +1035,7 @@ def cheat_sheet(directory_path):
     with ThreadPoolExecutor() as executor:
       results = list(executor.map(lambda runbook: process_runbook(runbook, groups, search_list, template), runbook_files))
 
-    # Move from tmp to main docs foder
+    # Move from tmp to main docs folder
     source_dir = 'cheat-sheet-docs/docs-tmp/'
 
     destination_dir = 'cheat-sheet-docs/docs/'

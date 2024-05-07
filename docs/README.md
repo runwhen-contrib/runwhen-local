@@ -99,7 +99,7 @@ We're a friendly bunch! Connect with us on:
 
 ### Check Out Our Documentation
 
-All documention is stored in [/docs](https://github.com/runwhen-contrib/runwhen-local/tree/main/docs), but is also rendered by GitBook [here](https://docs.runwhen.com/public/v/runwhen-local/). 
+All documentation is stored in [/docs](https://github.com/runwhen-contrib/runwhen-local/tree/main/docs), but is also rendered by GitBook [here](https://docs.runwhen.com/public/v/runwhen-local/). 
 
 * [User Guide](https://docs.runwhen.com/public/v/runwhen-local/user-guide/)
 * [Architecture](https://docs.runwhen.com/public/v/runwhen-local/architecture)

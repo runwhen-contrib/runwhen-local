@@ -1,6 +1,6 @@
 # Runner Network Requirements
 
-The self-hosted runner essentially operates as an operator, establishing a connection to the RunWhen Platform and coordinating activites such as starting and stopping pods that perform troubleshooting or SLI tasks.&#x20;
+The self-hosted runner essentially operates as an operator, establishing a connection to the RunWhen Platform and coordinating activities such as starting and stopping pods that perform troubleshooting or SLI tasks.&#x20;
 
 In order for the self-hosted runner to function properly, it must access the following Internet URLs:&#x20;
 

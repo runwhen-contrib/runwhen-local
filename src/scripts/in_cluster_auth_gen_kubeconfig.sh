@@ -19,7 +19,7 @@ if [[ -z "$SERVICE_ACCOUNT" ]]; then
     exit 1
 fi
 
-# Check if the server details aare provided
+# Check if the server details are provided
 if [[ -z "$SERVER_DETAILS" ]]; then
     echo "Please provide the server details."
     exit 1

@@ -64,8 +64,8 @@ In order for the RunWhen Platform to run tasks in your cluster(s) and cloud reso
     - The **Secret Value** should be set to the contents of a kubeconfig that has a **long lived token**: 
 
     !!! tip "Long Lived vs Short Lived Tokens"
-        If the kubeconfig that you provided utilized *long-lived* serivce account tokens, those contents can be copied into the **Secret Value**.
-        If, however, the kubeconfig that you provided utilized *short-lived tokens* (such as those generaged from gcloud, az, and aws cli auth plugins), then a long-lived service account and token is required for every cluster context.
+        If the kubeconfig that you provided utilized *long-lived* service account tokens, those contents can be copied into the **Secret Value**.
+        If, however, the kubeconfig that you provided utilized *short-lived tokens* (such as those generated from gcloud, az, and aws cli auth plugins), then a long-lived service account and token is required for every cluster context.
 
     ??? note "Creating a Long Lived Service Account Token"
         To create a long lived sa, choose **ONE** of the following methods: 
