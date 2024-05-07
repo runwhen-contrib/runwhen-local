@@ -6,6 +6,7 @@ import sys
 import tarfile
 import time
 import shutil
+import subprocess
 from argparse import ArgumentParser
 from http import HTTPStatus
 from typing import Union
@@ -77,9 +78,12 @@ def call_rest_service_with_retries(rest_call_proc, max_attempts=10, retry_delay=
             time.sleep(retry_delay)
 
 def create_kubeconfig():
+    create_secret = os.environ.get("RW_CREATE_KUBECONFIG_SECRET") == "true"
     api_server_host = os.environ.get("KUBERNETES_SERVICE_HOST")
     api_server_port = os.environ.get("KUBERNETES_SERVICE_PORT")
     api_server = f"https://{api_server_host}:{api_server_port}"
+    default_cluster_name = "default"
+    cluster_name = os.environ.get("KUBERNETES_CLUSTER_NAME", default_cluster_name)
 
     with open("/var/run/secrets/kubernetes.io/serviceaccount/token", "r") as f:
         token = f.read().strip()
@@ -93,7 +97,7 @@ def create_kubeconfig():
         "apiVersion": "v1",
         "kind": "Config",
         "clusters": [{
-            "name": "default",
+            "name": cluster_name,
             "cluster": {
                 "certificate-authority": ca_path,
                 "server": api_server
@@ -102,21 +106,40 @@ def create_kubeconfig():
         "contexts": [{
             "name": "default",
             "context": {
-                "cluster": "default",
+                "cluster": cluster_name,
                 "namespace": namespace,
                 "user": "default"
             }
         }],
         "current-context": "default",
         "users": [{
-            "name": "default",
+            "name": cluster_name,
             "user": {
                 "token": token
             }
         }]
     }
 
+    kubeconfig_yaml = json.dumps(kubeconfig)  # Convert the kubeconfig to a JSON string
+
+    if create_secret:
+        try:
+            # Create a secret using kubectl
+            cmd = [
+                'kubectl', 'create', 'secret', 'generic', 'kubeconfig-secret',
+                '--from-literal=kubeconfig=' + kubeconfig_yaml,
+                '--namespace=' + namespace,
+                '--dry-run=client', '-o', 'yaml'
+            ]
+            result = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, text=True)
+            apply_cmd = ['kubectl', 'apply', '-f', '-']
+            apply_process = subprocess.run(apply_cmd, input=result.stdout, check=True, stdout=subprocess.PIPE, text=True)
+            print("Kubeconfig secret created successfully.")
+        except subprocess.CalledProcessError as e:
+            print(f"Failed to create secret: {e}")
+
     return kubeconfig
+
 
 def status_update(update, status_file_path, append_mode=True):
     if cheat_sheet_enabled:
