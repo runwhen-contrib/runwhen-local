@@ -91,7 +91,8 @@ def create_kubeconfig():
     with open("/var/run/secrets/kubernetes.io/serviceaccount/namespace", "r") as f:
         namespace = f.read().strip()
 
-    ca_path = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+    with open("/var/run/secrets/kubernetes.io/serviceaccount/ca.crt", "rb") as f:
+        ca_cert = base64.b64encode(f.read()).decode('utf-8')
 
     kubeconfig = {
         "apiVersion": "v1",
@@ -99,7 +100,7 @@ def create_kubeconfig():
         "clusters": [{
             "name": cluster_name,
             "cluster": {
-                "certificate-authority": ca_path,
+                "certificate-authority-data": ca_cert,
                 "server": api_server
             }
         }],
