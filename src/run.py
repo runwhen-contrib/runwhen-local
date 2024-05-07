@@ -120,13 +120,13 @@ def create_kubeconfig():
         }]
     }
 
-    kubeconfig_yaml = json.dumps(kubeconfig)  # Convert the kubeconfig to a JSON string
+    kubeconfig_yaml = yaml.dump(kubeconfig)
 
     if create_secret:
         try:
             # Create a secret using kubectl
             cmd = [
-                'kubectl', 'create', 'secret', 'generic', 'kubeconfig-secret',
+                'kubectl', 'create', 'secret', 'generic', 'kubeconfig',
                 '--from-literal=kubeconfig=' + kubeconfig_yaml,
                 '--namespace=' + namespace,
                 '--dry-run=client', '-o', 'yaml'
