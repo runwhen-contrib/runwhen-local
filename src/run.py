@@ -122,7 +122,7 @@ def create_kubeconfig():
     }
 
     kubeconfig_yaml = yaml.dump(kubeconfig)
-    secret_name = f"{cluster_name}-kubeconfig"
+    secret_name = f"kubeconfig"
 
     if create_secret:
         # Check if the secret exists and update or create accordingly
