@@ -122,35 +122,41 @@ def create_kubeconfig():
     }
 
     kubeconfig_yaml = yaml.dump(kubeconfig)
+    secret_name = f"{cluster_name}-kubeconfig"
 
     if create_secret:
         # Check if the secret exists and update or create accordingly
-        try:
-            get_cmd = ['kubectl', 'get', 'secret', f"kubeconfig", '--namespace', namespace]
-            subprocess.run(get_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            exists = True
-        except subprocess.CalledProcessError:
-            exists = False
+        get_cmd = ['kubectl', 'get', 'secret', secret_name, '--namespace', namespace]
+        result = subprocess.run(get_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        exists = result.returncode == 0
+
+        secret_yaml = {
+            "apiVersion": "v1",
+            "kind": "Secret",
+            "metadata": {
+                "name": secret_name,
+                "namespace": namespace
+            },
+            "data": {
+                "kubeconfig": base64.b64encode(kubeconfig_yaml.encode('utf-8')).decode('utf-8')
+            },
+            "type": "Opaque"
+        }
+
+        secret_yaml_str = yaml.dump(secret_yaml)
 
         if exists:
-            # Update the existing secret
-            try:
-                update_cmd = ['kubectl', 'apply', '-f', '-']
-                subprocess.run(update_cmd, input=secret_yaml_str, check=True, text=True)
-                print("Secret updated successfully.")
-            except subprocess.CalledProcessError as e:
-                print(f"Failed to update secret: {str(e)}")
-        else:
-            # Create the new secret
-            try:
-                create_cmd = ['kubectl', 'create', '-f', '-']
-                subprocess.run(create_cmd, input=secret_yaml_str, check=True, text=True)
-                print("Secret created successfully.")
-            except subprocess.CalledProcessError as e:
-                print(f"Failed to create secret: {str(e)}")
+            # Delete the existing secret
+            del_cmd = ['kubectl', 'delete', 'secret', secret_name, '--namespace', namespace]
+            subprocess.run(del_cmd, check=True)
+            print("Secret deleted successfully.")
+
+        # Create the new secret
+        create_cmd = ['kubectl', 'create', '-f', '-']
+        subprocess.run(create_cmd, input=secret_yaml_str, check=True, text=True)
+        print("Secret created successfully.")
 
     return kubeconfig
-
 
 def status_update(update, status_file_path, append_mode=True):
     if cheat_sheet_enabled:
