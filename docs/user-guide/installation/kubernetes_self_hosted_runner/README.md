@@ -6,9 +6,9 @@
 This installation method is for for users of the RunWhen Platform.
 {% endhint %}
 
-When deploying this method, RunWhen Local installs with the additional self-hosted runner components. The self-hosted runner is an agent that is deployed within your infrastructure that runs and executes [CodeBundles](https://docs.runwhen.com/public/runwhen-platform/feature-overview/code-bundles)   (managed and controlled by the RunWhen Platform).&#x20;
+In this method, RunWhen Local installs with the additional self-hosted runner components. The self-hosted runner is an agent that is deployed within your infrastructure that runs and executes [CodeBundles](https://docs.runwhen.com/public/runwhen-platform/feature-overview/code-bundles)   (managed and controlled by the RunWhen Platform).&#x20;
 
-### Creating a RunWhen Platform Workspace
+### Create a RunWhen Platform Workspace
 
 * Log into the [app](https://app.beta.runwhen.com)
 * Create a new workspace
@@ -17,9 +17,9 @@ When deploying this method, RunWhen Local installs with the additional self-host
 
 
 
-### Installing RunWhen Local with the Self-Hosted Runner
+### Install RunWhen Local with the Self-Hosted Runner
 
-Using your Helm manager of choice, deploy an instance of RunWhen Local with the Runner enabled:&#x20;
+Using a Helm manager of choice, deploy an instance of RunWhen Local with the Runner enabled:&#x20;
 
 ```
 namespace=<namespace/project name>
@@ -47,7 +47,7 @@ The Runner installation consists of 3 or more pods:&#x20;
   * pushgateway
 * Additional pods (with a UUID naming convention) that are created and removed as needed. These pods execute the SLI and Taslk CodeBundles as instructed from the RunWhen platform.&#x20;
 
-### Registering the Self-Hosted Runner with the RunWhen Platform
+### Register the Self-Hosted Runner with the RunWhen Platform
 
 * From the workspace creation wizard, select **Register a Runner** (alternatively, if the wizard is gone, this can be performed from Configuration -> Workspace -> Admin Tools)
 * Select a helpful and unique name for your the self-hosted runner (often referred to as a **location**)
@@ -61,7 +61,7 @@ kubectl create secret generic runner-registration-token --from-literal=token="[T
 
 
 
-## Run Discovery & Upload Results
+### Run Discovery & Upload Results
 
 * From the workspace creation wizard, select **Generate Upload Configuration** (alternatively, if the wizard is gone, this can be performed from Configuration -> Workspace -> Admin Tools)
 * Port-forward the RunWhen Local UI (or leverage an ingress object) to access the Upload Configuration Screen
@@ -90,11 +90,11 @@ It may take a little time for the new workspace to index all of the tasks and ob
 
 While this is taking place, we suggest:&#x20;
 
-* Adding team members to your workspace
+* Add team members to your workspace
 
 <figure><img src="../../../.gitbook/assets/image (19).png" alt=""><figcaption></figcaption></figure>
 
-* Checking out the [interactive tutorials](https://docs.runwhen.com/public/runwhen-platform/tutorials) to learn more about interacting with the Map, Digital Assistants, and RunSessions&#x20;
+* Check out the [interactive tutorials](https://docs.runwhen.com/public/runwhen-platform/tutorials) to learn more about interacting with the [Map](https://docs.runwhen.com/public/runwhen-platform/feature-overview/maps), [Digital Assistants](https://docs.runwhen.com/public/runwhen-platform/terms-and-concepts#digital-assistant)[,](https://docs.runwhen.com/public/runwhen-platform/feature-overview/digital-assistants) and[ RunSessions](https://docs.runwhen.com/public/runwhen-platform/feature-overview/runsessions)&#x20;
 
 <figure><img src="../../../.gitbook/assets/image (18).png" alt=""><figcaption></figcaption></figure>
 
