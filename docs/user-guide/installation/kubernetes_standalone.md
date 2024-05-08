@@ -31,7 +31,7 @@ For additional resources on creating a long-lived service account and Kubeconfig
 **Installing the RunWhen Local Helm Chart**
 
 {% hint style="warning" %}
-If you are interested in deploying the RunWhen Platform Self Hosted Runner, please see the[runner-agent](runner-agent/ "mention") for additional Helm values.
+If you are interested in deploying the RunWhen Platform Self Hosted Runner, please see the[kubernetes\_self\_hosted\_runner](kubernetes\_self\_hosted\_runner/ "mention") for additional Helm values.
 {% endhint %}
 
 <pre><code># Customize the namespace name and path to kubeconfig as desired

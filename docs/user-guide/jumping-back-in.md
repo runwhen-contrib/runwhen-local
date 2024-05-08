@@ -39,7 +39,7 @@ $ docker start RunWhenLocal
 
 
 
-### Checking if it was [getting\_started-running\_in\_kubernetes.md](installation/getting\_started-running\_in\_kubernetes.md "mention")
+### Checking if it was [kubernetes\_standalone.md](installation/kubernetes\_standalone.md "mention")
 
 If RunWhen Local was deployed into a Kubernetes cluster, chances are that there is a namespace called `runwhen-local` in one of your clusters. Run the following command to see which contexts may contain a namespace with this name:&#x20;
 

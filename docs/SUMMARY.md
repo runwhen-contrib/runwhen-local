@@ -6,9 +6,9 @@
 
 * [Getting Started](user-guide/getting-started.md)
 * [Installation](user-guide/installation/README.md)
-  * [Kubernetes - Standalone](user-guide/installation/getting\_started-running\_in\_kubernetes.md)
-  * [Kubernetes - Attached to the RunWhen Platform](user-guide/installation/runner-agent/README.md)
-    * [Runner Network Requirements](user-guide/installation/runner-agent/runner-network-requirements.md)
+  * [Kubernetes - Standalone](user-guide/installation/kubernetes\_standalone.md)
+  * [Kubernetes - Attached to the RunWhen Platform](user-guide/installation/kubernetes\_self\_hosted\_runner/README.md)
+    * [Runner Network Requirements](user-guide/installation/kubernetes\_self\_hosted\_runner/runner-network-requirements.md)
   * [Locally (Docker/Podman)](user-guide/installation/getting\_started-running\_locally.md)
 * [Jumping Back In](user-guide/jumping-back-in.md)
 * [Features](user-guide/features/README.md)
