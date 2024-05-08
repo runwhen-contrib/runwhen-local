@@ -4,16 +4,17 @@
 
 ## User Guide
 
-* [Getting Started](user-guide/getting-started/README.md)
-  * [Running Locally with Docker](Getting\_Started-Running\_Locally.md)
-  * [Running in Kubernetes](Getting\_Started-Running\_in\_Kubernetes.md)
+* [Getting Started](user-guide/getting-started.md)
+* [Installation](user-guide/installation/README.md)
+  * [Kubernetes - Standalone](user-guide/installation/getting\_started-running\_in\_kubernetes.md)
+  * [Kubernetes - Attached to the RunWhen Platform](user-guide/installation/runner-agent/README.md)
+    * [Runner Network Requirements](user-guide/installation/runner-agent/runner-network-requirements.md)
+  * [Locally (Docker/Podman)](user-guide/installation/getting\_started-running\_locally.md)
 * [Jumping Back In](user-guide/jumping-back-in.md)
 * [Features](user-guide/features/README.md)
   * [Workspace Builder](user-guide/features/workspace-builder.md)
   * [Troubleshooting Cheat Sheet](user-guide/features/user\_guide-feature\_overview.md)
   * [Built-In Terminal](user-guide/features/built-in-terminal.md)
-  * [Runner (Self-Hosted)](user-guide/features/runner-agent/README.md)
-    * [Runner Network Requirements](user-guide/features/runner-agent/runner-network-requirements.md)
   * [Upload to RunWhen Platform](user-guide/features/upload-to-runwhen-platform.md)
 * [Advanced Configuration](user-guide/user\_guide-advanced\_configuration/README.md)
   * [WorkspaceInfo Customization](user-guide/user\_guide-advanced\_configuration/workspaceinfo-customization/README.md)
