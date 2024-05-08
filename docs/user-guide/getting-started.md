@@ -43,10 +43,6 @@ Consider the following when determining which deployment method is best for you:
 
 
 
-
-
-### Deployment Instructions
-
 [^1]: This is disabled by default since you may not want to share the discovery results with anyone that has access to the url.&#x20;
 
 [^2]: It's your own instance, using your own access - use the terminal as if it's your own
