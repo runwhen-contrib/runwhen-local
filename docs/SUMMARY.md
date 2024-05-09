@@ -6,10 +6,10 @@
 
 * [Getting Started](user-guide/getting-started.md)
 * [Installation](user-guide/installation/README.md)
-  * [Kubernetes - Standalone Installation](user-guide/installation/kubernetes\_standalone.md)
-  * [Kubernetes -Hybrid Integration with the RunWhen Platform](user-guide/installation/kubernetes\_self\_hosted\_runner/README.md)
+  * [Kubernetes - With the RunWhen Platform](user-guide/installation/kubernetes\_self\_hosted\_runner/README.md)
     * [Runner Network Requirements](user-guide/installation/kubernetes\_self\_hosted\_runner/runner-network-requirements.md)
-  * [Docker/Podman - Standalone Installation](user-guide/installation/getting\_started-running\_locally.md)
+  * [Kubernetes - Without RunWhen Platform](user-guide/installation/kubernetes\_standalone.md)
+  * [Docker/Podman - Without RunWhen Platform](user-guide/installation/getting\_started-running\_locally.md)
 * [Jumping Back In](user-guide/jumping-back-in.md)
 * [Features](user-guide/features/README.md)
   * [Workspace Builder](user-guide/features/workspace-builder.md)
@@ -43,7 +43,7 @@
 
 ## Community
 
-* [Discord / Slack Chat](community/discord-slack-chat.md)
+* [Slack](community/discord-slack-chat.md)
 * [GitHub Discussions](community/github-discussions.md)
 
 ***

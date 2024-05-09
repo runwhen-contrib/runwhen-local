@@ -1,9 +1,13 @@
-# Kubernetes - Attached to the RunWhen Platform
+---
+description: >-
+  Deploy RunWhen Local  and the self-hosted Runner and integrate them with a
+  RunWhen Workspace.
+---
 
-
+# Kubernetes - With the RunWhen Platform
 
 {% hint style="info" %}
-This installation method is for for users of the RunWhen Platform.
+This installation method is for for users of the RunWhen Platform running in a hybrid deployment model.&#x20;
 {% endhint %}
 
 In this method, RunWhen Local installs with the additional self-hosted runner components. The self-hosted runner is an agent that is deployed within your infrastructure that runs and executes [CodeBundles](https://docs.runwhen.com/public/runwhen-platform/feature-overview/code-bundles)   (managed and controlled by the RunWhen Platform).&#x20;

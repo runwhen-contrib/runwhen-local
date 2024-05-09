@@ -4,10 +4,12 @@ description: >-
   with standard Kubernetes manifests.
 ---
 
-# Kubernetes - Standalone
+# Kubernetes - Without RunWhen Platform
+
+
 
 {% hint style="info" %}
-If you have any issues with this process, feel free to reach out on [Slack](https://runwhen.slack.com/join/shared\_invite/zt-1l7t3tdzl-IzB8gXDsWtHkT8C5nufm2A) or [GitHub](https://github.com/runwhen-contrib/runwhen-local) or [Discord](https://discord.com/invite/Ut7Ws4rm8Q)
+If you have any issues with this process, feel free to reach out on [Slack](https://runwhen.slack.com/join/shared\_invite/zt-1l7t3tdzl-IzB8gXDsWtHkT8C5nufm2A) or [GitHub](https://github.com/runwhen-contrib/runwhen-local).&#x20;
 {% endhint %}
 
 ## Overview
