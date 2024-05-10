@@ -1,6 +1,6 @@
 # Introduction
 
-![Join Discord](https://img.shields.io/discord/1131539039665791077?label=Join%20Discord\&logo=discord\&logoColor=white\&style=for-the-badge)[![Join Slack](https://img.shields.io/badge/Join%20Slack-%23E01563.svg?\&style=for-the-badge\&logo=slack\&logoColor=white)](https://runwhen.slack.com/join/shared\_invite/zt-1l7t3tdzl-IzB8gXDsWtHkT8C5nufm2A)\
+[![Join Slack](https://img.shields.io/badge/Join%20Slack-%23E01563.svg?\&style=for-the-badge\&logo=slack\&logoColor=white)](https://runwhen.slack.com/join/shared\_invite/zt-1l7t3tdzl-IzB8gXDsWtHkT8C5nufm2A)\
 ![](https://github.com/runwhen-contrib/runwhen-local/actions/workflows/merge\_to\_main.yaml/badge.svg) [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/runwhen-contrib)](https://artifacthub.io/packages/search?repo=runwhen-contrib)
 
 ![RunWhen Local Overview](../assets/rw-local-product.png)
@@ -92,7 +92,6 @@ Your ideas matter! Help us enhance the tool:
 We're a friendly bunch! Connect with us on:
 
 * [Slack](https://runwhen.slack.com/join/shared\_invite/zt-1l7t3tdzl-IzB8gXDsWtHkT8C5nufm2A)
-* [Discord](https://discord.com/invite/Ut7Ws4rm8Q)
 
 ### Check Out Our Documentation
 
