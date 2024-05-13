@@ -20,7 +20,7 @@ import time
 import ruamel.yaml
 import subprocess
 import logging
-from utils import get_proxy_config
+from utils import get_proxy_config, get_request_verify
 from robot.api import TestSuite
 from tempfile import NamedTemporaryFile
 from functools import lru_cache
@@ -273,7 +273,7 @@ def generate_raw_git_url(git_url, file_path, ref):
             proxies = get_proxy_config(raw_url)
 
             # Make the request with proxy configuration (if any)
-            response = requests.get(raw_url, proxies=proxies if proxies else None)
+            response = requests.get(raw_url, proxies=proxies if proxies else None, verify=get_request_verify())
             response.raise_for_status()  # Will raise an HTTPError for bad responses
             return raw_url
         except requests.RequestException as e:
@@ -630,7 +630,7 @@ def fetch_github_profile_icon(identifier):
 
     try:
         # Look up GitHub username based on identifier (username or email)
-        response = requests.get(f"https://api.github.com/search/users?q={identifier}")
+        response = requests.get(f"https://api.github.com/search/users?q={identifier}", verify=get_request_verify())
         data = json.loads(response.text)
 
         if data['total_count'] == 0:
@@ -650,7 +650,7 @@ def fetch_github_profile_icon(identifier):
             author_details["url"] = f"https://github.com/{username}"
         else:
             # Fetch profile icon URL
-            response = requests.get(f"https://api.github.com/users/{username}")
+            response = requests.get(f"https://api.github.com/users/{username}", verify=get_request_verify())
             user_data = json.loads(response.text)
 
             author_details["username"] = user_data["login"]
@@ -659,7 +659,7 @@ def fetch_github_profile_icon(identifier):
 
             # Download and cache the profile icon image
             profile_icon_url = user_data["avatar_url"]
-            response = requests.get(profile_icon_url)
+            response = requests.get(profile_icon_url, verify=get_request_verify())
             with open(profile_icon_file, "wb") as file:
                 file.write(response.content)
 
