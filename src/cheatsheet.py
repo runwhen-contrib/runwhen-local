@@ -20,7 +20,7 @@ import time
 import ruamel.yaml
 import subprocess
 import logging
-from utils import get_proxy_config
+from utils import get_proxy_config, get_request_verify
 from robot.api import TestSuite
 from tempfile import NamedTemporaryFile
 from functools import lru_cache
@@ -228,7 +228,7 @@ def cmd_expansion(keyword_arguments, parsed_runbook_config):
     cmd["public"] = remove_escape_chars(cmd_str)
 
 
-    # Substitue available vars from config provided into the command
+    # Substitute available vars from config provided into the command
     # for var in parsed_runbook_config["spec"]["configProvided"]:
     #     cmd_str = cmd_str.replace('${'+ var["name"] +'}', var["value"])
     for var in parsed_runbook_config["spec"].get("configProvided", []):
@@ -273,7 +273,7 @@ def generate_raw_git_url(git_url, file_path, ref):
             proxies = get_proxy_config(raw_url)
 
             # Make the request with proxy configuration (if any)
-            response = requests.get(raw_url, proxies=proxies if proxies else None)
+            response = requests.get(raw_url, proxies=proxies if proxies else None, verify=get_request_verify())
             response.raise_for_status()  # Will raise an HTTPError for bad responses
             return raw_url
         except requests.RequestException as e:
@@ -630,7 +630,7 @@ def fetch_github_profile_icon(identifier):
 
     try:
         # Look up GitHub username based on identifier (username or email)
-        response = requests.get(f"https://api.github.com/search/users?q={identifier}")
+        response = requests.get(f"https://api.github.com/search/users?q={identifier}", verify=get_request_verify())
         data = json.loads(response.text)
 
         if data['total_count'] == 0:
@@ -650,7 +650,7 @@ def fetch_github_profile_icon(identifier):
             author_details["url"] = f"https://github.com/{username}"
         else:
             # Fetch profile icon URL
-            response = requests.get(f"https://api.github.com/users/{username}")
+            response = requests.get(f"https://api.github.com/users/{username}", verify=get_request_verify())
             user_data = json.loads(response.text)
 
             author_details["username"] = user_data["login"]
@@ -659,7 +659,7 @@ def fetch_github_profile_icon(identifier):
 
             # Download and cache the profile icon image
             profile_icon_url = user_data["avatar_url"]
-            response = requests.get(profile_icon_url)
+            response = requests.get(profile_icon_url, verify=get_request_verify())
             with open(profile_icon_file, "wb") as file:
                 file.write(response.content)
 
@@ -997,7 +997,7 @@ def cheat_sheet(directory_path):
     # Try to fetch all git clones before processing anything deeper
     warm_git_cache(runbook_files)
     
-    # Generage customized upload page
+    # Generate customized upload page
     generate_platform_upload(workspace_info, slx_count, auth_details)
 
     ## TODO determine if we wish to support more than one workspace... 
@@ -1035,7 +1035,7 @@ def cheat_sheet(directory_path):
     with ThreadPoolExecutor() as executor:
       results = list(executor.map(lambda runbook: process_runbook(runbook, groups, search_list, template), runbook_files))
 
-    # Move from tmp to main docs foder
+    # Move from tmp to main docs folder
     source_dir = 'cheat-sheet-docs/docs-tmp/'
 
     destination_dir = 'cheat-sheet-docs/docs/'

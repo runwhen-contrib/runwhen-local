@@ -77,7 +77,7 @@ app.get('/run-discovery', (req, res) => {
 
 app.get('/run-upload-to-runwhenplatform-keep-existing', (req, res) => {
     // run discovery with upload
-    exec('WB_DEBUG_SUPPRESS_CHEAT_SHEET="true" ./run.sh --upload --upload-merge-mode keep-existing', (error, stdout, stderr) => {
+    exec('WB_DEBUG_SUPPRESS_CHEAT_SHEET="true" ./run.sh --upload --upload-merge-mode keep-existing --prune-stale-slxs', (error, stdout, stderr) => {
         if (error) {
             console.error(`exec error: ${error}`);
             return res.status(500).send(`Error executing command: ${error}\nStderr: ${stderr}`);
@@ -88,7 +88,7 @@ app.get('/run-upload-to-runwhenplatform-keep-existing', (req, res) => {
 
 app.get('/run-upload-to-runwhenplatform-keep-uploaded', (req, res) => {
     // run discovery with upload
-    exec('WB_DEBUG_SUPPRESS_CHEAT_SHEET="true" ./run.sh --upload --upload-merge-mode keep-uploaded ', (error, stdout, stderr) => {
+    exec('WB_DEBUG_SUPPRESS_CHEAT_SHEET="true" ./run.sh --upload --upload-merge-mode keep-uploaded --prune-stale-slxs', (error, stdout, stderr) => {
         if (error) {
             console.error(`exec error: ${error}`);
             return res.status(500).send(`Error executing command: ${error}\nStderr: ${stderr}`);

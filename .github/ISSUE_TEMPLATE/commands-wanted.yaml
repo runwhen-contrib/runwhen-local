@@ -19,7 +19,7 @@ body:
     attributes:
       label: What do you need the command to do?
       description: Please describe, as best as you can, the purpose of the command. 
-      placeholder: ex. We need a command (or commands) that help diagnose any issues with our istio configuraiton. 
+      placeholder: ex. We need a command (or commands) that help diagnose any issues with our istio configuration. 
     validations:
       required: true
 

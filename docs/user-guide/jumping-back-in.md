@@ -16,7 +16,7 @@ $ runwhen-local
 
 See [this link](https://docs.runwhen.com/public/v/runwhen-local/user-guide/getting-started/getting\_started-running\_locally#optional-add-a-cli-shortcut) for the instructions if deployed locally, and [this link](https://docs.runwhen.com/public/v/runwhen-local/user-guide/getting-started/getting\_started-running\_in\_kubernetes#optional-add-a-cli-shortcut) for the instructions if deployed in Kubernetes.&#x20;
 
-### Checking if it was [Getting\_Started-Running\_Locally.md](../Getting\_Started-Running\_Locally.md "mention")
+### Checking if it was [getting\_started-running\_locally.md](installation/getting\_started-running\_locally.md "mention")
 
 To check if RunWhen Local was deployed on your local machine with Docker / Podman:&#x20;
 
@@ -39,7 +39,7 @@ $ docker start RunWhenLocal
 
 
 
-### Checking if it was [Getting\_Started-Running\_in\_Kubernetes.md](../Getting\_Started-Running\_in\_Kubernetes.md "mention")
+### Checking if it was [kubernetes\_standalone.md](installation/kubernetes\_standalone.md "mention")
 
 If RunWhen Local was deployed into a Kubernetes cluster, chances are that there is a namespace called `runwhen-local` in one of your clusters. Run the following command to see which contexts may contain a namespace with this name:&#x20;
 

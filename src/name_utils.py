@@ -38,7 +38,7 @@ def shorten_name(name: str, max_chars: int = 3, separator=None) -> str:
     # If no explicit separator is given, then first try it with dashes and see if we
     # can use more than 1 character per part. If so, then use the dash. If not, then
     # set it to use spaces. The rationale is that if we can only fit 1 character per
-    # part then it would look weird to hypenate all the single characters, and instead
+    # part then it would look weird to hyphenate all the single characters, and instead
     # it would look better to just one big initialism. Not completely sure this makes
     # the most sense, but we can iterate this based on real-world examples.
     parts = [remove_vowels(part, True) for part in parts]

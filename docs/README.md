@@ -1,10 +1,7 @@
 # Introduction
 
-[![Join Discord](https://img.shields.io/discord/1131539039665791077?label=Join%20Discord\&logo=discord\&logoColor=white\&style=for-the-badge) ](https://discord.com/invite/Ut7Ws4rm8Q)[![Join Slack](https://img.shields.io/badge/Join%20Slack-%23E01563.svg?\&style=for-the-badge\&logo=slack\&logoColor=white)](https://runwhen.slack.com/join/shared\_invite/zt-1l7t3tdzl-IzB8gXDsWtHkT8C5nufm2A)\
-![](https://github.com/runwhen-contrib/runwhen-local/actions/workflows/merge\_to\_main.yaml/badge.svg)
-[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/runwhen-contrib)](https://artifacthub.io/packages/search?repo=runwhen-contrib)
-
-
+[![Join Slack](https://img.shields.io/badge/Join%20Slack-%23E01563.svg?\&style=for-the-badge\&logo=slack\&logoColor=white)](https://runwhen.slack.com/join/shared\_invite/zt-1l7t3tdzl-IzB8gXDsWtHkT8C5nufm2A)\
+![](https://github.com/runwhen-contrib/runwhen-local/actions/workflows/merge\_to\_main.yaml/badge.svg) [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/runwhen-contrib)](https://artifacthub.io/packages/search?repo=runwhen-contrib)
 
 ![RunWhen Local Overview](../assets/rw-local-product.png)
 
@@ -95,11 +92,10 @@ Your ideas matter! Help us enhance the tool:
 We're a friendly bunch! Connect with us on:
 
 * [Slack](https://runwhen.slack.com/join/shared\_invite/zt-1l7t3tdzl-IzB8gXDsWtHkT8C5nufm2A)
-* [Discord](https://discord.com/invite/Ut7Ws4rm8Q)
 
 ### Check Out Our Documentation
 
-All documention is stored in [/docs](https://github.com/runwhen-contrib/runwhen-local/tree/main/docs), but is also rendered by GitBook [here](https://docs.runwhen.com/public/v/runwhen-local/). 
+All documentation is stored in [/docs](https://github.com/runwhen-contrib/runwhen-local/tree/main/docs), but is also rendered by GitBook [here](https://docs.runwhen.com/public/v/runwhen-local/).
 
 * [User Guide](https://docs.runwhen.com/public/v/runwhen-local/user-guide/)
 * [Architecture](https://docs.runwhen.com/public/v/runwhen-local/architecture)

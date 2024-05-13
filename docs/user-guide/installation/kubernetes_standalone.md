@@ -1,13 +1,15 @@
 ---
 description: >-
-  This page provides instructions on how to deploy RunWhen Local via helm or
-  with standard Kubernetes manifests
+  This page provides instructions on how to deploy RunWhen Local via Helm or
+  with standard Kubernetes manifests.
 ---
 
-# Running in Kubernetes
+# Kubernetes - Without RunWhen Platform
+
+
 
 {% hint style="info" %}
-If you have any issues with this process, feel free to reach out on [Slack](https://runwhen.slack.com/join/shared\_invite/zt-1l7t3tdzl-IzB8gXDsWtHkT8C5nufm2A) or [GitHub](https://github.com/runwhen-contrib/runwhen-local) or [Discord](https://discord.com/invite/Ut7Ws4rm8Q)
+If you have any issues with this process, feel free to reach out on [Slack](https://runwhen.slack.com/join/shared\_invite/zt-1l7t3tdzl-IzB8gXDsWtHkT8C5nufm2A) or [GitHub](https://github.com/runwhen-contrib/runwhen-local).&#x20;
 {% endhint %}
 
 ## Overview
@@ -21,14 +23,18 @@ The commands generated in the Troubleshooting Cheat Sheet include the specific k
 As we also host this in Kubernetes for the purposes of an online demo, this document will share the manifests that we have used in [our own demo environment](https://runwhen-local.sandbox.runwhen.com).
 
 {% tabs %}
-{% tab title="Helm Installation (Basic)" %}
+{% tab title="Helm Installation " %}
 {% hint style="info" %}
-RunWhen Local requires access to a kubeconfig in order to perform resource discovery across Kubernetes clusters. When installing with Helm, RunWhen Local _can automatically discover it's local cluster by default_. To discover additional clusters, a separate kubeconfig secret is required. Please see [helm-configuration.md](user-guide/user\_guide-advanced\_configuration/helm-configuration.md "mention")for additional information. \
+RunWhen Local requires access to a kubeconfig in order to perform resource discovery across Kubernetes clusters. When installing with Helm, RunWhen Local _can automatically discover it's local cluster by default_. To discover additional clusters, a separate kubeconfig secret is required. Please see [helm-configuration.md](../user\_guide-advanced\_configuration/helm-configuration.md "mention")for additional information.\
 \
 For additional resources on creating a long-lived service account and Kubeconfig, please see [**Generating Service Accounts and Kubeconfigs**](https://docs.runwhen.com/public/runwhen-platform/guides/kubernetes-environments/generating-service-accounts-and-kubeconfigs).
 {% endhint %}
 
-#### Installing the RunWhen Local Helm Chart
+**Installing the RunWhen Local Helm Chart**
+
+{% hint style="warning" %}
+If you are interested in deploying the RunWhen Platform Self Hosted Runner, please see the[kubernetes\_self\_hosted\_runner](kubernetes\_self\_hosted\_runner/ "mention") for additional Helm values.
+{% endhint %}
 
 <pre><code># Customize the namespace name and path to kubeconfig as desired
 namespace=runwhen-local
@@ -44,20 +50,16 @@ helm repo update
 # Install the RunWhen Local helm release 
 helm install runwhen-local runwhen-contrib/runwhen-local -n $namespace --set workspaceName=$workspace
 </code></pre>
-
-{% hint style="warning" %}
-If you are interested in deploying the RunWhen Platform Private Runner, please see the[runner-agent](user-guide/features/runner-agent/ "mention") for additional Helm values.
-{% endhint %}
 {% endtab %}
 
 {% tab title="Kubernetes Manifest Installation" %}
 {% hint style="info" %}
-RunWhen Local requires access to a _kubeconfig_ to perform resource discovery across Kubernetes clusters. This secret should have read permissions on the namespaces and resource types that you would like discovered \
+RunWhen Local requires access to a _kubeconfig_ to perform resource discovery across Kubernetes clusters. This secret should have read permissions on the namespaces and resource types that you would like discovered\
 \
 For additional resources on creating a long-lived service account and Kubeconfig, please see [**Generating Service Accounts and Kubeconfigs**](https://docs.runwhen.com/public/runwhen-platform/guides/kubernetes-environments/generating-service-accounts-and-kubeconfigs).
 {% endhint %}
 
-#### Kubernetes Manifests
+**Kubernetes Manifests**
 
 Deploying RunWhen Local to a Kubernetes cluster can be achieved with the following manifests:
 
@@ -69,17 +71,17 @@ Deploying RunWhen Local to a Kubernetes cluster can be achieved with the followi
 * Service
   * A standard service will suffice to provide access to any running replicas. If not using an ingress object to expose the application outside of the cluster, users can use `kubectl port-forward` to access the RunWhen application through the service.
 * Ingress
-  * The ingress object supports access from outside of the cluster to the RunWhen conatiner. An example ingress manifest is not provided, as this will vary from cluster to cluster.
+  * The ingress object supports access from outside of the cluster to the RunWhen container. An example ingress manifest is not provided, as this will vary from cluster to cluster.
 * ConfigMap
-  * Stores the `workspaceInfo.yaml` file, which is the main configuration file that is used to customize how RunWhen Local builds it's Troubleshooting Cheat Sheet. See [user\_guide-advanced\_configuration](user-guide/user\_guide-advanced\_configuration/ "mention")for more details on how to modify this file.
+  * Stores the `workspaceInfo.yaml` file, which is the main configuration file that is used to customize how RunWhen Local builds it's Troubleshooting Cheat Sheet. See [user\_guide-advanced\_configuration](../user\_guide-advanced\_configuration/ "mention")for more details on how to modify this file.
 * Secret
   * A kubeconfig secret that contains all contexts that should be included in the Troubleshooting Cheat Sheet. This is typically a user or service account that has view-only access to the resources you wish to be included in the Troubleshooting Cheat Sheet.
 
 Example deployment manifests (as used in the online demo environment) are in the [runwhen-local GitHub repo](https://github.com/runwhen-contrib/runwhen-local/tree/main/deploy/kubernetes). There is an all-in-one.yaml manifest that provides the fastest path to deployment.
 
-####
 
-### Deploying the manifests
+
+#### Deploying the manifests
 
 In order to use the all-in-one.yaml manifest to deploy RunWhen Local to your Kubernetes cluster:
 
@@ -108,7 +110,7 @@ It might take a few minutes for discovery to complete. In some cases, the API se
 
 <summary>Advanced Helm Deployment - EKS Fargate</summary>
 
-EKS Fargate only looks at Kubernetes resource requests when provisioning nodes. As a result, the following helm installation command is recommended for EKS Fargate implementations:&#x20;
+EKS Fargate only looks at Kubernetes resource requests when provisioning nodes. As a result, the following helm installation command is recommended for EKS Fargate implementations:
 
 {% code overflow="wrap" %}
 ```
@@ -125,9 +127,9 @@ helm install runwhen-local runwhen-contrib/runwhen-local \
 
 <summary>Advanced Helm Deployment - Ingress Deployment</summary>
 
-While the ingress configuration will vary between environments, the following _example_ outlines how to create an ingress object with the helm installation command.&#x20;
+While the ingress configuration will vary between environments, the following _example_ outlines how to create an ingress object with the helm installation command.
 
-_This example demonstrates an ingress object ingress-nginx, cert-manager, and external-dns._ &#x20;
+_This example demonstrates an ingress object ingress-nginx, cert-manager, and external-dns._
 
 ```
 hostname="runwhen-local.sandbox.runwhen.com"
@@ -152,9 +154,9 @@ helm install runwhen-local runwhen-contrib/runwhen-local -n $namespace \
 
 <summary>Advanced Helm Deployment - Enable Built-in Terminal</summary>
 
-The built-in terminal is disable by default for Helm deployments (as otherws with access to the service could then run commands with the built-in kubeconfig).&#x20;
+The built-in terminal is disable by default for Helm deployments (as otherwise with access to the service could then run commands with the built-in kubeconfig).
 
-To enable the terminal during helm installation:&#x20;
+To enable the terminal during helm installation:
 
 ```
 helm install runwhen-local runwhen-contrib/runwhen-local \
@@ -176,11 +178,11 @@ kubectl port-forward svc/runwhen-local 8081:8081 -n $namespace
 
 With the service available on your local machine, you can access the interface by opening a browser to [http://localhost:8081](http://localhost:8081)
 
-<figure><img src="assets/gs_k8s_view_cheat_sheet.png" alt=""><figcaption></figcaption></figure>
+<figure><img src="../../assets/gs_k8s_view_cheat_sheet.png" alt=""><figcaption></figcaption></figure>
 
 ### Optional: Add a CLI Shortcut
 
-If you would like a shortcut from the CLI to open your cheatsheet, the following may help:&#x20;
+If you would like a shortcut from the CLI to open your cheatsheet, the following may help:
 
 {% tabs %}
 {% tab title="Linux/MacOS" %}
