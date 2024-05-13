@@ -11,6 +11,7 @@ import tarfile
 import time
 from typing import Union
 import yaml
+from utils import get_request_verify
 
 debug_suppress_cheat_sheet = os.getenv("WB_DEBUG_SUPPRESS_cheat_sheet")
 cheat_sheet_enabled = (debug_suppress_cheat_sheet is None or
@@ -150,7 +151,8 @@ def main():
 
     if args.command == INFO_COMMAND:
         info_url = f"http://{rest_service_host}:{rest_service_port}/info/"
-        response = call_rest_service_with_retries(lambda: requests.get(info_url))
+        # FIXME: Set Verify to True once the SSL certificate issue is resolved
+        response = call_rest_service_with_retries(lambda: requests.get(info_url, verify=get_request_verify()))
         # NB: The following call exits if there's an error, so it won't return in that case
         # FIXME: The current fatal error handling approach is a little iffy, in case there's ever a
         # a case where there's some final cleanup we want to do. But for now that's not an issue.
@@ -321,7 +323,7 @@ def main():
 
         # Call /run endpoint
         run_url = f"http://{rest_service_host}:{rest_service_port}/run/"
-        response = call_rest_service_with_retries(lambda: requests.post(run_url, json=request_data))
+        response = call_rest_service_with_retries(lambda: requests.post(run_url, json=request_data, verify=get_request_verify()))
         # FIXME: The current fatal error handling approach is a little iffy, in case there's ever a
         # a case where there's some final cleanup we want to do. But for now that's not an issue.
         check_rest_service_error(response, args.command, args.verbose)
@@ -457,7 +459,8 @@ def main():
             }
             upload_url = f"{papi_url}/api/v3/workspaces/{workspace_name}/upload"
             try:
-                response = requests.post(upload_url, data=upload_request_text, headers=headers)
+                # FIXME: Set Verify to True once the SSL certificate issue is resolved
+                response = requests.post(upload_url, data=upload_request_text, headers=headers, verify=get_request_verify())
             except requests.exceptions.ConnectionError as e:
                 fatal("Upload of map builder data failed, because the PAPI upload URL is invalid or unavailable; {e}")
                 # NB: The fatal call will already have exited, so this return call isn't really

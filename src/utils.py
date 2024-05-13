@@ -186,3 +186,23 @@ def get_proxy_config(url):
     if 'HTTPS_PROXY' in os.environ:
         proxies['https'] = os.environ['HTTPS_PROXY']
     return proxies
+
+# FIXME: This function is a workaround for the issue with the requests library not
+# recognizing the REQUESTS_CA_BUNDLE environment variable. In the future, this function
+# should be removed and the requests library should be updated to recognize the
+# REQUESTS_CA_BUNDLE environment variable. This just gives us an easy testing point without
+# having to edit all of the lines manually at once where we're currently setting verify.
+def get_request_verify():
+    """
+    Checks for REQUESTS_CA_BUNDLE environment variable and returns the path to the CA bundle if set.
+
+    For today this will just be a workaround for the issue with the requests library not
+    recognizing the REQUESTS_CA_BUNDLE environment variable, but in the future it should do as described
+    above.
+
+    Today we either want to return None if the REQUESTS_CA_BUNDLE environment variable is not set, or
+    False if it is set.
+    """
+    if 'REQUESTS_CA_BUNDLE' in os.environ:
+        return False
+    return None

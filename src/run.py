@@ -16,6 +16,7 @@ import yaml
 
 from utils import transform_client_cloud_config
 from utils import get_proxy_config
+from utils import get_request_verify
 
 debug_suppress_cheat_sheet = os.getenv("WB_DEBUG_SUPPRESS_CHEAT_SHEET")
 cheat_sheet_enabled = (debug_suppress_cheat_sheet is None or
@@ -621,7 +622,7 @@ def main():
         }
         upload_url = f"{papi_url}/api/v3/workspaces/{workspace_name}/upload"
         try:
-            response = requests.post(upload_url, data=upload_request_text, headers=headers)
+            response = requests.post(upload_url, data=upload_request_text, headers=headers, verify=get_request_verify())
         except requests.exceptions.ConnectionError as e:
             fatal("Upload of map builder data failed, because the PAPI upload URL is invalid or unavailable; {e}")
             # NB: The fatal call will already have exited, so this return call isn't really
