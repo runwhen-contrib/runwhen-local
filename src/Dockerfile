@@ -41,7 +41,7 @@ COPY pyproject.toml poetry.lock ./
 COPY pyproject.toml ./
 
 # Install Python Dependencies
-RUN poetry install
+RUN poetry install --no-dev
 
 # Final Image Stage
 FROM node-base AS app
@@ -81,22 +81,6 @@ RUN npm install \
 
 ENV NODE_PATH="/var/lib/neo4j/node_modules"
 
-# Install gcloud
-RUN curl -sSL https://sdk.cloud.google.com | bash
-ENV PATH "$PATH:/root/google-cloud-sdk/bin/"
-RUN gcloud components install gke-gcloud-auth-plugin --quiet
-
-# Install Azure CLI
-RUN curl -sL https://aka.ms/InstallAzureCLIDeb | bash
-
-# Install lnav (https://github.com/tstack/lnav)
-ENV LNAV_VERSION 0.11.2
-RUN wget https://github.com/tstack/lnav/releases/download/v${LNAV_VERSION}/lnav-${LNAV_VERSION}-x86_64-linux-musl.zip\
-    && unzip lnav-${LNAV_VERSION}-x86_64-linux-musl.zip \
-    && rm lnav-${LNAV_VERSION}-x86_64-linux-musl.zip \
-    && cd lnav-${LNAV_VERSION} \
-    && mkdir -p /home/runwhen/.lnav/formats/installed \
-    && mv lnav /usr/local/bin
 
 # Install and validate kubectl
 RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
@@ -107,16 +91,13 @@ RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/s
     && mv kubectl /usr/local/bin/ \
     && KUBECONFIG=/shared/kubeconfig
 
-# Download and install the latest OpenShift CLI (oc)
-RUN wget -O /tmp/oc.tar.gz https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/openshift-client-linux.tar.gz \
-    && tar -xzf /tmp/oc.tar.gz -C /usr/local/bin/ \
-    && rm /tmp/oc.tar.gz
 
 # Download the cloudquery CLI
 RUN curl -L https://github.com/cloudquery/cloudquery/releases/download/cli-v5.3.0/cloudquery_linux_amd64 -o /usr/local/bin/cloudquery \
     && chmod a+x /usr/local/bin/cloudquery
 
 # RunWhen customizations
+ENV HOME $RUNWHEN_HOME
 ADD . $RUNWHEN_HOME
 
 
@@ -128,7 +109,10 @@ RUN mkdir $RUNWHEN_SHARED \
 
 
 # Reverse Proxy Bits
-RUN apt-get update && apt-get install -y nginx && apt-get clean && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y nginx \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY nginx.conf /etc/nginx/sites-enabled/default
 
 
