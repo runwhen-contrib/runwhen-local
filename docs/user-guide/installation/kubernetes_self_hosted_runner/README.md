@@ -84,7 +84,7 @@ helm install runwhen-local runwhen-contrib/runwhen-local  \
 ```
 
 {% hint style="warning" %}
-If you are installing into OpenShift with a restriced user, the following command is necessary in order to permit RunWhen Local to discover resources in it's own project.&#x20;
+If you are installing into OpenShift with a restricted user account, the following command is necessary in order to permit RunWhen Local to discover resources in it's own project. &#x20;
 
 ```
 oc adm policy add-role-to-user view system:serviceaccount:$namespace:runwhen-local -n $namespace
