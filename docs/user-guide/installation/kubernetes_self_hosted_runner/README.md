@@ -25,6 +25,8 @@ In this method, RunWhen Local installs with the additional self-hosted runner co
 
 Using a Helm manager of choice, deploy an instance of RunWhen Local with the Runner enabled:&#x20;
 
+{% tabs %}
+{% tab title="Helm Installation" %}
 ```
 namespace=<namespace/project name>
 workspace=<my-runwhen-workspace>
@@ -36,6 +38,37 @@ helm install runwhen-local runwhen-contrib/runwhen-local  \
 	--set runner.enabled=true \
 	-n $namespace
 ```
+{% endtab %}
+
+{% tab title="Helm Installation with Proxies" %}
+```
+namespace=<namespace/project name>
+workspace=<my-runwhen-workspace>
+
+helm repo add runwhen-contrib https://runwhen-contrib.github.io/helm-charts
+helm repo update
+helm install runwhen-local runwhen-contrib/runwhen-local  \
+	--set workspaceName=$workspace \
+	--set proxy.enables=true \
+	--set proxy.httpProxy=<proxy> \
+	--set proxy.httpsProxy=<proxy> \
+	--set proxy.noProxy: 127.0.0.1,localhost,$(KUBERNETES_SERVICE_HOST),pushgateway \
+	--set proxyCA.key=<ca.crt> \
+	--set proxyCA.secretName: <secretname> \
+	--set runner.runEnvironment.proxy.noProxy=127.0.0.1,localhost,$(KUBERNETES_SERVICE_HOST),pushgateway \
+	--set grafana-agent.agent.mounts.extra[1].mountPath=/etc/ssl/certs/proxy-ca.crt \
+	--set grafana-agent.agent.mounts.extra[1].name=proxy-ca-volume \
+	--set grafana-agent.agent.mounts.extra[1].readOnly=true \
+	--set grafana-agent.agent.mounts.extra[1].subPath=proxy-ca.crt \
+	--set grafana-agent.controller.volumes.extra[1].name=proxy-ca-volume \
+	--set grafana-agent.controller.volumes.extra[1].secret.items[0].key=ca.crt \
+	--set grafana-agent.controller.volumes.extra[1].secret.items[0].path=proxy-ca.crt \
+	--set grafana-agent.controller.volumes.extra[1].secret.secretName=<proxy-tls-secret> \
+	--set runner.enabled=true \
+	-n $namespace
+```
+{% endtab %}
+{% endtabs %}
 
 {% hint style="info" %}
 With the helm deployment settings above. the kubeconfig created to discover and interact with your cluster resources is stored on your cluster locally. It is never sent to the RunWhen Platform.&#x20;
