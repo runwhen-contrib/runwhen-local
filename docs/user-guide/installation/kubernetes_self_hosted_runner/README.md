@@ -49,7 +49,7 @@ helm repo add runwhen-contrib https://runwhen-contrib.github.io/helm-charts
 helm repo update
 helm install runwhen-local runwhen-contrib/runwhen-local  \
 	--set workspaceName=$workspace \
-	--set proxy.enables=true \
+	--set proxy.enabled=true \
 	--set proxy.httpProxy=<proxy> \
 	--set proxy.httpsProxy=<proxy> \
 	--set proxy.noProxy: 127.0.0.1,localhost,$(KUBERNETES_SERVICE_HOST),pushgateway \
@@ -68,13 +68,36 @@ helm install runwhen-local runwhen-contrib/runwhen-local  \
 	-n $namespace
 ```
 {% endtab %}
+
+{% tab title="Helm Installation in OpenShift" %}
+```
+namespace=<namespace/project name>
+workspace=<my-runwhen-workspace>
+
+helm repo add runwhen-contrib https://runwhen-contrib.github.io/helm-charts
+helm repo update
+helm install runwhen-local runwhen-contrib/runwhen-local  \
+	--set workspaceName=$workspace \
+	--set runwhenLocal.workspaceInfo.configMap.data.custom.kubernetes_distribution_binary=oc \
+	--set runner.enabled=true \
+	-n $namespace
+```
+
+{% hint style="warning" %}
+If you are installing into OpenShift with a restriced user, the following command is necessary in order to permit RunWhen Local to discover resources in it's own project.&#x20;
+
+```
+oc adm policy add-role-to-user view system:serviceaccount:$namespace:runwhen-local -n $namespace
+```
+{% endhint %}
+{% endtab %}
 {% endtabs %}
 
 {% hint style="info" %}
-With the helm deployment settings above. the kubeconfig created to discover and interact with your cluster resources is stored on your cluster locally. It is never sent to the RunWhen Platform.&#x20;
+With the helm deployment settings above. the kubeconfig created to discover and interact with your cluster resources is stored on your cluster locally. It is never sent to the RunWhen Platform. By default, the service account is given cluster view permissions, but can easily be substituted with a custom kubeconfig. See [Generating Service Accounts and Kubeconfigs ](https://docs.runwhen.com/public/runwhen-platform/guides/kubernetes-environments/generating-service-accounts-and-kubeconfigs)for more details.&#x20;
 {% endhint %}
 
-Please see [this link ](https://github.com/runwhen-contrib/helm-charts/blob/9fe6a5e778201e530f49e2ddc804206ec551a272/charts/runwhen-local/values.yaml#L186)for the runner specific helm chart values.
+Please see [this link ](https://github.com/runwhen-contrib/helm-charts/blob/9fe6a5e778201e530f49e2ddc804206ec551a272/charts/runwhen-local/values.yaml#L186)for the runner specific helm chart values. Also see [workspaceinfo-customization](../../user\_guide-advanced\_configuration/workspaceinfo-customization/ "mention") for details on customizing the discovery process.&#x20;
 
 The Runner installation consists of 3 or more pods:&#x20;
 
