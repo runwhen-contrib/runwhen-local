@@ -97,7 +97,7 @@ oc adm policy add-role-to-user view system:serviceaccount:$namespace:runwhen-loc
 With the helm deployment settings above. the kubeconfig created to discover and interact with your cluster resources is stored on your cluster locally. It is never sent to the RunWhen Platform. By default, the service account is given cluster view permissions, but can easily be substituted with a custom kubeconfig. See [Generating Service Accounts and Kubeconfigs ](https://docs.runwhen.com/public/runwhen-platform/guides/kubernetes-environments/generating-service-accounts-and-kubeconfigs)for more details.&#x20;
 {% endhint %}
 
-Please see [this link ](https://github.com/runwhen-contrib/helm-charts/blob/9fe6a5e778201e530f49e2ddc804206ec551a272/charts/runwhen-local/values.yaml#L186)for the runner specific helm chart values. Also see [workspaceinfo-customization](../../user\_guide-advanced\_configuration/workspaceinfo-customization/ "mention") for details on customizing the discovery process.&#x20;
+Please see [this link ](https://github.com/runwhen-contrib/helm-charts/blob/9fe6a5e778201e530f49e2ddc804206ec551a272/charts/runwhen-local/values.yaml#L186)for the runner specific helm chart values. Also see [workspaceinfo-customization](../../user\_guide-advanced\_configuration/workspaceinfo-customization/ "mention") for details on customizing the discovery process, including the discovery of resources outside from Azure, AWS, or GCP. &#x20;
 
 The Runner installation consists of 3 or more pods:&#x20;
 
