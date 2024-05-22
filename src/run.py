@@ -106,16 +106,16 @@ def create_kubeconfig():
             }
         }],
         "contexts": [{
-            "name": "default",
+            "name": cluster_name,
             "context": {
                 "cluster": cluster_name,
                 "namespace": namespace,
-                "user": "default"
+                "user": "runwhen-local"
             }
         }],
-        "current-context": "default",
+        "current-context": cluster_name,
         "users": [{
-            "name": cluster_name,
+            "name": "runwhen-local",
             "user": {
                 "token": token
             }
