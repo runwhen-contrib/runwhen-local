@@ -1,6 +1,8 @@
 import logging, os
 from typing import Any, Optional
 
+import boto3
+
 from component import Context
 from resources import Resource, Registry, REGISTRY_PROPERTY_NAME
 from .generation_rule_types import PlatformHandler, LevelOfDetail
@@ -58,6 +60,51 @@ class AWSPlatformHandler(PlatformHandler):
 
     def __init__(self):
         super().__init__(AWS_PLATFORM)
+
+    def transform_cloud_config(self, cloud_config: dict[str, Any], cq_temp_dir: str) -> None:
+        aws_role_arn = cloud_config.get("awsRoleArn")
+        if aws_role_arn:
+
+            # Create a client object for the STS service using the original
+            # credentials from the cloud config. We copy these original credentials
+            # from the cloud config into separate keys that are prefixed with
+            # "original", since we're going to be replacing them with the temporary
+            # credentials associated with the assumed role. Currently, we don't really
+            # need/use these copies except for debugging, but they could be handy
+            # if/when we need to support multiple roles with multiple invocations of
+            # CloudQuery with the different roles.
+            aws_access_key_id = cloud_config.get("awsAccessKeyId")
+            aws_secret_access_key = cloud_config.get("awsSecretAccessKey")
+            aws_session_token = cloud_config.get("awsSessionToken")
+            aws_credentials = dict()
+            if aws_access_key_id:
+                aws_credentials['aws_access_key_id'] = aws_access_key_id
+                cloud_config["originalAwsAccessKeyId"] = aws_access_key_id
+            if aws_secret_access_key:
+                aws_credentials['aws_secret_access_key'] = aws_secret_access_key
+                cloud_config["originalAwsSecretAccessKey"] = aws_secret_access_key
+            if aws_session_token:
+                aws_credentials['aws_session_token'] = aws_session_token
+                cloud_config["originalAwsSessionToken"] = aws_session_token
+            sts_client = boto3.client('sts', **aws_credentials)
+
+            # Create the assumed role for the given role ARN
+            # FIXME: Shouldn't use a hard-coded name for the session.
+            # I'm assuming this would cause problems if there are concurrent workspace builder invocations.
+            # But that's not really a use case we've really tested and claim to support now.
+            assumed_role_object = sts_client.assume_role(RoleArn=aws_role_arn,
+                                                         RoleSessionName="WorkspaceBuilderAWSRoleSession")
+
+            # Extract the credentials from the assumed role object
+            credentials = assumed_role_object['Credentials']
+            new_aws_access_key_id = credentials.get('AccessKeyId')
+            new_aws_secret_access_key = credentials.get('SecretAccessKey')
+            new_aws_session_token = credentials.get("SessionToken")
+
+            # Update the cloud config with the assumed role credentials
+            cloud_config["awsAccessKeyId"] = new_aws_access_key_id
+            cloud_config["awsSecretAccessKey"] = new_aws_secret_access_key
+            cloud_config["awsSessionToken"] = new_aws_session_token
 
     def parse_resource_data(self,
                             resource_data: dict[str,Any],
