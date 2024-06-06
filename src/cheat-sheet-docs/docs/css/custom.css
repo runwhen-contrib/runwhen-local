@@ -80,6 +80,10 @@ blockquote {
   filter: brightness(1.5) contrast(1.2) sepia(1) hue-rotate(30deg) saturate(2); /* Adjusted filter for slight hint of accent color */
 }
 
+[data-md-color-scheme="slate"] .bio-icon {
+  filter: invert(100%) brightness(2) !important; /* Ensure black icons are visible by inverting them and increasing brightness */
+}
+
 table th {
   background-color: #f0f0f0;
   color: #000;
