@@ -14,8 +14,6 @@ if os.environ.get('DEBUG_LOGGING') == 'true':
 else:
     logger.setLevel(logging.INFO)
 
-
-
 DOCUMENTATION = "Render templated output items"
 
 SETTINGS = (
@@ -49,9 +47,11 @@ def load(context: Context):
     context.set_property(OUTPUT_ITEMS_PROPERTY, dict())
 
 def render(context: Context):
-    output_items: dict[str, OutputItem] = context.get_property(OUTPUT_ITEMS_PROPERTY, [])
+    output_items: dict[str, OutputItem] = context.get_property(OUTPUT_ITEMS_PROPERTY, {})
     for output_item in output_items.values():
         logger.info(f"Rendering output item: {output_item.path}")
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Template variables for {output_item.path}: {output_item.template_variables}")
         output_text = render_template_file(output_item.template_name,
                                            output_item.template_variables,
                                            output_item.template_loader_func)
