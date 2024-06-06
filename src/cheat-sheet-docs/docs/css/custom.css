@@ -38,6 +38,48 @@ blockquote {
   color: #ccc;
 }
 
+[data-md-color-scheme="slate"] .tag-card{
+  background-color: #333; /* Darker background color */
+  color: var(--md-accent-color); /* Orange text color */
+  box-shadow: 0 2px 4px rgba(255, 255, 255, 0.1); /* Lighter box shadow */
+}
+
+[data-md-color-scheme="slate"] .tag-card a {
+  color: var(--md-accent-color); /* Orange color for links */
+}
+
+[data-md-color-scheme="slate"] .card{
+  background-color: #333; /* Darker background color */
+  color: var(--md-accent-color); /* Orange text color */
+  box-shadow: 0 2px 4px rgba(255, 255, 255, 0.1); /* Lighter box shadow */
+}
+
+[data-md-color-scheme="slate"] .card a {
+  color: var(--md-accent-color); /* Orange color for links */
+}
+
+[data-md-color-scheme="slate"] .tag-card .tag-card-icon {
+  filter: invert(100%) sepia(0%) saturate(0%) hue-rotate(187deg) brightness(100%) contrast(100%); /* Ensure icons are visible */
+}
+
+[data-md-color-scheme="slate"] .card .card-icon {
+  filter: invert(100%) sepia(0%) saturate(0%) hue-rotate(187deg) brightness(100%) contrast(100%); /* Ensure icons are visible */
+}
+
+[data-md-color-scheme="slate"] .demo-card {
+  background-color: #333; /* Darker background color */
+  color: #faa629; /* Orange text color */
+  box-shadow: 0 2px 4px rgba(255, 255, 255, 0.1); /* Lighter box shadow */
+}
+
+[data-md-color-scheme="slate"] .demo-card a {
+  color: #faa629; /* Orange color for links */
+}
+
+[data-md-color-scheme="slate"] .demo-card .demo-card-icon {
+  filter: brightness(1.5) contrast(1.2) sepia(1) hue-rotate(30deg) saturate(2); /* Adjusted filter for slight hint of accent color */
+}
+
 table th {
   background-color: #f0f0f0;
   color: #000;
