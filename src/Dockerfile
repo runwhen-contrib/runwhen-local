@@ -81,25 +81,33 @@ RUN npm install \
 
 ENV NODE_PATH="/var/lib/neo4j/node_modules"
 
-
-# Install and validate kubectl
-RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
-    && curl -LO "https://dl.k8s.io/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl.sha256" \
+# Determine architecture and set variables
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "x86_64" ]; then \
+        KUBE_ARCH="amd64"; \
+        CQ_ARCH="amd64"; \
+    elif [ "$ARCH" = "aarch64" ]; then \
+        KUBE_ARCH="arm64"; \
+        CQ_ARCH="arm64"; \
+    else \
+        echo "Unsupported architecture"; \
+        exit 1; \
+    fi && \
+    # Install and validate kubectl
+    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/${KUBE_ARCH}/kubectl" \
+    && curl -LO "https://dl.k8s.io/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/${KUBE_ARCH}/kubectl.sha256" \
     && echo "$(cat kubectl.sha256) kubectl" | sha256sum --check \
     && rm kubectl.sha256 \
     && chmod +x kubectl \
     && mv kubectl /usr/local/bin/ \
-    && KUBECONFIG=/shared/kubeconfig
-
-
-# Download the cloudquery CLI
-RUN curl -L https://github.com/cloudquery/cloudquery/releases/download/cli-v5.3.0/cloudquery_linux_amd64 -o /usr/local/bin/cloudquery \
+    && KUBECONFIG=/shared/kubeconfig && \
+    # Download the cloudquery CLI
+    curl -L "https://github.com/cloudquery/cloudquery/releases/download/cli-v5.3.0/cloudquery_linux_${CQ_ARCH}" -o /usr/local/bin/cloudquery \
     && chmod a+x /usr/local/bin/cloudquery
 
 # RunWhen customizations
 ENV HOME $RUNWHEN_HOME
 ADD . $RUNWHEN_HOME
-
 
 RUN mkdir $RUNWHEN_SHARED \
     && usermod -g 0 runwhen -G 0  \
@@ -107,14 +115,12 @@ RUN mkdir $RUNWHEN_SHARED \
     && chmod g=u /etc/passwd \
     && chmod -R g+w ${RUNWHEN_HOME} ${RUNWHEN_SHARED}
 
-
 # Reverse Proxy Bits
 RUN apt-get update && apt-get install -y nginx \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 COPY nginx.conf /etc/nginx/sites-enabled/default
-
 
 # Adjust ownership and permissions for Nginx directories and files to ensure compatibility with arbitrary user IDs
 RUN mkdir -p /var/log/nginx /var/lib/nginx /run/nginx /usr/share/nginx/html && \
@@ -124,7 +130,6 @@ RUN mkdir -p /var/log/nginx /var/lib/nginx /run/nginx /usr/share/nginx/html && \
     chown :0 /run/nginx.pid && \
     chmod g+rwX /run/nginx.pid && \
     find /etc/nginx /var/log/nginx /usr/share/nginx/html /var/lib/nginx -type d -exec chmod g+s {} \+
-
 
 USER runwhen
 EXPOSE 8081
