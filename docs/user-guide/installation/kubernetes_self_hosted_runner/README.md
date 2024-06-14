@@ -12,17 +12,16 @@ This installation method is for for users of the RunWhen Platform running in a h
 
 In this method, RunWhen Local installs with the additional self-hosted runner components. The self-hosted runner is an agent that is deployed within your infrastructure that runs and executes [CodeBundles](https://docs.runwhen.com/public/runwhen-platform/feature-overview/code-bundles)   (managed and controlled by the RunWhen Platform).&#x20;
 
-### Create a RunWhen Platform Workspace
+## Create a RunWhen Platform Workspace
 
+[![](../../../.gitbook/assets/login_create_workspace.png)](https://app.beta.runwhen.com/?addWorkspace=true<)
 
-
-<table data-card-size="large" data-column-title-hidden data-view="cards" data-full-width="false"><thead><tr><th></th><th data-hidden data-card-cover data-type="files"></th><th data-hidden data-card-target data-type="content-ref"></th></tr></thead><tbody><tr><td><img src="../../../.gitbook/assets/login.drawio (4).png" alt="" data-size="original"></td><td></td><td><a href="https://app.beta.runwhen.com/?addWorkspace=true">https://app.beta.runwhen.com/?addWorkspace=true</a></td></tr></tbody></table>
 
 <figure><img src="../../../.gitbook/assets/image (9).png" alt=""><figcaption></figcaption></figure>
 
 
 
-### Install RunWhen Local with the Self-Hosted Runner
+## Install RunWhen Local with the Self-Hosted Runner
 
 Using a Helm manager of choice, deploy an instance of RunWhen Local with the Runner enabled:&#x20;
 
@@ -122,7 +121,7 @@ kubectl create secret generic runner-registration-token --from-literal=token="[T
 
 
 
-### Run Discovery & Upload Results
+## Run Discovery & Upload Results
 
 * From the workspace creation wizard, select **Generate Upload Configuration** (alternatively, if the wizard is gone, this can be performed from Configuration -> Workspace -> Admin Tools)
 * Port-forward the RunWhen Local UI (or leverage an ingress object) to access the Upload Configuration Screen
