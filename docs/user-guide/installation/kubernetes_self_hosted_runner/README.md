@@ -14,8 +14,9 @@ In this method, RunWhen Local installs with the additional self-hosted runner co
 
 ### Create a RunWhen Platform Workspace
 
-* Log into the [app](https://app.beta.runwhen.com)
-* Create a new workspace
+
+
+<table data-card-size="large" data-column-title-hidden data-view="cards" data-full-width="false"><thead><tr><th></th><th data-hidden data-card-cover data-type="files"></th><th data-hidden data-card-target data-type="content-ref"></th></tr></thead><tbody><tr><td><img src="../../../.gitbook/assets/login.drawio (4).png" alt="" data-size="original"></td><td></td><td><a href="https://app.beta.runwhen.com/?addWorkspace=true">https://app.beta.runwhen.com/?addWorkspace=true</a></td></tr></tbody></table>
 
 <figure><img src="../../../.gitbook/assets/image (9).png" alt=""><figcaption></figcaption></figure>
 
