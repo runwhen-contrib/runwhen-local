@@ -119,6 +119,9 @@ kubectl create secret generic runner-registration-token --from-literal=token="[T
 ## Run Discovery & Upload Results
 
 * From the workspace creation wizard, select **Generate Upload Configuration** (alternatively, if the wizard is gone, this can be performed from Configuration -> Workspace -> Admin Tools)
+
+{% tabs %}
+{% tab title="From the Web UI" %}
 * Port-forward the RunWhen Local UI (or leverage an ingress object) to access the Upload Configuration Screen
 
 ```
@@ -129,6 +132,38 @@ kubectl port-forward deployment/runwhen-local 8081:8081 -n $namespace
 * Select **Upload Configuration**
 
 <figure><img src="../../../.gitbook/assets/image (11).png" alt=""><figcaption></figcaption></figure>
+
+
+{% endtab %}
+
+{% tab title="From the CLI" %}
+* Create a secret in the namespace with the contents of uploadInfo.yaml (ensure to update the file name accordingly)
+
+```
+kubectl create secret generic uploadinfo --from-file=uploadInfo.yaml="[DOWNLOADED FILE]" -n $namespace
+```
+
+* Upgrade Helm to use this secret and enable upload
+
+{% hint style="warning" %}
+Ensure to keep all of your previously modified values, or merge in the following settings into the values.yaml file
+{% endhint %}
+
+```
+helm install runwhen-local runwhen-contrib/runwhen-local  \
+	--set workspaceName=$workspace \
+	--set runner.enabled=true \
+	--set runwhenLocal.uploadInfo.secretProvided.enabled=true \
+	--set runwhenLocal.uploadInfo.secretProvided.secretName=uploadinfo \
+	--set runwhenLocal.uploadInfo.secretProvided.secretKey=uploadInfo.yaml \
+	--set runwhenLocal.uploadInfo.secretProvided.secretPath=uploadInfo.yaml \
+	--set runwhenLocal.autoRun.uploadEnabled=true \
+	-n $namespace
+```
+{% endtab %}
+{% endtabs %}
+
+
 
 ### Visit the Workspace Map in the RunWhen Platform
 
