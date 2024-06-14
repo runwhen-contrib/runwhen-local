@@ -7,23 +7,20 @@ description: >-
 # Kubernetes - With the RunWhen Platform
 
 {% hint style="info" %}
-This installation method is for for users of the RunWhen Platform running in a hybrid deployment model.&#x20;
+This installation method is for for users of the RunWhen Platform running in a hybrid deployment model.
 {% endhint %}
 
-In this method, RunWhen Local installs with the additional self-hosted runner components. The self-hosted runner is an agent that is deployed within your infrastructure that runs and executes [CodeBundles](https://docs.runwhen.com/public/runwhen-platform/feature-overview/code-bundles)   (managed and controlled by the RunWhen Platform).&#x20;
+<figure><img src="../../../.gitbook/assets/flow (2).png" alt=""><figcaption></figcaption></figure>
 
 ## Create a RunWhen Platform Workspace
 
-[![](../../../.gitbook/assets/login_create_workspace.png)](https://app.beta.runwhen.com/?addWorkspace=true<)
-
+[![](../../../.gitbook/assets/login\_create\_workspace.png)](https://app.beta.runwhen.com/?addWorkspace=true%3C)
 
 <figure><img src="../../../.gitbook/assets/image (9).png" alt=""><figcaption></figcaption></figure>
 
-
-
 ## Install RunWhen Local with the Self-Hosted Runner
 
-Using a Helm manager of choice, deploy an instance of RunWhen Local with the Runner enabled:&#x20;
+Using a Helm manager of choice, deploy an instance of RunWhen Local with the Runner enabled:
 
 {% tabs %}
 {% tab title="Helm Installation" %}
@@ -84,7 +81,7 @@ helm install runwhen-local runwhen-contrib/runwhen-local  \
 ```
 
 {% hint style="warning" %}
-If you are installing into OpenShift with a restricted user account, the following command is necessary in order to permit RunWhen Local to discover resources in it's own project. &#x20;
+If you are installing into OpenShift with a restricted user account, the following command is necessary in order to permit RunWhen Local to discover resources in it's own project.
 
 ```
 oc adm policy add-role-to-user view system:serviceaccount:$namespace:runwhen-local -n $namespace
@@ -94,18 +91,18 @@ oc adm policy add-role-to-user view system:serviceaccount:$namespace:runwhen-loc
 {% endtabs %}
 
 {% hint style="info" %}
-With the helm deployment settings above. the kubeconfig created to discover and interact with your cluster resources is stored on your cluster locally. It is never sent to the RunWhen Platform. By default, the service account is given cluster view permissions, but can easily be substituted with a custom kubeconfig. See [Generating Service Accounts and Kubeconfigs ](https://docs.runwhen.com/public/runwhen-platform/guides/kubernetes-environments/generating-service-accounts-and-kubeconfigs)for more details.&#x20;
+With the helm deployment settings above. the kubeconfig created to discover and interact with your cluster resources is stored on your cluster locally. It is never sent to the RunWhen Platform. By default, the service account is given cluster view permissions, but can easily be substituted with a custom kubeconfig. See [Generating Service Accounts and Kubeconfigs ](https://docs.runwhen.com/public/runwhen-platform/guides/kubernetes-environments/generating-service-accounts-and-kubeconfigs)for more details.
 {% endhint %}
 
-Please see [this link](https://github.com/runwhen-contrib/helm-charts/blob/main/charts/runwhen-local/values.yaml) for the runner specific helm chart values. Also see [workspaceinfo-customization](../../user\_guide-advanced\_configuration/workspaceinfo-customization/ "mention") for details on customizing the discovery process, including the discovery of resources outside from Azure, AWS, or GCP. &#x20;
+Please see [this link](https://github.com/runwhen-contrib/helm-charts/blob/main/charts/runwhen-local/values.yaml) for the runner specific helm chart values. Also see [workspaceinfo-customization](../../user\_guide-advanced\_configuration/workspaceinfo-customization/ "mention") for details on customizing the discovery process, including the discovery of resources outside from Azure, AWS, or GCP.
 
-The Runner installation consists of 3 or more pods:&#x20;
+The Runner installation consists of 3 or more pods:
 
 * runner (the main control point for communicating with the RunWhen Platform)
 * metrics pods (used for sending SLI and Task metric data to the RunWhen Platform)
   * grafana-agent
   * pushgateway
-* Additional pods (with a UUID naming convention) that are created and removed as needed. These pods execute the SLI and Taslk CodeBundles as instructed from the RunWhen platform.&#x20;
+* Additional pods (with a UUID naming convention) that are created and removed as needed. These pods execute the SLI and Taslk CodeBundles as instructed from the RunWhen platform.
 
 ### Register the Self-Hosted Runner with the RunWhen Platform
 
@@ -118,8 +115,6 @@ The Runner installation consists of 3 or more pods:&#x20;
 ```
 kubectl create secret generic runner-registration-token --from-literal=token="[TOKEN]" -n $namespace
 ```
-
-
 
 ## Run Discovery & Upload Results
 
@@ -144,17 +139,16 @@ kubectl port-forward deployment/runwhen-local 8081:8081 -n $namespace
 
 ### What Happens Next?
 
-It may take a little time for the new workspace to index all of the tasks and objects that were created:&#x20;
+It may take a little time for the new workspace to index all of the tasks and objects that were created:
 
 <figure><img src="../../../.gitbook/assets/image (14).png" alt="" width="375"><figcaption></figcaption></figure>
 
-While this is taking place, we suggest:&#x20;
+While this is taking place, we suggest:
 
 * Add team members to your workspace
 
 <figure><img src="../../../.gitbook/assets/image (19).png" alt=""><figcaption></figcaption></figure>
 
-* Check out the [interactive tutorials](https://docs.runwhen.com/public/runwhen-platform/tutorials) to learn more about interacting with the [Map](https://docs.runwhen.com/public/runwhen-platform/feature-overview/maps), [Digital Assistants](https://docs.runwhen.com/public/runwhen-platform/terms-and-concepts#digital-assistant)[,](https://docs.runwhen.com/public/runwhen-platform/feature-overview/digital-assistants) and[ RunSessions](https://docs.runwhen.com/public/runwhen-platform/feature-overview/runsessions)&#x20;
+* Check out the [interactive tutorials](https://docs.runwhen.com/public/runwhen-platform/tutorials) to learn more about interacting with the [Map](https://docs.runwhen.com/public/runwhen-platform/feature-overview/maps), [Digital Assistants](https://docs.runwhen.com/public/runwhen-platform/terms-and-concepts#digital-assistant)[,](https://docs.runwhen.com/public/runwhen-platform/feature-overview/digital-assistants) and[ RunSessions](https://docs.runwhen.com/public/runwhen-platform/feature-overview/runsessions)
 
 <figure><img src="../../../.gitbook/assets/image (18).png" alt=""><figcaption></figcaption></figure>
-
