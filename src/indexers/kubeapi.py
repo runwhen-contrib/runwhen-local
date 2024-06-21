@@ -2,16 +2,17 @@
 Index assets that we can find by querying K8s API servers
 to fetch live clusters, Namespaces, Ingresses, Services,
 Deployments, StatefulSets, etc.
+
+Recently updated to support anotations/label discovery, readded robvs comments
+where possible. 
 """
+
 import base64
 from tempfile import TemporaryDirectory
 import logging
 import os
-from typing import Any, Optional
+from typing import Any, Optional, List, Dict
 
-#########
-# K8s API Indexer
-#########
 from kubernetes import client
 from kubernetes import config as kubernetes_config
 from kubernetes.client.rest import ApiException
@@ -39,7 +40,7 @@ from enrichers.generation_rules import RESOURCE_TYPE_SPECS_PROPERTY
 # Or something like that...
 from enrichers.generation_rule_types import LevelOfDetail
 from enrichers.generation_rules import DEFAULT_LOD_SETTING
-from .kubetypes import KUBERNETES_PLATFORM, KubernetesResourceType, KubernetesResourceTypeSpec
+from .kubetypes import KUBERNETES_PLATFORM, KubernetesResourceType
 from resources import Registry, REGISTRY_PROPERTY_NAME
 from . import kubeapi_parsers
 from .common import CLOUD_CONFIG_SETTING
@@ -59,6 +60,33 @@ NAMESPACE_LODS_SETTING = Setting("NAMESPACE_LODS",
                                  "Level of Detail (LOD) settings for different Kubernetes namespace",
                                  default_value=dict())
 
+EXCLUDE_ANNOTATIONS_SETTING = Setting("EXCLUDE_ANNOTATIONS",
+                                      "excludeAnnotations",
+                                      Setting.Type.LIST,
+                                      "Annotations to exclude resources from indexing",
+                                      default_value=list())
+
+EXCLUDE_LABELS_SETTING = Setting("EXCLUDE_LABELS",
+                                 "excludeLabels",
+                                 Setting.Type.LIST,
+                                 "Labels to exclude resources from indexing",
+                                 default_value=list())
+
+HARDCODED_EXCLUDE_ANNOTATIONS = {
+    "config.runwhen.com/ignore": "true"
+}
+
+HARDCODED_EXCLUDE_LABELS = {
+    "runwhen-local": "ignore"
+}
+
+
+HARDCODED_LOD_ANNOTATIONS = {
+    "config.runwhen.com/lod": ["none", "basic", "detailed"]
+}
+
+OWNER_ANNOTATION_KEY = "config.runwhen.com/owner"
+
 DOCUMENTATION = "Index assets from a Kubernetes configuration"
 
 SETTINGS = (
@@ -66,7 +94,9 @@ SETTINGS = (
     SettingDependency(KUBECONFIG_SETTING, False),
     SettingDependency(NAMESPACES_SETTING, False),
     SettingDependency(NAMESPACE_LODS_SETTING, False),
-    SettingDependency(DEFAULT_LOD_SETTING, False)
+    SettingDependency(DEFAULT_LOD_SETTING, False),
+    SettingDependency(EXCLUDE_ANNOTATIONS_SETTING, False),
+    SettingDependency(EXCLUDE_LABELS_SETTING, False),
 )
 
 
@@ -78,6 +108,59 @@ class GroupVersionInfo:
     def __init__(self, preferred_version: str, versions: list[str]):
         self.preferred_version = preferred_version
         self.versions = versions
+
+def get_lod_from_annotations(resource, lod_annotations: Dict[str, List[str]]) -> Optional[LevelOfDetail]:
+    if not hasattr(resource, 'metadata'):
+        return None
+    metadata = resource.metadata
+    annotations = metadata.annotations if metadata.annotations else {}
+
+    for key, values in lod_annotations.items():
+        if key in annotations and annotations[key] in values:
+            lod_value = annotations[key]
+            if lod_value == "none":
+                return LevelOfDetail.NONE
+            elif lod_value == "basic":
+                return LevelOfDetail.BASIC
+            elif lod_value == "detailed":
+                return LevelOfDetail.DETAILED
+
+    return None
+
+def extract_owner_name(resource) -> Optional[str]:
+    if not hasattr(resource, 'metadata'):
+        return None
+    annotations = resource.metadata.annotations if resource.metadata.annotations else {}
+    return annotations.get(OWNER_ANNOTATION_KEY)
+
+
+def has_excluded_annotations_or_labels(resource, exclude_annotations: Dict[str, str], exclude_labels: Dict[str, Any]) -> bool:
+    if not hasattr(resource, 'metadata'):
+        return False
+    metadata = resource.metadata
+    annotations = metadata.annotations if metadata.annotations else {}
+    labels = metadata.labels if metadata.labels else {}
+
+    # FIXME - why is the Kind always None? we should be able to extract this for better logging / debugging without
+    # complex code, but this is something that probably needs to be tackled in a longer term way - I suspect it's
+    # just a factor of how the collection is performed on certain resource types.     
+    for key, value in exclude_annotations.items():
+        if annotations.get(key) == value:
+            logger.info(f"Matched annotation {key} on {resource.metadata.name}, excluding from discovery.")
+            return True
+    
+    for key, values in exclude_labels.items():
+        if key in labels:
+            if isinstance(values, list):
+                if labels[key] in values:
+                    logger.info(f"Matched label {key} on {resource.metadata.name}, excluding from discovery.")
+                    return True
+            else:
+                if labels[key] == values:
+                    logger.info(f"Matched label {key} on {resource.metadata.name}, excluding from discovery.")
+                    return True
+    
+    return False
 
 
 def index(component_context: Context):
@@ -100,65 +183,88 @@ def index(component_context: Context):
     # that uses that older format, we still support that style too.
     # Eventually (presumably sometime after we've done a 1.0 release),
     # we can get rid of the support for this older format.
-
+    
     kubeconfig_path: Optional[str] = None
     namespace_lods: Optional[dict[str, LevelOfDetail]] = None
     custom_namespace_names: Optional[list[str]] = None
+    exclude_annotations: Dict[str, str] = {}
+    exclude_labels: Dict[str, str] = {}
+    lod_annotations = HARDCODED_LOD_ANNOTATIONS
+
+
+    # Extract settings from the context
+    cloud_config_settings: Optional[dict[str, Any]] = component_context.get_setting("CLOUD_CONFIG")
+    if cloud_config_settings:
+        kubernetes_settings: Optional[dict[str, Any]] = cloud_config_settings.get("kubernetes")
+        if kubernetes_settings:
+            # Since the contents of the cloud config are not top-level settings for the
+            # component framework, they don't get the normal settings processing, in
+            # particular the file settings handling that automatically writes the
+            # contents of the file settings to a temp file and replaces the setting with
+            # a path to the temp file. So we need to do it manually here for the
+            # kubeconfig file.
+            encoded_kubeconfig_file = kubernetes_settings.get("kubeconfigFile")
+            namespace_lods = kubernetes_settings.get("namespaceLODs", {})
+            custom_namespace_names = kubernetes_settings.get("namespaces", [])
+            exclude_annotations = kubernetes_settings.get("excludeAnnotations", {})
+            exclude_labels = kubernetes_settings.get("excludeLabels", {})
+
+    # Hard-code values to be added
+    exclude_annotations.update(HARDCODED_EXCLUDE_ANNOTATIONS)
+    for key, values in HARDCODED_EXCLUDE_LABELS.items():
+        if key in exclude_labels:
+            if isinstance(exclude_labels[key], list):
+                if isinstance(values, list):
+                    exclude_labels[key].extend(values)
+                else:
+                    exclude_labels[key].append(values)
+            else:
+                if isinstance(values, list):
+                    exclude_labels[key] = [exclude_labels[key]] + values
+                else:
+                    exclude_labels[key] = [exclude_labels[key], values]
+        else:
+            exclude_labels[key] = values
+
+    # If the settings weren't specified in the cloud config, then check if they're
+    # configured as top-level settings.
+    # TODO: This is the backwards compatibility code that can eventually be removed.
+    if not kubeconfig_path:
+        kubeconfig_path = component_context.get_setting("KUBECONFIG")
+    if not namespace_lods:
+        namespace_lods = component_context.get_setting("NAMESPACE_LODS")
+    if not custom_namespace_names:
+        custom_namespace_names = component_context.get_setting("NAMESPACES")
+
+    if not kubeconfig_path:
+        logger.info("No Kubernetes configuration found, so skipping Kubernetes indexing")
+        return
+
+    default_lod = component_context.get_setting("DEFAULT_LOD")
+    all_accessed_resource_type_specs = component_context.get_property(RESOURCE_TYPE_SPECS_PROPERTY)
+    accessed_resource_type_specs = all_accessed_resource_type_specs.get(KUBERNETES_PLATFORM, dict()).keys()
+    registry: Registry = component_context.get_property(REGISTRY_PROPERTY_NAME)
+
+    # NOTE: In theory we should just call kubernetes_config.load_config here to load
+    # the config file, but there is a bug in that method where the name of the kwarg
+    # that it expect for the path to the config file, "kube_config_path", doesn't
+    # match the name used for the load_kube_config method, "config_path", so there's
+    # no way to specify the kubeconfig location with that API. To get around this
+    # we just call the underlying method directly below. Luckily the load_config
+    # method doesn't really do any work, it pretty much just forwards to
+    # load_kube_config, so it works to bypass it.
 
     with TemporaryDirectory() as temp_dir:
-        # First check for the settings in the cloud config settings
-        cloud_config_settings: Optional[dict[str, Any]] = component_context.get_setting("CLOUD_CONFIG")
-        if cloud_config_settings:
-            kubernetes_settings: Optional[dict[str, Any]] = cloud_config_settings.get("kubernetes")
-            if kubernetes_settings:
-                # Since the contents of the cloud config are not top-level settings for the
-                # component framework, they don't get the normal settings processing, in
-                # particular the file settings handling that automatically writes the
-                # contents of the file settings to a temp file and replaces the setting with
-                # a path to the temp file. So we need to do it manually here for the
-                # kubeconfig file.
-                encoded_kubeconfig_file = kubernetes_settings.get("kubeconfigFile")
-                kubeconfig_text = base64.b64decode(encoded_kubeconfig_file).decode('utf-8')
-                kubeconfig_path = os.path.join(temp_dir, "kubeconfig")
-                write_file(kubeconfig_path, kubeconfig_text)
+        if encoded_kubeconfig_file:
+            kubeconfig_text = base64.b64decode(encoded_kubeconfig_file).decode('utf-8')
+            kubeconfig_path = os.path.join(temp_dir, "kubeconfig")
+            write_file(kubeconfig_path, kubeconfig_text)
 
-                namespace_lods = kubernetes_settings.get("namespaceLODs")
-                custom_namespace_names = kubernetes_settings.get("namespaces")
-
-        # If the settings weren't specified in the cloud config, then check if they're
-        # configured as top-level settings.
-        # TODO: This is the backwards compatibility code that can eventually be removed.
-        if not kubeconfig_path:
-            kubeconfig_path = component_context.get_setting("KUBECONFIG")
-        if not namespace_lods:
-            namespace_lods = component_context.get_setting("NAMESPACE_LODS")
-        if not custom_namespace_names:
-            custom_namespace_names = component_context.get_setting("NAMESPACES")
-
-        # If no kubeconfig file was specified, then there's nothing to index and we can just return.
-        if not kubeconfig_path:
-            logger.info("No Kubernetes configuration found, so skipping Kubernetes indexing")
-            return
-
-        default_lod = component_context.get_setting("DEFAULT_LOD")
-        all_accessed_resource_type_specs = component_context.get_property(RESOURCE_TYPE_SPECS_PROPERTY)
-        accessed_resource_type_specs = all_accessed_resource_type_specs.get(KUBERNETES_PLATFORM, dict()).keys()
-        registry: Registry = component_context.get_property(REGISTRY_PROPERTY_NAME)
-
-        # NOTE: In theory we should just call kubernetes_config.load_config here to load
-        # the config file, but there is a bug in that method where the name of the kwarg
-        # that it expect for the path to the config file, "kube_config_path", doesn't
-        # match the name used for the load_kube_config method, "config_path", so there's
-        # no way to specify the kubeconfig location with that API. To get around this
-        # we just call the underlying method directly below. Luckily the load_config
-        # method doesn't really do any work, it pretty much just forwards to
-        # load_kube_config, so it works to bypass it.
         kubernetes_config.load_kube_config(config_file=kubeconfig_path)
         contexts, active_context = kubernetes_config.list_kube_config_contexts(config_file=kubeconfig_path)
         for context in contexts:
             context_name = context.get('name')
             context_info = context.get('context')
-
             # Create the model object for the cluster associated with the current context
             # FIXME: If there are multiple contexts for the same cluster this will update the
             # cluster instance with the last context we see, so we'll lose the previous context
@@ -206,11 +312,11 @@ def index(component_context: Context):
                 # Get the group info for all the available groups.
                 # This contains the preferred version and all available version, which
                 # we use below when we access custom resources.
+
                 apis_api_client = client.ApisApi(api_client=api_client)
                 ret = apis_api_client.get_api_versions()
                 group_version_infos = dict()
                 for group in ret.groups:
-                    # I think the group names in the list should be unique, but just to be sure...
                     if group.name in group_version_infos:
                         logger.warning(f"Duplicate group information in results from ApisApi.get_api_versions; "
                                        f"group={group.name}")
@@ -218,9 +324,6 @@ def index(component_context: Context):
                     group_version_info = GroupVersionInfo(group.preferred_version, versions)
                     group_version_infos[group.name] = group_version_info
 
-                #
-                # Index the namespaces
-                #
                 namespace_names = set()
                 try:
                     # FIXME: Following line is debugging code to simulate not having permissions
@@ -229,6 +332,8 @@ def index(component_context: Context):
                     ret = core_api_client.list_namespace()
                     logger.debug(f"kube API scan: {len(ret.items)} namespaces")
                     for raw_resource in ret.items:
+                        if has_excluded_annotations_or_labels(raw_resource, exclude_annotations, exclude_labels):
+                            continue
                         namespace_name = raw_resource.metadata.name
                         namespace_names.add(namespace_name)
                 except ApiException as e:
@@ -272,6 +377,8 @@ def index(component_context: Context):
                                 # If so, then that seems like a better way to infer the namespace name.
                                 # But for now we'll just map from the name of the project
                                 metadata = raw_resource['metadata']
+                                if has_excluded_annotations_or_labels(raw_resource, exclude_annotations, exclude_labels):
+                                    continue
                                 project_name = metadata['name']
                                 namespace_names.add(project_name)
 
@@ -292,7 +399,7 @@ def index(component_context: Context):
                     # potential bridge when we come to it...
                     # First, add the namespace associated with the current context we're scanning
                     namespace_name = context_info.get('namespace')
-                    # The context may not have an associated namespace, so we need to check
+#                   # The context may not have an associated namespace, so we need to check
                     if namespace_name:
                         namespace_names.add(namespace_name)
 
@@ -333,22 +440,36 @@ def index(component_context: Context):
                     # the same name in different clusters. Should have syntax in the LOD configuration
                     # that let's you qualify by cluster name. For example, a key format that's
                     # "<cluster-name>:<namespace-name>" or something like that.
+
+                    # First, check for LOD in the workspaceInfo configuration
                     namespace_lod_config = namespace_lods.get(namespace_name)
                     namespace_lod = LevelOfDetail.construct_from_config(namespace_lod_config) \
                         if namespace_lod_config is not None else default_lod
-                    if namespace_lod == LevelOfDetail.NONE:
-                        continue
+
                     try:
                         raw_resource = core_api_client.read_namespace(namespace_name)
+                        
+                        # If LOD is not specified in workspaceInfo, check the annotations
+                        if namespace_lod == default_lod:
+                            namespace_lod = get_lod_from_annotations(raw_resource, lod_annotations) or namespace_lod
+                        
+                        if namespace_lod == LevelOfDetail.NONE:
+                            continue
+                        
+                        if has_excluded_annotations_or_labels(raw_resource, exclude_annotations, exclude_labels):
+                            continue
+
+                        owner_name = extract_owner_name(raw_resource)
                         namespace_attributes = kubeapi_parsers.parse_namespace(raw_resource)
                         namespace_attributes['cluster'] = cluster
                         namespace_attributes['lod'] = namespace_lod
-                        # namespace_attributes['resources'] = list()
+                        if owner_name:
+                            namespace_attributes['owner'] = owner_name 
                         namespace = registry.add_resource(KUBERNETES_PLATFORM,
-                                                          KubernetesResourceType.NAMESPACE.value,
-                                                          namespace_name,
-                                                          namespace_qualified_name,
-                                                          namespace_attributes)
+                                                        KubernetesResourceType.NAMESPACE.value,
+                                                        namespace_name,
+                                                        namespace_qualified_name,
+                                                        namespace_attributes)
                         cluster_namespaces[namespace_qualified_name] = namespace
                         namespaces[namespace_qualified_name] = namespace
                     except ApiException:
@@ -363,7 +484,6 @@ def index(component_context: Context):
                         pass
 
                 for namespace in namespaces.values():
-
                     namespace_qualified_name = namespace.qualified_name
                     namespace_name = namespace.name
 
@@ -372,40 +492,45 @@ def index(component_context: Context):
                     #
                     # Index Deployments, DaemonSets and StatefulSets (the common app Kinds)
                     #
+
                     apps_api_client = client.AppsV1Api(api_client=api_client)
                     app_info = (
                         ('Deployment', apps_api_client.list_namespaced_deployment, KubernetesResourceType.DEPLOYMENT),
                         ('DaemonSet', apps_api_client.list_namespaced_daemon_set, KubernetesResourceType.DAEMON_SET),
                         ('StatefulSet', apps_api_client.list_namespaced_stateful_set, KubernetesResourceType.STATEFUL_SET),
                     )
-                    # app_items = list()
+
                     # Query for the application instances.
                     # We wrap these in try blocks so that any permissions error are just ignored instead
                     # of resulting in fatal errors. So we just log that there was the error and continue.
                     # FIXME: Should really refactor this code a bit to reduce code duplication.
+
                     for app_class_kind, app_class_list_method, app_resource_type in app_info:
                         try:
                             ret = app_class_list_method(namespace_name)
                             for raw_resource in ret.items:
+                                if has_excluded_annotations_or_labels(raw_resource, exclude_annotations, exclude_labels):
+                                    continue
+                                owner_name = extract_owner_name(raw_resource)
                                 app_name = raw_resource.metadata.name
                                 app_qualified_name = get_qualified_name(namespace_qualified_name, app_name)
                                 app_attributes = kubeapi_parsers.parse_app(raw_resource)
-                                # When getting lists from the api server, kind and apiVersion are set to None
                                 app_attributes['kind'] = app_class_kind
                                 app_attributes['namespace'] = namespace
-                                # r["cluster_name"] = cluster_name
+                                if owner_name:
+                                    app_attributes['owner'] = owner_name
                                 app = registry.add_resource(KUBERNETES_PLATFORM,
                                                             app_resource_type.value,
                                                             app_name,
                                                             app_qualified_name,
                                                             app_attributes)
-                                # namespace.resources.append(app)
                         except ApiException as e:
                             logger.debug(f"Error scanning for deployment instances; skipping and continuing; error: {e}")
 
                     #
                     # Index the namespace ingresses
                     #
+
                     ingresses = dict()
                     ingresses_connected_services = dict()
                     networking_api_client = client.NetworkingV1Api(api_client=api_client)
@@ -413,18 +538,21 @@ def index(component_context: Context):
                         ret = networking_api_client.list_namespaced_ingress(namespace_name)
                         logger.debug(f"kube API scan: {len(ret.items)} ingresses")
                         for raw_resource in ret.items:
+                            if has_excluded_annotations_or_labels(raw_resource, exclude_annotations, exclude_labels):
+                                continue
+                            owner_name = extract_owner_name(raw_resource)
                             ingress_name = raw_resource.metadata.name
                             ingress_qualified_name = get_qualified_name(namespace_qualified_name, ingress_name)
                             ingress_attributes = kubeapi_parsers.parse_ingress(raw_resource)
-                            # ingress_attributes["cluster_name"] = cluster_name
                             paths = ingress_attributes['paths']
                             ingress_attributes["namespace"] = namespace
+                            if owner_name:
+                                ingress_attributes['owner'] = owner_name
                             ingress = registry.add_resource(KUBERNETES_PLATFORM,
                                                             KubernetesResourceType.INGRESS.value,
                                                             ingress_name,
                                                             ingress_qualified_name,
                                                             ingress_attributes)
-                            # namespace.resources.append(ingress)
                             ingresses[ingress_qualified_name] = ingress
                             # Set this for wiring up services to ingresses later
                             # FIXME: Not sure what this is doing? (RobV)
@@ -432,7 +560,6 @@ def index(component_context: Context):
                                 service_qualified_name = get_qualified_name(namespace_name, service_name)
                                 ingresses_connected_services[service_qualified_name] = ingress
                     except ApiException as e:
-                        # Just log and continue, instead of raising a fatal exception.
                         logger.info(f"Error scanning for Ingress instances; skipping and continuing; error: {e}")
 
                     #
@@ -440,16 +567,20 @@ def index(component_context: Context):
                     #
                     services = dict()
                     try:
+            
                         ret = core_api_client.list_namespaced_service(namespace_name)
                         logger.debug(f"kube API scan: {len(ret.items)} services")
                         for raw_resource in ret.items:
+                            if has_excluded_annotations_or_labels(raw_resource, exclude_annotations, exclude_labels):
+                                continue
+                            owner_name = extract_owner_name(raw_resource)
                             service_name = raw_resource.metadata.name
                             service_qualified_name = get_qualified_name(namespace_qualified_name, service_name)
                             service_attributes = kubeapi_parsers.parse_service(raw_resource)
                             namespace_name = service_attributes["namespace_name"]
                             service_attributes["namespace"] = namespace
-                            # r["cluster_name"] = cluster_name
-                            # Connect service to ingress
+                            if owner_name:
+                                service_attributes['owner'] = owner_name
                             if 'ingress' not in service_attributes:
                                 ingress = ingresses_connected_services.get(service_qualified_name)
                                 service_attributes['ingress'] = ingress
@@ -459,78 +590,60 @@ def index(component_context: Context):
                                                             service_qualified_name,
                                                             service_attributes)
                             services[service_qualified_name] = service
-                            # namespace.resources.append(service)
-
-                            # Connect service to Deployments, StatefulSets, DaemonSets
-                            # FIXME: Need to reimplement the following code to perform the same function as
-                            # the neo4j query. Although there's nothing that actually uses the service
-                            # connections that are established, so I don't think it will break anything to
-                            # not reproduce the old behavior, at least for now.
-                            # if service.selector is not None:
-                            #     apps = models.kubernetes_filter_by_template_labels(models.KubernetesApp,
-                            #                                                        labels=service.selector,
-                            #                                                        namespace_name=namespace_name,
-                            #                                                        cluster_name=cluster_name)
-                            #     for app in apps:
-                            #         service.apps.connect(app)
                     except ApiException as e:
-                        # Just log and continue, instead of raising a fatal exception.
                         logger.info(f"Error scanning for Service instances; skipping and continuing; error: {e}")
                     #
                     # Index the pvcs
                     #
-                    # pvcs = dict()
                     try:
                         ret = core_api_client.list_namespaced_persistent_volume_claim(namespace_name, watch=False)
                         logger.debug(f"kube API scan for namespace {namespace_name}: {len(ret.items)} pvcs")
                         for raw_resource in ret.items:
+                            if has_excluded_annotations_or_labels(raw_resource, exclude_annotations, exclude_labels):
+                                continue
+                            owner_name = extract_owner_name(raw_resource)
                             pvc_name = raw_resource.metadata.name
                             pvc_qualified_name = get_qualified_name(namespace_qualified_name, pvc_name)
                             pvc_attributes = kubeapi_parsers.parse_pvc(raw_resource)
                             pvc_attributes["namespace"] = namespace
-                            # r['cluster_name'] = cluster_name
+                            if owner_name:
+                                pvc_attributes['owner'] = owner_name
                             persistentvolumeclaim = registry.add_resource(KUBERNETES_PLATFORM,
-                                                        KubernetesResourceType.PVC.value,
-                                                        pvc_name,
-                                                        pvc_qualified_name,
-                                                        pvc_attributes)
-                            # namespace.resources.append(persistentvolumeclaim)
+                                                                          KubernetesResourceType.PVC.value,
+                                                                          pvc_name,
+                                                                          pvc_qualified_name,
+                                                                          pvc_attributes)
                     except ApiException as e:
-                        # Just log and continue, instead of raising a fatal exception.
                         logger.info(f"Error scanning for PVC instances; skipping and continuing; error: {e}")
-
+                    ## Dropping this for now since the granularity of pod discovery isn't something
+                    ## we would typically add to a map. 
                     #
                     # Index the pods
                     #
-                    # pods = dict()
-                    try:
-                        ret = core_api_client.list_namespaced_pod(namespace_name, field_selector="status.phase=Running")
-                        logger.debug(f"kube API scan for namespace {namespace_name}: {len(ret.items)} pods")
-                        for raw_resource in ret.items:
-                            phase = raw_resource.status.phase
-                            # FIXME: Seems like non-running pods should have already been filtered out by
-                            # the field_selector in the list call? So not sure why/if the following lines
-                            # are needed?
-                            if phase != "Running":
-                                continue
-                            pod_name = raw_resource.metadata.name
-                            pod_qualified_name = get_qualified_name(namespace_qualified_name, pod_name)
-                            pod_attributes = kubeapi_parsers.parse_pod(raw_resource)
-                            pod_attributes["namespace"] = namespace
-                            # r['cluster_name'] = cluster_name
-                            pod = registry.add_resource(KUBERNETES_PLATFORM,
-                                                        KubernetesResourceType.POD.value,
-                                                        pod_name,
-                                                        pod_qualified_name,
-                                                        pod_attributes)
-                            # namespace.resources.append(pod)
-                            # pod_key = get_pod_key(namespace_name, pod_name)
-                            # pods[pod_key] = pod
-                            # TODO: Extract the IP address of the pod
-                            # TODO: Create relationship of the pod with a parent service
-                    except ApiException as e:
-                        # Just log and continue, instead of raising a fatal exception.
-                        logger.info(f"Error scanning for Pod instances; skipping and continuing; error: {e}")
+                    # try:
+                    #     ret = core_api_client.list_namespaced_pod(namespace_name, field_selector="status.phase=Running")
+                    #     logger.debug(f"kube API scan for namespace {namespace_name}: {len(ret.items)} pods")
+                    #     for raw_resource in ret.items:
+                    #         if has_excluded_annotations_or_labels(raw_resource, exclude_annotations, exclude_labels):
+                    #             continue
+                    #         phase = raw_resource.status.phase
+                    #         if phase != "Running":
+                    #             continue
+                    #         owner_name = extract_owner_name(raw_resource)
+                    #         pod_name = raw_resource.metadata.name
+                    #         pod_qualified_name = get_qualified_name(namespace_qualified_name, pod_name)
+                    #         pod_attributes = kubeapi_parsers.parse_pod(raw_resource)
+                    #         pod_attributes["namespace"] = namespace
+                    #         if owner_name:
+                    #             pod_attributes['owner'] = owner_name
+                    #         pod = registry.add_resource(KUBERNETES_PLATFORM,
+                    #                                     KubernetesResourceType.POD.value,
+                    #                                     pod_name,
+                    #                                     pod_qualified_name,
+                    #                                     pod_attributes)
+                    # except ApiException as e:
+                    #     logger.info(f"Error scanning for Pod instances; skipping and continuing; error: {e}")
+
 
                     #
                     # Index the custom resources
@@ -563,6 +676,9 @@ def index(component_context: Context):
                                                                                               namespace=namespace_name,
                                                                                               plural=plural_name)
                                 for raw_resource in ret['items']:
+                                    if has_excluded_annotations_or_labels(raw_resource, exclude_annotations, exclude_labels):
+                                        continue
+                                    owner_name = extract_owner_name(raw_resource)
                                     resource_name = raw_resource['metadata']['name']
                                     custom_name = f"{plural_name}_{group}_{version}_{resource_name}"
                                     custom_qualified_name = get_qualified_name(namespace_qualified_name, custom_name)
@@ -571,12 +687,13 @@ def index(component_context: Context):
                                                                                               version,
                                                                                               plural_name)
                                     custom_attributes["namespace"] = namespace
+                                    if owner_name:
+                                        pod_attributes['namespace'] = owner_name
                                     custom_resource = registry.add_resource(KUBERNETES_PLATFORM,
                                                                             KubernetesResourceType.CUSTOM.value,
                                                                             custom_name,
                                                                             custom_qualified_name,
                                                                             custom_attributes)
-                                    # namespace.resources.append(custom_resource)
                         except ApiException as e:
                             # Just log and continue, instead of raising a fatal exception.
                             logger.info(f"Error scanning for custom resource instances; skipping and continuing; "
