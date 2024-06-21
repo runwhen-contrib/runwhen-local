@@ -134,27 +134,34 @@ def extract_owner_name(resource) -> Optional[str]:
     return annotations.get(OWNER_ANNOTATION_KEY)
 
 
-def has_excluded_annotations_or_labels(resource, exclude_annotations: Dict[str, str], exclude_labels: Dict[str, str]) -> bool:
+def has_excluded_annotations_or_labels(resource, exclude_annotations: Dict[str, str], exclude_labels: Dict[str, Any]) -> bool:
     if not hasattr(resource, 'metadata'):
         return False
     metadata = resource.metadata
     annotations = metadata.annotations if metadata.annotations else {}
     labels = metadata.labels if metadata.labels else {}
-    
+
     # FIXME - why is the Kind always None? we should be able to extract this for better logging / debugging without
     # complex code, but this is something that probably needs to be tackled in a longer term way - I suspect it's
-    # just a factor of how the collection is performed on certain resource types. 
+    # just a factor of how the collection is performed on certain resource types.     
     for key, value in exclude_annotations.items():
         if annotations.get(key) == value:
             logger.info(f"Matched annotation {key} on {resource.metadata.name}, excluding from discovery.")
             return True
     
-    for key, value in exclude_labels.items():
-        if labels.get(key) == value:
-            logger.info(f"Matched label {key} on {resource.metadata.name}, excluding from discovery.")
-            return True
+    for key, values in exclude_labels.items():
+        if key in labels:
+            if isinstance(values, list):
+                if labels[key] in values:
+                    logger.info(f"Matched label {key} on {resource.metadata.name}, excluding from discovery.")
+                    return True
+            else:
+                if labels[key] == values:
+                    logger.info(f"Matched label {key} on {resource.metadata.name}, excluding from discovery.")
+                    return True
     
     return False
+
 
 def index(component_context: Context):
     logger.debug("Starting kube API scan")
@@ -204,7 +211,20 @@ def index(component_context: Context):
 
     # Hard-code values to be added
     exclude_annotations.update(HARDCODED_EXCLUDE_ANNOTATIONS)
-    exclude_labels.update(HARDCODED_EXCLUDE_LABELS)
+    for key, values in HARDCODED_EXCLUDE_LABELS.items():
+        if key in exclude_labels:
+            if isinstance(exclude_labels[key], list):
+                if isinstance(values, list):
+                    exclude_labels[key].extend(values)
+                else:
+                    exclude_labels[key].append(values)
+            else:
+                if isinstance(values, list):
+                    exclude_labels[key] = [exclude_labels[key]] + values
+                else:
+                    exclude_labels[key] = [exclude_labels[key], values]
+        else:
+            exclude_labels[key] = values
 
     # If the settings weren't specified in the cloud config, then check if they're
     # configured as top-level settings.
