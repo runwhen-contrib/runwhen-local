@@ -19,28 +19,59 @@ then
     exit
 fi
 
+if ! command -v jq &> /dev/null
+then
+    echo "jq could not be found, please install it."
+    exit
+fi
+
 # Create a unique date tag
 unique_date_tag=$(date +%Y%m%d%H%M%S)
 
-# Set Private Registry 
+# Set Private Registry
 private_registry="ymyazureregistry.azurecr.io"
 private_repo="runwhen"
 
-
-# Set registry details
-runwhen_local_images=(
-    "ghcr.io/runwhen-contrib/runwhen-local|runwhen/runwhen-local"
-    "us-docker.pkg.dev/runwhen-nonprod-shared/public-images/runner|runwhen/runwhen-local"
-    "docker.io/grafana/agent|grafana/agent"
-    "docker.io/prom/pushgateway|prom/pushgateway"
-)
-
-codecollection_repositories_images=(
-    "us-west1-docker.pkg.dev/runwhen-nonprod-beta/public-images/runwhen-contrib-rw-cli-codecollection-main|runwhen/runwhen-contrib-rw-cli-codecollection-main"
-    "us-west1-docker.pkg.dev/runwhen-nonprod-beta/public-images/runwhen-contrib-rw-public-codecollection-main|runwhen/runwhen-contrib-rw-public-codecollection-main"
-)
-
+# Specify values file
 values_file="sample_values.yaml"
+new_values_file="updated_values.yaml"
+
+# JSON configuration
+runwhen_local_images=$(cat <<EOF
+{
+    "ghcr.io/runwhen-contrib/runwhen-local": {
+        "destination": "runwhen/runwhen-local",
+        "yaml_path": "runwhenLocal.image"
+    },
+    "us-docker.pkg.dev/runwhen-nonprod-shared/public-images/runner": {
+        "destination": "runwhen/runner",
+        "yaml_path": "runner.image"
+    },
+    "docker.io/grafana/agent": {
+        "destination": "grafana/agent",
+        "yaml_path": "grafana-agent.image"
+    },
+    "docker.io/prom/pushgateway": {
+        "destination": "prom/pushgateway",
+        "yaml_path": "runner.pushgateway.image"
+    }
+}
+EOF
+)
+
+codecollection_repositories_images=$(cat <<EOF
+{
+    "us-west1-docker.pkg.dev/runwhen-nonprod-beta/public-images/runwhen-contrib-rw-cli-codecollection-main": {
+        "destination": "runwhen/runwhen-contrib-rw-cli-codecollection-main",
+        "yaml_path": "runner.runEnvironment.image"
+    },
+    "us-west1-docker.pkg.dev/runwhen-nonprod-beta/public-images/runwhen-contrib-rw-public-codecollection-main": {
+        "destination": "runwhen/runwhen-contrib-rw-public-codecollection-main",
+        "yaml_path": "runner.runEnvironment.image"
+    }
+}
+EOF
+)
 
 # Function to get the latest tags from Google Artifact Registry using skopeo
 get_latest_tags() {
@@ -51,58 +82,71 @@ get_latest_tags() {
     echo $tags
 }
 
-# Function to copyimage using skopeo
+# Function to copy image using skopeo
 copy_image() {
     repository_image=$1
     tag=$2
     destination=$3
 
     src_image="docker://${repository_image}:${tag}"
-    image_name=$(echo $repository_image | awk -F'/' '{print $NF}')
     dest_image="docker://${private_registry}/${destination}:${tag}"
 
     echo "skopeo copy $src_image $dest_image"
 }
 
-# Function to update image tags in values.yaml
-update_values_yaml() {
-    local repository_image=$1
-    local tag=$2
-    local custom_repo_destination=$3
+# Function to update image registry and repository in values file
+update_values_yaml_no_tag() {
+    local registry=$1
+    local repository=$2
+    local yaml_path=$3
 
-    if [ -f "values.yaml" ]; then
-        image_name=$(echo $repository_image | awk -F'/' '{print $NF}')
-        yq eval ".images.${image_name}.repository = \"$private_registry/$custom_repo_destination\"" -i values.yaml
-        yq eval ".images.${image_name}.tag = \"$tag\"" -i values.yaml
-    fi
+    yq eval ".${yaml_path}.registry = \"$registry\"" -i $new_values_file
+    yq eval ".${yaml_path}.repository = \"$repository\"" -i $new_values_file
+}
+
+# Function to update image registry, repository, and tag in values file
+update_values_yaml() {
+    local registry=$1
+    local repository=$2
+    local tag=$3
+    local yaml_path=$4
+
+    yq eval ".${yaml_path}.registry = \"$registry\"" -i $new_values_file
+    yq eval ".${yaml_path}.repository = \"$repository\"" -i $new_values_file
+    yq eval ".${yaml_path}.tag = \"$tag\"" -i $new_values_file
 }
 
 # Main script
 main() {
 
+    # Create a backup of the original values file
+    cp $values_file $new_values_file
+
     # Process CodeCollection Images (dynamic images that are rebuilt when CodeCollections Update)
     tag_count=5
 
-    for image_with_dest in "${codecollection_repositories_images[@]}"; do
-        # Extract the original image and custom destination
-        IFS='|' read -r repository_image custom_repo_destination <<< "$image_with_dest"
+    for repository_image in $(echo $codecollection_repositories_images | jq -r 'keys[]'); do
+        # Extract the custom destination and yaml path
+        custom_repo_destination=$(echo $codecollection_repositories_images | jq -r --arg repository_image "$repository_image" '.[$repository_image].destination')
+        yaml_path=$(echo $codecollection_repositories_images | jq -r --arg repository_image "$repository_image" '.[$repository_image].yaml_path')
         echo "----"
-        echo "Processing RunWhen component image: $repository_image"
+        echo "Processing CodeCollection repository image: $repository_image"
         tags=$(get_latest_tags $repository_image $tag_count)
         for tag in $tags; do
             echo "Copying image: $repository_image:$tag to $private_registry/$custom_repo_destination:$tag"
             copy_image $repository_image $tag $custom_repo_destination 
             echo "Image $private_registry/$custom_repo_destination:$tag pushed successfully"
+            update_values_yaml_no_tag $private_registry $custom_repo_destination $yaml_path
         done
     done
 
-
-    # Define RunWhen component images and their custom destinations
+    # Process RunWhen component images
     tag_count=1
 
-    for image_with_dest in "${runwhen_local_images[@]}"; do
-        # Extract the original image and custom destination
-        IFS='|' read -r repository_image custom_repo_destination <<< "$image_with_dest"
+    for repository_image in $(echo $runwhen_local_images | jq -r 'keys[]'); do
+        # Extract the custom destination and yaml path
+        custom_repo_destination=$(echo $runwhen_local_images | jq -r --arg repository_image "$repository_image" '.[$repository_image].destination')
+        yaml_path=$(echo $runwhen_local_images | jq -r --arg repository_image "$repository_image" '.[$repository_image].yaml_path')
         echo "----"
         echo "Processing RunWhen component image: $repository_image"
         tags=$(get_latest_tags $repository_image $tag_count)
@@ -110,19 +154,17 @@ main() {
             echo "Copying image: $repository_image:$tag to $private_registry/$custom_repo_destination:$tag"
             copy_image $repository_image $tag $custom_repo_destination 
             echo "Image $private_registry/$custom_repo_destination:$tag pushed successfully"
-            update_values_yaml $repository_image $tag $custom_repo_destination
-
+            update_values_yaml $private_registry $custom_repo_destination $tag $yaml_path
         done
     done
 
-    # Display updated values.yaml content if it exists
-    if [ -f "$values_file" ]; then
-        echo "Updated $values_file"
-        cat $values_file
+    # Display updated new_values.yaml content if it exists
+    if [ -f "$new_values_file" ]; then
+        echo "Updated $new_values_file:"
+        cat $new_values_file
     else
-        echo "No values file found."
+        echo "No $new_values_file file found."
     fi
-
 }
 
 # Execute the main script

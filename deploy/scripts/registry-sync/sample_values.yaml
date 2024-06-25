@@ -1,0 +1,509 @@
+# This Helm Chart installs RunWhen Local & the Runner
+
+# RunWhen Local consists of the Workspace Builder and the Troubleshooting Cheat Sheet
+# 1. Workspace Builder scans your clusters or cloud accounts and matches them with
+#    applicable troubleshooting commands found in CodeCollection respositories
+#    Workspace Builder content is used to build a workspace in the RunWen Platform.
+# 2. Troubleshooting Cheat Sheet generates live documentation from output of Workspace
+#    Builder, tailoring troubleshooting commands for the specific environment
+#    and providing helpful documentation
+
+# The Runner is the agent that contacts the RunWhen Platform and executes codebundle
+# code, which is either:
+# 1. Executing tasks (investigative troubleshooting or operational readiness checks)
+#    as instructed by a user or Digital Assistant and submitting the results back
+#    to the RunWhen Platform
+# 2. Measuring the health of a service and pushing a metric to the RunWhen Platform
+
+###############################################################################
+######################## Global/Shared Settings ###############################
+###############################################################################
+workspaceName: "workspace-name"
+
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+podAnnotations: {}
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Override the container image registry used for all images
+# Note: grafana-agent is a subchart and must still be explicitly updated.
+registryOverride: ""
+
+# Set proxy env for RunWhen Local and Runner Deployments and any supporting infrastructure such as the grafana-agent
+proxy:
+  enabled: false
+  # HTTP_PROXY environment variable
+  httpProxy: ""
+  # HTTPS_PROXY environment variable
+  httpsProxy: ""
+  # NO_PROXY environment variable
+  noProxy: "127.0.0.1,localhost,$($KUBERNETES_SERVICE_HOST),pushgateway"
+
+# Set the proxy CA details, if the runner is being deployed be sure to set
+# the grafana-agent mounts and volumes to match the proxyCA configuration
+# -- Those are not set by default as the secretName or ConfigMapName and Key
+#    are not directly templatable from this chart.
+proxyCA: {}
+  # secretName: ""
+  # configMapName: "" # not fully templated yet
+  # key: ""
+
+# Is this a platform the requires special configuration?
+# Currently supports EKS_Fargate, kubernetes
+platformType: "kubernetes"
+
+# Platform Architecture can be: amd64 or arm64
+# when changing platforms, consider toleration updates to the Grafana-Agent subchart
+platformArch: "amd64"
+
+###############################################################################
+######################## RunWhen Local Configuration ##########################
+###############################################################################
+
+runwhenLocal:
+  enabled: true
+  image:
+    registry: ""
+    repository: ""
+    pullPolicy: Always
+    # Overrides the image tag whose default is the chart appVersion.
+    tag: "latest"
+
+  # Extra volumes for the runwhen-local container
+  volumes: {}
+
+  # Extra volume mounts for the  runwhen-local container
+  volumeMounts: {}
+
+  # Additional tolerations for runwhen-local container
+  tolerations: []
+
+  serviceAccount:
+    # Specifies whether a service account should be created
+    create: true
+    # Annotations to add to the service account
+    annotations: {}
+    # The name of the service account to use.
+    name: "runwhen-local"
+
+
+  serviceAccountRoles:
+    namespaceRole:
+      enabled: false
+      namespaces: []
+      rules:
+      - apiGroups: [""]
+        resources: ["*"]
+        verbs: ["get", "watch", "list"]
+    clusterRoleView:
+      enabled: true
+    advancedClusterRole:
+      enabled: false
+      rules: []
+      # - apiGroups: [""]
+      #   resources: ["pods", "pods/log", "events", "configmaps", "services", "replicationcontrollers"]
+      #   verbs: ["get", "watch", "list"]
+      # - apiGroups: ["batch"]
+      #   resources: ["*"]
+      #   verbs: ["get", "watch", "list"]
+
+  service:
+    type: ClusterIP
+    port: 8081
+
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+      # kubernetes.io/ingress.class: nginx
+      # kubernetes.io/tls-acme: "true"
+    hosts:
+      - host: chart-example.local
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+    #  - secretName: chart-example-tls
+    #    hosts:
+    #      - chart-example.local
+
+  resources:
+    default:
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+      limits:
+        cpu: "1"
+        memory: "1024Mi"
+    EKS_Fargate:
+      requests:
+        cpu: "2"
+        memory: "1024Mi"
+      limits:
+        cpu: "2"
+        memory: "1024Mi"
+
+
+  # RunWhen Local requires a kubeconfig to discover resouces from 1 or more
+  # clusters.
+  #
+  # Using inClusterAuth works for the local cluster only.
+  # If discovering multiple clusters, set inClusterAuth.enabled=false
+  # and mount a secret with a kubeconfig that contains all
+  # cluster contexts to be discovered
+  clusterName: "default"
+  discoveryKubeconfig:
+    inClusterAuth:
+      enabled: true
+      createKubeconfigSecret: true
+    secretProvided:
+      enabled: false
+      # secretName: kubeconfig
+      # secretKey: kubeconfig
+      # secretPath: kubeconfig
+
+  ### RunWhen Local Runtime Configuration
+  # autoRun: start discovery on deployment, and re-run discovery evey discoveryInterval seconds
+  # also supports upload configuration for continuous updates of RunWhen Platform Workspace
+  # upload is disabled by default; requires a valid uploadInfo.yaml
+  autoRun:
+    discoveryInterval: 14400                 # seconds to wait until a new discovery
+    uploadEnabled: false                     # upload configuration to RunWhen Platform
+    uploadMergeMode: "keep-uploaded"         # 'keep-uploaded' or 'keep-existing'
+
+
+  # Terminal: Enable or disable the in-browser terminal
+  # Note: The terminal provides an unauthenticated connection to container shell
+  terminal:
+    disabled: true
+
+  # Enable debug logging
+  debugLogs: false
+
+  ## uploadInfo
+  # The upload configuration applies only to users to leverage RunWhen Local as an
+  # onboarding tool into RunWhen Platform (https://docs.runwhen.com/public/v/runwhen-local/user-guide/features/upload-to-runwhen-platform for more details)
+  # When uploading discovered resources and configuration information to RunWhen Platform,
+  # workspaceName, token, workspaceOwnerEmail, defaultLocation and papiURL are mandtatory
+  # can can be obtained immediately after creating a RunWhen Platform workspace.
+  uploadInfo:
+    secretProvided:
+      enabled: false
+      # secretName: "uploadinfo"
+      # secretKey: uploadInfo.yaml
+      # secretPath: uploadInfo.yaml
+
+
+  ## workspaceInfo
+  # Currently this holds details such as custom variables & upload configuration
+  # See https://docs.runwhen.com/public/v/runwhen-local/user-guide/user_guide-advanced_configuration/workspaceinfo-customization
+
+  workspaceInfo:
+    useExistingConfigMap: false
+    existingConfigMapName: ""
+    configMap:
+      create: true
+      name: workspace-builder
+      data:
+        defaultLocation: none
+        workspaceOwnerEmail: tester@my-company.com
+        # More workspace config
+        # Default Level of Detail(LOD): none, basic, or detailed
+        # https://docs.runwhen.com/public/v/runwhen-local/user-guide/user_guide-advanced_configuration/workspaceinfo-customization/level-of-detail
+        defaultLOD: detailed
+        cloudConfig:
+          kubernetes:
+            kubeconfigFile: /shared/kubeconfig
+            namespaceLODs:
+              kube-system: 0
+              kube-public: 0
+              kube-node-lease: 0
+        codeCollections: []
+        custom:
+          # Note: Most of these are simple keys, such as the name of a secret that
+          # should be referenced from the platform. The secret itself (key and value)
+          # must be created in the RunWhen Platform by the user. We do not upload
+          # or configure secrets automatically.
+          # The default for kubeconfig_secret_name is set to a secret that runwhenLocal
+          # creates for the use of the runner. This can be simply swapped out with the
+          # name of a secret that is stored in the RunWhen Platform.
+          kubeconfig_secret_name: "k8s:file@secret/kubeconfig:kubeconfig"
+          kubernetes_distribution_binary: kubectl
+          cloud_provider: none
+          gcp_project_id: none
+          gcp_ops_suite_sa: none
+          aws_access_key_id: AWS_ACCESS_KEY_ID
+          aws_secret_access_key: AWS_SECRET_ACCESS_KEY
+
+
+###############################################################################
+######################## Runner Configuration #################################
+###############################################################################
+
+runner:
+  enabled: false
+
+  log:
+    level: info
+    format: console
+
+  configMap:
+    create: true
+    name: runner-config
+    apiVersion: config.runwhen.com/v1
+    kind: RunnerConfig
+    raw: {}
+
+  image:
+    registry: ""
+    repository: ""
+    tag: "latest"
+  controlAddr: "https://runner.beta.runwhen.com"
+  metrics:
+    url: "https://runner-cortex-tenant.beta.runwhen.com/push"
+
+  # securityContext (container) is used to set the security context for the runner container
+  securityContext: {}
+
+  # securityContext is used to set the security context for the runner pod
+  podSecurityContext: {}
+
+  # Extra environment variables for the runner container
+  extraEnv: {}
+
+  # Extra volumes for the runner container
+  volumes: {}
+
+  # Extra volume mounts for the runner container
+  volumeMounts: {}
+
+  # Additional tolerations for the runner container
+  tolerations: []
+
+  ## The target environments configuration for deploying the SLI (CronCodeRun) Deployments and TaskSet (CodeRun) Pods
+  runEnvironment:
+    image:
+      pullSecret: ""
+      pullPolicy: ""
+      registry: ""
+      repository: ""
+    # volumes common for all the pods created by the runner
+    volumes: {}
+
+    # volumeMounts common for all the pods created by the runner
+    volumeMounts: {}
+
+    # extraEnv is used to add additional environment variables for the SLI (CronCodeRun) Deployments and TaskSet (CodeRun) Pods
+    extraEnv: {}
+
+    # containerSecurityContext is used to set the security context for both the SLI (CronCodeRun) Deployments and TaskSet (CodeRun) Pods
+    securityContext: {}
+
+    # securityContext is used to set the security context for both the SLI (CronCodeRun) Deployments and TaskSet (CodeRun) Pods
+    podSecurityContext: {}
+
+    secretProviders: {}
+      # mycustomprovider:
+      #   description: "A description of the secret provider using the VaultSecretProvider with AppRole Auth"
+      #   type: vault
+      #   vaultSecretProvider:
+      #     addr: "https://vault.superfake.runwhen.com"
+      #     authMountPath: "dev" # /auth/$authMountPath/login
+      #     roleID:
+      #       kubernetes:
+      #         secret:
+      #           name: vault-secret
+      #           key: role-id
+      #     secretID:
+      #       kubernetes:
+      #         secret:
+      #           name: vault-secret
+      #           key: secret-id
+
+    # secretsProvided is used to mount the secrets to the SLI (CronCodeRun) Deployments and TaskSet (CodeRun) Pods
+    # The secrets are mounted as files or environment variables and must come from either a built in provider or a custom provider
+    #
+    # The built in providers and the format of their secrets provided entries are as follows:
+    # Built In Providers Supported:
+    # 1. Provider: k8s:file - Kubernetes Secret or ConfigMap Field loaded as a file
+    #    Format: <codeKey>: "k8s:file@<kind>/<name>:<field>"
+    # 2. Provider: k8s:env - Kubernetes Secret or ConfigMap Field loaded as an environment variable
+    #    Format: <codeKey>: "k8s:env@<kind>/<name>:<field>"
+    #
+    # Custom Providers Supported: Added through .Values.runner.runEnvironment.SecretProviders
+    # 1. Provider: <your-provider> Type: vault - Vault Secret loaded at use time
+    #    Format: <codeKey>: "<your-secret-provider-name>@<path/data/to/secret>:<field>"
+    #    Note: The path is the path to the secret in the vault including `/data/` assuming kv-v2
+    # Note: The generic format is <codeKey>: "<provider-name>@<path/deliminated/options>:<field>"
+    secretsProvided: {}
+      # kubeconfig: "k8s:file@secret/my-kubeconfig:kubeconfig-key-in-secret"
+      # someConfig: "k8s:file@configmap/my-cm:key-in-cm"
+      # hello: "k8s:env@secret/my-secret:hello"
+      # vaultSecret: "my-vault@/dev/data/simple-test-secret:hello"
+
+    # blockedSecrets is used to block secrets from being mounted to the SLI (CronCodeRun) Deployments and TaskSet (CodeRun) Pods
+    # The format of the blockedSecrets entries are as follows:
+    # - "<provider-name>@<some optional path>:<optional field>"
+    blockedSecrets: []
+    # Block the use of all k8s secrets/configmaps being mounted to the SLI (CronCodeRun) Deployments and TaskSet (CodeRun) Pods
+    # - "k8s:file@"
+    # Block the use of all k8s secrets/configmaps being mounted as environment variables to the SLI (CronCodeRun) Deployments and TaskSet (CodeRun) Pods
+    # - "k8s:env@"
+    # Block the use of a specific secret being mounted to the SLI (CronCodeRun) Deployments and TaskSet (CodeRun) Pods
+    # - "myvault@/dev/data/simple-test-secret"
+
+    #### The configurations applied to the SLI (CronCodeRun) Deployments ####
+    deployment:
+      annotations: {}
+      podAnnotations: {}
+      affinity: {}
+      nodeName: ""
+      nodeSelector: {}
+      tolerations: []
+      resources:
+        default:
+          requests:
+            cpu: "50m"
+            memory: "64Mi"
+          limits:
+            cpu: "500m"
+            memory: "196Mi"
+        EKS_Fargate:
+          requests:
+            cpu: "300m"
+            memory: "196Mi"
+          limits:
+            cpu: "300m"
+            memory: "196Mi"
+    #### The configurations applied to the TaskSet (CodeRun) Pods ####
+    pod:
+      annotations: {}
+      affinity: {}
+      nodeName: ""
+      nodeSelector: {}
+      tolerations: []
+      resources:
+        default:
+          requests:
+            cpu: "300m"
+            memory: "128Mi"
+          limits:
+            cpu: "1"
+            memory: "512Mi"
+        EKS_Fargate:
+          requests:
+            cpu: "300m"
+            memory: "256Mi"
+          limits:
+            cpu: "300m"
+            memory: "256Mi"
+    # The proxy configurations applied to the SLI (CronCodeRun) Deployments and TaskSet (CodeRun) Pods
+    # By default the global values for .Values.proxy and .Values.proxyCA are used.
+    proxy: {}
+      # enabled: false
+      # httpProxy: ""
+      # httpsProxy: ""
+      # noProxy: "127.0.0.1,$($KUBERNETES_SERVICE_HOST),pushgateway"
+    # The proxy CA details, if the runner is being deployed be sure to set
+    # the grafana-agent mounts and volumes to match the proxyCA configuration
+    proxyCA: {}
+      # secretName: ""
+      # configMapName: ""
+      # key: ""
+
+  # proxy configuration for the runner container, set runEnvironment.proxy.enabled to true to use this configuration
+  # for the SLI (CronCodeRun) Deployments and TaskSet (CodeRun) Pods as well, or configure custom proxy settings in the runEnvironment.proxy fields
+  resources:
+    default:
+      requests:
+        cpu: "200m"
+        memory: "64Mi"
+      limits:
+        cpu: "800m"
+        memory: "256Mi"
+    EKS_Fargate:
+      requests:
+        cpu: "200m"
+        memory: "256Mi"
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
+
+  ## Override the Prometheus Pushgateway settings
+  pushgateway:
+    image:
+      registry: ""
+      repository: ""
+      tag: ""
+    tolerations: []
+
+# grafana-agent is only deployed if runner.enabled is true
+# https://github.com/grafana/agent/blob/main/operations/helm/charts/grafana-agent/values.yaml
+grafana-agent:
+  crds:
+    # -- Whether to install CRDs for monitoring.
+    create: false
+  image:
+    registry: "docker.io"
+    repository: "grafana/agent"
+    tag: ""
+  agent:
+    enableReporting: false
+    mode: 'flow'
+    configMap:
+      create: false
+      name: grafana-agent
+      key: config.river
+    mounts:
+      extra:
+        - name: tls-secret-volume
+          mountPath: /tls
+          readOnly: true
+        # Note: must be used when using .Values.ProxyCA
+        # - name: proxy-ca-volume
+        #   mountPath: /etc/ssl/certs/proxy-ca.crt
+        #   readOnly: true
+        #   subPath: proxy-ca.crt
+    resources:
+      requests:
+        cpu: "10m"
+        memory: "32Mi"
+      limits:
+        cpu: "50m"
+        memory: "64Mi"
+  configReloader:
+    enabled: false
+  controller:
+    type: deployment
+    tolerations: []
+    # Uncomment the following for arm64 nodes
+    # - key: "kubernetes.io/arch"
+    #   operator: "Equal"
+    #   value: "arm64"
+    #   effect: "NoSchedule"
+    volumes:
+      extra:
+        - name: tls-secret-volume
+          secret:
+            secretName: runner-metrics-tls
+        # Note: must be configured when using .Values.ProxyCA -- can also be transitioned to
+        # a configMap if needed -- just match the values from .Values.ProxyCA.ConfigMapName and .Values.ProxyCA.Key
+        # - name: proxy-ca-volume # DO NOT CHANGE
+        #   secret:
+        #     secretName: # Value from .Values.proxyCA.secretName
+        #     items:
+        #       - key: ca.crt # Value from .Values.proxyCA.key
+        #         path: proxy-ca.crt # DO NOT CHANGE
+  rbac:
+    create: false
+  serviceAccount:
+    create: false
+    name: grafana-agent
