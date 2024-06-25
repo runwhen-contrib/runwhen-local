@@ -1,33 +1,5 @@
 #!/bin/bash
 
-# Ensure all required tools are installed
-if ! command -v skopeo &> /dev/null
-then
-    echo "skopeo could not be found, please install it."
-    exit
-fi
-
-if ! command -v yq &> /dev/null
-then
-    echo "yq could not be found, please install it."
-    exit
-fi
-
-if ! command -v docker &> /dev/null
-then
-    echo "docker could not be found, please install it."
-    exit
-fi
-
-if ! command -v jq &> /dev/null
-then
-    echo "jq could not be found, please install it."
-    exit
-fi
-
-# Create a unique date tag
-unique_date_tag=$(date +%Y%m%d%H%M%S)
-
 # Set Private Registry
 private_registry="ymyazureregistry.azurecr.io"
 private_repo="runwhen"
@@ -72,6 +44,33 @@ codecollection_repositories_images=$(cat <<EOF
 }
 EOF
 )
+
+
+# Ensure all required tools are installed
+if ! command -v skopeo &> /dev/null
+then
+    echo "skopeo could not be found, please install it."
+    exit
+fi
+
+if ! command -v yq &> /dev/null
+then
+    echo "yq could not be found, please install it."
+    exit
+fi
+
+if ! command -v docker &> /dev/null
+then
+    echo "docker could not be found, please install it."
+    exit
+fi
+
+if ! command -v jq &> /dev/null
+then
+    echo "jq could not be found, please install it."
+    exit
+fi
+
 
 # Function to get the latest tags from Google Artifact Registry using skopeo
 get_latest_tags() {

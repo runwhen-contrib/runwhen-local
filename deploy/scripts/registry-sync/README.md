@@ -10,4 +10,13 @@ Some environments will require that container images are replicated into local/p
     - Grafana
     - Prometheus PushGateway
 
-## Updating Helm
+## Scripts
+### sync_with_skopeo.sh
+This script requires: 
+- jq
+- yq
+- skopeo
+
+It supports adding in a helm values file and will output an updated version of the helm values file with the updated registry, repository, and tag values. It does not apply the helm changes, but could be easily extended to do so. 
+
+Most customizations occur at the top of the script, updating the registry, repo, and helm paths for each image. 
