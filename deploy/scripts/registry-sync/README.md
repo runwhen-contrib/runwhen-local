@@ -21,7 +21,6 @@ This script requires:
 Update your destination registry in the top of the script: 
 ```
 private_registry="myacrregistry.azurecr.io"
-private_repo="runwhen"
 ```
 
 **Image List**  
@@ -43,7 +42,7 @@ runwhen_local_images=$(cat <<EOF
     "us-docker.pkg.dev/runwhen-nonprod-shared/public-images/runner": {
         "destination": "runwhen/runner",
         "yaml_path": "runner.image",
-        "tag":"stable"
+        "tag":"latest"
     },
     "docker.io/prom/pushgateway": {
         "destination": "prom/pushgateway",
