@@ -30,7 +30,7 @@ The list of images to copy is provided in a dict at the top of the script.
 - If no tag is supplied, the script will fetch all tags, determine the latest image by Creation Date, and copy that image and tag into the destination
 - If the tag specified is "latest", it will be re-tagged with a unique date/time (as to avoid issues where the latest tag cannot be reassigned) 
 
-Images are split into two categories, `runwhen_local_images` which are for core functionality, and `codecollection_images` which represent the codecolleciton images used to support a workspace. The defaults in the script are appropriate for most POC use cases, while this list would grow ot change when subscribing to a specific tag of a codecollection, or additional private or public codecollections. 
+Images are split into two categories, `runwhen_local_images` which are for core functionality, and `codecollection_images` which represent the codecolleciton images that run tasks in a workspace. The defaults in the script are appropriate for most POC use cases, while this list would grow ot change when subscribing to a specific tag of a codecollection, or additional private or public codecollections. 
 
 ```
 runwhen_local_images=$(cat <<EOF
@@ -82,3 +82,7 @@ az acr login --name myContainerRegistry
 chmod +x sync_with_skopeo.sh
 
 ```
+
+
+## TODO
+- allow repo override per image
