@@ -17,14 +17,14 @@ This script requires:
 - yq
 - skopeo
 
-**Registry Update**
+**Registry Update**  
 Update your destination registry in the top of the script: 
 ```
 private_registry="myacrregistry.azurecr.io"
 private_repo="runwhen"
 ```
 
-**Image List**
+**Image List**  
 The list of images to copy is provided in a dict at the top of the script.
 - If the list of images includes a specific tag, the script will only try to copy that tag from the upstream registry into the destination
 - If no tag is supplied, the script will fetch all tags, determine the latest image by Creation Date, and copy that image and tag into the destination
@@ -69,7 +69,7 @@ EOF
 )
 ```
 
-**Helm Updates**
+**Helm Updates**  
 This script supports adding in a helm values file and will output an updated version of the helm values file with the updated registry, repository, and tag values. It does not apply the helm changes, but could be easily extended to do so. 
 
 Most customizations occur at the top of the script, updating the registry, repo, and helm paths for each image. 
