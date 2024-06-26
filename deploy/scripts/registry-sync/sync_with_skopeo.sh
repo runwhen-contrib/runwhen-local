@@ -2,7 +2,6 @@
 
 # Set Private Registry
 private_registry="myacrregistry.azurecr.io"
-private_repo="runwhen"
 
 # Specify values file
 values_file="sample_values.yaml"
@@ -27,7 +26,7 @@ runwhen_local_images=$(cat <<EOF
         "tag":"latest"
     },
     "docker.io/grafana/agent": {
-        "destination": "prom/pushgateway",
+        "destination": "grafana/grafana-agent",
         "yaml_path": "grafana-agent.image",
         "tag": "v0.41.1"
     },
@@ -177,6 +176,7 @@ main() {
     for repository_image in $(echo $codecollection_images | jq -r 'keys[]'); do
         # Extract the custom destination and yaml path
         custom_repo_destination=$(echo $codecollection_images | jq -r --arg repository_image "$repository_image" '.[$repository_image].destination')
+        custom_destination_repo=$(echo $custom_repo_destination | awk -F '/' '{print $1}')
         yaml_path=$(echo $codecollection_images | jq -r --arg repository_image "$repository_image" '.[$repository_image].yaml_path')
 
         if has_tag "$repository_image" "$codecollection_images"; then
@@ -203,7 +203,7 @@ main() {
         echo "Copying image: $repository_image:$selected_tag to $private_registry/$custom_repo_destination:$selected_tag"
         copy_image $repository_image $selected_tag $custom_repo_destination 
         echo "Image $private_registry/$custom_repo_destination:$selected_tag pushed successfully"
-        update_values_yaml $private_registry $private_repo $selected_tag $yaml_path
+        update_values_yaml $private_registry $custom_destination_repo $selected_tag $yaml_path
     done
 
     # Process RunWhen component images
