@@ -64,11 +64,6 @@ if ! command -v yq &> /dev/null; then
     exit
 fi
 
-if ! command -v docker &> /dev/null; then
-    echo "docker could not be found, please install it."
-    exit
-fi
-
 if ! command -v jq &> /dev/null; then
     echo "jq could not be found, please install it."
     exit
