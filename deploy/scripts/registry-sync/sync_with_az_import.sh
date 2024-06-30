@@ -1,7 +1,10 @@
 #!/bin/bash
 
 # Set Private Registry
-private_registry="myacrregistry.azurecr.io"
+private_registry="myacrrepo.azurecr.io"
+
+# Set Architecture
+desired_architecture="amd64"
 
 # Specify values file
 values_file="sample_values.yaml"
@@ -54,8 +57,8 @@ EOF
 )
 
 # Ensure all required tools are installed
-if ! command -v skopeo &> /dev/null; then
-    echo "skopeo could not be found, please install it."
+if ! command -v curl &> /dev/null; then
+    echo "curl could not be found, please install it."
     exit
 fi
 
@@ -72,30 +75,66 @@ fi
 # Function to get tags sorted by creation date from a repository image
 get_sorted_tags_by_date() {
     repository_image=$1
-    echo "Fetching tags for repository image: $repository_image" >&2
+    echo "Fetching tags for repository image: $repository_image with architecture: $desired_architecture" >&2
 
-    # Fetch tags
-    tags=$(skopeo list-tags docker://$repository_image | jq -r '.Tags[]')
-    if [ -z "$tags" ]; then
+    # Check if the repository image is from Google Artifact Registry
+    ## TODO Add additional checks for other repo types if necessary; 
+    ## which at this time is not, as all other tags are explicitly defined.
+    if [[ $repository_image == *.pkg.dev/* ]]; then
+        REPO_URL="https://us-west1-docker.pkg.dev/v2/${repository_image#*pkg.dev/}/tags/list"
+        TAGS=$(curl -s "$REPO_URL" | jq -r '.tags[]')
+    else
+        echo "Unsupported repository type: $repository_image" >&2
+        return
+    fi
+
+    if [ -z "$TAGS" ]; then
         echo "No tags found for $repository_image" >&2
         return
     fi
 
     tag_dates=()
-
-    for tag in $tags; do
-        echo "Processing tag: $tag" >&2
-        if is_excluded_tag $tag; then
-            echo "Skipping excluded tag: $tag" >&2
-            continue
-        fi
-        creation_date=$(skopeo inspect --format '{{.Created}}' docker://$repository_image:$tag 2>/dev/null)
-        
-        if [ -z "$creation_date" ]; then
+    for TAG in $TAGS; do
+        echo "Processing tag: $TAG" >&2
+        if is_excluded_tag "$TAG" || [[ $TAG == "latest" ]]; then
+            echo "Skipping $TAG" >&2
             continue
         fi
 
-        tag_dates+=("$creation_date $tag")
+        if [[ $repository_image == *.pkg.dev/* ]]; then
+            MANIFEST=$(curl -s "https://us-west1-docker.pkg.dev/v2/${repository_image#*pkg.dev/}/manifests/$TAG")
+
+            # Check if the manifest is multi-arch
+            media_type=$(echo "$MANIFEST" | jq -r '.mediaType')
+            if [ "$media_type" == "application/vnd.docker.distribution.manifest.list.v2+json" ]; then
+                # Multi-arch manifest
+                MANIFESTS=$(echo "$MANIFEST" | jq -c --arg arch "$desired_architecture" '.manifests[] | select(.platform.architecture == $arch)')
+                for MANIFEST_ITEM in $MANIFESTS; do
+                    ARCH_MANIFEST_DIGEST=$(echo "$MANIFEST_ITEM" | jq -r '.digest')
+                    ARCH_MANIFEST=$(curl -s "https://us-west1-docker.pkg.dev/v2/${repository_image#*pkg.dev/}/manifests/$ARCH_MANIFEST_DIGEST")
+                    CONFIG_DIGEST=$(echo "$ARCH_MANIFEST" | jq -r '.config.digest')
+                    CONFIG=$(curl -L -s "https://us-west1-docker.pkg.dev/v2/${repository_image#*pkg.dev/}/blobs/$CONFIG_DIGEST")
+                    CREATION_DATE=$(echo "$CONFIG" | jq -r '.created')
+
+                    if [ -n "$CREATION_DATE" ]; then
+                        tag_dates+=("$CREATION_DATE $TAG")
+                        break
+                    fi
+                done
+            else
+                # Single-arch manifest
+                CONFIG_DIGEST=$(echo "$MANIFEST" | jq -r '.config.digest')
+                CONFIG=$(curl -L -s "https://us-west1-docker.pkg.dev/v2/${repository_image#*pkg.dev/}/blobs/$CONFIG_DIGEST")
+                CREATION_DATE=$(echo "$CONFIG" | jq -r '.created')
+                
+                if [ -n "$CREATION_DATE" ]; then
+                    tag_dates+=("$CREATION_DATE $TAG")
+                fi
+            fi
+        else
+            echo "Unsupported repository type: $repository_image" >&2
+            return
+        fi
     done
 
     if [ ${#tag_dates[@]} -eq 0 ]; then
@@ -103,22 +142,19 @@ get_sorted_tags_by_date() {
     fi
 
     # Sort tags by creation date
-    sorted_tags=$(printf "%s\n" "${tag_dates[@]}" | sort -r | awk '{print $5}')
+    sorted_tags=$(printf "%s\n" "${tag_dates[@]}" | sort -r | awk '{print $2}')
     echo $sorted_tags
 }
 
-
-# Function to copy image using skopeo
+# Function to copy image using az import
 copy_image() {
     repository_image=$1
-    tag=$2
+    src_tag=$2
     destination=$3
-
-    src_image="docker://${repository_image}:${tag}"
-    dest_image="docker://${private_registry}/${destination}:${tag}"
+    dest_tag=$4
 
     # Remove echo when ready 
-    skopeo copy $src_image $dest_image
+    az acr import -n ${private_registry} --source ${repository_image}:${src_tag} --image ${destination}:${dest_tag}
 }
 
 # Function to update image registry and repository in values file
@@ -192,11 +228,8 @@ main() {
                 break
             done
         fi
-        if [ "$selected_tag" == "latest" ]; then
-            selected_tag=$date_based_tag
-        fi
         echo "Copying image: $repository_image:$selected_tag to $private_registry/$custom_repo_destination:$selected_tag"
-        copy_image $repository_image $selected_tag $custom_repo_destination 
+        copy_image $repository_image $selected_tag $custom_repo_destination $selected_tag
         echo "Image $private_registry/$custom_repo_destination:$selected_tag pushed successfully"
         update_values_yaml $private_registry $custom_destination_repo $selected_tag $yaml_path
     done
@@ -227,10 +260,12 @@ main() {
         fi
         if [ "$selected_tag" == "latest" ]; then
             selected_tag=$date_based_tag
+            echo "Copying image: $repository_image:latest to $private_registry/$custom_repo_destination:$selected_tag"
+            copy_image $repository_image latest $custom_repo_destination $selected_tag           
+        else
+            echo "Copying image: $repository_image:$selected_tag to $private_registry/$custom_repo_destination:$selected_tag"
+            copy_image $repository_image $selected_tag $custom_repo_destination $selected_tag
         fi
-        echo "Copying image: $repository_image:$selected_tag to $private_registry/$custom_repo_destination:$selected_tag"
-        copy_image $repository_image $selected_tag $custom_repo_destination 
-        echo "Image $private_registry/$custom_repo_destination:$selected_tag pushed successfully"
         update_values_yaml $private_registry $custom_repo_destination $selected_tag $yaml_path
     done
 
