@@ -5,7 +5,7 @@ description: >-
   your environment.
 ---
 
-# Locally (Docker/Podman)
+# Docker/Podman - Without RunWhen Platform
 
 {% hint style="info" %}
 The following steps allow you to safely run RunWhen from your own laptop (with docker/podman), with the ability to inspect all generated configuration files and command list documentation without the need to interact with the RunWhen API.
@@ -76,22 +76,30 @@ mkdir -p $workdir/shared/output
 chmod -R 777 $workdir/shared
 
 cat <<EOF > $workdir/shared/workspaceInfo.yaml
-workspaceName: my-workspace
+defaultLocation: none
 workspaceOwnerEmail: tester@my-company.com
-defaultLocation: [placeholder]
-defaultLOD: 2
-namespaceLODs:
-  kube-system: 0
-  kube-public: 0
-  kube-node-lease: 0
+# More workspace config
+# Default Level of Detail(LOD): none, basic, or detailed
+# https://docs.runwhen.com/public/v/runwhen-local/user-guide/user_guide-advanced_configuration/workspaceinfo-customization/level-of-detail
+defaultLOD: detailed
+cloudConfig:
+  kubernetes:
+    kubeconfigFile: /shared/kubeconfig
+    namespaceLODs:
+      kube-system: 0
+      kube-public: 0
+      kube-node-lease: 0
+codeCollections: []
 custom:
-  kubernetes_distribution: Kubernetes
-  kubernetes_distribution_binary: kubectl
-  
-  # Secret names are used when integrating the RunWhen Platform
-  # with your environment. RunWhen has no access to this data, 
-  # as the secret name and content comes from your own configuration. 
+  # Note: Most of these are simple keys, such as the name of a secret that
+  # should be referenced from the platform. The secret itself (key and value)
+  # must be created in the RunWhen Platform by the user. We do not upload
+  # or configure secrets automatically.
+  # The default for kubeconfig_secret_name is set to a secret that runwhenLocal
+  # creates for the use of the runner. This can be simply swapped out with the
+  # name of a secret that is stored in the RunWhen Platform.
   kubeconfig_secret_name: kubeconfig
+  kubernetes_distribution_binary: kubectl
 EOF
 chmod 655 $workdir/shared/workspaceInfo.yaml
 ```
@@ -105,33 +113,30 @@ mkdir -p $workdir/shared/output
 chmod 777 $workdir/shared/output
 
 cat <<EOF > $workdir/shared/workspaceInfo.yaml
-workspaceName: my-workspace
-# Tokens are generated from the RunWhen Platform UI if 
-# planning on uploading workspace configuration
+defaultLocation: none
 workspaceOwnerEmail: tester@my-company.com
-defaultLocation: [placeholder]
-defaultLOD: 2
-namespaceLODs:
-  kube-system: 0
-  kube-public: 0
-  kube-node-lease: 0
+# More workspace config
+# Default Level of Detail(LOD): none, basic, or detailed
+# https://docs.runwhen.com/public/v/runwhen-local/user-guide/user_guide-advanced_configuration/workspaceinfo-customization/level-of-detail
+defaultLOD: detailed
+cloudConfig:
+  kubernetes:
+    kubeconfigFile: /shared/kubeconfig
+    namespaceLODs:
+      kube-system: 0
+      kube-public: 0
+      kube-node-lease: 0
+codeCollections: []
 custom:
-  kubernetes_distribution: OpenShift
-  kubernetes_distribution_binary: oc
-  
-  # Possible values are gcp, aws
-  # cloud_provider: gcp
-  
-  # Possible values are gmp, promql
-  prometheus_provider: gmp
-  # If using GCP and wanting to use GCP integrations  
-  # gcp_project_id: [gcp-project-id] 
-  
-  # Secret names are used when integrating the RunWhen Platform
-  # with your environment. RunWhen has no access to this data, 
-  # as the secret name and content comes from your own configuration. 
+  # Note: Most of these are simple keys, such as the name of a secret that
+  # should be referenced from the platform. The secret itself (key and value)
+  # must be created in the RunWhen Platform by the user. We do not upload
+  # or configure secrets automatically.
+  # The default for kubeconfig_secret_name is set to a secret that runwhenLocal
+  # creates for the use of the runner. This can be simply swapped out with the
+  # name of a secret that is stored in the RunWhen Platform.
   kubeconfig_secret_name: kubeconfig
-  # gcp_ops_suite_sa: ops-suite-sa
+  kubernetes_distribution_binary: kubectl
 EOF
 ```
 {% endtab %}
