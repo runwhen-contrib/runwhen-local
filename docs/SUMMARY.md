@@ -29,6 +29,7 @@
   * [Helm Configuration](user-guide/user\_guide-advanced\_configuration/helm-configuration.md)
   * [Terminal Configuration](user-guide/user\_guide-advanced\_configuration/terminal-configuration.md)
   * [Proxy Configuration & Outbound Connections](user-guide/user\_guide-advanced\_configuration/proxy-configuration-and-outbound-connections.md)
+  * [Using a Private Container Registry](user-guide/user\_guide-advanced\_configuration/using-a-private-container-registry.md)
 * [Stuck?Read This](User\_Guide-Stuck\_Read\_This.md)
 * [Privacy & Security](User\_Guide-Privacy\_and\_Security.md)
 * [Release Notes](User\_Guide-Release\_Notes.md)
