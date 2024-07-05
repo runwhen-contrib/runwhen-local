@@ -48,6 +48,10 @@ codecollection_images=$(cat <<EOF
     "us-west1-docker.pkg.dev/runwhen-nonprod-beta/public-images/runwhen-contrib-rw-public-codecollection-main": {
         "destination": "runwhen/runwhen-contrib-rw-public-codecollection-main",
         "yaml_path": "runner.runEnvironment.image"
+    },
+    "us-west1-docker.pkg.dev/runwhen-nonprod-beta/public-images/ runwhen-contrib-rw-generic-codecollection-main": {
+        "destination": "runwhen/ runwhen-contrib-rw-generic-codecollection-main",
+        "yaml_path": "runner.runEnvironment.image"
     }
 }
 EOF
