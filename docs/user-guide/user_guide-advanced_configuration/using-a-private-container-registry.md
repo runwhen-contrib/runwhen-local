@@ -8,16 +8,7 @@ description: >-
 
 There are a number of container images that are used to support integration of RunWhen Local with the RunWhen Platform:&#x20;
 
-RunWhen Local - performs discovery, automatic configuration, and uploads configuration to the RunWhen Platform:- Image: [ghcr.io/runwhen-contrib/runwhen-local:latest](http://ghcr.io/runwhen-contrib/runwhen-local:latest)- Source: [https://github.com/runwhen-contrib/runwhen-local](https://github.com/runwhen-contrib/runwhen-local)\
-Runner - an operator that connects to the RunWhen Platform and schedules/executes SLI and Tasks: \
-\- Image: [us-docker.pkg.dev/runwhen-nonprod-shared/public-images/runner:latest](http://us-docker.pkg.dev/runwhen-nonprod-shared/public-images/runner:latest)\
-\
-CodeCollection Image example - these are the pods that run/execute SLIs and Tasks - they are dynamically built in the RunWhen Platform based on an experts codecollection & branch- Example image: [us-west1-docker.pkg.dev/runwhen-nonprod-beta/public-images/infracloudio-ifc-rw-codecollection-main:11c2ffd-ee99c37](http://us-west1-docker.pkg.dev/runwhen-nonprod-beta/public-images/infracloudio-ifc-rw-codecollection-main:11c2ffd-ee99c37)\
-\- Corresponding example CodeCollection: [https://github.com/runwhen-contrib/rw-cli-codecollection](https://github.com/runwhen-contrib/rw-cli-codecollection)
-
-
-
-### Core Components
+### Core Component Images
 
 The following container images prerequisites to perform health and troubleshooting tasks from within a private cluster. Note that the tasks themselves require the CodeCollection Images.&#x20;
 
