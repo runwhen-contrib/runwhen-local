@@ -45,3 +45,9 @@ Since it's important that the most recent container images are available, especi
 * [Synchronization with into Azure with az import](../../../deploy/scripts/registry-sync/sync\_with\_az\_import.sh)
 
 These scripts should be run on a regular basis and tailored to your needs. &#x20;
+
+
+
+### Integration with Helm
+
+Since Helm is the supported installation method for the RunWhen Local components, the script examples above will accept an original values.yaml file and will output an updated file with the private registry/repository details. These changes still need to be applied manually, or at your own discretion, the script can be augmented to perform a helm upgrade once each image copy process has been completed.&#x20;
