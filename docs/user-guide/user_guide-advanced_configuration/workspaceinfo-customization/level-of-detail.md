@@ -16,3 +16,6 @@ The values for the level of detail are:
 In earlier versions of RunWhen Local the LOD values were integer values rather than string values. These integer values are still supported for backwards compatibility, but are deprecated. You may still see them in some existing code bundles and/or configuration files, though, so they're included in the above table for reference purposes.
 {% endhint %}
 
+
+
+For Kubernetes resources, Level of Detail can also be configured  with annotations. Please see [kubernetes-configuration.md](cloud-configuration/kubernetes-configuration.md "mention") for more details.&#x20;
