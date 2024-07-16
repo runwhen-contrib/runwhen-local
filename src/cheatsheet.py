@@ -869,46 +869,50 @@ def clean_path(path):
         print(f"The path '{path}' does not exist.")
 
 def process_runbook(runbook, groups, search_list, template):
-    parsed_runbook_config = parse_yaml(runbook)
-    robot_file = fetch_robot_source(parsed_runbook_config)
-    runbook_url = f'{parsed_runbook_config["spec"]["codeBundle"]["repoUrl"].rstrip(".git")}/tree/{parsed_runbook_config["spec"]["codeBundle"]["ref"]}/{parsed_runbook_config["spec"]["codeBundle"]["pathToRobot"]}'
-    owner = parsed_runbook_config["spec"]["codeBundle"]["repoUrl"].rstrip(".git").split("/")[-2]
-    repo = parsed_runbook_config["spec"]["codeBundle"]["repoUrl"].rstrip(".git").split("/")[-1]
-    path = parsed_runbook_config["spec"]["codeBundle"]["pathToRobot"].rstrip('runbook.robot')
-    ref = parsed_runbook_config["spec"]["codeBundle"]["ref"]
-    commit_age = get_last_commit_age(owner, repo, ref, path)
-    parsed_robot = parse_robot_file(robot_file)
-    slx_hints = generate_slx_hints(runbook)
-    doc = ''.join(parsed_robot["doc"].split('\n'))
-    author = ''.join(parsed_robot["author"].split('\n'))
-    group_name = find_group_name(groups, slx_hints["slx_short_name"])  # NOTE: 'groups' variable is not defined in the provided context
-    group_path = find_group_path(f"{group_name}")
-    meta = fetch_meta(owner=owner, repo=repo, path=path, ref=ref)
-    interesting_commands = search_keywords(parsed_robot, parsed_runbook_config, search_list, meta)
-    command_generation_summary_stats["total_interesting_commands"] += len(interesting_commands)
-    author_details = fetch_github_profile_icon(author)
-    command_generation_summary_stats["unique_authors"].append(author)
-    output = template.render(
-        runbook=runbook.split("/output", 1)[-1],
-        author=author,
-        slx_hints=slx_hints,
-        doc=doc,
-        runbook_url=runbook_url,
-        interesting_commands=interesting_commands,
-        command_count=len(interesting_commands),
-        author_details=author_details,
-        commit_age=commit_age,
-        parsed_robot=parsed_robot
-    )
-    content_dir = f'cheat-sheet-docs/docs-tmp/{group_path}/'
-    command_assist_md_output = f'{content_dir}{slx_hints["slug"]}.md'
-    if not os.path.exists(content_dir):
-        try:
-            os.makedirs(content_dir)  # Create the full directory path
-        except OSError as e:
-            print(f"Error creating directory: {e}")
-    with open(command_assist_md_output, 'w') as md_file:
-        md_file.write(output)
+    try:
+        parsed_runbook_config = parse_yaml(runbook)
+        robot_file = fetch_robot_source(parsed_runbook_config)
+        runbook_url = f'{parsed_runbook_config["spec"]["codeBundle"]["repoUrl"].rstrip(".git")}/tree/{parsed_runbook_config["spec"]["codeBundle"]["ref"]}/{parsed_runbook_config["spec"]["codeBundle"]["pathToRobot"]}'
+        owner = parsed_runbook_config["spec"]["codeBundle"]["repoUrl"].rstrip(".git").split("/")[-2]
+        repo = parsed_runbook_config["spec"]["codeBundle"]["repoUrl"].rstrip(".git").split("/")[-1]
+        path = parsed_runbook_config["spec"]["codeBundle"]["pathToRobot"].rstrip('runbook.robot')
+        ref = parsed_runbook_config["spec"]["codeBundle"]["ref"]
+        commit_age = get_last_commit_age(owner, repo, ref, path)
+        parsed_robot = parse_robot_file(robot_file)
+        slx_hints = generate_slx_hints(runbook)
+        doc = ''.join(parsed_robot["doc"].split('\n'))
+        author = ''.join(parsed_robot["author"].split('\n'))
+        group_name = find_group_name(groups, slx_hints["slx_short_name"])  # NOTE: 'groups' variable is not defined in the provided context
+        group_path = find_group_path(f"{group_name}")
+        meta = fetch_meta(owner=owner, repo=repo, path=path, ref=ref)
+        interesting_commands = search_keywords(parsed_robot, parsed_runbook_config, search_list, meta)
+        command_generation_summary_stats["total_interesting_commands"] += len(interesting_commands)
+        author_details = fetch_github_profile_icon(author)
+        command_generation_summary_stats["unique_authors"].append(author)
+        output = template.render(
+            runbook=runbook.split("/output", 1)[-1],
+            author=author,
+            slx_hints=slx_hints,
+            doc=doc,
+            runbook_url=runbook_url,
+            interesting_commands=interesting_commands,
+            command_count=len(interesting_commands),
+            author_details=author_details,
+            commit_age=commit_age,
+            parsed_robot=parsed_robot
+        )
+        content_dir = f'cheat-sheet-docs/docs-tmp/{group_path}/'
+        command_assist_md_output = f'{content_dir}{slx_hints["slug"]}.md'
+        if not os.path.exists(content_dir):
+            try:
+                os.makedirs(content_dir)  # Create the full directory path
+            except OSError as e:
+                print(f"Error creating directory: {e}")
+        with open(command_assist_md_output, 'w') as md_file:
+            md_file.write(output)
+    except Exception as e:
+        logger.error(f"Failed to process runbook {runbook}: {e}")
+
 
 # Useful when testing changes like parallel processing
 def timer(func):
