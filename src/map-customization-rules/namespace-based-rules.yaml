@@ -106,3 +106,9 @@ spec:
         pattern: "jaeger-http"
         matchMode: substring
       group: "{{namespace.name}} ({{cluster.name}})"
+    - match:
+        type: pattern
+        matchType: base-name
+        pattern: "postgres-health"
+        matchMode: substring
+      group: "{{namespace.name}} ({{cluster.name}})"
