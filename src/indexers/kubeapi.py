@@ -657,7 +657,7 @@ def index(component_context: Context):
                         # Should probably change the field in ResourceTypeSpec to be plural_name, since
                         # it's really not the same as the kind field of the resource.
                         plural_name = resource_type_spec.kind
-                        logger.info(f"Trying custom resource kind={plural_name}")
+                        logger.info(f"Trying custom resource {plural_name}.{group}")
                         if version:
                             wildcard_spec = KubernetesResourceTypeSpec(KUBERNETES_PLATFORM,
                                                                        KubernetesResourceType.CUSTOM.value,
