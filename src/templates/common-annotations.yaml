@@ -3,4 +3,6 @@
     sourceGenerationRuleRepoRef: {{ref}}
     sourceGenerationRulePath: {{generation_rule_file_path}}
     config.runwhen.com/last-updated-by: workspace-builder
+    qualifiers: {{qualifiers}}
+
 
