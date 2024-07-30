@@ -613,6 +613,12 @@ def get_template_variables(output_item: OutputItem,
             value = render_template_string(template_string, template_variables)
         template_variables[name] = value
 
+    # Add qualifiers to template variables
+    if 'qualifiers' in output_item.template_variables:
+        qualifiers_dict = {qual: template_variables[qual] for qual in output_item.template_variables['qualifiers']}
+        template_variables['qualifiers'] = qualifiers_dict
+
+
     return template_variables
 
 
@@ -760,7 +766,10 @@ def generate_slx_output_items(slx_info: SLXInfo,
     slx_directory_path = os.path.join(slxs_path, slx_info.qualified_name)
     slx_base_template_variables['slx_directory_path'] = slx_directory_path
     slx_base_template_variables['match_resource'] = resource
-
+    # Convert qualifiers list to a dictionary of key/value pairs
+    qualifiers_dict = {qual: slx_info.qualifier_values[i] for i, qual in enumerate(slx_info.slx.qualifiers)}
+    slx_base_template_variables['qualifiers'] = qualifiers_dict
+    
     for output_item in slx_info.slx.output_items:
         if should_emit_output_item(output_item, slx_info.level_of_detail):
             generate_output_item(generation_rule_info,
