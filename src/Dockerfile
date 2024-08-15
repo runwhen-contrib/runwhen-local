@@ -45,7 +45,7 @@ RUN poetry install --no-dev
 
 # Final Image Stage
 FROM node-base AS app
-LABEL org.opencontainers.image.description="The RunWhen Local container image is a local tool to scan your Kubernetes based clusters and provide human readable and searchable troubleshooting documentation and commands."
+LABEL org.opencontainers.image.description="The RunWhen Local container image discovers your cloud resources and provides tailored and executable troubleshooting and health check commands from a community of experts."
 RUN groupadd -r runwhen && useradd --no-log-init -r -g runwhen runwhen
 
 ENV RUNWHEN_HOME='/workspace-builder' \
@@ -107,7 +107,14 @@ RUN ARCH=$(uname -m) && \
     && KUBECONFIG=/shared/kubeconfig && \
     # Download the cloudquery CLI
     curl -L "https://github.com/cloudquery/cloudquery/releases/download/cli-v5.3.0/cloudquery_linux_${CQ_ARCH}" -o /usr/local/bin/cloudquery \
-    && chmod a+x /usr/local/bin/cloudquery
+    && chmod a+x /usr/local/bin/cloudquery \
+    # Install kubelogin for azure kubeconfig conversion
+    && curl -Lo kubelogin.zip https://github.com/Azure/kubelogin/releases/latest/download/kubelogin-linux-amd64.zip \
+    && unzip kubelogin.zip \
+    && mv bin/linux_amd64/kubelogin /usr/local/bin/kubelogin \
+    && rm kubelogin.zip \ 
+    && rm -rf bin \
+    && chmod +x /usr/local/bin/kubelogin
 
 # RunWhen customizations
 ENV HOME $RUNWHEN_HOME

@@ -1,10 +1,9 @@
-# AKS helpers
+import subprocess
 from azure.identity import DefaultAzureCredential
 from azure.mgmt.containerservice import ContainerServiceClient
 from azure.mgmt.resource import SubscriptionClient
 from azure.core.exceptions import AzureError
 import os
-import base64
 import yaml
 import sys
 
@@ -12,6 +11,7 @@ def get_subscription_id(credential):
     try:
         subscription_client = SubscriptionClient(credential)
         subscription = next(subscription_client.subscriptions.list())
+        print(f"Retrieved subscription ID: {subscription.subscription_id}")
         return subscription.subscription_id
     except StopIteration:
         print("Error: No subscriptions found for the provided credentials.", file=sys.stderr)
@@ -22,18 +22,6 @@ def get_subscription_id(credential):
     except Exception as e:
         print(f"Unexpected error occurred while retrieving subscription ID: {e}", file=sys.stderr)
         sys.exit(1)
-
-def decode_base64(data):
-    """Add padding to base64 string if necessary and decode."""
-    try:
-        # Adjust padding if necessary
-        missing_padding = len(data) % 4
-        if missing_padding:
-            data += '=' * (4 - missing_padding)
-        return base64.b64decode(data).decode()
-    except Exception as e:
-        print(f"Error decoding base64 data: {e}", file=sys.stderr)
-        raise
 
 def generate_kubeconfig_for_aks(clusters):
     try:
@@ -56,19 +44,25 @@ def generate_kubeconfig_for_aks(clusters):
                 resource_group_name = cluster['resource_group']
                 server_url = cluster.get('server')
 
+                print(f"Processing cluster: {cluster_name} in resource group: {resource_group_name}")
+
                 # Fetch AKS cluster kubeconfig
+                print(f"Fetching kubeconfig for cluster: {cluster_name}")
                 kubeconfig = aks_client.managed_clusters.list_cluster_user_credentials(resource_group_name, cluster_name)
-                kubeconfig_content = decode_base64(kubeconfig.kubeconfigs[0].value)
+                kubeconfig_content = kubeconfig.kubeconfigs[0].value.decode('utf-8')  # Decode bytearray to string
 
                 # Load kubeconfig as YAML
+                print(f"Loading kubeconfig YAML for cluster: {cluster_name}")
                 kubeconfig_yaml = yaml.safe_load(kubeconfig_content)
 
                 # Override server URL if provided
                 if server_url:
+                    print(f"Overriding server URL for cluster: {cluster_name} with {server_url}")
                     for cluster_entry in kubeconfig_yaml['clusters']:
                         cluster_entry['cluster']['server'] = server_url
 
                 # Add cluster, context, and user to combined kubeconfig
+                print(f"Adding cluster, context, and user to combined kubeconfig for cluster: {cluster_name}")
                 combined_kubeconfig['clusters'].extend(kubeconfig_yaml['clusters'])
                 combined_kubeconfig['contexts'].extend(kubeconfig_yaml['contexts'])
                 combined_kubeconfig['users'].extend(kubeconfig_yaml['users'])
@@ -76,6 +70,7 @@ def generate_kubeconfig_for_aks(clusters):
                 # Optionally, set the current context to the first cluster's context
                 if not combined_kubeconfig['current-context']:
                     combined_kubeconfig['current-context'] = kubeconfig_yaml['contexts'][0]['name']
+                    print(f"Setting current context to: {kubeconfig_yaml['contexts'][0]['name']}")
 
             except AzureError as e:
                 print(f"Azure error occurred while processing cluster {cluster_name}: {e}", file=sys.stderr)
@@ -85,16 +80,27 @@ def generate_kubeconfig_for_aks(clusters):
         # Ensure the .kube directory exists
         kubeconfig_dir = os.path.expanduser("~/.kube")
         if not os.path.exists(kubeconfig_dir):
+            print(f"Creating directory: {kubeconfig_dir}")
             os.makedirs(kubeconfig_dir)
 
         # Save the combined kubeconfig to file
         kubeconfig_path = os.path.join(kubeconfig_dir, "config")
         try:
+            print(f"Saving combined kubeconfig to: {kubeconfig_path}")
             with open(kubeconfig_path, "w") as kubeconfig_file:
                 yaml.dump(combined_kubeconfig, kubeconfig_file)
             print(f"Successfully generated combined kubeconfig for clusters: {[cluster['name'] for cluster in clusters]} at {kubeconfig_path}")
         except IOError as e:
             print(f"Failed to write kubeconfig file: {e}", file=sys.stderr)
+            sys.exit(1)
+
+        # Convert the kubeconfig using kubelogin for MSI
+        try:
+            print("Converting kubeconfig using kubelogin...")
+            subprocess.run(["kubelogin", "convert-kubeconfig", "-l", "msi"], check=True)
+            print("Successfully converted kubeconfig with kubelogin for MSI.")
+        except subprocess.CalledProcessError as e:
+            print(f"Failed to convert kubeconfig using kubelogin: {e}", file=sys.stderr)
             sys.exit(1)
 
     except AzureError as e:
