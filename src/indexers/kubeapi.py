@@ -184,8 +184,8 @@ def index(component_context: Context):
     # Eventually (presumably sometime after we've done a 1.0 release),
     # we can get rid of the support for this older format.
     
-    # kubeconfig_path: Optional[str] = None
-    kubeconfig_path = "/workspace-builder/.kube/config"
+    kubeconfig_path: Optional[str] = None
+    encoded_kubeconfig_file = None
     namespace_lods: Optional[dict[str, LevelOfDetail]] = None
     custom_namespace_names: Optional[list[str]] = None
     exclude_annotations: Dict[str, str] = {}
@@ -203,6 +203,7 @@ def index(component_context: Context):
             # contents of the file settings to a temp file and replaces the setting with
             # a path to the temp file. So we need to do it manually here for the
             # kubeconfig file.
+            logger.info(f"Found kubernetes settings.")
             encoded_kubeconfig_file = kubernetes_settings.get("kubeconfigFile")
             namespace_lods = kubernetes_settings.get("namespaceLODs", {})
             custom_namespace_names = kubernetes_settings.get("namespaces", [])
