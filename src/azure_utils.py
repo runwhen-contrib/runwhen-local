@@ -23,6 +23,18 @@ def get_subscription_id(credential):
         print(f"Unexpected error occurred while retrieving subscription ID: {e}", file=sys.stderr)
         sys.exit(1)
 
+def decode_base64(data):
+    """Add padding to base64 string if necessary and decode."""
+    try:
+        # Adjust padding if necessary
+        missing_padding = len(data) % 4
+        if missing_padding:
+            data += '=' * (4 - missing_padding)
+        return base64.b64decode(data).decode()
+    except Exception as e:
+        print(f"Error decoding base64 data: {e}", file=sys.stderr)
+        raise
+
 def generate_kubeconfig_for_aks(clusters):
     try:
         credential = DefaultAzureCredential()
@@ -46,7 +58,7 @@ def generate_kubeconfig_for_aks(clusters):
 
                 # Fetch AKS cluster kubeconfig
                 kubeconfig = aks_client.managed_clusters.list_cluster_user_credentials(resource_group_name, cluster_name)
-                kubeconfig_content = base64.b64decode(kubeconfig.kubeconfigs[0].value).decode()
+                kubeconfig_content = decode_base64(kubeconfig.kubeconfigs[0].value)
 
                 # Load kubeconfig as YAML
                 kubeconfig_yaml = yaml.safe_load(kubeconfig_content)
@@ -70,8 +82,13 @@ def generate_kubeconfig_for_aks(clusters):
             except Exception as e:
                 print(f"Unexpected error occurred while processing cluster {cluster_name}: {e}", file=sys.stderr)
 
+        # Ensure the .kube directory exists
+        kubeconfig_dir = os.path.expanduser("~/.kube")
+        if not os.path.exists(kubeconfig_dir):
+            os.makedirs(kubeconfig_dir)
+
         # Save the combined kubeconfig to file
-        kubeconfig_path = os.path.expanduser("~/.kube/config")
+        kubeconfig_path = os.path.join(kubeconfig_dir, "config")
         try:
             with open(kubeconfig_path, "w") as kubeconfig_file:
                 yaml.dump(combined_kubeconfig, kubeconfig_file)
