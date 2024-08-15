@@ -17,7 +17,7 @@ import yaml
 from utils import transform_client_cloud_config
 from utils import get_proxy_config
 from utils import get_request_verify
-from aks import generate_kubeconfig_for_aks, load_workspace_config
+from azure_utils import generate_kubeconfig_for_aks
 
 
 debug_suppress_cheat_sheet = os.getenv("WB_DEBUG_SUPPRESS_CHEAT_SHEET")
@@ -393,7 +393,7 @@ def main():
         clusters = aks_clusters.get('clusters', [])
 
         # Generate kubeconfig for each cluster with optional server override
-        generate_combined_kubeconfig(clusters)
+        generate_kubeconfig_for_aks(clusters)
         kubeconfig_path="~/.kube/config"
     else:
         print("No Azure AKS configuration found in workspaceInto.yaml")
