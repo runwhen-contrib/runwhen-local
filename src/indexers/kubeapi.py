@@ -184,13 +184,13 @@ def index(component_context: Context):
     # Eventually (presumably sometime after we've done a 1.0 release),
     # we can get rid of the support for this older format.
     
-    kubeconfig_path: Optional[str] = None
+    # kubeconfig_path: Optional[str] = None
+    kubeconfig_path = "/workspace-builder/.kube/config"
     namespace_lods: Optional[dict[str, LevelOfDetail]] = None
     custom_namespace_names: Optional[list[str]] = None
     exclude_annotations: Dict[str, str] = {}
     exclude_labels: Dict[str, str] = {}
     lod_annotations = HARDCODED_LOD_ANNOTATIONS
-
 
     # Extract settings from the context
     cloud_config_settings: Optional[dict[str, Any]] = component_context.get_setting("CLOUD_CONFIG")
@@ -208,6 +208,18 @@ def index(component_context: Context):
             custom_namespace_names = kubernetes_settings.get("namespaces", [])
             exclude_annotations = kubernetes_settings.get("excludeAnnotations", {})
             exclude_labels = kubernetes_settings.get("excludeLabels", {})
+
+        # Same process as above for AKS clusters
+        logger.info(f"Checking for AKS clusters.")     
+        aks_settings: Optional[dict[str, Any]] = cloud_config_settings.get("azure").get("aks_clusters")
+        if aks_settings:
+            logger.info(f"Discovering AKS clusters: {aks_settings}")
+            kubeconfig_path = "/workspace-builder/.kube/config"
+            namespace_lods = aks_settings.get("namespaceLODs", {})
+            custom_namespace_names = aks_settings.get("namespaces", [])
+            exclude_annotations = aks_settings.get("excludeAnnotations", {})
+            exclude_labels = aks_settings.get("excludeLabels", {})
+
 
     # Hard-code values to be added
     exclude_annotations.update(HARDCODED_EXCLUDE_ANNOTATIONS)

@@ -394,7 +394,8 @@ def main():
 
         # Generate kubeconfig for each cluster with optional server override
         generate_kubeconfig_for_aks(clusters)
-        kubeconfig_path="~/.kube/config"
+        kubeconfig = "config"
+        kubeconfig_path = "~/.kube/config"
     else:
         print("No Azure AKS configuration found in workspaceInto.yaml")
         print("Looking for generic kubeconfig")
@@ -405,27 +406,27 @@ def main():
         kubeconfig = args.kubeconfig
         kubeconfig_path = os.path.join(base_directory, kubeconfig)
 
-    # Check if the file at the constructed path exists
-    if not os.path.exists(kubeconfig_path):
-        print(f"Auth file not found at {base_directory}/{kubeconfig}...")
-        # Try getting the kubeconfig from the MB_KUBECONFIG environment variable
-        kubeconfig = os.getenv('MB_KUBECONFIG')
-        if kubeconfig:
-            kubeconfig_path = os.path.join(base_directory, kubeconfig)
+        # Check if the file at the constructed path exists
+        if not os.path.exists(kubeconfig_path):
+            print(f"Auth file not found at {base_directory}/{kubeconfig}...")
+            # Try getting the kubeconfig from the MB_KUBECONFIG environment variable
+            kubeconfig = os.getenv('MB_KUBECONFIG')
+            if kubeconfig:
+                kubeconfig_path = os.path.join(base_directory, kubeconfig)
 
-        # If the file still doesn't exist and we're in a Kubernetes environment, create a kubeconfig
-        if not os.path.exists(kubeconfig_path) and os.getenv('KUBERNETES_SERVICE_HOST'):
-            kubeconfig_data = create_kubeconfig()
-            # Save the kubeconfig_data to a file in the base_directory
-            kubeconfig_file = os.path.join(base_directory, "in_cluster_kubeconfig.yaml")
-            with open(kubeconfig_file, "w") as f:
-                f.write(yaml.dump(kubeconfig_data))
-            print(f"Copying {kubeconfig_file} to {kubeconfig_path}...")
-            shutil.copyfile(kubeconfig_file, kubeconfig_path)
-            print("Using in-cluster Kubernetes auth...")
+            # If the file still doesn't exist and we're in a Kubernetes environment, create a kubeconfig
+            if not os.path.exists(kubeconfig_path) and os.getenv('KUBERNETES_SERVICE_HOST'):
+                kubeconfig_data = create_kubeconfig()
+                # Save the kubeconfig_data to a file in the base_directory
+                kubeconfig_file = os.path.join(base_directory, "in_cluster_kubeconfig.yaml")
+                with open(kubeconfig_file, "w") as f:
+                    f.write(yaml.dump(kubeconfig_data))
+                print(f"Copying {kubeconfig_file} to {kubeconfig_path}...")
+                shutil.copyfile(kubeconfig_file, kubeconfig_path)
+                print("Using in-cluster Kubernetes auth...")
+                print(f"Using auth from {base_directory}/{kubeconfig}...")
+        else: 
             print(f"Using auth from {base_directory}/{kubeconfig}...")
-    else: 
-        print(f"Using auth from {base_directory}/{kubeconfig}...")
 
     if cloud_config:
         transform_client_cloud_config(base_directory, cloud_config)
