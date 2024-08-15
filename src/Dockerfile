@@ -70,7 +70,11 @@ RUN pip install --no-cache-dir \
     mkdocs-macros-plugin \
     pymdown-extensions \
     ruamel.yaml \
-    gitpython
+    gitpython \
+    azure-identity \
+    azure-mgmt-containerservice \
+    azure-mgmt-resource \
+    pyyaml
 
 RUN npm install \
     xterm \

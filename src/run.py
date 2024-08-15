@@ -17,6 +17,8 @@ import yaml
 from utils import transform_client_cloud_config
 from utils import get_proxy_config
 from utils import get_request_verify
+from aks import generate_kubeconfig_for_aks, load_workspace_config
+
 
 debug_suppress_cheat_sheet = os.getenv("WB_DEBUG_SUPPRESS_CHEAT_SHEET")
 cheat_sheet_enabled = (debug_suppress_cheat_sheet is None or
@@ -384,12 +386,24 @@ def main():
     if not cloud_config:
         cloud_config = os.getenv("WB_CLOUD_CONFIG")
 
+    # Check for a list of AKS clusters and build a kubeconfig if present
+    if 'cloudConfig' in workspace_info and 'azure' in workspace_info['cloudConfig']:
+        azure_config = workspace_info['cloudConfig']['azure']
+        aks_clusters = azure_config.get('aks_clusters', {})
+        clusters = aks_clusters.get('clusters', [])
 
-    ## FIXME This is a quick hack to handle the transition from top-level object to 
-    ## cloudConfig configuration, ensuring to support in-cluster-auth, which is 
-    ## mostly for POCs but represents the fastest way to get up and running
-    kubeconfig = args.kubeconfig
-    kubeconfig_path = os.path.join(base_directory, kubeconfig)
+        # Generate kubeconfig for each cluster with optional server override
+        generate_combined_kubeconfig(clusters)
+        kubeconfig_path="~/.kube/config"
+    else:
+        print("No Azure AKS configuration found in workspaceInto.yaml")
+        print("Looking for generic kubeconfig")
+
+        ## FIXME This is a quick hack to handle the transition from top-level object to 
+        ## cloudConfig configuration, ensuring to support in-cluster-auth, which is 
+        ## mostly for POCs but represents the fastest way to get up and running
+        kubeconfig = args.kubeconfig
+        kubeconfig_path = os.path.join(base_directory, kubeconfig)
 
     # Check if the file at the constructed path exists
     if not os.path.exists(kubeconfig_path):
