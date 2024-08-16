@@ -1,6 +1,5 @@
-from azure.identity import DefaultAzureCredential
-from azure.mgmt.resource import ResourceManagementClient
-from azure.mgmt.resource import SubscriptionClient
+from azure.identity import DefaultAzureCredential, ClientSecretCredential
+from azure.mgmt.resource import ResourceManagementClient, SubscriptionClient
 
 from kubernetes import client, config
 
@@ -16,7 +15,6 @@ from typing import Any, Optional, Union
 import subprocess
 import yaml
 
-# import models
 from component import SettingDependency, Context
 from enrichers.generation_rule_types import (
     PlatformHandler,
@@ -42,34 +40,17 @@ SETTINGS = (
 
 @dataclass
 class CloudQueryResourceTypeSpec:
-    """
-    Information about each CloudQuery resource type/table.
-
-    FIXME: This is a sort of confusing class name, since it's actually unrelated to the
-    ResourceTypeSpec class used by the resource registry and platform handlers.
-    Should come up with different terminology for this and the related CloudQueryPlatformSpec.
-    """
-
-    # The name of the resource type in the resource registry
     resource_type_name: str
-    # The name of the table in the CloudQuery database
     cloudquery_table_name: str
-    # We should always index this table even if it's not directly referenced by a gen rule
-    # This is for things like namespaces & resource groups that would be set up in the platform handler
-    # to be referenced from name qualifiers, match rules, templates, etc.
     mandatory: bool
-
 
 @dataclass
 class CloudQueryPlatformSpec:
     name: str
     config_file_name: str
-    # The path/name of the template file used to generate the config file for this platform
     config_template_name: str
     environment_variables: dict[str, str]
-    # The info for the resource types supported for this platform
     resource_type_specs: list[CloudQueryResourceTypeSpec]
-
 
 platform_specs = [
     CloudQueryPlatformSpec("azure",
@@ -82,9 +63,6 @@ platform_specs = [
                                "AZURE_CLIENT_SECRET": "clientSecret"
                            },
                            resource_type_specs=[
-                               # IMPORTANT!!! The ResourceGroup resource type must be the first entry here so that
-                               # they're all created before processing the other resource types, which
-                               # set a resource_group field that points to their parent resource group instance.
                                CloudQueryResourceTypeSpec(resource_type_name="resource_group",
                                                           cloudquery_table_name="azure_resources_resource_groups",
                                                           mandatory=True),
@@ -99,9 +77,6 @@ platform_specs = [
                                "GOOGLE_APPLICATION_CREDENTIALS": "applicationCredentialsFile"
                            },
                            resource_type_specs=[
-                               # IMPORTANT!!! The project resource type must be the first entry here so that
-                               # they're all created before processing the other resource types, which
-                               # set a resource_group field that points to their parent resource group instance.
                                CloudQueryResourceTypeSpec(resource_type_name="project",
                                                           cloudquery_table_name="gcp_projects",
                                                           mandatory=True),
@@ -118,19 +93,6 @@ platform_specs = [
                                "AWS_SESSION_TOKEN": "awsSessionToken",
                            },
                            resource_type_specs=[
-                               # IMPORTANT!!! The project resource type must be the first entry here so that
-                               # they're all created before processing the other resource types, which
-                               # set a resource_group field that points to their parent resource group instance.
-                               # FIXME: I played around with trying to use resource groups as a grouping
-                               # mechanism for assigning level of detail values like we do with
-                               # namespace, resource groups, project on the other cloud platform, but it
-                               # doesn't look like the actual instances that match a resource group spec
-                               # are returned by CQ. It requires an additional call to resolve the
-                               # instance query associated with the resource group that CQ isn't doing.
-                               # So for now I'm just going to disable this stuff.
-                               # CloudQueryResourceTypeSpec(resource_type_name="resource_group",
-                               #                            cloudquery_table_name="aws_resourcegroups_resource_groups",
-                               #                            mandatory=True),
                                CloudQueryResourceTypeSpec(resource_type_name="ec2_instance",
                                                           cloudquery_table_name="aws_ec2_instances",
                                                           mandatory=False),
@@ -141,11 +103,9 @@ def invoke_cloudquery(cq_command: str,
                       cq_config_dir: str,
                       cq_env_vars: dict[str, str],
                       cq_output_dir: Optional[str] = None) -> None:
-    # We need to set the PATH environment variable so that the cloudquery CLI can be found
     path = os.getenv("PATH")
     cq_env_vars["PATH"] = path
 
-    # Check if HTTP_PROXY and HTTPS_PROXY are set in the OS environment and add them if they are
     http_proxy = os.getenv("HTTP_PROXY")
     https_proxy = os.getenv("HTTPS_PROXY")
     if http_proxy:
@@ -153,9 +113,11 @@ def invoke_cloudquery(cq_command: str,
     if https_proxy:
         cq_env_vars["HTTPS_PROXY"] = https_proxy
 
+    # Ensure all environment variable values are strings
+    cq_env_vars = {k: str(v) for k, v in cq_env_vars.items()}
+
     common_error_message = "Error running CloudQuery to discover resources"
     try:
-        # Construct the args to use to invoke the CloudQuery CLI
         cq_args = ["cloudquery"]
         if debug_logging:
             cq_args += ["--log-level", "debug"]
@@ -165,15 +127,13 @@ def invoke_cloudquery(cq_command: str,
 
         process_info = subprocess.run(cq_args, capture_output=True, env=cq_env_vars)
 
-        # Do some debug logging of the info from the CloudQuery run
-        stderr_text = process_info.stdout.decode('utf-8')
-        stdout_text = process_info.stderr.decode('utf-8')
+        stdout_text = process_info.stdout.decode('utf-8')
+        stderr_text = process_info.stderr.decode('utf-8')
         logger.debug("Results for subprocess run of cloudquery:")
         logger.debug(f"args={process_info.args}")
         logger.debug(f"return-code={process_info.returncode}")
         logger.debug(f"stderr: {stderr_text}")
         logger.debug(f"stdout: {stdout_text}")
-        # If there was a failure code from CloudQuery, then raise an  exception
         if process_info.returncode != 0:
             error_message = f"{common_error_message}: " \
                             f"return-code={process_info.returncode}; " \
@@ -184,6 +144,7 @@ def invoke_cloudquery(cq_command: str,
         error_message = f"{common_error_message}; error launching CloudQuery; {str(e)}"
         raise WorkspaceBuilderException(error_message) from e
 
+
 cloudquery_premium_table_info: Optional[dict[str, list[str]]] = None
 
 def get_premium_tables(table_info_list: list[dict[str, Union[str, Any]]]) -> list[str]:
@@ -193,7 +154,7 @@ def get_premium_tables(table_info_list: list[dict[str, Union[str, Any]]]) -> lis
         if is_premium:
             table_name: str = table_info.get("name")
             premium_tables.append(table_name)
-        relations: list[dict[str, Union[str, Any]]] = table_info.get("relations")
+        relations: list[dict[str, Union[str, Any]]] = table_info.get("relations", [])  # Added default empty list
         if relations:
             premium_relation_tables = get_premium_tables(relations)
             premium_tables += premium_relation_tables
@@ -206,13 +167,9 @@ def init_cloudquery_table_info():
     with tempfile.TemporaryDirectory() as cq_temp_dir:
         cq_config_dir = os.path.join(cq_temp_dir, "config")
         cq_output_dir = os.path.join(cq_temp_dir, "docs")
-        # Set up a template loader func to load from the CloudQuery template dir
-        # FIXME: There's some code duplication here with init_cloudquery_config.
-        # Should refactor a bit to get rid of that.
         templates_dir = "indexers/cloudquery_templates"
         template_loader_func = lambda name: read_file(os.path.join(templates_dir, name))
 
-        # Create the sqlite destination config file
         sqlite_config_path = os.path.join(cq_config_dir, "sqlite.yaml")
         db_file_path = os.path.join(cq_temp_dir, "db.sql")
         template_variables = {"database_path": db_file_path}
@@ -232,7 +189,6 @@ def init_cloudquery_table_info():
         cq_env_vars = dict()
         invoke_cloudquery("tables", cq_config_dir, cq_env_vars, cq_output_dir)
 
-        # Parse the generated table documentation
         cloudquery_premium_table_info = dict()
         for platform_spec in platform_specs:
             table_doc_path = os.path.join(cq_output_dir, platform_spec.name, "__tables.json")
@@ -241,17 +197,84 @@ def init_cloudquery_table_info():
             premium_tables = get_premium_tables(table_doc_data)
             cloudquery_premium_table_info[platform_spec.name] = premium_tables
 
-def get_subscription_id(credential):
+def az_get_subscription_id(credential):
     try:
         subscription_client = SubscriptionClient(credential)
         subscriptions = subscription_client.subscriptions.list()
         for subscription in subscriptions:
-            # Just pick the first one if multiple are returned
             logger.info(f"Found subscription: {subscription.subscription_id}")
             return subscription.subscription_id
     except Exception as e:
         logger.error(f"Failed to retrieve subscription ID: {str(e)}")
     return None
+
+def az_get_credentials_and_subscription_id(platform_config_data):
+    # Attempt to retrieve SP credentials from a secret or environment
+    secret_name = platform_config_data.get("spSecretName")
+    client_id = None
+    client_secret = None
+    tenant_id = None
+    subscription_id = None
+
+    if secret_name:
+        client_id = get_secret_value(secret_name, "clientId")
+        client_secret = get_secret_value(secret_name, "clientSecret")
+        tenant_id = get_secret_value(secret_name, "tenantId")
+        subscription_id = get_secret_value(secret_name, "subscriptionId")
+        logger.info(f"Retrieved subscription_id from secret: {subscription_id}")
+
+    if not client_id or not client_secret or not tenant_id or not subscription_id:
+        client_id = platform_config_data.get("clientId")
+        client_secret = platform_config_data.get("clientSecret")
+        tenant_id = platform_config_data.get("tenantId")
+        subscription_id = platform_config_data.get("subscriptionId")
+        logger.info(f"Retrieved subscription_id from workspaceInfo.yaml: {subscription_id}")
+
+    if not subscription_id:
+        subscription_id = os.getenv("AZURE_SUBSCRIPTION_ID")
+        logger.info(f"Retrieved subscription_id from environment: {subscription_id}")
+
+    if not subscription_id:
+        credential = DefaultAzureCredential()
+        subscription_id = az_get_subscription_id(credential)
+        logger.info(f"Retrieved subscription_id directly from Azure: {subscription_id}")
+
+    if not subscription_id:
+        logger.error("Parameter 'subscription_id' must not be None.")
+        raise ValueError("Parameter 'subscription_id' must not be None.")
+
+    logger.info(f"Using subscription_id: {subscription_id}")
+
+    if client_id and client_secret and tenant_id:
+        credential = ClientSecretCredential(tenant_id, client_id, client_secret)
+    else:
+        try:
+            credential = DefaultAzureCredential()
+            access_token = credential.get_token("https://management.azure.com/.default").token
+
+            return {
+                "AZURE_CLIENT_ID": client_id,
+                "AZURE_CLIENT_SECRET": client_secret,
+                "AZURE_TENANT_ID": tenant_id,
+                "AZURE_SUBSCRIPTION_ID": subscription_id,
+                "AZURE_ACCESS_TOKEN": access_token,
+                "credential": credential,
+                "subscription_id": subscription_id
+            }
+        except Exception as e:
+            error_message = f"Failed to acquire token using Managed Identity: {str(e)}"
+            logger.error(error_message)
+            raise WorkspaceBuilderException(error_message)
+
+    return {
+        "AZURE_CLIENT_ID": client_id,
+        "AZURE_CLIENT_SECRET": client_secret,
+        "AZURE_TENANT_ID": tenant_id,
+        "AZURE_SUBSCRIPTION_ID": subscription_id,
+        "credential": credential,
+        "subscription_id": subscription_id
+    }
+
 
 def init_cloudquery_config(context: Context,
                            cloud_config_data: dict[str, Any],
@@ -266,11 +289,9 @@ def init_cloudquery_config(context: Context,
     if cq_api_key:
         cq_process_environment_vars["CLOUDQUERY_API_KEY"] = cq_api_key
 
-    # Set up a template loader func to load from the CloudQuery template dir
     templates_dir = "indexers/cloudquery_templates"
     template_loader_func = lambda name: read_file(os.path.join(templates_dir, name))
 
-    # Create the sqlite destination config file
     sqlite_config_path = os.path.join(cloud_config_dir, "sqlite.yaml")
     template_variables = {"database_path": db_file_path}
     sqlite_config_text = render_template_file("sqlite-config.yaml", template_variables, template_loader_func)
@@ -284,85 +305,24 @@ def init_cloudquery_config(context: Context,
         if platform_config_data is None:
             continue
 
-        # Attempt to retrieve SP credentials from a secret
-        secret_name = platform_config_data.get("spSecretName")
-        client_id = None
-        client_secret = None
-        tenant_id = None
-        subscription_id = None
+        if platform_name == "azure":
+            az_credentials = az_get_credentials_and_subscription_id(platform_config_data)
+            cq_process_environment_vars.update(az_credentials)
+            credential = az_credentials.get("credential")
+            subscription_id = az_credentials.get("subscription_id")
 
-        if secret_name:
-            client_id = get_secret_value(secret_name, "clientId")
-            client_secret = get_secret_value(secret_name, "clientSecret")
-            tenant_id = get_secret_value(secret_name, "tenantId")
-            subscription_id = get_secret_value(secret_name, "subscriptionId")
-            logger.debug(f"Retrieved subscription_id from secret: {subscription_id}")
+            if not credential or not subscription_id:
+                raise ValueError("Both 'credential' and 'subscription_id' must be provided for Azure.")
 
-        # If the SP details are not found in the secret, fallback to workspaceInfo.yaml
-        if not client_id or not client_secret or not tenant_id or not subscription_id:
-            client_id = platform_config_data.get("clientId")
-            client_secret = platform_config_data.get("clientSecret")
-            tenant_id = platform_config_data.get("tenantId")
-            subscription_id = platform_config_data.get("subscriptionId")
-            logger.debug(f"Retrieved subscription_id from workspaceInfo.yaml: {subscription_id}")
-
-        if not subscription_id:
-            # Attempt to retrieve from environment if not found in config
-            subscription_id = os.getenv("AZURE_SUBSCRIPTION_ID")
-            logger.debug(f"Retrieved subscription_id from environment: {subscription_id}")
-
-        if not subscription_id:
-            # Directly retrieve subscription ID using Azure SDK
-            credential = DefaultAzureCredential()
-            subscription_id = get_subscription_id(credential)
-            logger.debug(f"Retrieved subscription_id directly from Azure: {subscription_id}")
-
-        if not subscription_id:
-            # Final check before raising an error
-            logger.error("Parameter 'subscription_id' must not be None.")
-            raise ValueError("Parameter 'subscription_id' must not be None.")
-
-        # Debugging: Log subscription ID before proceeding
-        logger.info(f"Using subscription_id: {subscription_id}")
-
-        # Discover resource groups
-        if client_id and client_secret and tenant_id:
-            # ServicePrincipal credentials are available, use them
-            cq_process_environment_vars.update({
-                "AZURE_CLIENT_ID": client_id,
-                "AZURE_CLIENT_SECRET": client_secret,
-                "AZURE_TENANT_ID": tenant_id,
-                "AZURE_SUBSCRIPTION_ID": subscription_id,
-            })
-            credential = DefaultAzureCredential(exclude_managed_identity_credential=True)
-        else:
-            # No ServicePrincipal credentials, fallback to Managed Identity
-            try:
-                credential = DefaultAzureCredential()
-                access_token = credential.get_token("https://management.azure.com/.default").token
-
-                cq_process_environment_vars.update({
-                    "AZURE_ACCESS_TOKEN": access_token,
-                    "AZURE_SUBSCRIPTION_ID": subscription_id  # Set the subscription ID
-                })
-
-            except Exception as e:
-                error_message = f"Failed to acquire token using Managed Identity: {str(e)}"
-                logger.error(error_message)
-                raise WorkspaceBuilderException(error_message)
-
-        # Use the resourceGroupLevelOfDetails if it exists, otherwise discover resource groups
-        resource_groups_override = platform_config_data.get("resourceGroupLevelOfDetails")
-
-        if not resource_groups_override:
-            # Discover resource groups accessible to the Managed Identity
-            discovered_resource_groups = discover_resource_groups(credential, subscription_id)
-            resource_groups_override = platform_config_data.get("resourceGroups", discovered_resource_groups)
+            # Handle resource group discovery or overrides
+            resource_groups_override = platform_config_data.get("resourceGroupLevelOfDetails")
+            if not resource_groups_override:
+                discovered_resource_groups = az_discover_resource_groups(credential, subscription_id)
+                resource_groups_override = platform_config_data.get("resourceGroups", discovered_resource_groups)
 
         cq_resource_type_specs = list()
         tables = list()
 
-        # First add any mandatory resource types
         for cq_resource_type_spec in platform_spec.resource_type_specs:
             if cq_resource_type_spec.mandatory:
                 cq_resource_type_specs.append(cq_resource_type_spec)
@@ -394,11 +354,10 @@ def init_cloudquery_config(context: Context,
 
         platform_tables.append((platform_spec, cq_resource_type_specs))
 
-        # Start the template variables from the platform config dict.
         template_variables = deepcopy(platform_config_data)
         template_variables["destination_plugin_name"] = "sqlite"
         template_variables["tables"] = tables
-        template_variables["resourceGroups"] = resource_groups_override  # Use the discovered or overridden list
+        template_variables["resourceGroups"] = resource_groups_override
         config_file_path = os.path.join(cloud_config_dir, platform_spec.config_file_name)
         config_text = render_template_file(platform_spec.config_template_name, template_variables, template_loader_func)
         write_file(config_file_path, config_text)
@@ -406,10 +365,9 @@ def init_cloudquery_config(context: Context,
 
     return cq_process_environment_vars, platform_tables
 
-def discover_resource_groups(credential, subscription_id) -> list[str]:
-    """Discover all resource groups accessible to the Managed Identity."""
+def az_discover_resource_groups(credential, subscription_id) -> list[str]:
     if not subscription_id:
-        raise ValueError("subscription_id cannot be None in discover_resource_groups.")
+        raise ValueError("subscription_id cannot be None in az_discover_resource_groups.")
     
     logger.debug(f"Discovering resource groups for subscription_id: {subscription_id}")
     
@@ -418,7 +376,7 @@ def discover_resource_groups(credential, subscription_id) -> list[str]:
         resource_client = ResourceManagementClient(credential, subscription_id)
         for rg in resource_client.resource_groups.list():
             resource_groups.append(rg.name)
-            logger.info(f"Discovered resource group: {rg.name}")  # Log each discovered resource group
+            logger.info(f"Discovered resource group: {rg.name}")
     except Exception as e:
         logger.error(f"Failed to discover resource groups: {str(e)}")
         raise WorkspaceBuilderException(f"Error discovering resource groups: {str(e)}")
@@ -433,14 +391,6 @@ def discover_resource_groups(credential, subscription_id) -> list[str]:
 def transform_cloud_config(cloud_config: dict[str, Any],
                            cq_temp_dir: str,
                            platform_handlers: dict[str, PlatformHandler]) -> None:
-    """
-    Give the platform handlers a shot at transforming the cloud config data before
-    we use it to set up the CloudQuery config files. Currently, this is just used
-    as a hook to do the processing of file-based data to copy the inline file data
-    to a temp file and replace the value with the path to the temp file. But the
-    platform handler could make other changes to the config if it makes sense for
-    that handler.
-    """
     for platform_spec in platform_specs:
         platform_name = platform_spec.name
         platform_cloud_config = cloud_config.get(platform_name)
@@ -448,10 +398,21 @@ def transform_cloud_config(cloud_config: dict[str, Any],
             platform_handler = platform_handlers[platform_name]
             platform_handler.transform_cloud_config(platform_cloud_config, cq_temp_dir)
 
+def az_validate_credential_access(credential, subscription_id):
+    try:
+        resource_client = ResourceManagementClient(credential, subscription_id)
+        resource_groups = list(resource_client.resource_groups.list())
+        if resource_groups:
+            logger.info(f"Successfully accessed {len(resource_groups)} resource groups.")
+        else:
+            logger.warning("No resource groups found.")
+    except Exception as e:
+        logger.error(f"Failed to validate credential access: {str(e)}")
+        raise WorkspaceBuilderException("Credential validation failed.")
+
 def index(context: Context):
     logger.info("Starting CloudQuery indexing")
 
-    # Initialize CloudQuery table information
     init_cloudquery_table_info()
 
     cloud_config = context.get_setting("CLOUD_CONFIG")
@@ -462,15 +423,12 @@ def index(context: Context):
 
         registry: Registry = context.get_property(REGISTRY_PROPERTY_NAME)
         with tempfile.TemporaryDirectory() as cq_temp_dir:
-            # Create a config directory in the temp directory where we'll put all the CloudQuery config files
             cq_config_dir = os.path.join(cq_temp_dir, "config")
             os.makedirs(cq_config_dir)
 
-            # Transform the cloud config data as needed
             cloud_config = deepcopy(cloud_config)
             transform_cloud_config(cloud_config, cq_temp_dir, platform_handlers)
 
-            # Create the CloudQuery source/destination config files
             sqlite_database_file_path = os.path.join(cq_temp_dir, "db.sql")
             env_vars, cq_platform_infos = init_cloudquery_config(context,
                                                                  cloud_config,
@@ -481,7 +439,6 @@ def index(context: Context):
             if len(cq_platform_infos) > 0:
                 invoke_cloudquery("sync", cq_config_dir, env_vars)
 
-                # Convert the tables from the sqlite DB to resources in the resource registry
                 sql_connection = sqlite3.connect(sqlite_database_file_path)
                 cursor = sql_connection.cursor()
                 for cq_platform_spec, cq_resource_type_specs in cq_platform_infos:
@@ -508,7 +465,7 @@ def index(context: Context):
                             for i in range(len(field_descriptions)):
                                 attribute_name = field_descriptions[i][0]
                                 attribute_value = table_row[i]
-                                if type(attribute_value) == str:
+                                if isinstance(attribute_value, str):  # Improved type check
                                     try:
                                         attribute_value = yaml.safe_load(attribute_value)
                                     except yaml.YAMLError:
@@ -529,4 +486,3 @@ def index(context: Context):
                             logger.info(f"Added resource: {resource_name} to registry.")
 
     logger.info("Finished CloudQuery indexing")
-
