@@ -393,7 +393,7 @@ def main():
         clusters = aks_clusters.get('clusters', [])
 
         # Generate kubeconfig for each cluster with optional server override
-        generate_kubeconfig_for_aks(clusters)
+        generate_kubeconfig_for_aks(clusters, workspace_info)
         kubeconfig = "config"
         kubeconfig_path = "~/.kube/config"
     else:
