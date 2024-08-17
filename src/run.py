@@ -389,7 +389,7 @@ def main():
     # Check for a list of AKS clusters and build a kubeconfig if present
     if 'cloudConfig' in workspace_info and 'azure' in workspace_info['cloudConfig']:
         azure_config = workspace_info['cloudConfig']['azure']
-        aks_clusters = azure_config.get('aks_clusters', {})
+        aks_clusters = azure_config.get('aksClusters', {})
         clusters = aks_clusters.get('clusters', [])
 
         # Generate kubeconfig for each cluster with optional server override

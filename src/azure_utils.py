@@ -39,6 +39,9 @@ def get_secret(secret_name):
     namespace = get_namespace()
     try:
         secret = v1.read_namespaced_secret(secret_name, namespace)
+        if not secret.data:
+            print(f"Secret {secret_name} is empty or has no data", file=sys.stderr)
+            sys.exit(1)
         return secret.data
     except client.exceptions.ApiException as e:
         print(f"Error fetching secret {secret_name} in namespace {namespace}: {e}", file=sys.stderr)
@@ -46,30 +49,34 @@ def get_secret(secret_name):
 
 def get_azure_credential(workspace_info):
     azure_config = workspace_info.get('cloudConfig', {}).get('azure', {})
-    
+
     tenant_id = azure_config.get('tenantId')
     client_id = azure_config.get('clientId')
     client_secret = azure_config.get('clientSecret')
-    sp_secret = azure_config.get('spSecret')
+    sp_secret_name = azure_config.get('spSecretName')
 
+    # Priority 1: Use credentials from workspace_info.yaml
     if tenant_id and client_id and client_secret:
         print("Using explicit tenant client configuration from workspaceInfo.yaml")
-        return ClientSecretCredential(tenant_id=tenant_id, client_id=client_id, client_secret=client_secret)
+        return ClientSecretCredential(tenant_id=tenant_id, client_id=client_id, client_secret=client_secret), client_id, client_secret
 
-    if sp_secret:
-        print(f"Using Kubernetes secret from workspaceInfo.yaml: {sp_secret}")
-        secret_data = get_secret(sp_secret.get('name'))
+    # Priority 2: Use credentials from Kubernetes secret
+    if sp_secret_name:
+        print(f"Using Kubernetes secret named {sp_secret_name} from workspaceInfo.yaml")
+        secret_data = get_secret(sp_secret_name)
         tenant_id = secret_data.get('tenantId').decode('utf-8')
         client_id = secret_data.get('clientId').decode('utf-8')
         client_secret = secret_data.get('clientSecret').decode('utf-8')
+
         if tenant_id and client_id and client_secret:
-            return ClientSecretCredential(tenant_id=tenant_id, client_id=client_id, client_secret=client_secret)
-    
+            return ClientSecretCredential(tenant_id=tenant_id, client_id=client_id, client_secret=client_secret), client_id, client_secret
+
+    # Priority 3: Fallback to Managed Service Identity (MSI)
     print("Using managed service identity for authentication")
-    return DefaultAzureCredential()
+    return DefaultAzureCredential(), None, None
 
 def generate_kubeconfig_for_aks(clusters, workspace_info):
-    credential = get_azure_credential(workspace_info)
+    credential, client_id, client_secret = get_azure_credential(workspace_info)  # Receive client_id and client_secret
     subscription_id = get_subscription_id(credential)
     aks_client = ContainerServiceClient(credential, subscription_id=subscription_id)
 
@@ -138,11 +145,20 @@ def generate_kubeconfig_for_aks(clusters, workspace_info):
         print(f"Failed to write kubeconfig file: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # Convert the kubeconfig using kubelogin for MSI
-    try:
-        print("Converting kubeconfig using kubelogin...")
-        subprocess.run(["kubelogin", "convert-kubeconfig", "-l", "msi"], check=True)
-        print("Successfully converted kubeconfig with kubelogin for MSI.")
-    except subprocess.CalledProcessError as e:
-        print(f"Failed to convert kubeconfig using kubelogin: {e}", file=sys.stderr)
-        sys.exit(1)
+    # Convert the kubeconfig using kubelogin for Service Principal or MSI
+    if client_id and client_secret:
+        try:
+            print("Converting kubeconfig using kubelogin for Service Principal...")
+            subprocess.run(["kubelogin", "convert-kubeconfig", "-l", "spn", "--client-id", client_id, "--client-secret", client_secret], check=True)
+            print("Successfully converted kubeconfig with kubelogin for Service Principal.")
+        except subprocess.CalledProcessError as e:
+            print(f"Failed to convert kubeconfig using kubelogin for Service Principal: {e}", file=sys.stderr)
+            sys.exit(1)
+    else:
+        try:
+            print("Converting kubeconfig using kubelogin for MSI...")
+            subprocess.run(["kubelogin", "convert-kubeconfig", "-l", "msi"], check=True)
+            print("Successfully converted kubeconfig with kubelogin for MSI.")
+        except subprocess.CalledProcessError as e:
+            print(f"Failed to convert kubeconfig using kubelogin for MSI: {e}", file=sys.stderr)
+            sys.exit(1)
