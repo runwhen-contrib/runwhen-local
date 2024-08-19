@@ -340,10 +340,12 @@ def init_cloudquery_config(context: Context,
     for platform_spec in platform_specs:
         platform_name = platform_spec.name
         platform_config_data = cloud_config_data.get(platform_name)
+        resource_groups_override = None
         if platform_config_data is None:
             continue
 
         if platform_name == "azure":
+            logger.debug("Entering Azure configuration block")
             az_credentials = az_get_credentials_and_subscription_id(platform_config_data)
             cq_process_environment_vars.update(az_credentials)
             credential = az_credentials.get("credential")
