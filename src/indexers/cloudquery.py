@@ -394,7 +394,10 @@ def init_cloudquery_config(context: Context,
         template_variables = deepcopy(platform_config_data)
         template_variables["destination_plugin_name"] = "sqlite"
         template_variables["tables"] = tables
-        template_variables["resourceGroups"] = resource_groups_override
+        if resource_groups_override:
+            template_variables["resourceGroups"] = resource_groups_override
+        else:
+            logger.info("No resource groups override found.")
         config_file_path = os.path.join(cloud_config_dir, platform_spec.config_file_name)
         config_text = render_template_file(platform_spec.config_template_name, template_variables, template_loader_func)
         write_file(config_file_path, config_text)
