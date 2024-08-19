@@ -17,6 +17,8 @@ import yaml
 from utils import transform_client_cloud_config
 from utils import get_proxy_config
 from utils import get_request_verify
+from azure_utils import generate_kubeconfig_for_aks
+
 
 debug_suppress_cheat_sheet = os.getenv("WB_DEBUG_SUPPRESS_CHEAT_SHEET")
 cheat_sheet_enabled = (debug_suppress_cheat_sheet is None or
@@ -384,34 +386,47 @@ def main():
     if not cloud_config:
         cloud_config = os.getenv("WB_CLOUD_CONFIG")
 
+    # Check for a list of AKS clusters and build a kubeconfig if present
+    if 'cloudConfig' in workspace_info and 'azure' in workspace_info['cloudConfig']:
+        azure_config = workspace_info['cloudConfig']['azure']
+        aks_clusters = azure_config.get('aksClusters', {})
+        clusters = aks_clusters.get('clusters', [])
 
-    ## FIXME This is a quick hack to handle the transition from top-level object to 
-    ## cloudConfig configuration, ensuring to support in-cluster-auth, which is 
-    ## mostly for POCs but represents the fastest way to get up and running
-    kubeconfig = args.kubeconfig
-    kubeconfig_path = os.path.join(base_directory, kubeconfig)
+        # Generate kubeconfig for each cluster with optional server override
+        generate_kubeconfig_for_aks(clusters, workspace_info)
+        kubeconfig = "config"
+        kubeconfig_path = "~/.kube/config"
+    else:
+        print("No Azure AKS configuration found in workspaceInto.yaml")
+        print("Looking for generic kubeconfig")
 
-    # Check if the file at the constructed path exists
-    if not os.path.exists(kubeconfig_path):
-        print(f"Auth file not found at {base_directory}/{kubeconfig}...")
-        # Try getting the kubeconfig from the MB_KUBECONFIG environment variable
-        kubeconfig = os.getenv('MB_KUBECONFIG')
-        if kubeconfig:
-            kubeconfig_path = os.path.join(base_directory, kubeconfig)
+        ## FIXME This is a quick hack to handle the transition from top-level object to 
+        ## cloudConfig configuration, ensuring to support in-cluster-auth, which is 
+        ## mostly for POCs but represents the fastest way to get up and running
+        kubeconfig = args.kubeconfig
+        kubeconfig_path = os.path.join(base_directory, kubeconfig)
 
-        # If the file still doesn't exist and we're in a Kubernetes environment, create a kubeconfig
-        if not os.path.exists(kubeconfig_path) and os.getenv('KUBERNETES_SERVICE_HOST'):
-            kubeconfig_data = create_kubeconfig()
-            # Save the kubeconfig_data to a file in the base_directory
-            kubeconfig_file = os.path.join(base_directory, "in_cluster_kubeconfig.yaml")
-            with open(kubeconfig_file, "w") as f:
-                f.write(yaml.dump(kubeconfig_data))
-            print(f"Copying {kubeconfig_file} to {kubeconfig_path}...")
-            shutil.copyfile(kubeconfig_file, kubeconfig_path)
-            print("Using in-cluster Kubernetes auth...")
+        # Check if the file at the constructed path exists
+        if not os.path.exists(kubeconfig_path):
+            print(f"Auth file not found at {base_directory}/{kubeconfig}...")
+            # Try getting the kubeconfig from the MB_KUBECONFIG environment variable
+            kubeconfig = os.getenv('MB_KUBECONFIG')
+            if kubeconfig:
+                kubeconfig_path = os.path.join(base_directory, kubeconfig)
+
+            # If the file still doesn't exist and we're in a Kubernetes environment, create a kubeconfig
+            if not os.path.exists(kubeconfig_path) and os.getenv('KUBERNETES_SERVICE_HOST'):
+                kubeconfig_data = create_kubeconfig()
+                # Save the kubeconfig_data to a file in the base_directory
+                kubeconfig_file = os.path.join(base_directory, "in_cluster_kubeconfig.yaml")
+                with open(kubeconfig_file, "w") as f:
+                    f.write(yaml.dump(kubeconfig_data))
+                print(f"Copying {kubeconfig_file} to {kubeconfig_path}...")
+                shutil.copyfile(kubeconfig_file, kubeconfig_path)
+                print("Using in-cluster Kubernetes auth...")
+                print(f"Using auth from {base_directory}/{kubeconfig}...")
+        else: 
             print(f"Using auth from {base_directory}/{kubeconfig}...")
-    else: 
-        print(f"Using auth from {base_directory}/{kubeconfig}...")
 
     if cloud_config:
         transform_client_cloud_config(base_directory, cloud_config)

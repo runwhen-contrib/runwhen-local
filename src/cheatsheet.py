@@ -807,6 +807,11 @@ def generate_auth_details():
         with open('/shared/in_cluster_kubeconfig.yaml', 'r') as file:
             config_details = yaml.safe_load(file)
             auth_config_details['kubernetes']['kubeconfig_details'] = config_details
+    elif os.path.exists('/workspace-builder/.kube/config'):
+        kubeconfig_auth = "cloud-provider-identity"
+        with open('/workspace-builder/.kube/config', 'r') as file:
+            config_details = yaml.safe_load(file)
+            auth_config_details['kubernetes']['kubeconfig_details'] = config_details
     auth_config_details['kubernetes']['type']= kubeconfig_auth
 
 

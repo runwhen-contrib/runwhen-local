@@ -206,3 +206,28 @@ def get_request_verify():
     if 'REQUESTS_CA_BUNDLE' in os.environ:
         return False
     return None
+
+def mask_string(input_string: str, start_visible: int = 2, end_visible: int = 2, mask_char: str = '*') -> str:
+    """
+    Mask a string by keeping the first and last few characters visible and replacing 
+    the middle characters with a specified mask character.
+
+    Args:
+        input_string (str): The original string to be masked.
+        start_visible (int): The number of characters to keep visible at the start of the string.
+        end_visible (int): The number of characters to keep visible at the end of the string.
+        mask_char (str): The character used for masking the middle part of the string.
+
+    Returns:
+        str: The masked string.
+    """
+    if len(input_string) <= start_visible + end_visible:
+        # If the string is too short to mask, return it as is
+        return input_string
+    
+    masked_string = (
+        input_string[:start_visible] +
+        mask_char * (len(input_string) - start_visible - end_visible) +
+        input_string[-end_visible:]
+    )
+    return masked_string

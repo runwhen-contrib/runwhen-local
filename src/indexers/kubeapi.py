@@ -185,12 +185,12 @@ def index(component_context: Context):
     # we can get rid of the support for this older format.
     
     kubeconfig_path: Optional[str] = None
+    encoded_kubeconfig_file = None
     namespace_lods: Optional[dict[str, LevelOfDetail]] = None
     custom_namespace_names: Optional[list[str]] = None
     exclude_annotations: Dict[str, str] = {}
     exclude_labels: Dict[str, str] = {}
     lod_annotations = HARDCODED_LOD_ANNOTATIONS
-
 
     # Extract settings from the context
     cloud_config_settings: Optional[dict[str, Any]] = component_context.get_setting("CLOUD_CONFIG")
@@ -203,11 +203,25 @@ def index(component_context: Context):
             # contents of the file settings to a temp file and replaces the setting with
             # a path to the temp file. So we need to do it manually here for the
             # kubeconfig file.
+            logger.info(f"Found kubernetes settings.")
             encoded_kubeconfig_file = kubernetes_settings.get("kubeconfigFile")
             namespace_lods = kubernetes_settings.get("namespaceLODs", {})
             custom_namespace_names = kubernetes_settings.get("namespaces", [])
             exclude_annotations = kubernetes_settings.get("excludeAnnotations", {})
             exclude_labels = kubernetes_settings.get("excludeLabels", {})
+
+        # Same process as above for AKS clusters
+        logger.info(f"Checking for AKS clusters.")     
+        azure_settings = cloud_config_settings.get("azure", {})
+        aks_settings: Optional[dict[str, Any]] = azure_settings.get("aksClusters")
+        if aks_settings:
+            logger.info(f"Discovering AKS clusters: {aks_settings}")
+            kubeconfig_path = "/workspace-builder/.kube/config"
+            namespace_lods = aks_settings.get("namespaceLODs", {})
+            custom_namespace_names = aks_settings.get("namespaces", [])
+            exclude_annotations = aks_settings.get("excludeAnnotations", {})
+            exclude_labels = aks_settings.get("excludeLabels", {})
+
 
     # Hard-code values to be added
     exclude_annotations.update(HARDCODED_EXCLUDE_ANNOTATIONS)

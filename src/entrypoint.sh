@@ -40,7 +40,7 @@ mkdocs serve -f cheat-sheet-docs/mkdocs.yml &
 node server.js &
 nginx &
 
-# Run neo4j in the background
+# Run Django in the background
 python manage.py migrate
 echo Starting workspace builder REST server
 
@@ -50,7 +50,9 @@ echo Starting workspace builder REST server
 if [ -n "$AUTORUN_WORKSPACE_BUILDER_INTERVAL" ]; 
 then
     echo "AUTORUN_WORKSPACE_BUILDER_INTERVAL is set. Running workspace-builder"
-    python manage.py runserver 0.0.0.0:8000 --noreload &
+    python manage.py runserver 0.0.0.0:8000 &
+    # Put this back after testing
+    # python manage.py runserver 0.0.0.0:8000 --noreload &
     sleep 60
     if [[ "${RW_LOCAL_UPLOAD_ENABLED,,}" == "true" ]]; 
     then
@@ -67,5 +69,7 @@ then
         while true; do ./run.sh; sleep $AUTORUN_WORKSPACE_BUILDER_INTERVAL; done
     fi 
 else
-    python manage.py runserver 0.0.0.0:8000 --noreload
+  python manage.py runserver 0.0.0.0:8000 
+  # Put this back after testing
+  # python manage.py runserver 0.0.0.0:8000 --noreload
 fi
