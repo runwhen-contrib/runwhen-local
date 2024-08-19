@@ -35,13 +35,15 @@ def get_azure_credential(workspace_info):
     tenant_id = azure_config.get('tenantId')
     client_id = azure_config.get('clientId')
     client_secret = azure_config.get('clientSecret')
-    sp_secret_name = azure_config.get('spSecretName')  # Updated to use spSecretName
+    sp_secret_name = azure_config.get('spSecretName')
 
     if tenant_id and client_id and client_secret:
         print("Using explicit tenant client configuration from workspaceInfo.yaml")
         subscription_id = azure_config.get('subscriptionId')
         if not subscription_id:
-            print("Warning: subscriptionId not found in workspaceInfo.yaml. Attempting to retrieve from secret.")
+            print("Warning: subscriptionId not found in workspaceInfo.yaml. Attempting to retrieve it using service principal credentials.")
+            credential = ClientSecretCredential(tenant_id=tenant_id, client_id=client_id, client_secret=client_secret)
+            subscription_id = get_subscription_id(credential)
         return ClientSecretCredential(tenant_id=tenant_id, client_id=client_id, client_secret=client_secret), subscription_id, client_id, client_secret
 
     if sp_secret_name:
@@ -53,23 +55,27 @@ def get_azure_credential(workspace_info):
         subscription_id = base64.b64decode(secret_data.get('subscriptionId')).decode('utf-8') if secret_data.get('subscriptionId') else None
 
         if not subscription_id:
-            print("Warning: subscriptionId not found in Kubernetes secret. Attempting to retrieve from workspaceInfo.yaml.")
-            subscription_id = azure_config.get('subscriptionId')
+            print("Warning: subscriptionId not found in Kubernetes secret. Attempting to retrieve it using service principal credentials.")
+            credential = ClientSecretCredential(tenant_id=tenant_id, client_id=client_id, client_secret=client_secret)
+            subscription_id = get_subscription_id(credential)
             if not subscription_id:
                 print("Error: subscriptionId not found in either Kubernetes secret or workspaceInfo.yaml.", file=sys.stderr)
                 sys.exit(1)
 
-        if tenant_id and client_id and client_secret:
-            return ClientSecretCredential(tenant_id=tenant_id, client_id=client_id, client_secret=client_secret), subscription_id, client_id, client_secret
+        return ClientSecretCredential(tenant_id=tenant_id, client_id=client_id, client_secret=client_secret), subscription_id, client_id, client_secret
+
     print("Using managed service identity for authentication")
-    subscription_id = azure_config.get('subscriptionId')
-    if not subscription_id:
-        print("Error: subscriptionId not found in workspaceInfo.yaml when using managed service identity.", file=sys.stderr)
+    try:
+        credential = DefaultAzureCredential()
+        subscription_id = azure_config.get('subscriptionId')
+        if not subscription_id:
+            print("Subscription ID not provided in workspaceInfo.yaml. Retrieving using managed identity.")
+            subscription_id = get_subscription_id(credential)
+        print(f"Found Azure Subscription ID: {mask_string(subscription_id)}")
+        return credential, subscription_id, None, None
+    except Exception as e:
+        print(f"Failed to authenticate using managed identity: {e}", file=sys.stderr)
         sys.exit(1)
-    print(f"Found Azure Subscription ID: {mask_string(subscription_id)}")
-
-    return DefaultAzureCredential(), subscription_id, None, None
-
 
 def generate_kubeconfig_for_aks(clusters, workspace_info):
     credential, subscription_id, client_id, client_secret = get_azure_credential(workspace_info)
