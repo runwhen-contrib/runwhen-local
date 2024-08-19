@@ -253,7 +253,7 @@ def az_get_credentials_and_subscription_id(platform_config_data):
 
     # Attempt to retrieve service principal credentials from a Kubernetes secret
     if sp_secret_name:
-        logger.info(f"Using Kubernetes secret named {sp_secret_name} from workspaceInfo.yaml")
+        logger.info(f"Using Kubernetes secret named {mask_string(sp_secret_name)} from workspaceInfo.yaml")
         secret_data = get_secret(sp_secret_name)
         tenant_id = base64.b64decode(secret_data.get('tenantId')).decode('utf-8')
         client_id = base64.b64decode(secret_data.get('clientId')).decode('utf-8')
@@ -348,8 +348,6 @@ def init_cloudquery_config(context: Context,
             cq_process_environment_vars.update(az_credentials)
             credential = az_credentials.get("credential")
             subscription_id = az_credentials.get("subscription_id")
-            print(az_credentials)
-
             if not credential or not subscription_id:
                 raise ValueError("Both 'credential' and 'subscription_id' must be provided for Azure.")
 
