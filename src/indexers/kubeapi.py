@@ -212,7 +212,8 @@ def index(component_context: Context):
 
         # Same process as above for AKS clusters
         logger.info(f"Checking for AKS clusters.")     
-        aks_settings: Optional[dict[str, Any]] = cloud_config_settings.get("azure").get("aksClusters")
+        azure_settings = cloud_config_settings.get("azure", {})
+        aks_settings: Optional[dict[str, Any]] = azure_settings.get("aksClusters")
         if aks_settings:
             logger.info(f"Discovering AKS clusters: {aks_settings}")
             kubeconfig_path = "/workspace-builder/.kube/config"
