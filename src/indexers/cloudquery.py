@@ -340,10 +340,12 @@ def init_cloudquery_config(context: Context,
     for platform_spec in platform_specs:
         platform_name = platform_spec.name
         platform_config_data = cloud_config_data.get(platform_name)
+        resource_groups_override = None
         if platform_config_data is None:
             continue
 
         if platform_name == "azure":
+            logger.debug("Entering Azure configuration block")
             az_credentials = az_get_credentials_and_subscription_id(platform_config_data)
             cq_process_environment_vars.update(az_credentials)
             credential = az_credentials.get("credential")
@@ -394,7 +396,10 @@ def init_cloudquery_config(context: Context,
         template_variables = deepcopy(platform_config_data)
         template_variables["destination_plugin_name"] = "sqlite"
         template_variables["tables"] = tables
-        template_variables["resourceGroups"] = resource_groups_override
+        if resource_groups_override:
+            template_variables["resourceGroups"] = resource_groups_override
+        else:
+            logger.info("No resource groups override found.")
         config_file_path = os.path.join(cloud_config_dir, platform_spec.config_file_name)
         config_text = render_template_file(platform_spec.config_template_name, template_variables, template_loader_func)
         write_file(config_file_path, config_text)
