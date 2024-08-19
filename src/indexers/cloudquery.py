@@ -7,13 +7,14 @@ from copy import deepcopy
 from dataclasses import dataclass
 import json
 import logging
-import os
+import os, sys
 import sqlite3
 import tempfile
 from template import render_template_file
 from typing import Any, Optional, Union
 import subprocess
 import yaml
+import base64
 
 from component import SettingDependency, Context
 from enrichers.generation_rule_types import (
@@ -26,6 +27,10 @@ from exceptions import WorkspaceBuilderException
 from resources import Registry, REGISTRY_PROPERTY_NAME, ResourceTypeSpec
 from utils import read_file, write_file
 from .common import CLOUD_CONFIG_SETTING
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from k8s_utils import get_secret
+from utils import mask_string
+
 
 logger = logging.getLogger(__name__)
 
@@ -202,48 +207,48 @@ def az_get_subscription_id(credential):
         subscription_client = SubscriptionClient(credential)
         subscriptions = subscription_client.subscriptions.list()
         for subscription in subscriptions:
-            logger.info(f"Found subscription: {subscription.subscription_id}")
+            logger.info(f"Found subscription")
             return subscription.subscription_id
     except Exception as e:
-        logger.error(f"Failed to retrieve subscription ID: {str(e)}")
+        logger.error(f"Failed to retrieve subscription ID")
     return None
 
 def az_get_credentials_and_subscription_id(platform_config_data):
     # Attempt to retrieve SP credentials from a secret or environment
-    secret_name = platform_config_data.get("spSecretName")
+    sp_secret_name = platform_config_data.get("spSecretName")
     client_id = None
     client_secret = None
     tenant_id = None
     subscription_id = None
 
-    if secret_name:
-        client_id = get_secret_value(secret_name, "clientId")
-        client_secret = get_secret_value(secret_name, "clientSecret")
-        tenant_id = get_secret_value(secret_name, "tenantId")
-        subscription_id = get_secret_value(secret_name, "subscriptionId")
-        logger.info(f"Retrieved subscription_id from secret: {subscription_id}")
+    if sp_secret_name:
+        print(f"Using Kubernetes secret named {sp_secret_name} from workspaceInfo.yaml")
+        secret_data = get_secret(sp_secret_name)
+        tenant_id = base64.b64decode(secret_data.get('tenantId')).decode('utf-8')
+        client_id = base64.b64decode(secret_data.get('clientId')).decode('utf-8')
+        client_secret = base64.b64decode(secret_data.get('clientSecret')).decode('utf-8')
+        subscription_id = base64.b64decode(secret_data.get('subscriptionId')).decode('utf-8') if secret_data.get('subscriptionId') else None
 
     if not client_id or not client_secret or not tenant_id or not subscription_id:
         client_id = platform_config_data.get("clientId")
         client_secret = platform_config_data.get("clientSecret")
         tenant_id = platform_config_data.get("tenantId")
         subscription_id = platform_config_data.get("subscriptionId")
-        logger.info(f"Retrieved subscription_id from workspaceInfo.yaml: {subscription_id}")
+        logger.info(f"Retrieved subscription_id from workspaceInfo.yaml")
 
     if not subscription_id:
         subscription_id = os.getenv("AZURE_SUBSCRIPTION_ID")
-        logger.info(f"Retrieved subscription_id from environment: {subscription_id}")
+        logger.info(f"Retrieved subscription_id from environment")
 
     if not subscription_id:
         credential = DefaultAzureCredential()
         subscription_id = az_get_subscription_id(credential)
-        logger.info(f"Retrieved subscription_id directly from Azure: {subscription_id}")
+        logger.info(f"Retrieved subscription_id directly from Azure")
 
     if not subscription_id:
         logger.error("Parameter 'subscription_id' must not be None.")
         raise ValueError("Parameter 'subscription_id' must not be None.")
 
-    logger.info(f"Using subscription_id: {subscription_id}")
 
     if client_id and client_secret and tenant_id:
         credential = ClientSecretCredential(tenant_id, client_id, client_secret)
@@ -369,7 +374,7 @@ def az_discover_resource_groups(credential, subscription_id) -> list[str]:
     if not subscription_id:
         raise ValueError("subscription_id cannot be None in az_discover_resource_groups.")
     
-    logger.debug(f"Discovering resource groups for subscription_id: {subscription_id}")
+    logger.debug(f"Discovering resource groups for subscription_id: {mask_string(subscription_id)}")
     
     resource_groups = []
     try:

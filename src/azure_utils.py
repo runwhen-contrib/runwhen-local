@@ -6,13 +6,16 @@ from azure.core.exceptions import AzureError
 import os
 import yaml
 import sys
+import base64
 from kubernetes import client, config
+from k8s_utils import get_secret
+from utils import mask_string
 
 def get_subscription_id(credential):
     try:
         subscription_client = SubscriptionClient(credential)
         subscription = next(subscription_client.subscriptions.list())
-        print(f"Retrieved subscription ID: {subscription.subscription_id}")
+        print(f"Successfully retrieved subscription ID: {mask_string(subscription.subscription_id)}")
         return subscription.subscription_id
     except StopIteration:
         print("Error: No subscriptions found for the provided credentials.", file=sys.stderr)
@@ -24,60 +27,53 @@ def get_subscription_id(credential):
         print(f"Unexpected error occurred while retrieving subscription ID: {e}", file=sys.stderr)
         sys.exit(1)
 
-def get_namespace():
-    namespace_file = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
-    try:
-        with open(namespace_file, 'r') as file:
-            return file.read().strip()
-    except IOError as e:
-        print(f"Failed to read namespace file: {e}", file=sys.stderr)
-        sys.exit(1)
-
-def get_secret(secret_name):
-    config.load_kube_config()
-    v1 = client.CoreV1Api()
-    namespace = get_namespace()
-    try:
-        secret = v1.read_namespaced_secret(secret_name, namespace)
-        if not secret.data:
-            print(f"Secret {secret_name} is empty or has no data", file=sys.stderr)
-            sys.exit(1)
-        return secret.data
-    except client.exceptions.ApiException as e:
-        print(f"Error fetching secret {secret_name} in namespace {namespace}: {e}", file=sys.stderr)
-        sys.exit(1)
+## TODO harmonize these functions with duplicate azure auth code in ../azure_utils.py
 
 def get_azure_credential(workspace_info):
     azure_config = workspace_info.get('cloudConfig', {}).get('azure', {})
-
+    
     tenant_id = azure_config.get('tenantId')
     client_id = azure_config.get('clientId')
     client_secret = azure_config.get('clientSecret')
-    sp_secret_name = azure_config.get('spSecretName')
+    sp_secret_name = azure_config.get('spSecretName')  # Updated to use spSecretName
 
-    # Priority 1: Use credentials from workspace_info.yaml
     if tenant_id and client_id and client_secret:
         print("Using explicit tenant client configuration from workspaceInfo.yaml")
-        return ClientSecretCredential(tenant_id=tenant_id, client_id=client_id, client_secret=client_secret), client_id, client_secret
+        subscription_id = azure_config.get('subscriptionId')
+        if not subscription_id:
+            print("Warning: subscriptionId not found in workspaceInfo.yaml. Attempting to retrieve from secret.")
+        return ClientSecretCredential(tenant_id=tenant_id, client_id=client_id, client_secret=client_secret), subscription_id, client_id, client_secret
 
-    # Priority 2: Use credentials from Kubernetes secret
     if sp_secret_name:
         print(f"Using Kubernetes secret named {sp_secret_name} from workspaceInfo.yaml")
         secret_data = get_secret(sp_secret_name)
-        tenant_id = secret_data.get('tenantId').decode('utf-8')
-        client_id = secret_data.get('clientId').decode('utf-8')
-        client_secret = secret_data.get('clientSecret').decode('utf-8')
+        tenant_id = base64.b64decode(secret_data.get('tenantId')).decode('utf-8')
+        client_id = base64.b64decode(secret_data.get('clientId')).decode('utf-8')
+        client_secret = base64.b64decode(secret_data.get('clientSecret')).decode('utf-8')
+        subscription_id = base64.b64decode(secret_data.get('subscriptionId')).decode('utf-8') if secret_data.get('subscriptionId') else None
+
+        if not subscription_id:
+            print("Warning: subscriptionId not found in Kubernetes secret. Attempting to retrieve from workspaceInfo.yaml.")
+            subscription_id = azure_config.get('subscriptionId')
+            if not subscription_id:
+                print("Error: subscriptionId not found in either Kubernetes secret or workspaceInfo.yaml.", file=sys.stderr)
+                sys.exit(1)
 
         if tenant_id and client_id and client_secret:
-            return ClientSecretCredential(tenant_id=tenant_id, client_id=client_id, client_secret=client_secret), client_id, client_secret
-
-    # Priority 3: Fallback to Managed Service Identity (MSI)
+            return ClientSecretCredential(tenant_id=tenant_id, client_id=client_id, client_secret=client_secret), subscription_id, client_id, client_secret
     print("Using managed service identity for authentication")
-    return DefaultAzureCredential(), None, None
+    subscription_id = azure_config.get('subscriptionId')
+    if not subscription_id:
+        print("Error: subscriptionId not found in workspaceInfo.yaml when using managed service identity.", file=sys.stderr)
+        sys.exit(1)
+    print(f"Found Azure Subscription ID: {mask_string(subscription_id)}")
+
+    return DefaultAzureCredential(), subscription_id, None, None
+
 
 def generate_kubeconfig_for_aks(clusters, workspace_info):
-    credential, client_id, client_secret = get_azure_credential(workspace_info)  # Receive client_id and client_secret
-    subscription_id = get_subscription_id(credential)
+    credential, subscription_id, client_id, client_secret = get_azure_credential(workspace_info)
+    
     aks_client = ContainerServiceClient(credential, subscription_id=subscription_id)
 
     combined_kubeconfig = {
@@ -145,20 +141,20 @@ def generate_kubeconfig_for_aks(clusters, workspace_info):
         print(f"Failed to write kubeconfig file: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # Convert the kubeconfig using kubelogin for Service Principal or MSI
+    # Convert the kubeconfig using kubelogin for MSI, if client_id and client_secret are not provided
     if client_id and client_secret:
         try:
-            print("Converting kubeconfig using kubelogin for Service Principal...")
+            print("Converting kubeconfig using kubelogin...")
             subprocess.run(["kubelogin", "convert-kubeconfig", "-l", "spn", "--client-id", client_id, "--client-secret", client_secret], check=True)
-            print("Successfully converted kubeconfig with kubelogin for Service Principal.")
+            print("Successfully converted kubeconfig with kubelogin for service principal.")
         except subprocess.CalledProcessError as e:
-            print(f"Failed to convert kubeconfig using kubelogin for Service Principal: {e}", file=sys.stderr)
+            print(f"Failed to convert kubeconfig using kubelogin: {e}", file=sys.stderr)
             sys.exit(1)
     else:
         try:
-            print("Converting kubeconfig using kubelogin for MSI...")
+            print("Converting kubeconfig using kubelogin with Managed Service Identity (MSI)...")
             subprocess.run(["kubelogin", "convert-kubeconfig", "-l", "msi"], check=True)
             print("Successfully converted kubeconfig with kubelogin for MSI.")
         except subprocess.CalledProcessError as e:
-            print(f"Failed to convert kubeconfig using kubelogin for MSI: {e}", file=sys.stderr)
+            print(f"Failed to convert kubeconfig using kubelogin: {e}", file=sys.stderr)
             sys.exit(1)
