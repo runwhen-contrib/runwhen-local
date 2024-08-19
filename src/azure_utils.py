@@ -47,7 +47,7 @@ def get_azure_credential(workspace_info):
         return ClientSecretCredential(tenant_id=tenant_id, client_id=client_id, client_secret=client_secret), subscription_id, client_id, client_secret
 
     if sp_secret_name:
-        print(f"Using Kubernetes secret named {sp_secret_name} from workspaceInfo.yaml")
+        print(f"Using Kubernetes secret named {mask_string(sp_secret_name)} from workspaceInfo.yaml")
         secret_data = get_secret(sp_secret_name)
         tenant_id = base64.b64decode(secret_data.get('tenantId')).decode('utf-8')
         client_id = base64.b64decode(secret_data.get('clientId')).decode('utf-8')

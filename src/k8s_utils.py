@@ -30,20 +30,20 @@ def get_secret(secret_name):
     v1 = client.CoreV1Api()
 
     try:
-        print(f"Attempting to fetch secret '{secret_name}' from namespace '{namespace}'...")
+        print(f"Attempting to fetch secret '{mask_string(secret_name)}' from namespace '{namespace}'...")
         secret = v1.read_namespaced_secret(secret_name, namespace)
         
         if not secret.data:
-            print(f"Error: Secret '{secret_name}' in namespace '{namespace}' is empty or has no data.", file=sys.stderr)
+            print(f"Error: Secret '{mask_string(secret_name)}' in namespace '{namespace}' is empty or has no data.", file=sys.stderr)
             sys.exit(1)
 
-        print(f"Secret '{secret_name}' fetched successfully from namespace '{namespace}'.")
+        print(f"Secret '{mask_string(secret_name)}' fetched successfully from namespace '{namespace}'.")
         return secret.data
 
     except client.exceptions.ApiException as e:
-        print(f"API error occurred while fetching secret '{secret_name}' in namespace '{namespace}': {e.reason}", file=sys.stderr)
+        print(f"API error occurred while fetching secret '{mask_string(secret_name)}' in namespace '{namespace}': {e.reason}", file=sys.stderr)
         print(f"HTTP response status code: {e.status}, response body: {e.body}", file=sys.stderr)
         sys.exit(1)
     except Exception as e:
-        print(f"Unexpected error occurred while fetching secret '{secret_name}' in namespace '{namespace}': {e}", file=sys.stderr)
+        print(f"Unexpected error occurred while fetching secret '{mask_string(secret_name)}' in namespace '{namespace}': {e}", file=sys.stderr)
         sys.exit(1)
