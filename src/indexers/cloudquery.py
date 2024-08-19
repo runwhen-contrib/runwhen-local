@@ -1,6 +1,6 @@
 from azure.identity import DefaultAzureCredential, ClientSecretCredential
 from azure.mgmt.resource import ResourceManagementClient, SubscriptionClient
-
+import requests
 from kubernetes import client, config
 
 from copy import deepcopy
@@ -202,6 +202,37 @@ def init_cloudquery_table_info():
             premium_tables = get_premium_tables(table_doc_data)
             cloudquery_premium_table_info[platform_spec.name] = premium_tables
 
+def get_managed_identity_details():
+    # Get credentials using Managed Identity
+    credential = DefaultAzureCredential()
+
+    # Fetch the subscription ID and tenant ID using the SubscriptionClient
+    subscription_client = SubscriptionClient(credential)
+    subscription = next(subscription_client.subscriptions.list())
+    subscription_id = subscription.subscription_id
+    tenant_id = subscription.tenant_id
+
+    # Fetching the Managed Identity's client ID from Azure Instance Metadata Service (IMDS)
+    imds_url = "http://169.254.169.254/metadata/identity/oauth2/token"
+    headers = {"Metadata": "true"}
+    params = {
+        "api-version": "2019-08-01",
+        "resource": "https://management.azure.com/"
+    }
+
+    response = requests.get(imds_url, headers=headers, params=params)
+    response.raise_for_status()
+
+    token_data = response.json()
+    client_id = token_data.get("client_id")  # Extract client ID from the token response if available
+
+    return {
+        "AZURE_TENANT_ID": tenant_id,
+        "AZURE_CLIENT_ID": client_id,
+        "AZURE_SUBSCRIPTION_ID": subscription_id,
+        "credential": credential
+    }
+
 def az_get_subscription_id(credential):
     try:
         subscription_client = SubscriptionClient(credential)
@@ -214,55 +245,61 @@ def az_get_subscription_id(credential):
     return None
 
 def az_get_credentials_and_subscription_id(platform_config_data):
-    # Attempt to retrieve SP credentials from a secret or environment
     sp_secret_name = platform_config_data.get("spSecretName")
     client_id = None
     client_secret = None
     tenant_id = None
     subscription_id = None
 
+    # Attempt to retrieve service principal credentials from a Kubernetes secret
     if sp_secret_name:
-        print(f"Using Kubernetes secret named {sp_secret_name} from workspaceInfo.yaml")
+        logger.info(f"Using Kubernetes secret named {sp_secret_name} from workspaceInfo.yaml")
         secret_data = get_secret(sp_secret_name)
         tenant_id = base64.b64decode(secret_data.get('tenantId')).decode('utf-8')
         client_id = base64.b64decode(secret_data.get('clientId')).decode('utf-8')
         client_secret = base64.b64decode(secret_data.get('clientSecret')).decode('utf-8')
         subscription_id = base64.b64decode(secret_data.get('subscriptionId')).decode('utf-8') if secret_data.get('subscriptionId') else None
 
-    if not client_id or not client_secret or not tenant_id or not subscription_id:
+    # If service principal credentials are not fully available, try to get them from platform config
+    if not client_id or not client_secret or not tenant_id:
         client_id = platform_config_data.get("clientId")
         client_secret = platform_config_data.get("clientSecret")
         tenant_id = platform_config_data.get("tenantId")
         subscription_id = platform_config_data.get("subscriptionId")
-        logger.info(f"Retrieved subscription_id from workspaceInfo.yaml")
+        if client_id and tenant_id:
+            logger.info(f"Retrieved service principal details from workspaceInfo.yaml")
 
+    # If subscription ID is still not available, try to get it from environment variables
     if not subscription_id:
         subscription_id = os.getenv("AZURE_SUBSCRIPTION_ID")
-        logger.info(f"Retrieved subscription_id from environment")
+        if subscription_id:
+            logger.info(f"Retrieved subscription_id from environment variables")
 
-    if not subscription_id:
-        credential = DefaultAzureCredential()
-        subscription_id = az_get_subscription_id(credential)
-        logger.info(f"Retrieved subscription_id directly from Azure")
-
-    if not subscription_id:
-        logger.error("Parameter 'subscription_id' must not be None.")
-        raise ValueError("Parameter 'subscription_id' must not be None.")
-
-
+    # If service principal credentials are available, use them
     if client_id and client_secret and tenant_id:
+        logger.info("Using service principal credentials for authentication.")
         credential = ClientSecretCredential(tenant_id, client_id, client_secret)
+        return {
+            "AZURE_CLIENT_ID": client_id,
+            "AZURE_CLIENT_SECRET": client_secret,
+            "AZURE_TENANT_ID": tenant_id,
+            "AZURE_SUBSCRIPTION_ID": subscription_id,
+            "credential": credential,
+            "subscription_id": subscription_id
+        }
     else:
+        # If service principal credentials are not available, use managed identity
         try:
-            credential = DefaultAzureCredential()
-            access_token = credential.get_token("https://management.azure.com/.default").token
+            logger.info("Falling back to managed identity for authentication.")
+            managed_identity_details = get_managed_identity_details()
+            client_id = managed_identity_details.get("AZURE_CLIENT_ID")
+            tenant_id = managed_identity_details.get("AZURE_TENANT_ID")
+            subscription_id = managed_identity_details.get("AZURE_SUBSCRIPTION_ID")
+            credential = managed_identity_details.get("credential")
+
+            logger.info(f"Using Managed Identity with client_id: {client_id}, tenant_id: {tenant_id}")
 
             return {
-                "AZURE_CLIENT_ID": client_id,
-                "AZURE_CLIENT_SECRET": client_secret,
-                "AZURE_TENANT_ID": tenant_id,
-                "AZURE_SUBSCRIPTION_ID": subscription_id,
-                "AZURE_ACCESS_TOKEN": access_token,
                 "credential": credential,
                 "subscription_id": subscription_id
             }
@@ -271,14 +308,10 @@ def az_get_credentials_and_subscription_id(platform_config_data):
             logger.error(error_message)
             raise WorkspaceBuilderException(error_message)
 
-    return {
-        "AZURE_CLIENT_ID": client_id,
-        "AZURE_CLIENT_SECRET": client_secret,
-        "AZURE_TENANT_ID": tenant_id,
-        "AZURE_SUBSCRIPTION_ID": subscription_id,
-        "credential": credential,
-        "subscription_id": subscription_id
-    }
+    # If we reach here and subscription_id is still None, raise an error
+    if not subscription_id:
+        logger.error("Parameter 'subscription_id' must not be None.")
+        raise ValueError("Parameter 'subscription_id' must not be None.")
 
 
 def init_cloudquery_config(context: Context,
@@ -315,6 +348,7 @@ def init_cloudquery_config(context: Context,
             cq_process_environment_vars.update(az_credentials)
             credential = az_credentials.get("credential")
             subscription_id = az_credentials.get("subscription_id")
+            print(az_credentials)
 
             if not credential or not subscription_id:
                 raise ValueError("Both 'credential' and 'subscription_id' must be provided for Azure.")
