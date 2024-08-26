@@ -25,6 +25,26 @@ env:
   APP_LABEL: "app=runwhen-local"
 
 jobs:
+  scan-repo:
+    runs-on: ubuntu-latest
+    outputs:
+      image_path: ${{ steps.publish-beta.outputs.image_path }}
+    steps:
+      - uses: actions/checkout@v2
+        name: Checkout
+      - name: Run Trivy vulnerability scanner in repo mode
+        uses: aquasecurity/trivy-action@0.20.0
+        with:
+          scan-type: 'fs'
+          ignore-unfixed: true
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
   ## Build and Push to shared artifact registry
   build-and-push-to-shared-artifact-repo:
     runs-on: ubuntu-latest
@@ -32,6 +52,7 @@ jobs:
       image_path: ${{ steps.publish-beta.outputs.image_path }}
     steps:
       - uses: actions/checkout@v2
+        name: Checkout
       - id: "auth-runwhen"
         name: "Authenticate to Google Cloud"
         uses: "google-github-actions/auth@v0.4.0"
