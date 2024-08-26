@@ -1,4 +1,4 @@
-FROM node:22.2.0-slim AS node-base
+FROM node:current-slim AS node-base
 
 RUN apt-get update && apt-get install -y \
     python3 \
