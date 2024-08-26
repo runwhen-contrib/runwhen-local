@@ -38,13 +38,13 @@ jobs:
           scan-type: 'fs'
           ignore-unfixed: true
           format: 'sarif'
-          output: 'trivy-results.sarif'
+          output: 'trivy-results-repo.sarif'
           severity: 'CRITICAL'
 
       - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: 'trivy-results.sarif'
+          sarif_file: 'trivy-results-repo.sarif'
   ## Build and Push to shared artifact registry
   build-and-push-to-shared-artifact-repo:
     runs-on: ubuntu-latest
@@ -71,29 +71,6 @@ jobs:
         run: docker run --privileged --rm tonistiigi/binfmt --install all
       - name: Configure Docker for GCP
         run: gcloud --quiet auth configure-docker us-docker.pkg.dev
-
-      # # Build x86 image for testing
-      # - name: Build x86 image for testing
-      #   run: |-
-      #     cd ./src
-      #     docker build \
-      #       --tag "$IMAGE:$TAG" \
-      #       --load \
-      #       -f Dockerfile .
-
-      # # Scan Image directory
-      # - name: Scan Image
-      #   id: scan
-      #   uses: anchore/scan-action@v3
-      #   with:
-      #     image: "${{ env.IMAGE }}:${{ env.TAG }}"
-      #     fail-build: false
-
-      # - name: Upload Anchore scan SARIF report
-      #   uses: github/codeql-action/upload-sarif@v2
-      #   with:
-      #     sarif_file: ${{ steps.scan.outputs.sarif }}
-
         
       # Build and Push Multi-Arch Images
       - name: Build and push multi-arch image
@@ -110,6 +87,17 @@ jobs:
             --build-arg GITHUB_REF="$GITHUB_REF" \
             -f Dockerfile .
 
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.20.0
+        with:
+          image-ref: '${{ env.SHARED_ARTIFACT_REPOSITORY_PATH }}/$IMAGE:$TAG'
+          format: 'sarif'
+          output: 'trivy-results-image.sarif'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results-image.sarif'
 
       - name: Notify Slack of Container Build
         id: slack-publish-nonprod-shared-artifact-repo

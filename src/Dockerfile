@@ -37,11 +37,10 @@ RUN curl -sSL https://install.python-poetry.org | python3 - --version 1.3.2
 # Copy project requirement files here to ensure they will be cached.
 WORKDIR $PYSETUP_PATH
 
-COPY pyproject.toml poetry.lock ./
 COPY pyproject.toml ./
 
 # Install Python Dependencies
-RUN poetry install --no-dev
+RUN poetry install --only main
 
 # Final Image Stage
 FROM node-base AS app
