@@ -1,4 +1,4 @@
-FROM node:22.2.0-slim AS node-base
+FROM node:current-slim AS node-base
 
 RUN apt-get update && apt-get install -y \
     python3 \
@@ -37,11 +37,10 @@ RUN curl -sSL https://install.python-poetry.org | python3 - --version 1.3.2
 # Copy project requirement files here to ensure they will be cached.
 WORKDIR $PYSETUP_PATH
 
-COPY pyproject.toml poetry.lock ./
 COPY pyproject.toml ./
 
 # Install Python Dependencies
-RUN poetry install --no-dev
+RUN poetry install --only main
 
 # Final Image Stage
 FROM node-base AS app

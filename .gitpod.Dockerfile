@@ -26,4 +26,7 @@ RUN curl -sSL https://sdk.cloud.google.com | bash
 ENV PATH "$PATH:/home/gitpod/google-cloud-sdk/bin/"
 RUN gcloud components install gke-gcloud-auth-plugin --quiet
 
+## Trivy
+RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.18.3
+
 USER gitpod
