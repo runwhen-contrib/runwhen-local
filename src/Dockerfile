@@ -103,9 +103,10 @@ RUN ARCH=$(uname -m) && \
     && rm kubectl.sha256 \
     && chmod +x kubectl \
     && mv kubectl /usr/local/bin/ \
-    && KUBECONFIG=/shared/kubeconfig && \
+    && KUBECONFIG=/shared/kubeconfig \
     # Download the cloudquery CLI
-    curl -L "https://github.com/cloudquery/cloudquery/releases/download/cli-v5.3.0/cloudquery_linux_${CQ_ARCH}" -o /usr/local/bin/cloudquery \
+    && curl -L "https://github.com/stewartshea/cloudquery/releases/download/cli-v5.25.2/cloudquery_linux_${CQ_ARCH}" -o /usr/local/bin/cloudquery \
+    # && curl -L "https://github.com/cloudquery/cloudquery/releases/download/cli-v5.3.0/cloudquery_linux_${CQ_ARCH}" -o /usr/local/bin/cloudquery \
     && chmod a+x /usr/local/bin/cloudquery \
     # Install kubelogin for azure kubeconfig conversion
     && curl -Lo kubelogin.zip https://github.com/Azure/kubelogin/releases/latest/download/kubelogin-linux-amd64.zip \

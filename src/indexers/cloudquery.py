@@ -25,12 +25,10 @@ from enrichers.generation_rule_types import (
 from enrichers.generation_rules import GenerationRuleInfo
 from exceptions import WorkspaceBuilderException
 from resources import Registry, REGISTRY_PROPERTY_NAME, ResourceTypeSpec
-from utils import read_file, write_file
+from utils import read_file, write_file, mask_string
 from .common import CLOUD_CONFIG_SETTING
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from k8s_utils import get_secret
-from utils import mask_string
-
 
 logger = logging.getLogger(__name__)
 
@@ -149,7 +147,6 @@ def invoke_cloudquery(cq_command: str,
         error_message = f"{common_error_message}; error launching CloudQuery; {str(e)}"
         raise WorkspaceBuilderException(error_message) from e
 
-
 cloudquery_premium_table_info: Optional[dict[str, list[str]]] = None
 
 def get_premium_tables(table_info_list: list[dict[str, Union[str, Any]]]) -> list[str]:
@@ -159,7 +156,7 @@ def get_premium_tables(table_info_list: list[dict[str, Union[str, Any]]]) -> lis
         if is_premium:
             table_name: str = table_info.get("name")
             premium_tables.append(table_name)
-        relations: list[dict[str, Union[str, Any]]] = table_info.get("relations", [])  # Added default empty list
+        relations: list[dict[str, Union[str, Any]]] = table_info.get("relations", [])
         if relations:
             premium_relation_tables = get_premium_tables(relations)
             premium_tables += premium_relation_tables
@@ -203,16 +200,13 @@ def init_cloudquery_table_info():
             cloudquery_premium_table_info[platform_spec.name] = premium_tables
 
 def get_managed_identity_details():
-    # Get credentials using Managed Identity
     credential = DefaultAzureCredential()
 
-    # Fetch the subscription ID and tenant ID using the SubscriptionClient
     subscription_client = SubscriptionClient(credential)
     subscription = next(subscription_client.subscriptions.list())
     subscription_id = subscription.subscription_id
     tenant_id = subscription.tenant_id
 
-    # Fetching the Managed Identity's client ID from Azure Instance Metadata Service (IMDS)
     imds_url = "http://169.254.169.254/metadata/identity/oauth2/token"
     headers = {"Metadata": "true"}
     params = {
@@ -224,7 +218,7 @@ def get_managed_identity_details():
     response.raise_for_status()
 
     token_data = response.json()
-    client_id = token_data.get("client_id")  # Extract client ID from the token response if available
+    client_id = token_data.get("client_id")
 
     return {
         "AZURE_TENANT_ID": tenant_id,
@@ -233,17 +227,6 @@ def get_managed_identity_details():
         "credential": credential
     }
 
-def az_get_subscription_id(credential):
-    try:
-        subscription_client = SubscriptionClient(credential)
-        subscriptions = subscription_client.subscriptions.list()
-        for subscription in subscriptions:
-            logger.info(f"Found subscription")
-            return subscription.subscription_id
-    except Exception as e:
-        logger.error(f"Failed to retrieve subscription ID")
-    return None
-
 def az_get_credentials_and_subscription_id(platform_config_data):
     sp_secret_name = platform_config_data.get("spSecretName")
     client_id = None
@@ -251,7 +234,6 @@ def az_get_credentials_and_subscription_id(platform_config_data):
     tenant_id = None
     subscription_id = None
 
-    # Attempt to retrieve service principal credentials from a Kubernetes secret
     if sp_secret_name:
         logger.info(f"Using Kubernetes secret named {mask_string(sp_secret_name)} from workspaceInfo.yaml")
         secret_data = get_secret(sp_secret_name)
@@ -260,7 +242,6 @@ def az_get_credentials_and_subscription_id(platform_config_data):
         client_secret = base64.b64decode(secret_data.get('clientSecret')).decode('utf-8')
         subscription_id = base64.b64decode(secret_data.get('subscriptionId')).decode('utf-8') if secret_data.get('subscriptionId') else None
 
-    # If service principal credentials are not fully available, try to get them from platform config
     if not client_id or not client_secret or not tenant_id:
         client_id = platform_config_data.get("clientId")
         client_secret = platform_config_data.get("clientSecret")
@@ -269,13 +250,11 @@ def az_get_credentials_and_subscription_id(platform_config_data):
         if client_id and tenant_id:
             logger.info(f"Retrieved service principal details from workspaceInfo.yaml")
 
-    # If subscription ID is still not available, try to get it from environment variables
     if not subscription_id:
         subscription_id = os.getenv("AZURE_SUBSCRIPTION_ID")
         if subscription_id:
             logger.info(f"Retrieved subscription_id from environment variables")
 
-    # If service principal credentials are available, use them
     if client_id and client_secret and tenant_id:
         logger.info("Using service principal credentials for authentication.")
         credential = ClientSecretCredential(tenant_id, client_id, client_secret)
@@ -288,7 +267,6 @@ def az_get_credentials_and_subscription_id(platform_config_data):
             "subscription_id": subscription_id
         }
     else:
-        # If service principal credentials are not available, use managed identity
         try:
             logger.info("Falling back to managed identity for authentication.")
             managed_identity_details = get_managed_identity_details()
@@ -308,11 +286,9 @@ def az_get_credentials_and_subscription_id(platform_config_data):
             logger.error(error_message)
             raise WorkspaceBuilderException(error_message)
 
-    # If we reach here and subscription_id is still None, raise an error
     if not subscription_id:
         logger.error("Parameter 'subscription_id' must not be None.")
         raise ValueError("Parameter 'subscription_id' must not be None.")
-
 
 def init_cloudquery_config(context: Context,
                            cloud_config_data: dict[str, Any],
@@ -353,11 +329,20 @@ def init_cloudquery_config(context: Context,
             if not credential or not subscription_id:
                 raise ValueError("Both 'credential' and 'subscription_id' must be provided for Azure.")
 
-            # Handle resource group discovery or overrides
             resource_groups_override = platform_config_data.get("resourceGroupLevelOfDetails")
             if not resource_groups_override:
                 discovered_resource_groups = az_discover_resource_groups(credential, subscription_id)
                 resource_groups_override = platform_config_data.get("resourceGroups", discovered_resource_groups)
+
+        elif platform_name == "gcp":
+            logger.debug("Entering GCP configuration block")
+            service_account_file = platform_config_data.get("applicationCredentialsFile")
+            if service_account_file:
+                cq_process_environment_vars["GOOGLE_APPLICATION_CREDENTIALS"] = service_account_file
+                template_variables["service_account_key_json"] = service_account_file
+                logger.info(f"GOOGLE_APPLICATION_CREDENTIALS set to: {service_account_file}")
+            else:
+                logger.warning("GCP service account credentials file not found in workspaceInfo.yaml")
 
         cq_resource_type_specs = list()
         tables = list()
@@ -396,6 +381,7 @@ def init_cloudquery_config(context: Context,
         template_variables = deepcopy(platform_config_data)
         template_variables["destination_plugin_name"] = "sqlite"
         template_variables["tables"] = tables
+
         if resource_groups_override:
             template_variables["resourceGroups"] = resource_groups_override
         else:
@@ -507,7 +493,7 @@ def index(context: Context):
                             for i in range(len(field_descriptions)):
                                 attribute_name = field_descriptions[i][0]
                                 attribute_value = table_row[i]
-                                if isinstance(attribute_value, str):  # Improved type check
+                                if isinstance(attribute_value, str):
                                     try:
                                         attribute_value = yaml.safe_load(attribute_value)
                                     except yaml.YAMLError:

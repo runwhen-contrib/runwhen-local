@@ -1,4 +1,8 @@
 
+tasks:
+    - name: install trivy
+      init: |
+          brew install trivy
 vscode:
   extensions:
     - hediet.vscode-drawio

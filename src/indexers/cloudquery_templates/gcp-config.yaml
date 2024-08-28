@@ -1,6 +1,8 @@
 kind: source
 spec:
   name: "gcp"
+  spec: 
+      service_account_key_json: '$service_account_key_json'
   path: "cloudquery/gcp"
   version: "v11.5.1"
   registry: "cloudquery"
