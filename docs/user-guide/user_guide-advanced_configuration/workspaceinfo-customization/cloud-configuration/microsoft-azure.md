@@ -76,7 +76,7 @@ This information can also be specified in a Kubernetes secret:&#x20;
 ```
 cloudConfig:
   azure:
-    spsecretName: [secret name]
+    spSecretName: [secret name]
 ```
 
 The format of the secret is such that each configuration element is a specific key, for example:&#x20;
