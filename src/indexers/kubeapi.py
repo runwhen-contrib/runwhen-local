@@ -205,6 +205,7 @@ def index(component_context: Context):
             # kubeconfig file.
             logger.info(f"Found kubernetes settings.")
             encoded_kubeconfig_file = kubernetes_settings.get("kubeconfigFile")
+            kubeconfig_path = "/workspace-builder/.kube/config"
             namespace_lods = kubernetes_settings.get("namespaceLODs", {})
             custom_namespace_names = kubernetes_settings.get("namespaces", [])
             exclude_annotations = kubernetes_settings.get("excludeAnnotations", {})
@@ -269,10 +270,10 @@ def index(component_context: Context):
     # load_kube_config, so it works to bypass it.
 
     with TemporaryDirectory() as temp_dir:
-        if encoded_kubeconfig_file:
-            kubeconfig_text = base64.b64decode(encoded_kubeconfig_file).decode('utf-8')
-            kubeconfig_path = os.path.join(temp_dir, "kubeconfig")
-            write_file(kubeconfig_path, kubeconfig_text)
+        # if encoded_kubeconfig_file:
+        #     kubeconfig_text = base64.b64decode(encoded_kubeconfig_file).decode('utf-8')
+        #     kubeconfig_path = os.path.join(temp_dir, "kubeconfig")
+        #     write_file(kubeconfig_path, kubeconfig_text)
 
         kubernetes_config.load_kube_config(config_file=kubeconfig_path)
         contexts, active_context = kubernetes_config.list_kube_config_contexts(config_file=kubeconfig_path)

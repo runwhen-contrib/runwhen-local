@@ -137,7 +137,7 @@ def generate_kubeconfig_for_aks(clusters, workspace_info):
         os.makedirs(kubeconfig_dir)
 
     # Save the combined kubeconfig to file
-    kubeconfig_path = os.path.join(kubeconfig_dir, "config")
+    kubeconfig_path = os.path.join(kubeconfig_dir, "azure-kubeconfig")
     try:
         print(f"Saving combined kubeconfig to: {kubeconfig_path}")
         with open(kubeconfig_path, "w") as kubeconfig_file:
@@ -151,7 +151,7 @@ def generate_kubeconfig_for_aks(clusters, workspace_info):
     if client_id and client_secret:
         try:
             print("Converting kubeconfig using kubelogin...")
-            subprocess.run(["kubelogin", "convert-kubeconfig", "-l", "spn", "--client-id", client_id, "--client-secret", client_secret], check=True)
+            subprocess.run(["kubelogin", "convert-kubeconfig", "-l", "spn", "--client-id", client_id, "--client-secret", client_secret, "--kubeconfig", kubeconfig_path], check=True)
             print("Successfully converted kubeconfig with kubelogin for service principal.")
         except subprocess.CalledProcessError as e:
             print(f"Failed to convert kubeconfig using kubelogin: {e}", file=sys.stderr)
@@ -159,7 +159,7 @@ def generate_kubeconfig_for_aks(clusters, workspace_info):
     else:
         try:
             print("Converting kubeconfig using kubelogin with Managed Service Identity (MSI)...")
-            subprocess.run(["kubelogin", "convert-kubeconfig", "-l", "msi"], check=True)
+            subprocess.run(["kubelogin", "convert-kubeconfig", "-l", "msi", "--kubeconfig", kubeconfig_path], check=True)
             print("Successfully converted kubeconfig with kubelogin for MSI.")
         except subprocess.CalledProcessError as e:
             print(f"Failed to convert kubeconfig using kubelogin: {e}", file=sys.stderr)

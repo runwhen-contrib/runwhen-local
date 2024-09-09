@@ -463,8 +463,8 @@ def generate_slx_hints(runbook_path):
         "as_measured_by": f'<strong>As Measured By:</strong> {parsed_slx["spec"]["asMeasuredBy"]}'
     }
 
-    # Define the list of specific tags you want to include
-    allowed_tags = ["namespace", "cluster", "project"]
+    # Define the list of specific tags to include (trying to keep tags from getting too messy)
+    allowed_tags = ["namespace", "cluster", "project", "resource_group"]
 
     # Create a dictionary of specific tags from additionalContext
     additional_context = parsed_slx.get("spec", {}).get("additionalContext", {})
