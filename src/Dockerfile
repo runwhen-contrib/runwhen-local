@@ -106,7 +106,7 @@ RUN ARCH=$(uname -m) && \
     && KUBECONFIG=/shared/kubeconfig \
     # Download the cloudquery CLI
     # Temporary hack to fix critical vuln
-    && curl -L "https://github.com/stewartshea/cloudquery/releases/download/cli-v5.25.2/cloudquery_linux_${CQ_ARCH}" -o /usr/local/bin/cloudquery \
+    && curl -L "https://github.com/stewartshea/cloudquery/releases/download/cli-v5.25.3/cloudquery_linux_${CQ_ARCH}" -o /usr/local/bin/cloudquery \
     # && curl -L "https://github.com/cloudquery/cloudquery/releases/download/cli-v5.3.0/cloudquery_linux_${CQ_ARCH}" -o /usr/local/bin/cloudquery \
     && chmod a+x /usr/local/bin/cloudquery \
     # Install kubelogin for azure kubeconfig conversion
