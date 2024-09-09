@@ -412,6 +412,7 @@ def main():
     if not cloud_config:
         cloud_config = os.getenv("WB_CLOUD_CONFIG")
 
+    aks_clusters=None
     # Check for a list of AKS clusters and build a kubeconfig if present
     if 'cloudConfig' in workspace_info and 'azure' in workspace_info['cloudConfig']:
         azure_config = workspace_info['cloudConfig']['azure']
