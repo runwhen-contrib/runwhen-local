@@ -506,6 +506,9 @@ def index(context: Context):
                                                                      platform_config_data,
                                                                      context)
                             resource_attributes['resource'] = resource_data
+                            auth_type, auth_secret = get_auth_type(cq_platform_spec.name, platform_config_data)
+                            resource_attributes['auth_type'] = auth_type
+                            resource_attributes['auth_secret'] = auth_secret
                             registry.add_resource(cq_platform_spec.name,
                                                   cq_resource_type_spec.resource_type_name,
                                                   resource_name,
@@ -514,3 +517,21 @@ def index(context: Context):
                             logger.info(f"Added resource: {resource_name} to registry.")
 
     logger.info("Finished CloudQuery indexing")
+
+def get_auth_type(platform_name, platform_config_data: dict[str,Any]): 
+    # Determine auth type from platform_config_data for use with azure-auth.yaml template
+    auth_secret=None
+    auth_type=None
+    if platform_name == "azure":
+        auth_secret=platform_config_data.get("clientId")
+        if auth_secret:    
+            auth_type="azure_explicit"
+            auth_secret=None
+        else: 
+            auth_secret=platform_config_data.get("spSecretName")
+            if auth_secret: 
+                auth_type="azure_serivce_principal"
+            else: 
+                auth_type="azure_identity"
+                auth_secret=None
+    return auth_type, auth_secret

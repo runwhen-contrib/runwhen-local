@@ -1,0 +1,18 @@
+{% if match_resource.auth_type == "azure_explicit" %}
+  - name: azure_auth
+    workspaceKey: somekey
+{% elif match_resource.auth_type == "azure_service_principal" %}
+  - name: azure_auth
+    workspaceKey: azure:sp@cli
+  - name: az_subscriptionId
+    workspaceKey: k8s:file@secret/{{resource.auth_secret}}:subscriptionId
+  - name: az_clientId
+    workspaceKey: k8s:file@secret/{{resource.auth_secret}}:clientId
+  - name: az_tenantId
+    workspaceKey: k8s:file@secret/{{resource.auth_secret}}:tenantId
+  - name: az_clientSecret
+    workspaceKey: k8s:file@secret/{{resource.auth_secret}}:clientSecret
+{% elif match_resource.auth_type == "azure_managed_identity" %}
+  - name: azure_auth
+    workspaceKey: azure:identity@cli
+{% endif %}
