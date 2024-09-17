@@ -530,8 +530,9 @@ def get_auth_type(platform_name, platform_config_data: dict[str,Any]):
         else: 
             auth_secret=platform_config_data.get("spSecretName")
             if auth_secret: 
-                auth_type="azure_serivce_principal"
+                auth_type="azure_serivce_principal_secret"
             else: 
                 auth_type="azure_identity"
                 auth_secret=None
+    print(f"Setting resource auth attribute: type:{auth_type}, secret:{auth_secret}")
     return auth_type, auth_secret
