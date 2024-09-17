@@ -1,6 +1,12 @@
 {% if match_resource.auth_type == "azure_explicit" %}
-  - name: azure_auth
-    workspaceKey: somekey
+  - name: az_clientId
+    workspaceKey: {{custom.az_clientId}}
+  - name: az_clientSecret
+    workspaceKey: {{custom.az_clientSecret}}
+  - name: az_tenantId
+    workspaceKey: {{custom.az_tenantId}}
+  - name: az_subscriptionId
+    workspaceKey: {{custom.az_subscriptionId}}
 {% elif match_resource.auth_type == "azure_service_principal" %}
   - name: azure_auth
     workspaceKey: azure:sp@cli
