@@ -1,0 +1,18 @@
+{% if cluster.cluster_type == "aks" and cluster.auth_type == "azure_explicit" %}
+  - name: azure_auth
+    workspaceKey: azure:sp@kubeconfig:{{cluster.resource_group}}/{{cluster.name}}
+  - name: az_subscriptionId
+    workspaceKey: k8s:file@secret/azure-sp:subscriptionId
+  - name: az_clientId
+    workspaceKey: k8s:file@secret/azure-sp:clientId
+  - name: az_tenantId
+    workspaceKey: k8s:file@secret/azure-sp:tenantId
+  - name: az_clientSecret
+    workspaceKey: k8s:file@secret/azure-sp:clientSecret
+{% elif cluster.cluster_type == "aks" and cluster.auth_type == "azure_managed_identity" %}
+  - name: azure_auth
+    workspaceKey: azure:identity@kubeconfig:{{cluster.resource_group}}/{{cluster.name}}
+{% else %}
+  - name: kubeconfig
+    workspaceKey: {{custom.kubeconfig_secret_name}}
+{% endif %}

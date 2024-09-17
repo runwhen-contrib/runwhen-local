@@ -7,7 +7,7 @@
     workspaceKey: {{custom.az_tenantId}}
   - name: az_subscriptionId
     workspaceKey: {{custom.az_subscriptionId}}
-{% elif match_resource.auth_type == "azure_service_principal" %}
+{% elif match_resource.auth_type == "azure_service_principal_secret" %}
   - name: azure_auth
     workspaceKey: azure:sp@cli
   - name: az_subscriptionId
