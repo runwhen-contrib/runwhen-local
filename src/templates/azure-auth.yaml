@@ -18,7 +18,10 @@
     workspaceKey: k8s:file@secret/{{resource.auth_secret}}:tenantId
   - name: az_clientSecret
     workspaceKey: k8s:file@secret/{{resource.auth_secret}}:clientSecret
-{% elif match_resource.auth_type == "azure_managed_identity" %}
+{% elif match_resource.auth_type == "azure_identity" %}
   - name: azure_auth
     workspaceKey: azure:identity@cli
+{% else %}
+  - name: azure_auth
+    workspaceKey: AUTH DETAILS NOT FOUND
 {% endif %}

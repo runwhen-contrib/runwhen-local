@@ -456,8 +456,6 @@ def main():
             shutil.copyfile(kubeconfig_file, kubeconfig_path)
             print("Using in-cluster Kubernetes auth...")
             print(f"Created kubeconfig at {base_directory}/{kubeconfig}...")
-    else: 
-        print(f"Using auth from {base_directory}/{kubeconfig}...")
 
     # Merge the kubeconfigs
     final_kubeconfig_path = os.path.expanduser("~/.kube/config")
