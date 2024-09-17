@@ -74,6 +74,7 @@ RUN pip install --no-cache-dir \
     azure-mgmt-containerservice \
     azure-mgmt-resource \
     pyyaml
+RUN npm install -g npm@10.8.3
 
 RUN npm install \
     xterm \
