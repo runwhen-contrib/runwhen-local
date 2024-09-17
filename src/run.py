@@ -437,10 +437,8 @@ def main():
     if 'cloudConfig' in workspace_info and 'kubernetes' in workspace_info['cloudConfig']:
         kubernetes_config=workspace_info['cloudConfig']['kubernetes']
         kubeconfig_path = kubernetes_config.get('kubeconfigFile')
-        print(f"Found user-provided kubeconfigFile: {kubeconfig_path}")
-
-    # Check if the file at the constructed path exists
-    if not os.path.exists(kubeconfig_path):
+        # Check if the file at the constructed path exists
+    if not os.path.exists(kubeconfig_path) and 'cloudConfig' in workspace_info and 'kubernetes' in workspace_info['cloudConfig']:
         print(f"Auth file not found at {base_directory}/{kubeconfig}...")
         # Try getting the kubeconfig from the MB_KUBECONFIG environment variable
         kubeconfig = os.getenv('MB_KUBECONFIG')
