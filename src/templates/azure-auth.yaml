@@ -1,27 +1,27 @@
 {% if match_resource.auth_type == "azure_explicit" %}
-  - name: az_clientId
-    workspaceKey: {{custom.az_clientId}}
-  - name: az_clientSecret
-    workspaceKey: {{custom.az_clientSecret}}
-  - name: az_tenantId
-    workspaceKey: {{custom.az_tenantId}}
-  - name: az_subscriptionId
-    workspaceKey: {{custom.az_subscriptionId}}
+    - name: az_clientId
+      workspaceKey: {{custom.az_clientId}}
+    - name: az_clientSecret
+      workspaceKey: {{custom.az_clientSecret}}
+    - name: az_tenantId
+      workspaceKey: {{custom.az_tenantId}}
+    - name: az_subscriptionId
+      workspaceKey: {{custom.az_subscriptionId}}
 {% elif match_resource.auth_type == "azure_service_principal_secret" %}
-  - name: azure_auth
-    workspaceKey: azure:sp@cli
-  - name: az_subscriptionId
-    workspaceKey: k8s:file@secret/{{resource.auth_secret}}:subscriptionId
-  - name: az_clientId
-    workspaceKey: k8s:file@secret/{{resource.auth_secret}}:clientId
-  - name: az_tenantId
-    workspaceKey: k8s:file@secret/{{resource.auth_secret}}:tenantId
-  - name: az_clientSecret
-    workspaceKey: k8s:file@secret/{{resource.auth_secret}}:clientSecret
+    - name: azure_auth
+      workspaceKey: azure:sp@cli
+    - name: az_subscriptionId
+      workspaceKey: k8s:file@secret/{{resource.auth_secret}}:subscriptionId
+    - name: az_clientId
+      workspaceKey: k8s:file@secret/{{resource.auth_secret}}:clientId
+    - name: az_tenantId
+      workspaceKey: k8s:file@secret/{{resource.auth_secret}}:tenantId
+    - name: az_clientSecret
+      workspaceKey: k8s:file@secret/{{resource.auth_secret}}:clientSecret
 {% elif match_resource.auth_type == "azure_identity" %}
-  - name: azure_auth
-    workspaceKey: azure:identity@cli
+    - name: azure_auth
+      workspaceKey: azure:identity@cli
 {% else %}
-  - name: azure_auth
-    workspaceKey: AUTH DETAILS NOT FOUND
+    - name: azure_auth
+      workspaceKey: AUTH DETAILS NOT FOUND
 {% endif %}
