@@ -331,6 +331,7 @@ def index(component_context: Context):
             cluster_details = next((cluster['cluster'] for cluster in clusters if cluster['name'] == cluster_name), {})
             # Extract extensions from the cluster details
             extensions = cluster_details.get('extensions', {})
+            extension_details = None
             if extensions: 
                 for ext in extensions:
                     if ext.get('name') == 'workspace-builder':
@@ -346,6 +347,7 @@ def index(component_context: Context):
             logger.debug(f"Context Name: {context_name}")
             logger.debug(f"Cluster Name: {cluster_name}")
             logger.debug(f"Full Cluster Details: {cluster_details}")
+
             logger.debug(f"Extensions: {extension_details}")
             logger.debug(f"User Name: {user_name}")
             logger.debug(f"Full User Details: {user_details}")
