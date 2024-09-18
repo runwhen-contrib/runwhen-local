@@ -287,8 +287,17 @@ def main():
         check_rest_service_error(response, args.command, args.verbose)
         response_data = response.json()
         print(f"Workspace builder version: {response_data.get('version')}")
+        wb_version=response_data.get('version')
         # TBD Format/print more of the info from the response
         return
+
+    # Get version
+    info_url = f"http://{rest_service_host}:{rest_service_port}/info/"
+    response = call_rest_service_with_retries(lambda: requests.get(info_url))
+    check_rest_service_error(response, args.command, args.verbose)
+    response_data = response.json()
+    print(f"Workspace builder version: {response_data.get('version')}")
+    wb_version=response_data.get('version')
 
     # First, initialize request data setting from the explicit command line args
     # These have the highest precedence, i.e. over the same setting from the workspace info.
@@ -543,6 +552,8 @@ def main():
             kubeconfig_data = read_file(final_kubeconfig_path, "rb")
             encoded_kubeconfig_data = base64.b64encode(kubeconfig_data).decode('utf-8')
             request_data['kubeconfig'] = encoded_kubeconfig_data
+        if wb_version: 
+            request_data['wbVersion'] = wb_version
         if workspace_name:
             request_data['workspaceName'] = workspace_name
         if workspace_owner_email:
