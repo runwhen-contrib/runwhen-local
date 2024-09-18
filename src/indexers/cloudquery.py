@@ -35,6 +35,16 @@ logger = logging.getLogger(__name__)
 debug_logging_str = os.environ.get('DEBUG_LOGGING')
 debug_logging = debug_logging_str and debug_logging_str.lower() == 'true'
 
+# Set logging level for Azure SDKs based on DEBUG_LOGGING
+if debug_logging:
+    logging.getLogger("azure").setLevel(logging.DEBUG)
+    logging.getLogger("azure.identity").setLevel(logging.DEBUG)
+    logging.getLogger("azure.mgmt").setLevel(logging.DEBUG)
+else:
+    logging.getLogger("azure").setLevel(logging.WARNING)
+    logging.getLogger("azure.identity").setLevel(logging.WARNING)
+    logging.getLogger("azure.mgmt").setLevel(logging.WARNING)
+
 DOCUMENTATION = "Index resources using CloudQuery"
 
 SETTINGS = (

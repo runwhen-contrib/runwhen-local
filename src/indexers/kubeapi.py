@@ -343,12 +343,12 @@ def index(component_context: Context):
             user_details = next((user['user'] for user in users if user['name'] == user_name), {})
 
             # Debug: Print out all details
-            print(f"Context Name: {context_name}")
-            print(f"Cluster Name: {cluster_name}")
-            print(f"Full Cluster Details: {cluster_details}")
-            print(f"Extensions: {extension_details}")
-            print(f"User Name: {user_name}")
-            print(f"Full User Details: {user_details}")
+            logger.debug(f"Context Name: {context_name}")
+            logger.debug(f"Cluster Name: {cluster_name}")
+            logger.debug(f"Full Cluster Details: {cluster_details}")
+            logger.debug(f"Extensions: {extension_details}")
+            logger.debug(f"User Name: {user_name}")
+            logger.debug(f"Full User Details: {user_details}")
 
             cluster = registry.lookup_resource(KUBERNETES_PLATFORM, KubernetesResourceType.CLUSTER.value, cluster_name)
             if cluster:
