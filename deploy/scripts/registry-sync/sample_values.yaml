@@ -445,65 +445,50 @@ runner:
       tag: ""
     tolerations: []
 
-# grafana-agent is only deployed if runner.enabled is true
-# https://github.com/grafana/agent/blob/main/operations/helm/charts/grafana-agent/values.yaml
-grafana-agent:
-  crds:
-    # -- Whether to install CRDs for monitoring.
+## opentelemetry-collector is only deployed if runner.enabled is true
+## https://github.com/open-telemetry/opentelemetry-helm-charts/blob/main/charts/opentelemetry-collector/values.yaml
+opentelemetry-collector:
+  mode: deployment
+  configMap:
     create: false
+    existingName: "otel-collector"
   image:
-    registry: "docker.io"
-    repository: "grafana/agent"
-    tag: ""
-  agent:
-    enableReporting: false
-    mode: 'flow'
-    configMap:
-      create: false
-      name: grafana-agent
-      key: config.river
-    mounts:
-      extra:
-        - name: tls-secret-volume
-          mountPath: /tls
-          readOnly: true
-        # Note: must be used when using .Values.ProxyCA
-        # - name: proxy-ca-volume
-        #   mountPath: /etc/ssl/certs/proxy-ca.crt
-        #   readOnly: true
-        #   subPath: proxy-ca.crt
-    resources:
-      requests:
-        cpu: "10m"
-        memory: "32Mi"
-      limits:
-        cpu: "50m"
-        memory: "64Mi"
-  configReloader:
-    enabled: false
-  controller:
-    type: deployment
-    tolerations: []
-    # Uncomment the following for arm64 nodes
-    # - key: "kubernetes.io/arch"
-    #   operator: "Equal"
-    #   value: "arm64"
-    #   effect: "NoSchedule"
-    volumes:
-      extra:
-        - name: tls-secret-volume
-          secret:
-            secretName: runner-metrics-tls
-        # Note: must be configured when using .Values.ProxyCA -- can also be transitioned to
-        # a configMap if needed -- just match the values from .Values.ProxyCA.ConfigMapName and .Values.ProxyCA.Key
-        # - name: proxy-ca-volume # DO NOT CHANGE
-        #   secret:
-        #     secretName: # Value from .Values.proxyCA.secretName
-        #     items:
-        #       - key: ca.crt # Value from .Values.proxyCA.key
-        #         path: proxy-ca.crt # DO NOT CHANGE
-  rbac:
-    create: false
+    repository: "otel/opentelemetry-collector"
+    pullPolicy: IfNotPresent
+    tag: "latest"
+  imagePullSecrets: []
+  command:
+    name: "otelcol"
+    extraArgs: ["--feature-gates=-pkg.translator.prometheus.NormalizeName"]
   serviceAccount:
     create: false
-    name: grafana-agent
+    annotations: {}
+    name: "otel-collector"
+  extraVolumes:
+    - name: tls-secret-volume
+      secret:
+        secretName: runner-metrics-tls
+    # # Note: must be configured when using .Values.ProxyCA -- can also be transitioned to
+    # # a configMap if needed -- just match the values from .Values.ProxyCA.ConfigMapName and .Values.ProxyCA.Key
+    # - name: proxy-ca-volume # DO NOT CHANGE
+    #   secret:
+    #     secretName: # Value from .Values.proxyCA.secretName
+    #     items:
+    #       - key: ca.crt # Value from .Values.proxyCA.key
+    #         path: proxy-ca.crt # DO NOT CHANGE
+  extraVolumeMounts:
+    - name: tls-secret-volume
+      mountPath: /tls
+      readOnly: true
+    # # Note: must be used when using .Values.ProxyCA
+    # - name: proxy-ca-volume
+    #   mountPath: /etc/ssl/certs/proxy-ca.crt
+    #   readOnly: true
+    #   subPath: proxy-ca.crt
+  resources:
+    requests:
+      cpu: "10m"
+      memory: "32Mi"
+    limits:
+      cpu: "60m"
+      memory: "64Mi"
