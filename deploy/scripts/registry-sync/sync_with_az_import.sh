@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Set Private Registry
-private_registry="myacrrepo.azurecr.io"
+private_registry="myacr.azurecr.io"
 
 # Set Architecture
 desired_architecture="amd64"
@@ -21,26 +21,31 @@ runwhen_local_images=$(cat <<EOF
     "ghcr.io/runwhen-contrib/runwhen-local": {
         "destination": "runwhen/runwhen-local",
         "yaml_path": "runwhenLocal.image",
-        "tag": "0.5.20"
+        "tag": "0.5.20",
+        "use_repository_only": false
     },
     "us-docker.pkg.dev/runwhen-nonprod-shared/public-images/runner": {
         "destination": "runwhen/runner",
         "yaml_path": "runner.image",
-        "tag":"latest"
+        "tag":"latest",
+        "use_repository_only": false
     },
-    "docker.io/grafana/agent": {
-        "destination": "grafana/grafana-agent",
-        "yaml_path": "grafana-agent.image",
-        "tag": "v0.41.1"
+    "docker.io/otel/opentelemetry-collector": {
+        "destination": "otel/opentelemetry-collector",
+        "yaml_path": "opentelemetry-collector.image",
+        "tag": "0.109.0",
+        "use_repository_only": true
     },
     "docker.io/prom/pushgateway": {
         "destination": "prom/pushgateway",
         "yaml_path": "runner.pushgateway.image",
-        "tag": "v1.9.0"
+        "tag": "v1.9.0",
+        "use_repository_only": false
     }
 }
 EOF
 )
+
 
 codecollection_images=$(cat <<EOF
 {
@@ -54,6 +59,10 @@ codecollection_images=$(cat <<EOF
     },
     "us-west1-docker.pkg.dev/runwhen-nonprod-beta/public-images/runwhen-contrib-rw-generic-codecollection-main": {
         "destination": "runwhen/runwhen-contrib-rw-generic-codecollection-main",
+        "yaml_path": "runner.runEnvironment.image"
+    },
+    "us-west1-docker.pkg.dev/runwhen-nonprod-beta/public-images/runwhen-contrib-rw-workspace-utils-main": {
+        "destination": "runwhen/runwhen-contrib-rw-workspace-utils-main",
         "yaml_path": "runner.runEnvironment.image"
     }
 }
@@ -171,15 +180,22 @@ update_values_yaml_no_tag() {
     yq eval ".${yaml_path}.repository = \"$repository\"" -i $new_values_file
 }
 
-# Function to update image registry, repository, and tag in values file
+# Function to update image registry, repository, and tag in values file (registry and repository)
 update_values_yaml() {
     local registry=$1
     local repository=$2
     local tag=$3
     local yaml_path=$4
+    local use_repository_only=$5
 
-    yq eval ".${yaml_path}.registry = \"$registry\"" -i $new_values_file
-    yq eval ".${yaml_path}.repository = \"$repository\"" -i $new_values_file
+    if [ "$use_repository_only" = true ]; then
+        # Only use repository concatenated path
+        yq eval ".${yaml_path}.repository = \"$registry/$repository\"" -i $new_values_file
+    else
+        # Use registry and repository separately
+        yq eval ".${yaml_path}.registry = \"$registry\"" -i $new_values_file
+        yq eval ".${yaml_path}.repository = \"$repository\"" -i $new_values_file
+    fi
     yq eval ".${yaml_path}.tag = \"$tag\"" -i $new_values_file
 }
 
@@ -240,9 +256,10 @@ main() {
 
     # Process RunWhen component images
     for repository_image in $(echo $runwhen_local_images | jq -r 'keys[]'); do
-        # Extract the custom destination and yaml path
+        # Extract the custom destination, yaml path, and use_repository_only flag
         custom_repo_destination=$(echo $runwhen_local_images | jq -r --arg repository_image "$repository_image" '.[$repository_image].destination')
         yaml_path=$(echo $runwhen_local_images | jq -r --arg repository_image "$repository_image" '.[$repository_image].yaml_path')
+        use_repository_only=$(echo $runwhen_local_images | jq -r --arg repository_image "$repository_image" '.[$repository_image].use_repository_only')
 
         if has_tag "$repository_image" "$runwhen_local_images"; then
             tag=$(echo $runwhen_local_images | jq -r --arg repository_image "$repository_image" '.[$repository_image].tag')
@@ -265,12 +282,12 @@ main() {
         if [ "$selected_tag" == "latest" ]; then
             selected_tag=$date_based_tag
             echo "Copying image: $repository_image:latest to $private_registry/$custom_repo_destination:$selected_tag"
-            copy_image $repository_image latest $custom_repo_destination $selected_tag           
+            copy_image $repository_image latest $custom_repo_destination $selected_tag
         else
             echo "Copying image: $repository_image:$selected_tag to $private_registry/$custom_repo_destination:$selected_tag"
             copy_image $repository_image $selected_tag $custom_repo_destination $selected_tag
         fi
-        update_values_yaml $private_registry $custom_repo_destination $selected_tag $yaml_path
+        update_values_yaml $private_registry $custom_repo_destination $selected_tag $yaml_path $use_repository_only
     done
 
     # Display updated new_values.yaml content if it exists
