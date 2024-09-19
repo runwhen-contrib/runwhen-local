@@ -94,6 +94,12 @@ CODE_COLLECTIONS_SETTING = Setting("CODE_COLLECTIONS",
                                    "List of information about which code collections "
                                    "to scan for generation rules")
 
+WB_VERSION_SETTING = Setting("WB_VERSION",
+                        "wbVersion",
+                        Setting.Type.STRING,
+                        "WorkspaceBuilder/RunWhen Local Version")
+
+
 SETTINGS = (
     SettingDependency(WORKSPACE_NAME_SETTING, True),
     SettingDependency(WORKSPACE_OWNER_EMAIL_SETTING, True),
@@ -102,7 +108,8 @@ SETTINGS = (
     SettingDependency(MAP_CUSTOMIZATION_RULES_SETTING, False),
     SettingDependency(CUSTOM_DEFINITIONS_SETTING, False),
     SettingDependency(PERSONAS_SETTING, False),
-    SettingDependency(CODE_COLLECTIONS_SETTING, False)
+    SettingDependency(CODE_COLLECTIONS_SETTING, False),
+    SettingDependency(WB_VERSION_SETTING, False)
 )
 
 GROUPS_PROPERTY = "groups"
@@ -948,6 +955,7 @@ def enrich(context: Context) -> None:
         "short_name": workspace_name,
         "owner_email": workspace_owner_email
     }
+    wb_version: str = context.get_setting("WB_VERSION")
 
     slxs = context.get_property(SLXS_PROPERTY)
     if slxs is None:
@@ -973,6 +981,7 @@ def enrich(context: Context) -> None:
     base_template_variables = {
         'workspace': workspace,
         'workspace_path': workspace_path,
+        'wb_version': wb_version,
         'slxs_path': slxs_path,
         'default_location': default_location,
         'custom': custom_definitions,

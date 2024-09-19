@@ -11,6 +11,7 @@ import base64
 from tempfile import TemporaryDirectory
 import logging
 import os
+import yaml
 from typing import Any, Optional, List, Dict
 
 from kubernetes import client
@@ -134,6 +135,7 @@ def extract_owner_name(resource) -> Optional[str]:
     return annotations.get(OWNER_ANNOTATION_KEY)
 
 
+
 def has_excluded_annotations_or_labels(resource, exclude_annotations: Dict[str, str], exclude_labels: Dict[str, Any]) -> bool:
     if not hasattr(resource, 'metadata'):
         return False
@@ -212,6 +214,10 @@ def index(component_context: Context):
             exclude_labels = kubernetes_settings.get("excludeLabels", {})
 
         # Same process as above for AKS clusters
+        ## TODO Combine this with vanilla kubernetes (and future other cloud k8s discovery)
+        ## into a dict list, as some of these settings will overlap themselves
+        ## though, in theory, many of these settings will never be used if annotations 
+        ## or labels are used for lod discovery
         logger.info(f"Checking for AKS clusters.")     
         azure_settings = cloud_config_settings.get("azure", {})
         aks_settings: Optional[dict[str, Any]] = azure_settings.get("aksClusters")
@@ -275,34 +281,77 @@ def index(component_context: Context):
         #     kubeconfig_path = os.path.join(temp_dir, "kubeconfig")
         #     write_file(kubeconfig_path, kubeconfig_text)
 
-        kubernetes_config.load_kube_config(config_file=kubeconfig_path)
-        contexts, active_context = kubernetes_config.list_kube_config_contexts(config_file=kubeconfig_path)
+        # kubernetes_config.load_kube_config(config_file=kubeconfig_path)
+        # contexts, active_context = kubernetes_config.list_kube_config_contexts(config_file=kubeconfig_path)
+        # for context in contexts:
+        #     context_name = context.get('name')
+        #     context_info = context.get('context')
+        #     # Create the model object for the cluster associated with the current context
+        #     # FIXME: If there are multiple contexts for the same cluster this will update the
+        #     # cluster instance with the last context we see, so we'll lose the previous context
+        #     # info for the cluster. In practice, I'm not sure this is really a problem, though.
+        #     # I don't think any of the gen rules access the context field of the cluster currently,
+        #     # and not sure why they would need to. So possibly this info just shouldn't be
+        #     # included in the resource at all.
+        #     cluster_name = context_info.get('cluster')
+        #     # Check if there's already a resource for this cluster.
+        #     # This could happen if there were multiple contexts accessing the same cluster,
+        #     # presumably with different user credentials that might have different permissions
+        #     # to access different namespaces in the cluster, so we might be able to access
+        #     # additional resources across different context passes for the same cluster.
+        #     # Note: We don't use the built-in add or update logic in the registry's add_resource
+        #     # method because if the cluster already exists it would update the namespaces dict in
+        #     # the existing resource, which would clobber any of the namespaces that had been
+        #     # collected on previous indexing of the cluster.
+        #     # FIXME: This feels kludgy. Should think some more about if there's a cleaner way
+        #     # to handle this...
+        #     # FIXME: Another (nitpicky) issue is that we only keep track of a single context
+        #     # for the cluster, even though its resources might be the union of scans across
+        #     # multiple contexts. But I don't think we currently really use the context attribute
+        #     # for anything, so I don't think this is a big deal.
+
+        # Load the kubeconfig file
+        with open(kubeconfig_path, 'r') as kubeconfig_file:
+            kubeconfig = yaml.safe_load(kubeconfig_file)
+
+        # Get the lists of clusters and users
+        clusters = kubeconfig.get('clusters', [])
+        users = kubeconfig.get('users', [])
+        contexts = kubeconfig.get('contexts', [])
+
         for context in contexts:
             context_name = context.get('name')
             context_info = context.get('context')
-            # Create the model object for the cluster associated with the current context
-            # FIXME: If there are multiple contexts for the same cluster this will update the
-            # cluster instance with the last context we see, so we'll lose the previous context
-            # info for the cluster. In practice, I'm not sure this is really a problem, though.
-            # I don't think any of the gen rules access the context field of the cluster currently,
-            # and not sure why they would need to. So possibly this info just shouldn't be
-            # included in the resource at all.
+
+            # Get the cluster and user names from the context
             cluster_name = context_info.get('cluster')
-            # Check if there's already a resource for this cluster.
-            # This could happen if there were multiple contexts accessing the same cluster,
-            # presumably with different user credentials that might have different permissions
-            # to access different namespaces in the cluster, so we might be able to access
-            # additional resources across different context passes for the same cluster.
-            # Note: We don't use the built-in add or update logic in the registry's add_resource
-            # method because if the cluster already exists it would update the namespaces dict in
-            # the existing resource, which would clobber any of the namespaces that had been
-            # collected on previous indexing of the cluster.
-            # FIXME: This feels kludgy. Should think some more about if there's a cleaner way
-            # to handle this...
-            # FIXME: Another (nitpicky) issue is that we only keep track of a single context
-            # for the cluster, even though its resources might be the union of scans across
-            # multiple contexts. But I don't think we currently really use the context attribute
-            # for anything, so I don't think this is a big deal.
+            user_name = context_info.get('user')
+
+            # Retrieve the full cluster details, including extensions
+            cluster_details = next((cluster['cluster'] for cluster in clusters if cluster['name'] == cluster_name), {})
+            # Extract extensions from the cluster details
+            extensions = cluster_details.get('extensions', {})
+            extension_details = None
+            if extensions: 
+                for ext in extensions:
+                    if ext.get('name') == 'workspace-builder':
+                        # Fetch the extension details
+                        extension_details = ext.get('extension', {})
+                        print(f"Found workspace-builder extension for cluster '{cluster_name}': {extension_details}")
+
+
+            # Retrieve the full user details
+            user_details = next((user['user'] for user in users if user['name'] == user_name), {})
+
+            # Debug: Print out all details
+            logger.debug(f"Context Name: {context_name}")
+            logger.debug(f"Cluster Name: {cluster_name}")
+            logger.debug(f"Full Cluster Details: {cluster_details}")
+
+            logger.debug(f"Extensions: {extension_details}")
+            logger.debug(f"User Name: {user_name}")
+            logger.debug(f"Full User Details: {user_details}")
+
             cluster = registry.lookup_resource(KUBERNETES_PLATFORM, KubernetesResourceType.CLUSTER.value, cluster_name)
             if cluster:
                 cluster_namespaces = getattr(cluster, "namespaces")
@@ -312,6 +361,11 @@ def index(component_context: Context):
                     'context': context_name,
                     'namespaces': cluster_namespaces
                 }
+
+                if extension_details: 
+                    cluster_attributes.update(extension_details)
+                    print(f"Adding new cluster '{cluster_name}' with attributes including extension details: {cluster_attributes}")
+
                 cluster = registry.add_resource(KUBERNETES_PLATFORM,
                                                 KubernetesResourceType.CLUSTER.value,
                                                 cluster_name,

@@ -1,15 +1,20 @@
 ---
 title: "{{ slx_hints['nice_name'] }}"
-{% if slx_hints.tags %}
+{% set has_tags = slx_hints.tags or parsed_robot['support_tags'] %}
+{% if has_tags %}
 tags:
-  {% for key, value in slx_hints.tags.items() %}
-  - '{{ key }}: {{ value }}'
-  {% endfor %}
-{% endif %}
-{% if parsed_robot['support_tags'] %}
-  {% for tag in parsed_robot['support_tags'] %}
-  - {{ tag }}
-  {% endfor %}
+  {% if slx_hints.tags %}
+    {% for key, value in slx_hints.tags.items() %}
+      {% if value is not none %}
+  - "{{ key }}: {{ value }}"
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+  {% if parsed_robot['support_tags'] %}
+    {% for tag in parsed_robot['support_tags'] %}
+  - "{{ tag }}"
+    {% endfor %}
+  {% endif %}
 {% endif %}
 ---
 

@@ -287,8 +287,17 @@ def main():
         check_rest_service_error(response, args.command, args.verbose)
         response_data = response.json()
         print(f"Workspace builder version: {response_data.get('version')}")
+        wb_version=response_data.get('version')
         # TBD Format/print more of the info from the response
         return
+
+    # Get version
+    info_url = f"http://{rest_service_host}:{rest_service_port}/info/"
+    response = call_rest_service_with_retries(lambda: requests.get(info_url))
+    check_rest_service_error(response, args.command, args.verbose)
+    response_data = response.json()
+    print(f"Workspace builder version: {response_data.get('version')}")
+    wb_version=response_data.get('version')
 
     # First, initialize request data setting from the explicit command line args
     # These have the highest precedence, i.e. over the same setting from the workspace info.
@@ -437,10 +446,8 @@ def main():
     if 'cloudConfig' in workspace_info and 'kubernetes' in workspace_info['cloudConfig']:
         kubernetes_config=workspace_info['cloudConfig']['kubernetes']
         kubeconfig_path = kubernetes_config.get('kubeconfigFile')
-        print(f"Found user-provided kubeconfigFile: {kubeconfig_path}")
-
-    # Check if the file at the constructed path exists
-    if not os.path.exists(kubeconfig_path):
+        # Check if the file at the constructed path exists
+    if not os.path.exists(kubeconfig_path) and 'cloudConfig' in workspace_info and 'kubernetes' in workspace_info['cloudConfig']:
         print(f"Auth file not found at {base_directory}/{kubeconfig}...")
         # Try getting the kubeconfig from the MB_KUBECONFIG environment variable
         kubeconfig = os.getenv('MB_KUBECONFIG')
@@ -458,8 +465,6 @@ def main():
             shutil.copyfile(kubeconfig_file, kubeconfig_path)
             print("Using in-cluster Kubernetes auth...")
             print(f"Created kubeconfig at {base_directory}/{kubeconfig}...")
-    else: 
-        print(f"Using auth from {base_directory}/{kubeconfig}...")
 
     # Merge the kubeconfigs
     final_kubeconfig_path = os.path.expanduser("~/.kube/config")
@@ -547,6 +552,8 @@ def main():
             kubeconfig_data = read_file(final_kubeconfig_path, "rb")
             encoded_kubeconfig_data = base64.b64encode(kubeconfig_data).decode('utf-8')
             request_data['kubeconfig'] = encoded_kubeconfig_data
+        if wb_version: 
+            request_data['wbVersion'] = wb_version
         if workspace_name:
             request_data['workspaceName'] = workspace_name
         if workspace_owner_email:

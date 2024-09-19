@@ -1,0 +1,29 @@
+{% if cluster.cluster_type == "aks" and cluster.auth_type == "azure_explicit" %}
+    - name: kubeconfig
+      workspaceKey: azure:sp@kubeconfig:{{cluster.resource_group}}/{{cluster.name}}
+    - name: az_subscriptionId
+      workspaceKey: k8s:file@secret/{{custom.azure_service_principal_secret_name}}:subscriptionId
+    - name: az_clientId
+      workspaceKey: k8s:file@secret/{{custom.azure_service_principal_secret_name}}:clientId
+    - name: az_tenantId
+      workspaceKey: k8s:file@secret/{{custom.azure_service_principal_secret_name}}:tenantId
+    - name: az_clientSecret
+      workspaceKey: k8s:file@secret/{{custom.azure_service_principal_secret_name}}:clientSecret
+{% elif cluster.cluster_type == "aks" and cluster.auth_type == "azure_service_principal_secret" %}
+    - name: kubeconfig
+      workspaceKey: azure:sp@kubeconfig:{{cluster.resource_group}}/{{cluster.name}}
+    - name: az_subscriptionId
+      workspaceKey: k8s:file@secret/{{cluster.auth_secret}}:subscriptionId
+    - name: az_clientId
+      workspaceKey: k8s:file@secret/{{cluster.auth_secret}}:clientId
+    - name: az_tenantId
+      workspaceKey: k8s:file@secret/{{cluster.auth_secret}}:tenantId
+    - name: az_clientSecret
+      workspaceKey: k8s:file@secret/{{cluster.auth_secret}}:clientSecret
+{% elif cluster.cluster_type == "aks" and cluster.auth_type == "azure_managed_identity" %}
+    - name: kubeconfig
+      workspaceKey: azure:identity@kubeconfig:{{cluster.resource_group}}/{{cluster.name}}
+{% else %}
+    - name: kubeconfig
+      workspaceKey: {{custom.kubeconfig_secret_name}}
+{% endif %}

@@ -3,8 +3,13 @@ import os
 import yaml
 import sys
 import base64
+import logging
 from kubernetes import client, config
 from utils import mask_string
+
+
+logger = logging.getLogger(__name__)
+
 
 def get_namespace():
     namespace_file = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
@@ -30,14 +35,14 @@ def get_secret(secret_name):
     v1 = client.CoreV1Api()
 
     try:
-        print(f"Attempting to fetch secret '{mask_string(secret_name)}' from namespace '{namespace}'...")
+        logger.info(f"Attempting to fetch secret '{mask_string(secret_name)}' from namespace '{namespace}'...")
         secret = v1.read_namespaced_secret(secret_name, namespace)
         
         if not secret.data:
-            print(f"Error: Secret '{mask_string(secret_name)}' in namespace '{namespace}' is empty or has no data.", file=sys.stderr)
+            logger.error(f"Error: Secret '{mask_string(secret_name)}' in namespace '{namespace}' is empty or has no data.", file=sys.stderr)
             sys.exit(1)
 
-        print(f"Secret '{mask_string(secret_name)}' fetched successfully from namespace '{namespace}'.")
+        logger.info(f"Secret '{mask_string(secret_name)}' fetched successfully from namespace '{namespace}'.")
         return secret.data
 
     except client.exceptions.ApiException as e:
