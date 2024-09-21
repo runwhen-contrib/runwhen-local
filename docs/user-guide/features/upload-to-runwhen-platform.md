@@ -3,27 +3,21 @@
 RunWhen Local generates workspace configuration files (see [workspace-builder.md](workspace-builder.md "mention")) that can be uploaded to the RunWhen Platform, automatically constructing a fully configured map of your resources and associated troubleshooting tasks.&#x20;
 
 {% hint style="info" %}
-If uploading your configuration for the first time, and using the Runner, please see [kubernetes\_self\_hosted\_runner](../installation/kubernetes\_self\_hosted\_runner/ "mention") before performing this step.&#x20;
+If uploading your configuration for the first time, and using the Runner, please see [kubernetes\_self\_hosted\_runner](../../installation/kubernetes\_self\_hosted\_runner/ "mention") before performing this step.&#x20;
 {% endhint %}
 
 ### Uploading to the RunWhen Platform
 
 #### Upload from the UI
 
-RunWhen Local hosts a page titled **RunWhen Platform Upload** - it is accessible from the left hand navigation, or by selecting the **Upload to RunWhen Platform** icon in the header. This page should outline all necessary steps required to:&#x20;
+RunWhen Local hosts a page titled **RunWhen Platform Upload** - it is accessible from the left hand navigation, or by selecting the **Upload to RunWhen Platform** icon in the main page. This page should outline all necessary steps required to:&#x20;
 
 * Create a new RunWhen Platform Workspace
 * Prepare for Upload (by fetchting and attaching the `uploadInfo.yaml`)
 * Upload all configuration
 * Create secrets (for communication with your cluster(s))
 
-<figure><img src="../../.gitbook/assets/upload.gif" alt=""><figcaption></figcaption></figure>
-
-
-
-
-
-
+<figure><img src="../../.gitbook/assets/upload_1 (3).gif" alt=""><figcaption><p>Manually Uploading Content to the RunWhen Platform</p></figcaption></figure>
 
 
 

@@ -1,7 +1,7 @@
 # Microsoft Azure
 
 {% hint style="info" %}
-Microsoft Azure Discovery is supported from 0.5.0 onwards and supports discovery of resources **outside of Kubernetes,** such as VMs, load balancers, database instances, and so on. Kubernetes resources discovery configuration is covered in [getting-started.md](../../../getting-started.md "mention")
+Microsoft Azure Discovery is supported from 0.5.0 onwards and supports discovery of resources **outside of Kubernetes,** such as VMs, load balancers, database instances, and so on. Kubernetes resources discovery configuration is covered in [getting-started.md](../user-guide/getting-started.md "mention")
 {% endhint %}
 
 ## Azure Kubernetes Service Discovery
@@ -108,7 +108,7 @@ When using Managed Identity, the pod will attempt to authenticate with the under
 
 ### Additional Azure WorkspaceInfo Configurations
 
-To perform discovery of Microsoft Azure resources, provide the appropriate Azure credentials inside of the workspaceInfo.yaml (as outlined above), and any additional configuration options. For example, the following configuration lists specific resource groups to discover, as well as a specific [level-of-detail.md](../level-of-detail.md "mention"). If left unspecified, RunWhen Local will attempt to discover all resource groups that is has access to.&#x20;
+To perform discovery of Microsoft Azure resources, provide the appropriate Azure credentials inside of the workspaceInfo.yaml (as outlined above), and any additional configuration options. For example, the following configuration lists specific resource groups to discover, as well as a specific [level-of-detail.md](../configuration/level-of-detail.md "mention"). If left unspecified, RunWhen Local will attempt to discover all resource groups that is has access to.&#x20;
 
 ```
 cloudConfig:

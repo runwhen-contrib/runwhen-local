@@ -14,37 +14,29 @@ layout:
 
 # Getting Started
 
-Getting started with RunWhen Local starts with choosing a deployment option:&#x20;
-
-### Deployment Options
-
-RunWhen Local is distributed as a container image and can be deployed:&#x20;
-
-* In Kubernetes via Helm
-  * [kubernetes\_standalone.md](installation/kubernetes\_standalone.md "mention") provides the Troubleshooting Cheat Sheet, but is not connected to, and does not interact with, the [RunWhen Platform](https://docs.runwhen.com/public) service.&#x20;
-  * [kubernetes\_self\_hosted\_runner](installation/kubernetes\_self\_hosted\_runner/ "mention") adds the self-hosted runner which executes health checks and troubleshooting tasks on behalf of the RunWhen Platform SaaS.&#x20;
-* [getting\_started-running\_locally.md](installation/getting\_started-running\_locally.md "mention")  provides the Troubleshooting Cheat Sheet, but is not connected to, and does not interact with, the [RunWhen Platform](https://docs.runwhen.com/public) service.&#x20;
-
-<table data-card-size="large" data-view="cards"><thead><tr><th align="center"></th><th align="center"></th><th data-hidden data-card-target data-type="content-ref"></th><th data-hidden data-card-cover data-type="files"></th></tr></thead><tbody><tr><td align="center"><img src="../.gitbook/assets/Untitled Diagram-Page-2.drawio (1) (2).png" alt=""></td><td align="center">Installing in Docker/Podman</td><td><a href="installation/getting_started-running_locally.md">getting_started-running_locally.md</a></td><td></td></tr><tr><td align="center"><img src="../.gitbook/assets/Untitled Diagram-Page-3.drawio (2).png" alt=""></td><td align="center">Kubernetes - Without RunWhen Platform</td><td><a href="installation/kubernetes_standalone.md">kubernetes_standalone.md</a></td><td></td></tr><tr><td align="center"><img src="../.gitbook/assets/Untitled Diagram-Page-3.drawio (2) (1)-Page-4.drawio (1).png" alt="" data-size="original"></td><td align="center">Kubernetes - With RunWhen Platform</td><td><a href="installation/kubernetes_self_hosted_runner/">kubernetes_self_hosted_runner</a></td><td></td></tr></tbody></table>
 
 
+**Getting Started with RunWhen Local**
 
-### Choosing a Deployment Method
+To begin using RunWhen Local, first choose your preferred deployment method:
 
-Consider the following when determining which deployment method is best for you:&#x20;
+#### Deployment Options
 
-|                                                                                              | Locally (Docker/Podman)                                                                                                                              | Kubernetes (Helm)                                                                                                                                                                                                                                                        |
-| -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Discovery                                                                                    | <ul><li>Kubernetes: Discovers any resources that the user has access to</li><li>Discovery is started from the UI or command line as needed</li></ul> | <ul><li><p>Kubernetes: Discovery defaults to all resources in the local cluster using an automatically created service account</p><ul><li>Easily overridden with a user-provided  secret</li></ul></li><li>Discovery is regularly run on a configured interval</li></ul> |
-| [user\_guide-feature\_overview.md](features/user\_guide-feature\_overview.md "mention")      | <ul><li>Locally accessible via http://localhost:8081 </li><li>Not easily shared with other team members</li></ul>                                    | <ul><li>Can be shared with team members <a data-footnote-ref href="#user-content-fn-1">if exposed with an ingress object</a></li></ul>                                                                                                                                   |
-| Features                                                                                     | <ul><li>In-Browser Terminal: <a data-footnote-ref href="#user-content-fn-2">Enabled by default</a></li></ul>                                         | <ul><li>In-browser Terminal: <a data-footnote-ref href="#user-content-fn-3">Disabled by default</a> </li></ul>                                                                                                                                                           |
-| [kubernetes\_self\_hosted\_runner](installation/kubernetes\_self\_hosted\_runner/ "mention") | <ul><li>Not available</li></ul>                                                                                                                      | <ul><li>Optionally Enabled</li></ul>                                                                                                                                                                                                                                     |
-| Intended Installation User                                                                   | <ul><li>Developers with limited scope to application level resources</li></ul>                                                                       | <ul><li>Cluster admins / platform admins / DevOps engineers supporting platform level and application level resources</li></ul>                                                                                                                                          |
+RunWhen Local is distributed as a container image and can be deployed in the following ways:
+
+1. **In Kubernetes via Helm (Connected)**
+   * This method integrates a self-hosted runner, which executes health checks, troubleshooting, and automation tasks on behalf of the RunWhen Platform SaaS.
+2. **Standalone (Disconnected Mode)**
+   * RunWhen Local can also be deployed to provide resource discovery and the Troubleshooting Cheat Sheet, but without any connection or interaction with the RunWhen Platform service.
+
+#### Which deployment method is right for you?
+
+* **I want to use the RunWhen Platform**\
+  If you need Engineering Assistants that can automatically suggest and run tasks privately and securely in your own environment, and you want a collaborative workspace for troubleshooting and operational automation tasks with your team, then the [kubernetes\_self\_hosted\_runner](../installation/kubernetes\_self\_hosted\_runner/ "mention") option is right for you.
 
 
 
-[^1]: This is disabled by default since you may not want to share the discovery results with anyone that has access to the url.&#x20;
+* **I just want a cheat sheet of automatically generated troubleshooting commands from a community of smart engineers**
+  * Want to run it in Kubernetes? The [kubernetes\_standalone.md](../installation/kubernetes\_standalone.md "mention") is for you.
+  * Prefer to run it on your laptop? The [getting\_started-running\_locally.md](../installation/getting\_started-running\_locally.md "mention") is your best choice.
 
-[^2]: It's your own instance, using your own access - use the terminal as if it's your own
-
-[^3]: You might not want to share the kubeconfig access with other users

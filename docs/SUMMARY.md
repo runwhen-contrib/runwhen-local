@@ -5,38 +5,44 @@
 ## User Guide
 
 * [Getting Started](user-guide/getting-started.md)
-* [Installation](user-guide/installation/README.md)
-  * [Kubernetes - With the RunWhen Platform](user-guide/installation/kubernetes\_self\_hosted\_runner/README.md)
-    * [Runner Network Requirements](user-guide/installation/kubernetes\_self\_hosted\_runner/runner-network-requirements.md)
-  * [Kubernetes - Without RunWhen Platform](user-guide/installation/kubernetes\_standalone.md)
-  * [Docker/Podman - Without RunWhen Platform](user-guide/installation/getting\_started-running\_locally.md)
-* [Jumping Back In](user-guide/jumping-back-in.md)
 * [Features](user-guide/features/README.md)
   * [Workspace Builder](user-guide/features/workspace-builder.md)
   * [Troubleshooting Cheat Sheet](user-guide/features/user\_guide-feature\_overview.md)
-  * [Built-In Terminal](user-guide/features/built-in-terminal.md)
   * [Upload to RunWhen Platform](user-guide/features/upload-to-runwhen-platform.md)
-* [Advanced Configuration](user-guide/user\_guide-advanced\_configuration/README.md)
-  * [WorkspaceInfo Customization](user-guide/user\_guide-advanced\_configuration/workspaceinfo-customization/README.md)
-    * [Level of Detail](user-guide/user\_guide-advanced\_configuration/workspaceinfo-customization/level-of-detail.md)
-    * [Cloud Configuration](user-guide/user\_guide-advanced\_configuration/workspaceinfo-customization/cloud-configuration/README.md)
-      * [Amazon Web Services](user-guide/user\_guide-advanced\_configuration/workspaceinfo-customization/cloud-configuration/google-cloud-platform.md)
-      * [Google Cloud Platform](user-guide/user\_guide-advanced\_configuration/workspaceinfo-customization/cloud-configuration/google-cloud-platform-1.md)
-      * [Microsoft Azure](user-guide/user\_guide-advanced\_configuration/workspaceinfo-customization/cloud-configuration/microsoft-azure.md)
-      * [Kubernetes Configuration](user-guide/user\_guide-advanced\_configuration/workspaceinfo-customization/cloud-configuration/kubernetes-configuration.md)
-    * [CodeCollection Configuration](user-guide/user\_guide-advanced\_configuration/workspaceinfo-customization/codecollection-configuration.md)
-  * [Group / Map Customizations](user-guide/user\_guide-advanced\_configuration/user\_reference.md)
-  * [Helm Configuration](user-guide/user\_guide-advanced\_configuration/helm-configuration.md)
-  * [Terminal Configuration](user-guide/user\_guide-advanced\_configuration/terminal-configuration.md)
-  * [Proxy Configuration & Outbound Connections](user-guide/user\_guide-advanced\_configuration/proxy-configuration-and-outbound-connections.md)
-  * [Using a Private Container Registry](user-guide/user\_guide-advanced\_configuration/using-a-private-container-registry.md)
 * [Stuck?Read This](User\_Guide-Stuck\_Read\_This.md)
 * [Privacy & Security](User\_Guide-Privacy\_and\_Security.md)
 * [Release Notes](User\_Guide-Release\_Notes.md)
 
+## Installation
+
+* [Kubernetes Self-Hosted Runner (Connected)](installation/kubernetes\_self\_hosted\_runner/README.md)
+  * [Runner Network Requirements](installation/kubernetes\_self\_hosted\_runner/runner-network-requirements.md)
+* [Kubernetes Installation (Disconnected)](installation/kubernetes\_standalone.md)
+* [Docker/Podman Installation (Disconnected)](installation/getting\_started-running\_locally.md)
+
+## Cloud Discovery Configuration
+
+* [Amazon Web Services](cloud-discovery-configuration/google-cloud-platform.md)
+* [Microsoft Azure](cloud-discovery-configuration/microsoft-azure.md)
+* [Google Cloud Platform](cloud-discovery-configuration/google-cloud-platform-1.md)
+* [Kubernetes Configuration](cloud-discovery-configuration/kubernetes-configuration.md)
+
+## Configuration
+
+* [WorkspaceInfo Customization](configuration/workspaceinfo-customization.md)
+* [CodeCollection Configuration](configuration/codecollection-configuration.md)
+* [Group / Map Customizations](configuration/user\_reference.md)
+* [Cheat Sheet Features](configuration/cheat-sheet-features/README.md)
+  * [Terminal Configuration](configuration/cheat-sheet-features/terminal-configuration.md)
+* [Helm Configuration](configuration/helm-configuration.md)
+* [Discovery Level of Detail](configuration/level-of-detail.md)
+* [Proxy Configuration & Outbound Connections](configuration/proxy-configuration-and-outbound-connections.md)
+* [Using a Private Container Registry](configuration/using-a-private-container-registry.md)
+
 ## Architecture​
 
-* [High Level Architecture](Architecture.md)
+* [High Level Architecture (Disconnected)](Architecture.md)
+* [High Level Architecture - Self-Hosted Runner (Connected)](architecture/high-level-architecture-self-hosted-runner-connected.md)
 
 ## Development
 

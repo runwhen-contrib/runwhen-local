@@ -1,7 +1,7 @@
 # Google Cloud Platform
 
 {% hint style="info" %}
-Google Cloud Platform discovery is supported from 0.5.0 onwards supports discovery of resources **outside of Kubernetes,** such as VMs, load balancers, database instances, and so on. Kubernetes resources discovery configuration is covered in [getting-started.md](../../../getting-started.md "mention")
+Google Cloud Platform discovery is supported from 0.5.0 onwards supports discovery of resources **outside of Kubernetes,** such as VMs, load balancers, database instances, and so on. Kubernetes resources discovery configuration is covered in [getting-started.md](../user-guide/getting-started.md "mention")
 {% endhint %}
 
 ### GCP Credentials

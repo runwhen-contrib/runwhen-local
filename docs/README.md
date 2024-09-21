@@ -17,9 +17,6 @@
   * [Improving RunWhen Local](./#improving-runwhen-local)
 * [Connect with the RunWhen Community](./#connect-with-the-runwhen-community)
 * [Check Out Our Documentation](./#check-out-our-documentation)
-* [What's on the Horizon?](./#whats-on-the-horizon)
-  * [Major Goals](./#major-goals)
-  * [Ongoing Enhancements](./#ongoing-enhancements)
 * [Stay Updated with Release Notes](./#stay-updated-with-release-notes)
 
 ### Welcome to RunWhen Local!
@@ -35,13 +32,30 @@ Are you tired of searching through files and wikis for those elusive CLI command
 
 ![](../assets/trouble-town-ingress.gif)
 
+### Can it Automatically Run These Commands?
+
+Yes, but only when connected to the RunWhen Platform SaaS service. RunWhen Local can be installed in Kubernetes, connected to the RunWhen Platform, with self-hosted private runners. In this configuration, your RunWhen Workspace is automatically updated with:&#x20;
+
+* newly discovered cloud resources
+* automation tasks
+* troubleshooting tasks
+* health checks
+* workflows
+* SLI and SLO alerting&#x20;
+* and much more!
+
+See [www.runwhen.com](https://www.runwhen.com) or [docs.runwhen.com](https://docs.runwhen.com) for more details, or jump to [kubernetes\_self\_hosted\_runner](installation/kubernetes\_self\_hosted\_runner/ "mention") for more details on this installation option.&#x20;
+
 ### Who Can Benefit?
 
-If you're involved with Kubernetes environments, RunWhen Local could be for you. It's designed for:
+If you're involved with **Kubernetes** or **Public Cloud** environments, RunWhen Local could be for you. It’s designed for:
 
 * Kubernetes administrators
 * Kubernetes application developers
 * Support teams working with Kubernetes
+* Cloud infrastructure teams in GCP, AWS, or Azure
+* Public cloud administrators managing workloads or services
+* Anyone needing help troubleshooting cloud-based services
 
 ### Where Can You See It in Action?
 
@@ -49,6 +63,7 @@ Curious to see it in action? We've got a few options for you:
 
 * Check out our live demo instance [here](https://runwhen-local.sandbox.runwhen.com/). Please note that it's linked to our sandbox cluster, so the commands are suited for that environment.
 * Explore our [YouTube Channel](https://www.youtube.com/@whatdoirunwhen) with short demo videos in this [playlist](https://www.youtube.com/playlist?list=PLq37As8dgg\_C0wFaPQLVUFQ79YiQjzHGU)
+* Want to check out the RunWhen Platform? We have tutorials that you can play with right in our sandbox cluster. Click [here](https://docs.runwhen.com/public/runwhen-platform/tutorials). Sign in. Play.&#x20;
 
 ### How Can I Get It?
 
@@ -62,15 +77,17 @@ We love when the community gets involved! There are two main ways you can contri
 
 **Contribute to Existing Libraries**
 
-Our troubleshooting library is fully open-source and welcomes contributions. You can contribute directly to these repositories:
+Our troubleshooting library is fully open-source and welcomes contributions. You can contribute directly to any of the CodeCollection libraries hosted in our [Registry](https://registry.runwhen.com).&#x20;
 
-* [RunWhen CLI Codecollection](https://github.com/runwhen-contrib/rw-cli-codecollection)
+
 
 For more details, check out the contribution guides within each repo.
 
 **Create Your Own Library**
 
 Interested in maintaining your own code collection and being rewarded for your efforts? Learn more about the [RunWhen Author Program](https://docs.runwhen.com/public/runwhen-authors/getting-started-with-codecollection-development).
+
+
 
 **Share New Commands or Enhance Existing Ones**
 
@@ -100,28 +117,6 @@ All documentation is stored in [/docs](https://github.com/runwhen-contrib/runwhe
 * [User Guide](https://docs.runwhen.com/public/v/runwhen-local/user-guide/)
 * [Architecture](https://docs.runwhen.com/public/v/runwhen-local/architecture)
 * [Development](https://docs.runwhen.com/public/v/runwhen-local/development/)
-
-### What's on the Horizon?
-
-We've got exciting plans ahead! Here's a sneak peek at what's coming:
-
-#### Major Goals
-
-* Introducing indexers for various cloud resources (GCP, AWS, Azure)
-* [Streamlining the tool's size & complexity by removing Neo4j](https://github.com/runwhen-contrib/runwhen-local/issues/249)
-
-#### Ongoing Enhancements
-
-We're also working on:
-
-* Robust CI/CD: Sandbox deployment validation for PRs
-* Expanding our library of troubleshooting commands (always more to come!)
-* Improved contribution guides
-* Detailed low-level documentation
-
-In the meantime, we're constantly adding features and troubleshooting code. Feel free to raise issues for new features or contribute your own commands!
-
-Check out the [GitHub Project](https://github.com/orgs/runwhen-contrib/projects/2) for ongoing roadmap updates.
 
 ### Stay Updated with Release Notes
 

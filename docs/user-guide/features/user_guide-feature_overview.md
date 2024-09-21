@@ -1,12 +1,10 @@
 # Troubleshooting Cheat Sheet
 
-The Troubleshooting Cheat Sheet first performs a discovery process and builds up an inventory of your Kubernetes and cloud resources, matching them with troubleshooting commands that are from open-source "CodeCollection" libraries (such as [this](https://github.com/runwhen-contrib/rw-cli-codecollection)). See [Broken link](broken-reference "mention")for more details on how this works.&#x20;
+The Troubleshooting Cheat Sheet first performs a discovery process and builds up an inventory of your Kubernetes and cloud resources, matching them with troubleshooting commands that are from open-source "CodeCollection" libraries (such as [this](https://github.com/runwhen-contrib/rw-cli-codecollection)). See [broken-reference](broken-reference/ "mention")for more details on how this works.
 
 {% hint style="info" %}
-See our [RunWhen Authors](https://docs.runwhen.com/public/runwhen-authors/getting-started-with-codecollection-development) for more about open source troubleshooting CodeCollections.&#x20;
+See our [RunWhen Authors](https://docs.runwhen.com/public/runwhen-authors/getting-started-with-codecollection-development) for more about open source troubleshooting CodeCollections.
 {% endhint %}
-
-
 
 ## Troubleshooting Home Page
 
@@ -17,17 +15,15 @@ When discovery is complete, the RunWhen Local home page provides a main search b
 * How many community authors wrote the troubleshooting commands
 * Who ran the discovery process
 
-<figure><img src="../../assets/feature_overview_1.png" alt=""><figcaption><p>RunWhen Local Home Page</p></figcaption></figure>
 
-###
+
+<figure><img src="../../.gitbook/assets/image.png" alt=""><figcaption><p>RunWhen Local Cheat Sheet Home Page</p></figcaption></figure>
 
 #### Home Page Quick Links
 
 Within the home page, you will also notice some quick links that will allow you to easily navigate through your tailored troubleshooting commands, or interact with the open source community.
 
-<figure><img src="../../assets/feature_overview_2.png" alt=""><figcaption><p>Home Page Quick Links</p></figcaption></figure>
-
-####
+<figure><img src="../../.gitbook/assets/image (1).png" alt=""><figcaption></figcaption></figure>
 
 ## Searching for Content
 
@@ -66,15 +62,13 @@ The list of commands in a copy & paste format, ready to be used in your terminal
 
 If you want to understand what each command does, click the **What does it do? tab** to display documentation about the command. All documentation is statically generated and stored with the public source code of the command and does not have access to, or context of, your resource names, namespace names, and so on. These explanations are generic and do not share any of your resource details with RunWhen.
 
-
-
 ### Running Commands from the Terminal
 
 {% hint style="danger" %}
-The built in terminal provides **unauthenticated access** to the container, with access to tools like `kubectl`. This feature should be disabled ([terminal-configuration.md](../user\_guide-advanced\_configuration/terminal-configuration.md "mention")) if running in a shared cluster - or the service account permissions thoroughly reviewed.&#x20;
+The built in terminal provides **unauthenticated access** to the container, with access to tools like `kubectl`. This feature should be disabled ([terminal-configuration.md](../../configuration/cheat-sheet-features/terminal-configuration.md "mention")) if running in a shared cluster - or the service account permissions thoroughly reviewed.
 {% endhint %}
 
-A simple terminal has been added to the RunWhen Local application in order to provide a quicker way to run commands from within the same window. The terminal has command line tools like `kubectl` installed, and is configured to use the same KUBECONFIG that was used to discover cluster resources.&#x20;
+A simple terminal has been added to the RunWhen Local application in order to provide a quicker way to run commands from within the same window. The terminal has command line tools like `kubectl` installed, and is configured to use the same KUBECONFIG that was used to discover cluster resources.
 
 <figure><img src="../../.gitbook/assets/terminal.gif" alt=""><figcaption><p>Running Commands in the Terminal</p></figcaption></figure>
 

@@ -5,7 +5,7 @@ description: >-
   your environment.
 ---
 
-# Docker/Podman - Without RunWhen Platform
+# Docker/Podman Installation (Disconnected)
 
 {% hint style="info" %}
 The following steps allow you to safely run RunWhen from your own laptop (with docker/podman), with the ability to inspect all generated configuration files and command list documentation without the need to interact with the RunWhen API.
@@ -143,7 +143,7 @@ EOF
 {% endtabs %}
 
 {% hint style="info" %}
-Everything in the workspaceInfo.yaml file that has a \[placeholder] beside it is not required for RunWhen Local to perform discovery or render the Troubleshooting Cheat Sheet. These values are required, however, when [uploading](../features/upload-to-runwhen-platform.md) configurations to the RunWhen Platform (and are generated automatically when this activity is performed).
+Everything in the workspaceInfo.yaml file that has a \[placeholder] beside it is not required for RunWhen Local to perform discovery or render the Troubleshooting Cheat Sheet. These values are required, however, when [uploading](../user-guide/features/upload-to-runwhen-platform.md) configurations to the RunWhen Platform (and are generated automatically when this activity is performed).
 {% endhint %}
 
 ### Generating your Kubeconfig
@@ -162,7 +162,7 @@ These step uses [**yq**](https://github.com/mikefarah/yq) and [**jq**](https://j
 This script _will not modify your existing kubeconfig._ It will copy the contents (defaulted from \~/.kube/config, but also supports KUBECONFIG) into a file that is usable by RunWhen Local. It is still on your local machine and safe to use.
 {% endhint %}
 
-* Fetch the _gen\_rw\_kubeconfig.sh_ from [GitHub](../../../deploy/scripts/gen\_rw\_kubeconfig.sh)
+* Fetch the _gen\_rw\_kubeconfig.sh_ from [GitHub](../../deploy/scripts/gen\_rw\_kubeconfig.sh)
 
 <pre><code>
 <strong>curl -o- https://raw.githubusercontent.com/runwhen-contrib/runwhen-local/main/deploy/scripts/gen_rw_kubeconfig.sh > gen_rw_kubeconfig.sh
@@ -272,7 +272,7 @@ Depending on the amount of resources to in your cluster(s), the discovery proces
 
 When the process has completed, you can navigate to [http://localhost:8081](http://localhost:8081) to view the troubleshooting commands generated for your environment.
 
-<figure><img src="../../assets/gs_view_cheat_sheet.png" alt=""><figcaption></figcaption></figure>
+<figure><img src="../assets/gs_view_cheat_sheet.png" alt=""><figcaption></figcaption></figure>
 
 ###
 
@@ -342,4 +342,4 @@ podman kill RunWhenLocal; podman rm RunWhenLocal
 
 ### Next Steps
 
-If you're using RunWhen Local as way of building your [**RunWhen Platform**](https://docs.runwhen.com/public/runwhen-platform/getting-started-with-runwhen-platform) workspace, jump to [upload-to-runwhen-platform.md](../features/upload-to-runwhen-platform.md "mention")to complete this process.
+If you're using RunWhen Local as way of building your [**RunWhen Platform**](https://docs.runwhen.com/public/runwhen-platform/getting-started-with-runwhen-platform) workspace, jump to [upload-to-runwhen-platform.md](../user-guide/features/upload-to-runwhen-platform.md "mention")to complete this process.

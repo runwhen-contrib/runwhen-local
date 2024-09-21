@@ -4,7 +4,7 @@ description: >-
   with standard Kubernetes manifests.
 ---
 
-# Kubernetes - Without RunWhen Platform
+# Kubernetes Installation (Disconnected)
 
 
 
@@ -25,7 +25,7 @@ As we also host this in Kubernetes for the purposes of an online demo, this docu
 {% tabs %}
 {% tab title="Helm Installation " %}
 {% hint style="info" %}
-RunWhen Local requires access to a kubeconfig in order to perform resource discovery across Kubernetes clusters. When installing with Helm, RunWhen Local _can automatically discover it's local cluster by default_. To discover additional clusters, a separate kubeconfig secret is required. Please see [helm-configuration.md](../user\_guide-advanced\_configuration/helm-configuration.md "mention")for additional information.\
+RunWhen Local requires access to a kubeconfig in order to perform resource discovery across Kubernetes clusters. When installing with Helm, RunWhen Local _can automatically discover it's local cluster by default_. To discover additional clusters, a separate kubeconfig secret is required. Please see [helm-configuration.md](../configuration/helm-configuration.md "mention")for additional information.\
 \
 For additional resources on creating a long-lived service account and Kubeconfig, please see [**Generating Service Accounts and Kubeconfigs**](https://docs.runwhen.com/public/runwhen-platform/guides/kubernetes-environments/generating-service-accounts-and-kubeconfigs).
 {% endhint %}
@@ -73,7 +73,7 @@ Deploying RunWhen Local to a Kubernetes cluster can be achieved with the followi
 * Ingress
   * The ingress object supports access from outside of the cluster to the RunWhen container. An example ingress manifest is not provided, as this will vary from cluster to cluster.
 * ConfigMap
-  * Stores the `workspaceInfo.yaml` file, which is the main configuration file that is used to customize how RunWhen Local builds it's Troubleshooting Cheat Sheet. See [user\_guide-advanced\_configuration](../user\_guide-advanced\_configuration/ "mention")for more details on how to modify this file.
+  * Stores the `workspaceInfo.yaml` file, which is the main configuration file that is used to customize how RunWhen Local builds it's Troubleshooting Cheat Sheet. See [Broken link](broken-reference "mention")for more details on how to modify this file.
 * Secret
   * A kubeconfig secret that contains all contexts that should be included in the Troubleshooting Cheat Sheet. This is typically a user or service account that has view-only access to the resources you wish to be included in the Troubleshooting Cheat Sheet.
 
@@ -178,7 +178,7 @@ kubectl port-forward svc/runwhen-local 8081:8081 -n $namespace
 
 With the service available on your local machine, you can access the interface by opening a browser to [http://localhost:8081](http://localhost:8081)
 
-<figure><img src="../../assets/gs_k8s_view_cheat_sheet.png" alt=""><figcaption></figcaption></figure>
+<figure><img src="../assets/gs_k8s_view_cheat_sheet.png" alt=""><figcaption></figcaption></figure>
 
 ### Optional: Add a CLI Shortcut
 

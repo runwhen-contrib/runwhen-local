@@ -12,12 +12,12 @@ There are a number of container images that are used to support integration of R
 
 The following container images prerequisites to perform health and troubleshooting tasks from within a private cluster. Note that the tasks themselves require the CodeCollection Images.&#x20;
 
-| Name                   | Purpose                                                                                        | Public Container Registry                                            |
-| ---------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| RunWhen Local          | Performs discovery, automatic configuration, and uploads configuration to the RunWhen Platform | ghcr.io/runwhen-contrib/runwhen-local:latest                         |
-| Runner                 | an operator that connects to the RunWhen Platform and schedules/executes SLI and Tasks         | us-docker.pkg.dev/runwhen-nonprod-shared/public-images/runner:latest |
-| Grafana Agent          | Scrapes SLI metrics from prometheus push gateway into RunWhen Platform                         | docker.io/grafana/agent:latest                                       |
-| Prometheus Pushgateway | Accepts metrics from the SLI and is scaped from Grafana Agent                                  | docker.io/prom/pushgateway:latest                                    |
+| Name                    | Purpose                                                                                        | Public Container Registry                                            |
+| ----------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| RunWhen Local           | Performs discovery, automatic configuration, and uploads configuration to the RunWhen Platform | ghcr.io/runwhen-contrib/runwhen-local:latest                         |
+| Runner                  | an operator that connects to the RunWhen Platform and schedules/executes SLI and Tasks         | us-docker.pkg.dev/runwhen-nonprod-shared/public-images/runner:latest |
+| OpenTelemetry Collector | Scrapes SLI metrics from prometheus push gateway into RunWhen Platform                         | otel/opentelemetry-collector:latest                                  |
+| Prometheus Pushgateway  | Accepts metrics from the SLI and is scaped from Grafana Agent                                  | docker.io/prom/pushgateway:latest                                    |
 
 
 
@@ -41,8 +41,8 @@ Check out the [CodeCollection registry ](https://registry.runwhen.com/)for more 
 
 Since it's important that the most recent container images are available, especially for CodeCollection images, a couple of sample synchronization scripts have been added to the [RunWhen Local repository](https://github.com/runwhen-contrib/runwhen-local/tree/main/deploy/scripts/registry-sync).
 
-* [Synchronization with Skopeo](../../../deploy/scripts/registry-sync/sync\_with\_skopeo.sh)
-* [Synchronization with into Azure with az import](../../../deploy/scripts/registry-sync/sync\_with\_az\_import.sh)
+* [Synchronization with Skopeo](../../deploy/scripts/registry-sync/sync\_with\_skopeo.sh)
+* [Synchronization with into Azure with az import](../../deploy/scripts/registry-sync/sync\_with\_az\_import.sh)
 
 These scripts should be run on a regular basis and tailored to your needs. &#x20;
 
