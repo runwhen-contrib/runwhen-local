@@ -21,7 +21,7 @@ runwhen_local_images=$(cat <<EOF
     "ghcr.io/runwhen-contrib/runwhen-local": {
         "destination": "runwhen/runwhen-local",
         "yaml_path": "runwhenLocal.image",
-        "tag": "0.5.20",
+        "tag": "latest",
         "use_repository_only": false
     },
     "us-docker.pkg.dev/runwhen-nonprod-shared/public-images/runner": {
