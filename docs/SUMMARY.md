@@ -15,8 +15,8 @@
 
 ## Installation
 
-* [Kubernetes Self-Hosted Runner (Connected)](installation/kubernetes\_self\_hosted\_runner/README.md)
-  * [Runner Network Requirements](installation/kubernetes\_self\_hosted\_runner/runner-network-requirements.md)
+* [Kubernetes Self-Hosted Runner (Connected)](https://docs.runwhen.com/public/getting-started/getting-started-with-runwhen-platform)
+  * [Runner Network Requirements](https://docs.runwhen.com/public/getting-started/getting-started-with-runwhen-platform#detailed-network-requirements)
 * [Kubernetes Installation (Disconnected)](installation/kubernetes\_standalone.md)
 * [Docker/Podman Installation (Disconnected)](installation/getting\_started-running\_locally.md)
 
