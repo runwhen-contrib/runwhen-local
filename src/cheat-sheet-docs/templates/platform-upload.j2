@@ -22,7 +22,7 @@ The Workspace Builder component of RunWhen Local generates configuration files t
     </div>
     <div class="action-container">
             <p>Want to use a self-hosted private runner?</p>
-            <a href="https://docs.runwhen.com/public/v/runwhen-local/user-guide/features/runner-agent" target="_blank" class="content-page-button action-button">Register a Runner</a>
+            <a href="https://docs.runwhen.com/public/getting-started/installing-runwhen-local-self-hosted-runner#runner-registration-secret" target="_blank" class="content-page-button action-button">Register a Runner</a>
     </div>
     <div class="action-container">
         <p>Attach your Workspace Configuration and Upload</p>
@@ -35,12 +35,12 @@ The Workspace Builder component of RunWhen Local generates configuration files t
     </div>
     <div class="action-container">
         <p>Check out the Workspace Map (it may take a few minutes to populate)</p>
-        <a id="dynamicLink" href="#" target="_blank" class="content-page-button action-button">See Workspace Map</a>
+        <a href="https://docs.runwhen.com/public/runwhen-platform/feature-overview/maps" target="_blank" class="content-page-button action-button">Learn about Workspace Maps</a>
     </div>
 </div>
 
 !!! info "Documentation"
-    For complete documentation on integrating RunWhen Local with the RunWhen Platform, see [this link](https://docs.runwhen.com/public/v/runwhen-local/user-guide/features/upload-to-runwhen-platform)
+    For complete documentation on integrating RunWhen Local with the RunWhen Platform, see [this link](https://docs.runwhen.com/public/getting-started/getting-started-with-runwhen-platform)
 
 <script src="https://cdn.jsdelivr.net/npm/js-yaml/dist/js-yaml.min.js"></script>
 <script>
@@ -110,11 +110,6 @@ function constructWorkspaceUrl(yamlData) {
     }
 }
 
-function updateHref(url) {
-    const dynamicLink = document.getElementById('dynamicLink');
-    dynamicLink.href = url; // Update the href attribute
-}
-
 function runAdditionalCommand() {
     const loadingPopup = showLoadingMessage();
     fetch('/run-upload-to-runwhenplatform-keep-uploaded')
@@ -134,90 +129,6 @@ function runAdditionalCommand() {
         console.error('There was a problem with the subsequent operation:', error.message);
     });
 }
-
-{% if 'user-provided' in auth_details['kubernetes']['type'] %}
-document.getElementById('generateClusterViewSA').addEventListener('click', function(event) {
-    event.preventDefault();
-
-    // Fetch values from the input fields
-    const namespaceName = document.getElementById('saNamespaceName').value || 'default-namespace';
-    const serviceAccountName = document.getElementById('saServiceAccountName').value || 'default-service-account';
-    const contexts = [
-        {% for context in auth_details["kubernetes"]['kubeconfig_details']['contexts'] %}
-            "{{ context.name }}",
-        {% endfor %}
-    ];
-    const loadingPopup = showLoadingMessage();
-    // Call the /run-generate-clusterview-sa endpoint using the fetch API with a POST request
-    fetch('/run-generate-clusterview-sa', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            contexts: contexts,
-            namespace: namespaceName,
-            serviceAccount: serviceAccountName
-        }) // Send the data as JSON payload
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Network response was not ok');
-        }
-        return response.text();
-    })
-    .then(data => {
-        document.body.removeChild(loadingPopup);
-        showCommandOutput(data);
-    })
-    .catch(error => {
-        document.body.removeChild(loadingPopup);
-        showCommandOutput(error.message);
-        console.error('There was a problem with the kubeconfig generation operation:', error.message);
-    });
-});
-{% endif %}
-
-{% if 'in-cluster' in auth_details['kubernetes']['type'] %}
-document.getElementById('generateKubeconfig').addEventListener('click', function(event) {
-    event.preventDefault();
-
-    // Fetch values from the input fields
-    const serverDetails = document.getElementById('serverAddress').value ;
-    console.log('serverDetails value:', serverDetails);
-
-    if (!serverDetails) {
-        showCommandOutput('Please specify a Kubernetes API server address.');
-        return;
-    }
-    const loadingPopup = showLoadingMessage();
-    // Call the /run-generate-clusterview-sa endpoint using the fetch API with a POST request
-    fetch('/run-generate-kubeconfig-from-in-cluster-auth', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            serverDetails: serverDetails
-        }) // Send the data as JSON payload
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Network response was not ok');
-        }
-        return response.text();
-    })
-    .then(data => {
-        document.body.removeChild(loadingPopup);
-        showCommandOutput(data);
-    })
-    .catch(error => {
-        document.body.removeChild(loadingPopup);
-        showCommandOutput(error.message);
-        console.error('There was a problem with the kubeconfig generation:', error.message);
-    });
-});
-{% endif %}
 
 function showCommandOutput(data) {
     const popupContainer = document.createElement("div"); 
