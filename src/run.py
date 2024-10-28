@@ -382,7 +382,7 @@ def main():
             if not namespaces:
                 namespaces = workspace_info.get("namespaces")
             if not resource_dump_path:
-                resource_dump_path = workspace_info.get("resourceDumpPath")
+                resource_dump_path = workspace_info.get("resourceDumpPath", "resource-dump.yaml")
             if not resource_load_file:
                 resource_load_file = workspace_info.get("resourceLoadFile")
             namespace_lods = workspace_info.get('namespaceLODs')
