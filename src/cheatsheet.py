@@ -520,9 +520,9 @@ def generate_index(all_support_tags_freq, summarized_resources, workspace_detail
     
     current_date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # Ensure cluster names and other fields are safely retrieved with defaults if empty
+    # Convert the list of clusters and other fields to comma-separated strings if they exist
     cluster_list = [str(cluster) for cluster in summarized_resources.get("cluster_names", [])]
-    cluster_names = ', '.join(cluster_list) if cluster_list else "No clusters available"
+    cluster_names = ', '.join(cluster_list) if cluster_list else None
 
     # Get top 10 support tags safely
     top_10_support_tags = all_support_tags_freq.most_common(10)
@@ -533,6 +533,17 @@ def generate_index(all_support_tags_freq, summarized_resources, workspace_detail
         "name": tag,
         "icon_url": tag_icon_url_map.get(tag, "default_icon_url")  # Set a default icon URL
     } for tag in top_10_support_tag_names]
+
+    # Define a dictionary for resource summaries, ensuring that all expected resources are present
+    resource_summary = {
+        "clusters": summarized_resources.get("clusters", 0),
+        "resource_groups": summarized_resources.get("resource_groups", 0),
+        "aws_resources": summarized_resources.get("aws_resources", 0),
+        "gcp_resources": summarized_resources.get("gcp_resources", 0),
+        "groups": summarized_resources.get("groups", 0)
+    }
+    # Filter out zero-count resources
+    resource_summary = {key: value for key, value in resource_summary.items() if value > 0}
 
     # Safely render index output
     index_output = index_template.render(
@@ -545,10 +556,11 @@ def generate_index(all_support_tags_freq, summarized_resources, workspace_detail
         tags_with_icons=tags_with_icons
     )
 
-    # Safely render home output
+    # Safely render home output with resource_summary
     home_output = home_template.render(
         current_date=current_date,
         summarized_resources=summarized_resources,
+        resource_summary=resource_summary,
         workspace_details=workspace_details,
         cluster_names=cluster_names,
         command_generation_summary_stats=command_generation_summary_stats,
