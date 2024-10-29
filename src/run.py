@@ -382,7 +382,7 @@ def main():
             if not namespaces:
                 namespaces = workspace_info.get("namespaces")
             if not resource_dump_path:
-                resource_dump_path = workspace_info.get("resourceDumpPath")
+                resource_dump_path = workspace_info.get("resourceDumpPath", "resource-dump.yaml")
             if not resource_load_file:
                 resource_load_file = workspace_info.get("resourceLoadFile")
             namespace_lods = workspace_info.get('namespaceLODs')
@@ -421,73 +421,117 @@ def main():
     if not cloud_config:
         cloud_config = os.getenv("WB_CLOUD_CONFIG")
 
-    aks_clusters=None
-    # Check for a list of AKS clusters and build a kubeconfig if present
+    aks_clusters = None
+    azure_kubeconfig_path = None  # Initialize the variable here
+
     if 'cloudConfig' in workspace_info and 'azure' in workspace_info['cloudConfig']:
         azure_config = workspace_info['cloudConfig']['azure']
-        aks_clusters = azure_config.get('aksClusters', {})
-        clusters = aks_clusters.get('clusters', [])
+        aks_clusters = azure_config.get('aksClusters', {}).get('clusters', [])  # Directly get the 'clusters' list if it exists
 
-        if aks_clusters: 
+        if aks_clusters and isinstance(aks_clusters, list):  # Check if aks_clusters is a list of cluster dictionaries
             # Generate kubeconfig for each cluster with optional server override
-            generate_kubeconfig_for_aks(clusters, workspace_info)
-            azure_kubeconfig_path = os.path.expanduser("~/.kube/azure-kubeconfig")
-
-
+            try:
+                generate_kubeconfig_for_aks(aks_clusters, workspace_info)
+                azure_kubeconfig_path = os.path.expanduser("~/.kube/azure-kubeconfig")
+                print(f"Kubeconfig generated and saved to {azure_kubeconfig_path}")
+            except Exception as e:
+                print(f"Error generating kubeconfig for AKS clusters: {e}")
+                azure_kubeconfig_path = None  # Ensure path is None if generation fails
+        else:
+            print("AKS clusters not found or improperly formatted. Skipping Kubernetes discovery for AKS.")
+    else:
+        print("Azure configuration not found in workspace_info.")
     # Handle user provided kubeconfig
     print("Looking for generic kubeconfig")
 
-    # ## FIXME This is a quick hack to handle the transition from top-level object to 
-    # ## cloudConfig configuration, ensuring to support in-cluster-auth, which is 
-    # ## mostly for POCs but represents the fastest way to get up and running
-    kubeconfig = args.kubeconfig
+    kubeconfig = args.kubeconfig if args.kubeconfig else 'kubeconfig'
     kubeconfig_path = os.path.join(base_directory, kubeconfig)
 
     if 'cloudConfig' in workspace_info and 'kubernetes' in workspace_info['cloudConfig']:
-        kubernetes_config=workspace_info['cloudConfig']['kubernetes']
-        kubeconfig_path = kubernetes_config.get('kubeconfigFile')
-        # Check if the file at the constructed path exists
-    if not os.path.exists(kubeconfig_path) and 'cloudConfig' in workspace_info and 'kubernetes' in workspace_info['cloudConfig']:
-        print(f"Auth file not found at {base_directory}/{kubeconfig}...")
-        # Try getting the kubeconfig from the MB_KUBECONFIG environment variable
-        kubeconfig = os.getenv('MB_KUBECONFIG')
-        if kubeconfig:
-            kubeconfig_path = os.path.join(base_directory, kubeconfig)
+        kubernetes_config = workspace_info['cloudConfig']['kubernetes']
+        kubeconfig_path = kubernetes_config.get('kubeconfigFile') if kubernetes_config else None
 
-        # If the file still doesn't exist and we're in a Kubernetes environment, create a kubeconfig
-        if not os.path.exists(kubeconfig_path) and os.getenv('KUBERNETES_SERVICE_HOST'):
-            kubeconfig_data = create_kubeconfig()
-            # Save the kubeconfig_data to a file in the base_directory
-            kubeconfig_file = os.path.join(base_directory, "in_cluster_kubeconfig.yaml")
-            with open(kubeconfig_file, "w") as f:
-                f.write(yaml.dump(kubeconfig_data))
-            print(f"Copying {kubeconfig_file} to {kubeconfig_path}...")
-            shutil.copyfile(kubeconfig_file, kubeconfig_path)
-            print("Using in-cluster Kubernetes auth...")
-            print(f"Created kubeconfig at {base_directory}/{kubeconfig}...")
+    if not kubeconfig_path or not os.path.exists(kubeconfig_path):
+        print("Kubeconfig not found or path is invalid. Skipping Kubernetes discovery.")
+        kubeconfig_path = None  # Skip any further kubeconfig merging if invalid or missing
 
-    # Merge the kubeconfigs
-    final_kubeconfig_path = os.path.expanduser("~/.kube/config")
-    kubeconfigs_to_merge = []
+    # Continue only if valid kubeconfig paths are found
+    if aks_clusters or kubeconfig_path:
+        final_kubeconfig_path = os.path.expanduser("~/.kube/config")
+        kubeconfigs_to_merge = []
 
-    # Add paths to merge list if they exist
-    if aks_clusters: 
-        if os.path.exists(azure_kubeconfig_path):
-            kubeconfigs_to_merge.append(azure_kubeconfig_path)
-            print(f"Merging azure kubeconfig into {final_kubeconfig_path}...")
-    if os.path.exists(kubeconfig_path):
-        kubeconfigs_to_merge.append(kubeconfig_path)
-        print(f"Merging user-provided kubeconfig into {final_kubeconfig_path}...")
+        if aks_clusters and azure_kubeconfig_path: 
+            if os.path.exists(azure_kubeconfig_path):
+                kubeconfigs_to_merge.append(azure_kubeconfig_path)
+                print(f"Merging azure kubeconfig into {final_kubeconfig_path}...")
 
-    if kubeconfigs_to_merge:
-        merge_kubeconfigs(kubeconfigs_to_merge, final_kubeconfig_path)
+        if kubeconfig_path and os.path.exists(kubeconfig_path):
+            kubeconfigs_to_merge.append(kubeconfig_path)
+            print(f"Merging user-provided kubeconfig into {final_kubeconfig_path}...")
+
+        if kubeconfigs_to_merge:
+            merge_kubeconfigs(kubeconfigs_to_merge, final_kubeconfig_path)
+        else:
+            print("No valid kubeconfigs found to merge.")
     else:
-        print("No kubeconfigs found to merge.")
+        print("Skipping Kubernetes discovery due to missing kubeconfig or AKS clusters configuration.")
+        final_kubeconfig_path = None 
+
+    # # ## FIXME This is a quick hack to handle the transition from top-level object to 
+    # # ## cloudConfig configuration, ensuring to support in-cluster-auth, which is 
+    # # ## mostly for POCs but represents the fastest way to get up and running
+    # kubeconfig = args.kubeconfig
+    # kubeconfig_path = os.path.join(base_directory, kubeconfig)
+
+    # if 'cloudConfig' in workspace_info and 'kubernetes' in workspace_info['cloudConfig']:
+    #     kubernetes_config=workspace_info['cloudConfig']['kubernetes']
+    #     kubeconfig_path = kubernetes_config.get('kubeconfigFile')
+    #     # Check if the file at the constructed path exists
+    # if not os.path.exists(kubeconfig_path) and 'cloudConfig' in workspace_info and 'kubernetes' in workspace_info['cloudConfig']:
+    #     print(f"Auth file not found at {base_directory}/{kubeconfig}...")
+    #     # Try getting the kubeconfig from the MB_KUBECONFIG environment variable
+    #     kubeconfig = os.getenv('MB_KUBECONFIG')
+    #     if kubeconfig:
+    #         kubeconfig_path = os.path.join(base_directory, kubeconfig)
+
+    #     # If the file still doesn't exist and we're in a Kubernetes environment, create a kubeconfig
+    #     if not os.path.exists(kubeconfig_path) and os.getenv('KUBERNETES_SERVICE_HOST'):
+    #         kubeconfig_data = create_kubeconfig()
+    #         # Save the kubeconfig_data to a file in the base_directory
+    #         kubeconfig_file = os.path.join(base_directory, "in_cluster_kubeconfig.yaml")
+    #         with open(kubeconfig_file, "w") as f:
+    #             f.write(yaml.dump(kubeconfig_data))
+    #         print(f"Copying {kubeconfig_file} to {kubeconfig_path}...")
+    #         shutil.copyfile(kubeconfig_file, kubeconfig_path)
+    #         print("Using in-cluster Kubernetes auth...")
+    #         print(f"Created kubeconfig at {base_directory}/{kubeconfig}...")
+
+    # # Merge the kubeconfigs
+    # final_kubeconfig_path = os.path.expanduser("~/.kube/config")
+    # kubeconfigs_to_merge = []
+
+    # # Add paths to merge list if they exist
+    # if aks_clusters: 
+    #     if os.path.exists(azure_kubeconfig_path):
+    #         kubeconfigs_to_merge.append(azure_kubeconfig_path)
+    #         print(f"Merging azure kubeconfig into {final_kubeconfig_path}...")
+    # if os.path.exists(kubeconfig_path):
+    #     kubeconfigs_to_merge.append(kubeconfig_path)
+    #     print(f"Merging user-provided kubeconfig into {final_kubeconfig_path}...")
+
+    # if kubeconfigs_to_merge:
+    #     merge_kubeconfigs(kubeconfigs_to_merge, final_kubeconfig_path)
+    # else:
+    #     print("No kubeconfigs found to merge.")
 
     
     if cloud_config:
-        transform_client_cloud_config(base_directory, cloud_config)
-
+        try:
+            transform_client_cloud_config(base_directory, cloud_config)
+        except AttributeError as e:
+            print(f"Error in transforming cloud configuration: {e}")
+    else:
+        print("Cloud configuration missing. Skipping client cloud configuration transformation.")
     # Add any custom definitions that were made as command line arguments to any custom
     # settings that came from the workspace info file
     if args.custom_definitions:
@@ -547,11 +591,13 @@ def main():
         if not args.components:
             fatal("Error: at least one component must be specified to run")
         request_data['components'] = args.components
-        if os.path.exists(final_kubeconfig_path):
+        if final_kubeconfig_path and os.path.exists(final_kubeconfig_path):
             print(f"Indexing Kubernetes with kubeconfig from {final_kubeconfig_path}")
             kubeconfig_data = read_file(final_kubeconfig_path, "rb")
             encoded_kubeconfig_data = base64.b64encode(kubeconfig_data).decode('utf-8')
             request_data['kubeconfig'] = encoded_kubeconfig_data
+        else:
+            print("Kubernetes discovery not completed due to missing or invalid kubeconfig.")
         if wb_version: 
             request_data['wbVersion'] = wb_version
         if workspace_name:

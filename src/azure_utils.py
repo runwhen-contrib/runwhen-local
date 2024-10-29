@@ -22,13 +22,13 @@ def get_subscription_id(credential):
         print(f"Successfully retrieved subscription ID: {mask_string(subscription.subscription_id)}")
         return subscription.subscription_id
     except StopIteration:
-        print("Error: No subscriptions found for the provided credentials.", file=sys.stderr)
+        print("Error: No subscriptions found for the provided credentials.")
         sys.exit(1)
     except AzureError as e:
-        print(f"Azure error occurred while retrieving subscription ID: {e}", file=sys.stderr)
+        print(f"Azure error occurred while retrieving subscription ID: {e}")
         sys.exit(1)
     except Exception as e:
-        print(f"Unexpected error occurred while retrieving subscription ID: {e}", file=sys.stderr)
+        print(f"Unexpected error occurred while retrieving subscription ID: {e}")
         sys.exit(1)
 
 ## TODO harmonize these functions with duplicate azure auth code in ../azure_utils.py
@@ -68,7 +68,7 @@ def get_azure_credential(workspace_info):
             credential = ClientSecretCredential(tenant_id=tenant_id, client_id=client_id, client_secret=client_secret)
             subscription_id = get_subscription_id(credential)
             if not subscription_id:
-                logger.error("Error: subscriptionId not found in either Kubernetes secret or workspaceInfo.yaml.", file=sys.stderr)
+                logger.error("Error: subscriptionId not found in either Kubernetes secret or workspaceInfo.yaml.")
                 sys.exit(1)
 
         return ClientSecretCredential(tenant_id=tenant_id, client_id=client_id, client_secret=client_secret), subscription_id, client_id, client_secret, auth_type, auth_secret
@@ -84,7 +84,7 @@ def get_azure_credential(workspace_info):
         logger.info(f"Found Azure Subscription ID: {mask_string(subscription_id)}")
         return credential, subscription_id, None, None, auth_type, auth_secret
     except Exception as e:
-        print(f"Failed to authenticate using managed identity: {e}", file=sys.stderr)
+        print(f"Failed to authenticate using managed identity: {e}")
         sys.exit(1)
 
 def generate_kubeconfig_for_aks(clusters, workspace_info):
@@ -153,9 +153,9 @@ def generate_kubeconfig_for_aks(clusters, workspace_info):
                 print(f"Setting current context to: {kubeconfig_yaml['contexts'][0]['name']}")
 
         except AzureError as e:
-            logger.error(f"Azure error occurred while processing cluster {cluster_name}: {e}", file=sys.stderr)
+            logger.error(f"Azure error occurred while processing cluster {cluster_name}: {e}")
         except Exception as e:
-            logger.error(f"Unexpected error occurred while processing cluster {cluster_name}: {e}", file=sys.stderr)
+            logger.error(f"Unexpected error occurred while processing cluster {cluster_name}: {e}")
 
     # Ensure the .kube directory exists
     kubeconfig_dir = os.path.expanduser("~/.kube")
@@ -171,7 +171,7 @@ def generate_kubeconfig_for_aks(clusters, workspace_info):
             yaml.dump(combined_kubeconfig, kubeconfig_file)
         logger.info(f"Successfully generated combined kubeconfig for clusters: {[cluster['name'] for cluster in clusters]} at {kubeconfig_path}")
     except IOError as e:
-        logger.error(f"Failed to write kubeconfig file: {e}", file=sys.stderr)
+        logger.error(f"Failed to write kubeconfig file: {e}")
         sys.exit(1)
 
     # Convert the kubeconfig using kubelogin for MSI, if client_id and client_secret are not provided
@@ -181,7 +181,7 @@ def generate_kubeconfig_for_aks(clusters, workspace_info):
             subprocess.run(["kubelogin", "convert-kubeconfig", "-l", "spn", "--client-id", client_id, "--client-secret", client_secret, "--kubeconfig", kubeconfig_path], check=True)
             logger.info("Successfully converted kubeconfig with kubelogin for service principal.")
         except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to convert kubeconfig using kubelogin: {e}", file=sys.stderr)
+            logger.error(f"Failed to convert kubeconfig using kubelogin: {e}")
             sys.exit(1)
     else:
         try:
@@ -189,5 +189,5 @@ def generate_kubeconfig_for_aks(clusters, workspace_info):
             subprocess.run(["kubelogin", "convert-kubeconfig", "-l", "msi", "--kubeconfig", kubeconfig_path], check=True)
             logger.info("Successfully converted kubeconfig with kubelogin for MSI.")
         except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to convert kubeconfig using kubelogin: {e}", file=sys.stderr)
+            logger.error(f"Failed to convert kubeconfig using kubelogin: {e}")
             sys.exit(1)

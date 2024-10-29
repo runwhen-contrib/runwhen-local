@@ -15,15 +15,50 @@
       <br><br>
       RunWhen | Troubleshooting Cheat Sheet
   </div>
-  <div class="home-subtitle"><br><br>Discover the Troubleshooting Tasks from an <b>Expert Community</b><br>that powers the brain of the <b>RunWhen Platform Digital Assistants</b></p><br>
-  <div class="button-container">
-    <button type="button" class="front-page-button"><a href="/tags/#kubernetes">{{ summarized_resources["num_clusters"] }} Kubernetes Cluster(s)</a></button>
-    <button type="button" class="front-page-button"><a href="/list">{{ summarized_resources["groups"] }} Groups</a></button>
+  <div class="home-subtitle">
+      <br><br>Discover the Troubleshooting Tasks from an <b>Expert Community</b><br>
+      that powers the brain of the <b>RunWhen Platform Digital Assistants</b>
   </div>
-  <p  class="home-subtitle"><b>{{ command_generation_summary_stats["total_interesting_commands"] }} customized tasks</b> across <b>{{total_codebundles}} codebundles</b> from <b>{{ command_generation_summary_stats["num_unique_authors"] }} contributors</b> </p>
   <br>
+
+  <div class="button-container">
+    {% if summarized_resources.get("clusters", 0) > 0 %}
+      <button type="button" class="front-page-button">
+        <a href="/tags/#kubernetes">{{ summarized_resources["clusters"] }} Kubernetes Cluster(s)</a>
+      </button>
+    {% endif %}
+
+    {% if summarized_resources.get("resource_groups", 0) > 0 %}
+      <button type="button" class="front-page-button">
+        <a href="/list">{{ summarized_resources["resource_groups"] }} Azure Resource Group(s)</a>
+      </button>
+    {% endif %}
+
+    {% if summarized_resources.get("aws_resources", 0) > 0 %}
+      <button type="button" class="front-page-button">
+        <a href="/list">{{ summarized_resources["aws_resources"] }} AWS Resource(s)</a>
+      </button>
+    {% endif %}
+
+    {% if summarized_resources.get("gcp_resources", 0) > 0 %}
+      <button type="button" class="front-page-button">
+        <a href="/list">{{ summarized_resources["gcp_resources"] }} GCP Resource(s)</a>
+      </button>
+    {% endif %}
+
+    {% if summarized_resources.get("groups", 0) > 0 %}
+      <button type="button" class="front-page-button">
+        <a href="/list">{{ summarized_resources["groups"] }} Group(s)</a>
+      </button>
+    {% endif %}
   </div>
-</div>
+
+  <p class="home-subtitle">
+    <b>{{ command_generation_summary_stats["total_interesting_commands"] }} customized tasks</b> across 
+    <b>{{ total_codebundles }} codebundles</b> from 
+    <b>{{ command_generation_summary_stats["num_unique_authors"] }} contributors</b>
+  </p>
+  <br>
 </div>
 
 

@@ -507,30 +507,45 @@ def update_last_scan_time():
     
 
 def generate_index(all_support_tags_freq, summarized_resources, workspace_details, command_generation_summary_stats, slx_count): 
-    index_path = f'cheat-sheet-docs/docs/index.md'
-    home_path = f'cheat-sheet-docs/docs/overrides/home.html'
-    index_template_file = "cheat-sheet-docs/templates/index-template.j2"
-    home_template_file = "cheat-sheet-docs/templates/home-template.j2"
+    index_path = 'cheat-sheet-docs/docs/index.md'
+    home_path = 'cheat-sheet-docs/docs/overrides/home.html'
+    index_template_file = 'cheat-sheet-docs/templates/index-template.j2'
+    home_template_file = 'cheat-sheet-docs/templates/home-template.j2'
+    
     index_env = jinja2.Environment(loader=jinja2.FileSystemLoader("."))
     home_env = jinja2.Environment(loader=jinja2.FileSystemLoader("."))
+    
     index_template = index_env.get_template(index_template_file)
     home_template = home_env.get_template(home_template_file)
+    
     current_date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # Convert objects to strings using list comprehension
-    cluster_list = [str(cluster) for cluster in summarized_resources["cluster_names"]]
-    cluster_names = ', '.join(cluster_list)
+    # Convert the list of clusters and other fields to comma-separated strings if they exist
+    cluster_list = [str(cluster) for cluster in summarized_resources.get("cluster_names", [])]
+    cluster_names = ', '.join(cluster_list) if cluster_list else None
 
+    # Get top 10 support tags safely
     top_10_support_tags = all_support_tags_freq.most_common(10)
-    top_10_support_tag_names = [tag for tag, freq in top_10_support_tags]
-    tag_icon_url_map = load_icon_urls_for_tags(
-        top_10_support_tag_names
-    )    
+    top_10_support_tag_names = [tag for tag, _ in top_10_support_tags]
+    tag_icon_url_map = load_icon_urls_for_tags(top_10_support_tag_names)    
+    
     tags_with_icons = [{
         "name": tag,
-        "icon_url": tag_icon_url_map.get(tag)
+        "icon_url": tag_icon_url_map.get(tag, "default_icon_url")  # Set a default icon URL
     } for tag in top_10_support_tag_names]
 
+    # Define a dictionary for resource summaries, ensuring that all expected resources are present
+    resource_summary = {
+        "clusters": summarized_resources.get("clusters", 0),
+        "resource_groups": summarized_resources.get("resource_groups", 0),
+        "aws_resources": summarized_resources.get("aws_resources", 0),
+        "gcp_resources": summarized_resources.get("gcp_resources", 0),
+        "groups": summarized_resources.get("groups", 0)
+    }
+    # Filter out zero-count resources
+    resource_summary = {key: value for key, value in resource_summary.items() if value > 0}
+
+    # Safely render index output
     index_output = index_template.render(
         current_date=current_date,
         summarized_resources=summarized_resources,
@@ -540,22 +555,24 @@ def generate_index(all_support_tags_freq, summarized_resources, workspace_detail
         slx_count=slx_count,
         tags_with_icons=tags_with_icons
     )
+
+    # Safely render home output with resource_summary
     home_output = home_template.render(
         current_date=current_date,
         summarized_resources=summarized_resources,
+        resource_summary=resource_summary,
         workspace_details=workspace_details,
         cluster_names=cluster_names,
         command_generation_summary_stats=command_generation_summary_stats,
         slx_count=slx_count
     )
 
+    # Write to files
     with open(index_path, 'w') as index_file:
         index_file.write(index_output)
-    index_file.close()
 
     with open(home_path, 'w') as home_file:
         home_file.write(home_output)
-    home_file.close()
 
 def generate_platform_upload(workspace_info, slx_count, auth_details): 
     platform_upload_path = f'cheat-sheet-docs/docs/platform-upload.md'
@@ -972,6 +989,54 @@ def load_icon_urls_for_tags(tags, filename="map-tag-icons.yaml", default_url="ht
     
     return tag_icon_url_map
 
+def remove_custom_tags(file_path):
+    with open(file_path, 'r') as file:
+        # Read the entire file content and replace custom tags
+        content = file.read()
+    # Substitute custom tags with empty strings
+    content = re.sub(r'!\w+', '', content)
+    return yaml.safe_load(content)
+
+def parse_and_summarize_resource_dump(file_path):
+    summarized_resources = {
+        "clusters": 0,
+        "namespaces": 0,
+        "resource_groups": 0,
+        "azure_resources": 0,
+        "aws_resources": 0,
+        "gcp_resources": 0,
+    }
+
+    try:
+        # Load the YAML data after removing custom tags
+        data = remove_custom_tags(file_path)
+
+        # Summarize clusters
+        kubernetes_clusters = data.get("platforms", {}).get("kubernetes", {}).get("resourceTypes", {}).get("cluster", {}).get("instances", [])
+        summarized_resources["clusters"] = len(kubernetes_clusters)
+
+        # Summarize namespaces (assuming each custom instance represents a namespace)
+        namespaces = data.get("platforms", {}).get("kubernetes", {}).get("resourceTypes", {}).get("custom", {}).get("instances", [])
+        summarized_resources["namespaces"] = len(namespaces)
+
+        # Summarize Azure resources
+        azure_resource_groups = data.get("platforms", {}).get("azure", {}).get("resourceTypes", {}).get("resource_group", {}).get("instances", [])
+        azure_vm_scale_sets = data.get("platforms", {}).get("azure", {}).get("resourceTypes", {}).get("azure_compute_virtual_machine_scale_sets", {}).get("instances", [])
+        summarized_resources["resource_groups"] = len(azure_resource_groups)
+        summarized_resources["azure_resources"] = len(azure_vm_scale_sets) + len(azure_resource_groups)
+
+        # Placeholder counts for AWS and GCP resources (assuming future updates)
+        aws_resources = data.get("platforms", {}).get("aws", {}).get("resourceTypes", {})
+        gcp_resources = data.get("platforms", {}).get("gcp", {}).get("resourceTypes", {})
+        summarized_resources["aws_resources"] = sum(len(res.get("instances", [])) for res in aws_resources.values())
+        summarized_resources["gcp_resources"] = sum(len(res.get("instances", [])) for res in gcp_resources.values())
+
+    except FileNotFoundError:
+        print(f"File {file_path} not found.")
+    except yaml.YAMLError as e:
+        print(f"Error parsing YAML: {e}")
+    return summarized_resources
+
 #@timer
 def cheat_sheet(directory_path):
     """
@@ -1071,14 +1136,43 @@ def cheat_sheet(directory_path):
     deduplicated_support_tags = list(all_support_tags_freq.keys())
 
 
-    # Generate stats and home page
-    cluster_data = auth_details.get('kubernetes', {}).get('kubeconfig_details', {}).get('clusters', [])
-    summarized_resources = {}
-    summarized_resources["groups"] = len(groups)
-    summarized_resources["num_clusters"] = len(cluster_data)
-    summarized_resources["cluster_names"] = [cluster.get('name') for cluster in cluster_data]
-    generate_index(all_support_tags_freq, summarized_resources, workspace_details, command_generation_summary_stats, slx_count)
+    # # Generate stats and home page
+    # cluster_data = auth_details.get('kubernetes', {}).get('kubeconfig_details', {}).get('clusters', [])
+    # summarized_resources = {}
+    # summarized_resources["groups"] = len(groups)
+    # summarized_resources["num_clusters"] = len(cluster_data)
+    # summarized_resources["cluster_names"] = [cluster.get('name') for cluster in cluster_data]
+    # generate_index(all_support_tags_freq, summarized_resources, workspace_details, command_generation_summary_stats, slx_count)
+    # Collecting resources from various cloud configurations
 
+    # Collecting resources from various cloud configurations
+    summarized_resources = {
+        "groups": len(groups),
+        "kubernetes_clusters": [],
+        "azure_resources": [],
+        "aws_resources": [],
+        "gcp_resources": []
+    }
+
+    # Parse the resource dump to collect data for summarized_resources
+    resource_dump_path = workspace_info.get("resourceDumpPath", "/shared/output/resource-dump.yaml")
+    summarized_resources = parse_and_summarize_resource_dump(resource_dump_path)
+
+    # Adding group count and Kubernetes clusters if available
+    summarized_resources["groups"] = len(groups)
+
+    # Log if no resources are found to aid debugging
+    if not any(summarized_resources.get("platforms", {}).values()):
+        logger.warning("No cloud resources found across Kubernetes, Azure, AWS, or GCP.")
+
+    # Generate index based on available resources
+    generate_index(
+        all_support_tags_freq,
+        summarized_resources,
+        workspace_details,
+        command_generation_summary_stats,
+        slx_count
+    )
 
 if __name__ == "__main__":
     cheat_sheet(sys.argv[1])
