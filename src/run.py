@@ -421,22 +421,26 @@ def main():
     if not cloud_config:
         cloud_config = os.getenv("WB_CLOUD_CONFIG")
 
-    aks_clusters=None
+    aks_clusters = None
+    azure_kubeconfig_path = None  # Initialize the variable here
+
     if 'cloudConfig' in workspace_info and 'azure' in workspace_info['cloudConfig']:
         azure_config = workspace_info['cloudConfig']['azure']
-        aks_clusters = azure_config.get('aksClusters')
-        if aks_clusters and isinstance(aks_clusters, dict):  # Check if aks_clusters exists and is a dictionary
-            clusters = aks_clusters.get('clusters', [])
-            if clusters:
-                # Generate kubeconfig for each cluster with optional server override
-                try:
-                    generate_kubeconfig_for_aks(clusters, workspace_info)
-                    azure_kubeconfig_path = os.path.expanduser("~/.kube/azure-kubeconfig")
-                except Exception as e:
-                    print(f"Error generating kubeconfig for AKS clusters: {e}")
+        aks_clusters = azure_config.get('aksClusters', {}).get('clusters', [])  # Directly get the 'clusters' list if it exists
+
+        if aks_clusters and isinstance(aks_clusters, list):  # Check if aks_clusters is a list of cluster dictionaries
+            # Generate kubeconfig for each cluster with optional server override
+            try:
+                generate_kubeconfig_for_aks(aks_clusters, workspace_info)
+                azure_kubeconfig_path = os.path.expanduser("~/.kube/azure-kubeconfig")
+                print(f"Kubeconfig generated and saved to {azure_kubeconfig_path}")
+            except Exception as e:
+                print(f"Error generating kubeconfig for AKS clusters: {e}")
+                azure_kubeconfig_path = None  # Ensure path is None if generation fails
         else:
             print("AKS clusters not found or improperly formatted. Skipping Kubernetes discovery for AKS.")
-
+    else:
+        print("Azure configuration not found in workspace_info.")
     # Handle user provided kubeconfig
     print("Looking for generic kubeconfig")
 
@@ -456,9 +460,10 @@ def main():
         final_kubeconfig_path = os.path.expanduser("~/.kube/config")
         kubeconfigs_to_merge = []
 
-        if aks_clusters and os.path.exists(azure_kubeconfig_path):
-            kubeconfigs_to_merge.append(azure_kubeconfig_path)
-            print(f"Merging azure kubeconfig into {final_kubeconfig_path}...")
+        if aks_clusters and azure_kubeconfig_path: 
+            if os.path.exists(azure_kubeconfig_path):
+                kubeconfigs_to_merge.append(azure_kubeconfig_path)
+                print(f"Merging azure kubeconfig into {final_kubeconfig_path}...")
 
         if kubeconfig_path and os.path.exists(kubeconfig_path):
             kubeconfigs_to_merge.append(kubeconfig_path)
