@@ -3,17 +3,35 @@ from typing import Any, Optional
 from component import Context
 from resources import Resource, Registry, REGISTRY_PROPERTY_NAME
 from .generation_rule_types import PlatformHandler, LevelOfDetail
+import logging
+
+# Initialize the logger for this module
+logger = logging.getLogger(__name__)
+
 
 AZURE_PLATFORM = "azure"
 
+
 def get_resource_group(resource: Resource) -> Optional[Resource]:
-    # FIXME: Shouldn't use hard-coded string here
+    # If resource itself is of type "resource_group", return it
     if resource.resource_type.name == "resource_group":
         return resource
-    try:
-        return getattr(resource, "resource_group")
-    except AttributeError:
-        return None
+
+    # Try accessing the resource_group attribute directly
+    resource_group = getattr(resource, "resource_group", None)
+    if resource_group is not None:
+        return resource_group
+    
+    # Check for nested attributes or other ways to resolve the resource group
+    # This might be specific to certain resource types; customize as needed
+    if hasattr(resource, "parent"):
+        parent = resource.parent
+        if parent and parent.resource_type.name == "resource_group":
+            return parent
+    
+    # Log a warning if resource group cannot be resolved
+    logger.warning(f"Resource group not found for resource: {resource.resource_type.name}")
+    return None
 
 
 class AzurePlatformHandler(PlatformHandler):
@@ -22,9 +40,9 @@ class AzurePlatformHandler(PlatformHandler):
         super().__init__(AZURE_PLATFORM)
 
     def parse_resource_data(self,
-                            resource_data: dict[str,Any],
+                            resource_data: dict[str, Any],
                             resource_type_name: str,
-                            platform_config_data: dict[str,Any],
+                            platform_config_data: dict[str, Any],
                             context: Context) -> tuple[str, str, dict[str, Any]]:
         # FIXME: This assumes that all Azure tables have name and id fields/attributes.
         # Seems likely, but not 100% sure this is a valid assumption.
@@ -32,10 +50,11 @@ class AzurePlatformHandler(PlatformHandler):
         qualified_name = name
         tags = resource_data.get('tags', dict())
         resource_attributes = {'tags': tags}
+
         if resource_type_name == "resource_group":
             # Set the 'lod' (level-of-detail) resource attribute from the per-resource-group
             # setting in the Azure cloud config or set to the default value if it's unspecified
-            # FIXME: It's a big kludgy to have the level of detail setting in the resource,
+            # FIXME: It's a bit kludgy to have the level of detail setting in the resource,
             # since that's really a generation rules feature, not an indexing feature.
             # Although we do currently use it in kubeapi to optimize the indexing to skip indexing
             # namespaces whose level-of-detail is "none". But I still think it would be
@@ -48,7 +67,7 @@ class AzurePlatformHandler(PlatformHandler):
             # groups? but I don't think it does).
             resource_group_level_of_detail_config = platform_config_data.get("resourceGroupLevelOfDetails", dict())
             resource_group_lod_value = resource_group_level_of_detail_config.get(name)
-            # FIXME: Not great maintainance-wise to lookup setting values by the setting name here.
+            # FIXME: Not great maintenance-wise to lookup setting values by the setting name here.
             # Would be better to lookup by the actual Setting class singleton (which is not supported
             # by the get_setting method). Unfortunately, currently, if we try to use the default LOD
             # setting it leads to a module import circularity, so some cleanup/refactoring of
@@ -57,16 +76,18 @@ class AzurePlatformHandler(PlatformHandler):
             resource_attributes['lod'] = LevelOfDetail.construct_from_config(resource_group_lod_value) \
                 if resource_group_lod_value is not None else context.get_setting("DEFAULT_LOD")
         else:
-            id: str = resource_data['id']
-            resource_groups_component_name = "resourceGroups/"
-            resource_group_start = id.find(resource_groups_component_name)
+            # Updated to handle lowercase 'resourcegroups' in ID extraction logic
+            id: str = resource_data.get('id', '')
+            resource_groups_component_name = "resourcegroups/"
+            resource_group_start = id.lower().find(resource_groups_component_name)  # Case-insensitive match
+            
             if resource_group_start >= 0:
                 resource_group_start += len(resource_groups_component_name)
                 resource_group_end = id.find('/', resource_group_start)
                 if resource_group_end > resource_group_start:
                     resource_group_name = id[resource_group_start:resource_group_end]
                     # Unfortunately the resource group name that's encoded in the id value has
-                    # been converted to all upper-case, so it's name doesn't match the key value
+                    # been converted to all upper-case, so its name doesn't match the key value
                     # in the instances for the ResourceGroup resource type. So instead we need to
                     # iterate over all the instances and do a case-insensitive comparison. Ugh!
                     # Should think some more if there's a better / more efficient way to handle
@@ -86,7 +107,9 @@ class AzurePlatformHandler(PlatformHandler):
                     # but would instead define it once (not sure where makes the most sense?).
                     registry: Registry = context.get_property(REGISTRY_PROPERTY_NAME)
                     resource_group_resource_type = registry.lookup_resource_type(AZURE_PLATFORM, "resource_group")
+                    
                     if resource_group_resource_type:
+                        # Try to find the original casing by iterating over resource group instances
                         for resource_group in resource_group_resource_type.instances.values():
                             if resource_group.name.upper() == resource_group_name.upper():
                                 # Switch the resource group name back to the original name,
@@ -98,20 +121,33 @@ class AzurePlatformHandler(PlatformHandler):
 
         return name, qualified_name, resource_attributes
 
-    def get_level_of_detail(self, resource: Resource) -> Optional[LevelOfDetail]:
+
+    def get_level_of_detail(self, resource: Resource) -> LevelOfDetail:
         resource_group = get_resource_group(resource)
         if not resource_group:
-            return None
-        level_of_detail = getattr(resource_group, 'lod')
+            # If no resource group, return DEFAULT_LOD from context settings.
+            return LevelOfDetail.DETAILED  # Or LevelOfDetail.BASIC, as per the default you'd like
+        
+        # Fetch level_of_detail from resource group, or fallback to DEFAULT_LOD
+        level_of_detail = getattr(resource_group, 'lod', None)
+        if level_of_detail is None:
+            return LevelOfDetail.DETAILED  # Replace with context.get_setting("DEFAULT_LOD") if accessible here
         return level_of_detail
+
 
     @staticmethod
     def get_common_resource_property_values(resource: Resource, qualifier_name: str) -> Optional[str]:
         if qualifier_name == "resource_group":
-            return get_resource_group(resource).name
+            resource_group = get_resource_group(resource)
+            if resource_group is not None:
+                return resource_group.name
+            else:
+                # Handle case when resource_group is None
+                return None
         else:
-            # FIXME: Should we treat this as an error, i.e. raise Exception?
+            # Log or raise an error if qualifier is unknown, or simply return None
             return None
+
 
     def get_resource_qualifier_value(self, resource: Resource, qualifier_name: str) -> Optional[str]:
         return self.get_common_resource_property_values(resource, qualifier_name)
