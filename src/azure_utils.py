@@ -158,7 +158,8 @@ def generate_kubeconfig_for_aks(clusters, workspace_info):
                             'cluster_type': 'aks',
                             'cluster_name': cluster_name,
                             'auth_type': auth_type,
-                            'auth_secret': auth_secret
+                            'auth_secret': auth_secret,
+                            'subscription_id': sub_id
                         }
                     })
 

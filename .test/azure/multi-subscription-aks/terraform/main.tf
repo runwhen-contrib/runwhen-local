@@ -99,13 +99,13 @@ resource "azurerm_role_assignment" "cluster_2_sp_owner" {
 }
 
 # Role Assignment for Service Principal
-# resource "azurerm_role_assignment" "cluster_2_sp_reader" {
-#  provider            = azurerm.cluster_1
-#  scope               = "/subscriptions/${var.subscription_id_2}"
-#  role_definition_name = "Reader"
-#  principal_id        = var.sp_principal_id
-#  principal_type      = "ServicePrincipal"
-# }
+resource "azurerm_role_assignment" "cluster_2_sp_reader" {
+  provider             = azurerm.cluster_1
+  scope                = "/subscriptions/${var.subscription_id_2}"
+  role_definition_name = "Reader"
+  principal_id         = var.sp_principal_id
+  principal_type       = "ServicePrincipal"
+}
 
 # AKS Cluster
 resource "azurerm_kubernetes_cluster" "cluster_2_aks" {

@@ -85,7 +85,11 @@ tasks:
               resourceGroupLevelOfDetails:
                 $cluster1_resource_group: detailed
                 $cluster2_resource_group: detailed
-        codeCollections: []
+        codeCollections: 
+          - repoURL: "https://github.com/stewartshea/rw-cli-codecollection"
+            branch: "azure/add_sub_vars"
+            codeBundles: ["k8s-namespace-healthcheck", "azure-aks-triage"]
+        # codeCollections: []
         # - repoURL: "$repo_url"
         #   branch: "$branch_name"
         #   codeBundles: ["$codebundle"]
