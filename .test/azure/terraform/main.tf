@@ -1,135 +1,132 @@
-# Current sub (assumed from CLI login)
-data "azurerm_subscription" "current" {}
+# Cluster 1 Resources
 
-
-# Define local clusters with necessary variables
-locals {
-  clusters = {
-    cluster_1 = {
-      resource_group  = "azure-aks-1"
-      location        = "East US"
-      cluster_name    = "aks-cl-1"
-      subscription_id = var.subscription_id_1
-      sp_principal_id = var.sp_principal_id
-      tenant_id       = var.tenant_id
-      tags = {
-        "env"       = "test"
-        "lifecycle" = "deleteme"
-        "product"   = "runwhen"
-      }
-    }
-    cluster_2 = {
-      resource_group  = "azure-aks-2"
-      location        = "West US"
-      cluster_name    = "aks-cl-2"
-      subscription_id = var.subscription_id_2
-      sp_principal_id = var.sp_principal_id
-      tenant_id       = var.tenant_id
-      tags = {
-        "env"       = "test"
-        "lifecycle" = "deleteme"
-        "product"   = "runwhen"
-      }
-    }
+# Resource Group
+resource "azurerm_resource_group" "cluster_1_rg" {
+  provider = azurerm.cluster_1
+  name     = "azure-aks-1"
+  location = "East US"
+  tags     = {
+    "env"       = "test"
+    "lifecycle" = "deleteme"
+    "product"   = "runwhen"
   }
 }
 
-# Resource Groups for each cluster
-resource "azurerm_resource_group" "aks_rg" {
-  for_each = local.clusters
-  name     = each.value.resource_group
-  location = each.value.location
-  tags     = each.value.tags
+# Managed Identity
+resource "azurerm_user_assigned_identity" "cluster_1_identity" {
+  provider            = azurerm.cluster_1
+  name                = "aks-cl-1-identity"
+  location            = azurerm_resource_group.cluster_1_rg.location
+  resource_group_name = azurerm_resource_group.cluster_1_rg.name
 }
 
-# Managed Identity for each cluster
-resource "azurerm_user_assigned_identity" "aks_identity" {
-  for_each            = local.clusters
-  name                = "${each.value.cluster_name}-identity"
-  location            = each.value.location
-  resource_group_name = azurerm_resource_group.aks_rg[each.key].name
-}
-
-# Role Assignments for Service Principal and Managed Identity
-resource "azurerm_role_assignment" "sp_owner_subscription" {
-  for_each            = local.clusters
-  scope               = "/subscriptions/${each.value.subscription_id}"
+# Role Assignment for Service Principal
+resource "azurerm_role_assignment" "cluster_1_sp_owner" {
+  provider            = azurerm.cluster_1
+  scope               = "/subscriptions/${var.subscription_id_1}"
   role_definition_name = "Owner"
-  principal_id        = each.value.sp_principal_id
+  principal_id        = var.sp_principal_id
+  principal_type      = "ServicePrincipal"
 }
 
-resource "azurerm_role_assignment" "aks_identity_owner_rg" {
-  for_each            = local.clusters
-  principal_id        = azurerm_user_assigned_identity.aks_identity[each.key].principal_id
-  role_definition_name = "Owner"
-  scope               = azurerm_resource_group.aks_rg[each.key].id
-}
-
-# Virtual Network and Subnet for Azure CNI
-resource "azurerm_virtual_network" "aks_vnet" {
-  for_each            = local.clusters
-  name                = "${each.value.cluster_name}-vnet"
-  location            = each.value.location
-  resource_group_name = azurerm_resource_group.aks_rg[each.key].name
-  address_space       = ["10.0.0.0/16"]
-}
-
-resource "azurerm_subnet" "aks_subnet" {
-  for_each             = local.clusters
-  name                 = "${each.value.cluster_name}-subnet"
-  resource_group_name  = azurerm_resource_group.aks_rg[each.key].name
-  virtual_network_name = azurerm_virtual_network.aks_vnet[each.key].name
-  address_prefixes     = ["10.0.1.0/24"]
-}
-
-# Network Security Group and Subnet Association
-resource "azurerm_network_security_group" "aks_nsg" {
-  for_each            = local.clusters
-  name                = "${each.value.cluster_name}-nsg"
-  location            = each.value.location
-  resource_group_name = azurerm_resource_group.aks_rg[each.key].name
-}
-
-resource "azurerm_subnet_network_security_group_association" "aks_subnet_nsg" {
-  for_each                  = local.clusters
-  subnet_id                 = azurerm_subnet.aks_subnet[each.key].id
-  network_security_group_id = azurerm_network_security_group.aks_nsg[each.key].id
-}
-
-# AKS Cluster Configuration
-resource "azurerm_kubernetes_cluster" "aks_cluster" {
-  for_each            = local.clusters
-  depends_on          = [azurerm_user_assigned_identity.aks_identity]
-  name                = each.value.cluster_name
-  location            = each.value.location
-  resource_group_name = azurerm_resource_group.aks_rg[each.key].name
-  dns_prefix          = "aks-${each.value.cluster_name}"
+# AKS Cluster
+resource "azurerm_kubernetes_cluster" "cluster_1_aks" {
+  provider            = azurerm.cluster_1
+  name                = "aks-cl-1"
+  location            = azurerm_resource_group.cluster_1_rg.location
+  resource_group_name = azurerm_resource_group.cluster_1_rg.name
+  dns_prefix          = "aks-cl-1"
 
   default_node_pool {
-    name           = "default"
-    node_count     = 1
-    vm_size        = "Standard_DC2s_v2"
-    vnet_subnet_id = azurerm_subnet.aks_subnet[each.key].id
+    name       = "default"
+    node_count = 1
+    vm_size    = "Standard_DC2s_v2"
   }
 
   identity {
     type         = "UserAssigned"
-    identity_ids = [azurerm_user_assigned_identity.aks_identity[each.key].id]
+    identity_ids = [azurerm_user_assigned_identity.cluster_1_identity.id]
   }
 
   azure_active_directory_role_based_access_control {
     azure_rbac_enabled = true
-    tenant_id          = each.value.tenant_id
+    tenant_id          = var.tenant_id
   }
 
-  tags = each.value.tags
+  tags = {
+    "env"       = "test"
+    "lifecycle" = "deleteme"
+    "product"   = "runwhen"
+  }
 }
 
-# Outputs for each cluster
+# Cluster 2 Resources
+
+# Resource Group
+resource "azurerm_resource_group" "cluster_2_rg" {
+  provider = azurerm.cluster_2
+  name     = "azure-aks-2"
+  location = "West US"
+  tags     = {
+    "env"       = "test"
+    "lifecycle" = "deleteme"
+    "product"   = "runwhen"
+  }
+}
+
+# Managed Identity
+resource "azurerm_user_assigned_identity" "cluster_2_identity" {
+  provider            = azurerm.cluster_2
+  name                = "aks-cl-2-identity"
+  location            = azurerm_resource_group.cluster_2_rg.location
+  resource_group_name = azurerm_resource_group.cluster_2_rg.name
+}
+
+# Role Assignment for Service Principal
+resource "azurerm_role_assignment" "cluster_2_sp_owner" {
+  provider            = azurerm.cluster_2
+  scope               = "/subscriptions/${var.subscription_id_2}"
+  role_definition_name = "Owner"
+  principal_id        = var.sp_principal_id
+  principal_type      = "ServicePrincipal"
+}
+
+# AKS Cluster
+resource "azurerm_kubernetes_cluster" "cluster_2_aks" {
+  provider            = azurerm.cluster_2
+  name                = "aks-cl-2"
+  location            = azurerm_resource_group.cluster_2_rg.location
+  resource_group_name = azurerm_resource_group.cluster_2_rg.name
+  dns_prefix          = "aks-cl-2"
+
+  default_node_pool {
+    name       = "default"
+    node_count = 1
+    vm_size    = "Standard_DC2s_v2"
+  }
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.cluster_2_identity.id]
+  }
+
+  azure_active_directory_role_based_access_control {
+    azure_rbac_enabled = true
+    tenant_id          = var.tenant_id
+  }
+
+  tags = {
+    "env"       = "test"
+    "lifecycle" = "deleteme"
+    "product"   = "runwhen"
+  }
+}
+
+# Outputs for Cluster FQDNs
 output "cluster_1_fqdn" {
-  value = azurerm_kubernetes_cluster.aks_cluster["cluster_1"].fqdn
+  value = azurerm_kubernetes_cluster.cluster_1_aks.fqdn
 }
 
 output "cluster_2_fqdn" {
-  value = azurerm_kubernetes_cluster.aks_cluster["cluster_2"].fqdn
+  value = azurerm_kubernetes_cluster.cluster_2_aks.fqdn
 }
