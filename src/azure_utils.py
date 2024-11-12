@@ -11,6 +11,7 @@ import logging
 from kubernetes import client, config
 from k8s_utils import get_secret
 from utils import mask_string
+from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
@@ -87,11 +88,25 @@ def get_azure_credential(workspace_info):
         print(f"Failed to authenticate using managed identity: {e}")
         sys.exit(1)
 
-def generate_kubeconfig_for_aks(clusters, workspace_info):
-    credential, subscription_id, client_id, client_secret, auth_type, auth_secret = get_azure_credential(workspace_info)
-    
-    aks_client = ContainerServiceClient(credential, subscription_id=subscription_id)
+def enumerate_subscriptions(credential):
+    """
+    Enumerate all subscriptions that the service principal has access to.
+    """
+    subscription_client = SubscriptionClient(credential)
+    accessible_subscriptions = []
+    try:
+        for subscription in subscription_client.subscriptions.list():
+            accessible_subscriptions.append(subscription.subscription_id)
+            logger.info(f"Discovered accessible subscription ID: {subscription.subscription_id}")
 
+    except AzureError as e:
+        logger.error(f"Failed to enumerate subscriptions: {e}")
+
+    return accessible_subscriptions
+
+
+def generate_kubeconfig_for_aks(clusters, workspace_info):
+    credential, default_subscription_id, client_id, client_secret, auth_type, auth_secret = get_azure_credential(workspace_info)
     combined_kubeconfig = {
         'apiVersion': 'v1',
         'kind': 'Config',
@@ -101,93 +116,77 @@ def generate_kubeconfig_for_aks(clusters, workspace_info):
         'users': []
     }
 
+    # Get list of subscriptions to check
+    accessible_subscriptions = enumerate_subscriptions(credential)
+    logger.info(f"Subscriptions to iterate over: {accessible_subscriptions}")
+
     for cluster in clusters:
-        try:
-            cluster_name = cluster['name']
-            resource_group_name = cluster['resource_group']
-            server_url = cluster.get('server')
+        cluster_name = cluster.get('name')
+        resource_group_name = cluster.get('resource_group')
+        server_url = cluster.get('server')
+        specified_subscription_id = cluster.get('subscriptionId')
+        found_cluster = False
 
-            logger.info(f"Processing cluster: {cluster_name} in resource group: {resource_group_name}")
+        # Determine subscriptions to check for this cluster
+        subscription_ids_to_check = [specified_subscription_id] if specified_subscription_id else accessible_subscriptions
+        for sub_id in subscription_ids_to_check:
+            logger.info(f"Checking subscription {sub_id} for cluster {cluster_name} in resource group {resource_group_name}")
+            try:
+                aks_client = ContainerServiceClient(credential, subscription_id=sub_id)
+                
+                # Attempt to retrieve the cluster kubeconfig
+                kubeconfig = aks_client.managed_clusters.list_cluster_user_credentials(resource_group_name, cluster_name)
+                kubeconfig_content = kubeconfig.kubeconfigs[0].value.decode('utf-8')
+                kubeconfig_yaml = yaml.safe_load(kubeconfig_content)
+                found_cluster = True
 
-            # Fetch AKS cluster kubeconfig
-            logger.info(f"Fetching kubeconfig for cluster: {cluster_name}")
-            kubeconfig = aks_client.managed_clusters.list_cluster_user_credentials(resource_group_name, cluster_name)
-            kubeconfig_content = kubeconfig.kubeconfigs[0].value.decode('utf-8')  # Decode bytearray to string
+                # Override server URL if provided
+                if server_url:
+                    for cluster_entry in kubeconfig_yaml['clusters']:
+                        cluster_entry['cluster']['server'] = server_url
 
-            # Load kubeconfig as YAML
-            logger.info(f"Loading kubeconfig YAML for cluster: {cluster_name}")
-            kubeconfig_yaml = yaml.safe_load(kubeconfig_content)
+                # Append to combined kubeconfig
+                combined_kubeconfig['clusters'].extend(kubeconfig_yaml['clusters'])
+                combined_kubeconfig['contexts'].extend(kubeconfig_yaml['contexts'])
+                combined_kubeconfig['users'].extend(kubeconfig_yaml['users'])
 
-            # Override server URL if provided
-            if server_url:
-                logger.info(f"Overriding server URL for cluster: {cluster_name} with {server_url}")
-                for cluster_entry in kubeconfig_yaml['clusters']:
-                    cluster_entry['cluster']['server'] = server_url
+                if not combined_kubeconfig['current-context']:
+                    combined_kubeconfig['current-context'] = kubeconfig_yaml['contexts'][0]['name']
+                    logger.info(f"Setting current context to: {combined_kubeconfig['current-context']}")
 
-            # Add resource_group to the "workspace-builder" extension
-            logger.info(f"Adding resource_group to workspace-builder extension for cluster: {cluster_name}")
-            for cluster_entry in kubeconfig_yaml['clusters']:
-                if 'extensions' not in cluster_entry['cluster']:
-                    cluster_entry['cluster']['extensions'] = []
+                logger.info(f"Successfully retrieved kubeconfig for cluster {cluster_name} in subscription {sub_id}")
+                break  # Exit the loop once the cluster is found in a subscription
 
-                cluster_entry['cluster']['extensions'].append({
-                    'name': 'workspace-builder',
-                    'extension': {
-                        'resource_group': resource_group_name,
-                        'cluster_type': 'aks',
-                        'cluster_name': 'cluster_name',
-                        'auth_type': auth_type,
-                        'auth_secret': auth_secret
-                    }
-                })
+            except AzureError as e:
+                logger.info(f"Cluster {cluster_name} not found in subscription {sub_id} or error occurred: {e}")
 
-            # Add cluster, context, and user to combined kubeconfig
-            logger.info(f"Adding cluster, context, and user to combined kubeconfig for cluster: {cluster_name}")
-            combined_kubeconfig['clusters'].extend(kubeconfig_yaml['clusters'])
-            combined_kubeconfig['contexts'].extend(kubeconfig_yaml['contexts'])
-            combined_kubeconfig['users'].extend(kubeconfig_yaml['users'])
-
-            # Optionally, set the current context to the first cluster's context
-            if not combined_kubeconfig['current-context']:
-                combined_kubeconfig['current-context'] = kubeconfig_yaml['contexts'][0]['name']
-                print(f"Setting current context to: {kubeconfig_yaml['contexts'][0]['name']}")
-
-        except AzureError as e:
-            logger.error(f"Azure error occurred while processing cluster {cluster_name}: {e}")
-        except Exception as e:
-            logger.error(f"Unexpected error occurred while processing cluster {cluster_name}: {e}")
-
-    # Ensure the .kube directory exists
+        if not found_cluster:
+            logger.error(f"Cluster {cluster_name} in resource group {resource_group_name} not found in any accessible subscriptions.")
+    
+    # Save combined kubeconfig to file
     kubeconfig_dir = os.path.expanduser("~/.kube")
     if not os.path.exists(kubeconfig_dir):
-        logger.info(f"Creating directory: {kubeconfig_dir}")
         os.makedirs(kubeconfig_dir)
-
-    # Save the combined kubeconfig to file
+    
     kubeconfig_path = os.path.join(kubeconfig_dir, "azure-kubeconfig")
     try:
-        logger.info(f"Saving combined kubeconfig to: {kubeconfig_path}")
         with open(kubeconfig_path, "w") as kubeconfig_file:
             yaml.dump(combined_kubeconfig, kubeconfig_file)
-        logger.info(f"Successfully generated combined kubeconfig for clusters: {[cluster['name'] for cluster in clusters]} at {kubeconfig_path}")
+        logger.info(f"Combined kubeconfig saved to {kubeconfig_path}")
     except IOError as e:
         logger.error(f"Failed to write kubeconfig file: {e}")
         sys.exit(1)
 
-    # Convert the kubeconfig using kubelogin for MSI, if client_id and client_secret are not provided
+    # Kubelogin conversion as needed
     if client_id and client_secret:
         try:
-            logger.info("Converting kubeconfig using kubelogin...")
             subprocess.run(["kubelogin", "convert-kubeconfig", "-l", "spn", "--client-id", client_id, "--client-secret", client_secret, "--kubeconfig", kubeconfig_path], check=True)
-            logger.info("Successfully converted kubeconfig with kubelogin for service principal.")
         except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to convert kubeconfig using kubelogin: {e}")
+            logger.error(f"kubelogin conversion failed: {e}")
             sys.exit(1)
     else:
         try:
-            logger.info("Converting kubeconfig using kubelogin with Managed Service Identity (MSI)...")
             subprocess.run(["kubelogin", "convert-kubeconfig", "-l", "msi", "--kubeconfig", kubeconfig_path], check=True)
-            logger.info("Successfully converted kubeconfig with kubelogin for MSI.")
         except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to convert kubeconfig using kubelogin: {e}")
+            logger.error(f"kubelogin MSI conversion failed: {e}")
             sys.exit(1)

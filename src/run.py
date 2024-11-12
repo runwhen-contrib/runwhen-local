@@ -701,16 +701,6 @@ def main():
         for warning in warnings:
             print("WARNING: " + warning)
 
-        # Add cheat-sheet integration, which points at the output items and
-        # generates the list of local commands that exist in the TaskSet.
-        # FIXME: I think it would probably be cleaner and more decoupled to move the
-        # command assist stuff to a separate command line tool and then have the
-        # run.sh script handle calling it after invoking this tool.
-        if cheat_sheet_enabled:
-            # Update cheat sheet status by copying index
-            status_update("Starting cheat sheet rendering...", status_file_path)
-            cheatsheet.cheat_sheet(output_path)
-            status_update("Cheat sheet rendering completed.", status_file_path)
 
         # Note: Handling of the upload flag is done below, so that the code can be shared
         # with the upload command
@@ -795,6 +785,16 @@ def main():
 
         print("Workspace builder data uploaded successfully.")
 
+    # Add cheat-sheet integration, which points at the output items and
+    # generates the list of local commands that exist in the TaskSet.
+    # FIXME: I think it would probably be cleaner and more decoupled to move the
+    # command assist stuff to a separate command line tool and then have the
+    # run.sh script handle calling it after invoking this tool.
+    if cheat_sheet_enabled:
+        # Update cheat sheet status by copying index
+        status_update("Starting cheat sheet rendering...", status_file_path)
+        cheatsheet.cheat_sheet(output_path)
+        status_update("Cheat sheet rendering completed.", status_file_path)
 
 if __name__ == "__main__":
     main()
