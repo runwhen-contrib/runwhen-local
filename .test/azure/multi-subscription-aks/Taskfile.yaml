@@ -89,6 +89,9 @@ tasks:
         # - repoURL: "$repo_url"
         #   branch: "$branch_name"
         #   codeBundles: ["$codebundle"]
+        custom: 
+          azure_service_principal_secret_name: azure-sp
+          kubernetes_distribution_binary: kubectl
         EOF
     silent: true
 
