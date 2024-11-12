@@ -188,7 +188,7 @@ def cmd_expansion(keyword_arguments, parsed_runbook_config):
             cmd_str = safe_substitute(cmd_str, '${KUBERNETES_DISTRIBUTION_BINARY}', service_name)
         else:
             # Optionally log a warning or handle the case where no services are provided
-            logger.warning("No services provided in 'servicesProvided'. Using empty string for service_name.")
+            logger.debug("No services provided in 'servicesProvided'. Using empty string for service_name.")
 
     elif cmd_components[0].startswith('\'bash_file='): 
         logger.debug(f"Rendering bash file: {cmd_components[0]}")
