@@ -24,7 +24,7 @@ resource "azurerm_user_assigned_identity" "cluster_1_identity" {
 resource "azurerm_role_assignment" "cluster_1_sp_owner" {
   provider            = azurerm.cluster_1
   scope               = "/subscriptions/${var.subscription_id_1}"
-  role_definition_name = "Owner"
+  role_definition_name = "Azure Kubernetes Service RBAC Cluster Admin"
   principal_id        = var.sp_principal_id
   principal_type      = "ServicePrincipal"
 }
@@ -86,7 +86,7 @@ resource "azurerm_user_assigned_identity" "cluster_2_identity" {
 resource "azurerm_role_assignment" "cluster_2_sp_owner" {
   provider            = azurerm.cluster_2
   scope               = "/subscriptions/${var.subscription_id_2}"
-  role_definition_name = "Owner"
+  role_definition_name = "Azure Kubernetes Service RBAC Cluster Admin"
   principal_id        = var.sp_principal_id
   principal_type      = "ServicePrincipal"
 }
@@ -126,7 +126,25 @@ resource "azurerm_kubernetes_cluster" "cluster_2_aks" {
 output "cluster_1_fqdn" {
   value = azurerm_kubernetes_cluster.cluster_1_aks.fqdn
 }
+output "cluster_1_name" {
+  value = azurerm_kubernetes_cluster.cluster_1_aks.name
+}
+output "cluster_1_sub" {
+  value = var.subscription_id_1
+}
+output "cluster_1_rg" {
+  value = azurerm_kubernetes_cluster.cluster_1_aks.resource_group_name
+}
 
 output "cluster_2_fqdn" {
   value = azurerm_kubernetes_cluster.cluster_2_aks.fqdn
+}
+output "cluster_2_name" {
+  value = azurerm_kubernetes_cluster.cluster_2_aks.name
+}
+output "cluster_2_sub" {
+  value = var.subscription_id_2
+}
+output "cluster_2_rg" {
+  value = azurerm_kubernetes_cluster.cluster_2_aks.resource_group_name
 }

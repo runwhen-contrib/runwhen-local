@@ -16,3 +16,24 @@ src/rw-cli-codecollection-cache
 
 # Ignore crash logs
 **/crash.log
+
+# Ignore override files
+**/*_override.tf
+**/*_override.tf.json
+**/*override.tf
+**/*override.tf.json
+
+# Ignore plan output files
+**/*.tfplan
+
+# Ignore CLI config file
+**/.terraformrc
+**/terraform.rc
+
+
+# Ignore RunWhen Local test files
+**/workspaceInfo.yaml**
+**kubeconfig**
+**/output/
+**/.test/.task/**
+.vscode/settings.json

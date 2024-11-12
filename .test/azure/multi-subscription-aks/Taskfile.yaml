@@ -1,0 +1,235 @@
+version: "3"
+
+tasks:
+  default:
+    desc: "Generate workspaceInfo and rebuild/test"
+    cmds:
+      - task: generate-rwl-config
+      - task: run-rwl-discovery
+
+  clean:
+    desc: "Run cleanup tasks"
+    cmds:
+      - task: check-and-cleanup-terraform
+      - task: clean-rwl-discovery
+
+  build-infra:
+    desc: "Build test infrastructure"
+    cmds:
+      - task: build-terraform-infra
+
+
+  generate-rwl-config:
+    desc: "Generate RunWhen Local configuration (workspaceInfo.yaml)"
+    env:
+      ARM_SUBSCRIPTION_ID: "{{.TF_VAR_subscription_id_1}}"
+      AZ_TENANT_ID: "{{.AZ_TENANT_ID}}"
+      AZ_CLIENT_SECRET: "{{.AZ_CLIENT_SECRET}}"
+      AZ_CLIENT_ID: "{{.AZ_CLIENT_ID}}"
+      RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
+    cmds:
+      - |
+        repo_url=$(git config --get remote.origin.url)
+        branch_name=$(git rev-parse --abbrev-ref HEAD)
+        codebundle=$(basename "$(dirname "$PWD")")
+
+        # Fetch individual cluster details from Terraform state
+        pushd terraform > /dev/null
+        cluster1_name=$(terraform show -json terraform.tfstate | jq -r '
+          .values.outputs.cluster_1_name.value')
+        cluster1_server=$(terraform show -json terraform.tfstate | jq -r '
+          .values.outputs.cluster_1_fqdn.value')
+        cluster1_resource_group=$(terraform show -json terraform.tfstate | jq -r '
+          .values.outputs.cluster_1_rg.value')
+        cluster1_sub=$(terraform show -json terraform.tfstate | jq -r '
+          .values.outputs.cluster_1_sub.value')
+
+        cluster2_name=$(terraform show -json terraform.tfstate | jq -r '
+          .values.outputs.cluster_2_name.value')
+        cluster2_server=$(terraform show -json terraform.tfstate | jq -r '
+          .values.outputs.cluster_2_fqdn.value')
+        cluster2_resource_group=$(terraform show -json terraform.tfstate | jq -r '
+          .values.outputs.cluster_2_rg.value')
+        cluster2_sub=$(terraform show -json terraform.tfstate | jq -r '
+          .values.outputs.cluster_2_sub.value')
+        popd > /dev/null
+
+        # Check if any of the required cluster variables are empty
+        if [ -z "$cluster1_name" ] || [ -z "$cluster1_server" ] || [ -z "$cluster1_resource_group" ]; then
+          echo "Error: Missing cluster details. Ensure Terraform plan has been applied."
+          exit 1
+        fi
+
+        # Generate workspaceInfo.yaml with fetched cluster details
+        cat <<EOF > workspaceInfo.yaml
+        workspaceName: "$RW_WORKSPACE"
+        workspaceOwnerEmail: authors@runwhen.com
+        defaultLocation: location-01
+        defaultLOD: detailed
+        cloudConfig:
+          azure:
+            subscriptionId: "$ARM_SUBSCRIPTION_ID"
+            tenantId: "$AZ_TENANT_ID"
+            clientId: "$AZ_CLIENT_ID"
+            clientSecret: "$AZ_CLIENT_SECRET"
+            aksClusters: 
+              clusters: 
+                - name: $cluster1_name
+                  server: https://$cluster1_server:443
+                  resource_group: $cluster1_resource_group
+                  subscriptionId: $cluster1_sub
+                - name: $cluster2_name
+                  server: https://$cluster2_server:443
+                  resource_group: $cluster2_resource_group
+                  subscriptionId: $cluster2_sub
+              resourceGroupLevelOfDetails:
+                $cluster1_resource_group: detailed
+                $cluster2_resource_group: detailed
+        codeCollections: []
+        # - repoURL: "$repo_url"
+        #   branch: "$branch_name"
+        #   codeBundles: ["$codebundle"]
+        EOF
+    silent: true
+
+  run-rwl-discovery:
+    desc: "Run RunWhen Local Discovery on test infrastructure"
+    cmds:
+      - |
+        BUILD_DIR=/workspace/runwhen-local/src
+        CONTAINER_NAME="RunWhenLocal"
+        if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Stopping and removing existing container $CONTAINER_NAME..."
+          docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME
+        elif docker ps -a -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Removing existing stopped container $CONTAINER_NAME..."
+          docker rm $CONTAINER_NAME
+        else
+          echo "No existing container named $CONTAINER_NAME found."
+        fi
+        
+        echo "Cleaning up output directory..."
+        sudo rm -rf output || { echo "Failed to remove output directory"; exit 1; }
+        mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
+
+        ## Building Container Image
+        docker build -t runwhen-local:test -f $BUILD_DIR/Dockerfile $BUILD_DIR
+
+        echo "Starting new container $CONTAINER_NAME..."
+
+        docker run --name $CONTAINER_NAME -p 8081:8081 -v "$(pwd)":/shared -d runwhen-local:test || {
+          echo "Failed to start container"; exit 1;
+        }
+
+        echo "Running workspace builder script in container..."
+        docker exec -w /workspace-builder $CONTAINER_NAME ./run.sh $1 --verbose || {
+          echo "Error executing script in container"; exit 1;
+        }
+
+        echo "Review generated config files under output/workspaces/"
+    silent: true
+
+  check-terraform-infra:
+    desc: "Check if Terraform has any deployed infrastructure in the terraform subdirectory"
+    cmds:
+      - |
+        # Source Envs for Auth
+        source terraform/tf.local
+
+        # Navigate to the Terraform directory
+        if [ ! -d "terraform" ]; then
+          echo "Terraform directory not found."
+          exit 1
+        fi
+        cd terraform
+
+        # Check if Terraform state file exists
+        if [ ! -f "terraform.tfstate" ]; then
+          echo "No Terraform state file found in the terraform directory. No infrastructure is deployed."
+          exit 0
+        fi
+
+        # List resources in Terraform state
+        resources=$(terraform state list)
+
+        # Check if any resources are listed in the state file
+        if [ -n "$resources" ]; then
+          echo "Deployed infrastructure detected."
+          echo "$resources"
+          exit 0
+        else
+          echo "No deployed infrastructure found in Terraform state."
+          exit 0
+        fi
+    silent: true
+
+  build-terraform-infra:
+    desc: "Run terraform apply"
+    cmds:
+      - |
+        # Source Envs for Auth
+        source terraform/tf.local
+
+
+        # Navigate to the Terraform directory
+        if [ -d "terraform" ]; then
+          cd terraform
+        else
+          echo "Terraform directory not found. Terraform apply aborted."
+          exit 1
+        fi
+        task format-and-init-terraform
+        echo "Starting Terraform Build of Terraform infrastructure..."
+        terraform apply -auto-approve || {
+          echo "Failed to clean up Terraform infrastructure."
+          exit 1
+        }
+        echo "Terraform infrastructure build completed."
+    silent: true
+
+  cleanup-terraform-infra:
+    desc: "Cleanup deployed Terraform infrastructure"
+    cmds:
+      - |
+        # Source Envs for Auth
+        source terraform/tf.local
+
+        # Navigate to the Terraform directory
+        if [ -d "terraform" ]; then
+          cd terraform
+        else
+          echo "Terraform directory not found. Cleanup aborted."
+          exit 1
+        fi
+
+        echo "Starting cleanup of Terraform infrastructure..."
+        terraform destroy -auto-approve || {
+          echo "Failed to clean up Terraform infrastructure."
+          exit 1
+        }
+        echo "Terraform infrastructure cleanup completed."
+    silent: true
+
+  check-and-cleanup-terraform:
+    desc: "Check and clean up deployed Terraform infrastructure if it exists"
+    cmds:
+      - |
+        # Capture the output of check-terraform-infra
+        infra_output=$(task check-terraform-infra | tee /dev/tty)
+
+        # Check if output contains indication of deployed infrastructure
+        if echo "$infra_output" | grep -q "Deployed infrastructure detected"; then
+          echo "Infrastructure detected; proceeding with cleanup."
+          task cleanup-terraform-infra
+        else
+          echo "No deployed infrastructure found; no cleanup required."
+        fi
+    silent: true
+
+  clean-rwl-discovery:
+    desc: "Check and clean up RunWhen Local discovery output"
+    cmds:
+      - |
+        sudo rm -rf output
+        rm workspaceInfo.yaml
+    silent: true
