@@ -145,6 +145,24 @@ def generate_kubeconfig_for_aks(clusters, workspace_info):
                     for cluster_entry in kubeconfig_yaml['clusters']:
                         cluster_entry['cluster']['server'] = server_url
 
+                # Add resource_group to the "workspace-builder" extension
+                logger.info(f"Adding resource_group to workspace-builder extension for cluster: {cluster_name}")
+                for cluster_entry in kubeconfig_yaml['clusters']:
+                    if 'extensions' not in cluster_entry['cluster']:
+                        cluster_entry['cluster']['extensions'] = []
+
+                    cluster_entry['cluster']['extensions'].append({
+                        'name': 'workspace-builder',
+                        'extension': {
+                            'resource_group': resource_group_name,
+                            'cluster_type': 'aks',
+                            'cluster_name': cluster_name,
+                            'auth_type': auth_type,
+                            'auth_secret': auth_secret,
+                            'subscription_id': sub_id
+                        }
+                    })
+
                 # Append to combined kubeconfig
                 combined_kubeconfig['clusters'].extend(kubeconfig_yaml['clusters'])
                 combined_kubeconfig['contexts'].extend(kubeconfig_yaml['contexts'])
