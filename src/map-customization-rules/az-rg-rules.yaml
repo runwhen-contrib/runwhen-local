@@ -30,3 +30,10 @@ spec:
         matchMode: substring
         properties: [name]
       group: "{{resource_group.name}}"
+    - match:
+        type: pattern
+        matchType: base-name
+        pattern: "az-aks-triage"
+        matchMode: substring
+        properties: [name]
+      group: "{{resource_group.name}}"

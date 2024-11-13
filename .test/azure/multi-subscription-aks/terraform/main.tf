@@ -5,7 +5,7 @@ resource "azurerm_resource_group" "cluster_1_rg" {
   provider = azurerm.cluster_1
   name     = "azure-aks-1"
   location = "East US"
-  tags     = {
+  tags = {
     "env"       = "test"
     "lifecycle" = "deleteme"
     "product"   = "runwhen"
@@ -22,19 +22,19 @@ resource "azurerm_user_assigned_identity" "cluster_1_identity" {
 
 # Role Assignment for Service Principal
 resource "azurerm_role_assignment" "cluster_1_sp_owner" {
-  provider            = azurerm.cluster_1
-  scope               = "/subscriptions/${var.subscription_id_1}"
+  provider             = azurerm.cluster_1
+  scope                = "/subscriptions/${var.subscription_id_1}"
   role_definition_name = "Azure Kubernetes Service RBAC Cluster Admin"
-  principal_id        = var.sp_principal_id
-  principal_type      = "ServicePrincipal"
+  principal_id         = var.sp_principal_id
+  principal_type       = "ServicePrincipal"
 }
 # Role Assignment for Service Principal
 resource "azurerm_role_assignment" "cluster_1_sp_reader" {
-  provider            = azurerm.cluster_1
-  scope               = "/subscriptions/${var.subscription_id_1}"
+  provider             = azurerm.cluster_1
+  scope                = "/subscriptions/${var.subscription_id_1}"
   role_definition_name = "Reader"
-  principal_id        = var.sp_principal_id
-  principal_type      = "ServicePrincipal"
+  principal_id         = var.sp_principal_id
+  principal_type       = "ServicePrincipal"
 }
 # AKS Cluster
 resource "azurerm_kubernetes_cluster" "cluster_1_aks" {
@@ -74,7 +74,7 @@ resource "azurerm_resource_group" "cluster_2_rg" {
   provider = azurerm.cluster_2
   name     = "azure-aks-2"
   location = "West US"
-  tags     = {
+  tags = {
     "env"       = "test"
     "lifecycle" = "deleteme"
     "product"   = "runwhen"
@@ -91,20 +91,20 @@ resource "azurerm_user_assigned_identity" "cluster_2_identity" {
 
 # Role Assignment for Service Principal
 resource "azurerm_role_assignment" "cluster_2_sp_owner" {
-  provider            = azurerm.cluster_2
-  scope               = "/subscriptions/${var.subscription_id_2}"
+  provider             = azurerm.cluster_2
+  scope                = "/subscriptions/${var.subscription_id_2}"
   role_definition_name = "Azure Kubernetes Service RBAC Cluster Admin"
-  principal_id        = var.sp_principal_id
-  principal_type      = "ServicePrincipal"
+  principal_id         = var.sp_principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 # Role Assignment for Service Principal
 resource "azurerm_role_assignment" "cluster_2_sp_reader" {
-  provider            = azurerm.cluster_1
-  scope               = "/subscriptions/${var.subscription_id_2}"
+  provider             = azurerm.cluster_1
+  scope                = "/subscriptions/${var.subscription_id_2}"
   role_definition_name = "Reader"
-  principal_id        = var.sp_principal_id
-  principal_type      = "ServicePrincipal"
+  principal_id         = var.sp_principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 # AKS Cluster

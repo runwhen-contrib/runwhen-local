@@ -51,6 +51,15 @@ class AzurePlatformHandler(PlatformHandler):
         tags = resource_data.get('tags', dict())
         resource_attributes = {'tags': tags}
 
+        # Check if subscription_id is part of resource_data and add it to attributes if available
+        subscription_id = resource_data.get('subscription_id')
+        if subscription_id:
+            resource_attributes['subscription_id'] = subscription_id
+            logger.info(f"Resource '{name}' includes subscription_id: {subscription_id}")
+        else:
+            logger.warning(f"Resource '{name}' does not contain subscription_id in data.")
+
+
         if resource_type_name == "resource_group":
             # Set the 'lod' (level-of-detail) resource attribute from the per-resource-group
             # setting in the Azure cloud config or set to the default value if it's unspecified
