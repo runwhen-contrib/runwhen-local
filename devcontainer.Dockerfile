@@ -41,13 +41,14 @@ RUN curl -sSL https://sdk.cloud.google.com | bash && \
 # Install Trivy
 RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
 
-# Switch to runwhen user for Homebrew installation
+# Switch to the runwhen user for Homebrew installation
 USER runwhen
 
-# Install Homebrew
-RUN /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && \
-    echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> /home/runwhen/.profile && \
-    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+# Download and install Homebrew in the user's home directory
+RUN NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || true
+
+# Add Homebrew to PATH for runwhen user
+RUN echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> /home/runwhen/.bashrc
 
 # Switch back to root to finalize environment
 USER root
