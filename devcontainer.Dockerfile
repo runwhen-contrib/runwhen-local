@@ -61,3 +61,5 @@ RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Switch back to the 'runwhen' user as default
 USER runwhen
+
+RUN brew install go-task terraform
