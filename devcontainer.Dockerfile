@@ -13,7 +13,8 @@ RUN apt-get update && apt-get install -y \
     jq \
     curl \
     sudo \
-    unzip
+    unzip \
+    docker.io
 
 # Install yq
 RUN curl -Lo /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 && \
@@ -33,18 +34,29 @@ RUN curl -sL https://aka.ms/InstallAzureCLIDeb | bash && \
 
 # Install Google Cloud SDK
 RUN curl -sSL https://sdk.cloud.google.com | bash && \
-    echo "source /root/google-cloud-sdk/path.bash.inc" >> ~/.bashrc && \
-    source ~/.bashrc && \
-    gcloud components install gke-gcloud-auth-plugin --quiet
+    echo "source /root/google-cloud-sdk/path.bash.inc" >> /root/.bashrc && \
+    echo "source /root/google-cloud-sdk/completion.bash.inc" >> /root/.bashrc && \
+    /bin/bash -c "source /root/google-cloud-sdk/path.bash.inc && gcloud components install gke-gcloud-auth-plugin --quiet"
 
 # Install Trivy
 RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
 
-# Add Docker CLI
-RUN apt-get install -y docker.io
+# Switch to runwhen user for Homebrew installation
+USER runwhen
+
+# Install Homebrew
+RUN /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && \
+    echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> /home/runwhen/.profile && \
+    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+
+# Switch back to root to finalize environment
+USER root
+
+# Set up the environment for Homebrew and Google Cloud SDK
+ENV PATH="/home/linuxbrew/.linuxbrew/bin:/root/google-cloud-sdk/bin:${PATH}"
 
 # Clean up
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Switch to the 'runwhen' user
+# Switch back to the 'runwhen' user as default
 USER runwhen
