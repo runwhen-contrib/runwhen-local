@@ -2,7 +2,7 @@
     "name": "rw-local-dev",
     "shutdownAction": "none",
     "build": {
-        "dockerfile": "devcontainer.Dockerfile"
+        "dockerfile": ".devcontainer.Dockerfile"
     },
     "updateRemoteUserUID": false,
     "overrideCommand": false,
@@ -10,10 +10,7 @@
         "ghcr.io/devcontainers/features/docker-in-docker:2": {}
     },
     "workspaceFolder": "/home/runwhen/",
-    // Configure tool-specific properties.
     "customizations": {
-        // Configure properties specific to VS Code.
-        // configuration following google standard
         "vscode": {
             "extensions": [
                 "robocorp.robotframework-lsp",
