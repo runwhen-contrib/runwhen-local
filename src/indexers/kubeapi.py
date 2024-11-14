@@ -505,6 +505,9 @@ def index(component_context: Context):
                     return
 
                 namespaces = dict()
+                # Update namespace_names with custom_namespace_names only if custom_namespace_names is defined
+                if custom_namespace_names:
+                    namespace_names = namespace_names.intersection(custom_namespace_names)
                 for namespace_name in namespace_names:
                     namespace_qualified_name = get_qualified_name(cluster_name, namespace_name)
                     # FIXME: Currently you can't have different levels of detail for namespaces with

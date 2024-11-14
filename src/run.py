@@ -472,21 +472,22 @@ def main():
         # Proceed with Kubernetes setup only if inClusterAuth is enabled
         if in_cluster_auth_enabled:
             # Create in-cluster kubeconfig if not specified and in a Kubernetes environment
-            if os.getenv('KUBERNETES_SERVICE_HOST'):
+            if not kubeconfig_env and os.getenv('KUBERNETES_SERVICE_HOST'):
                 print("Creating in-cluster kubeconfig...")
                 kubeconfig_data = create_kubeconfig()
-                kubeconfig_file = os.path.join(base_directory, "in_cluster_kubeconfig.yaml")
-
-                with open(kubeconfig_file, "w") as f:
+                in_cluster_kubeconfig_file = os.path.join(base_directory, "in_cluster_kubeconfig.yaml")
+                
+                # Write the in-cluster kubeconfig to a file
+                with open(in_cluster_kubeconfig_file, "w") as f:
                     f.write(yaml.dump(kubeconfig_data))
-                print(f"In-cluster kubeconfig created at {kubeconfig_file}")
+                print(f"In-cluster kubeconfig created at {in_cluster_kubeconfig_file}")
 
-                # Use the in-cluster kubeconfig path
-                kubeconfig_path = kubeconfig_file
+                # Copy the in-cluster kubeconfig to /shared/kubeconfig
+                kubeconfig_path = os.path.join(base_directory, "kubeconfig")
+                shutil.copyfile(in_cluster_kubeconfig_file, kubeconfig_path)
                 print(f"Using in-cluster Kubernetes auth with kubeconfig at {kubeconfig_path}")
             else:
-                print("Kubernetes environment not detected. Skipping in-cluster kubeconfig setup.")
-                kubeconfig_path = None
+                print("Skipping in-cluster kubeconfig setup.")
         else:
             print("Skipping Kubernetes setup as per inClusterAuth configuration.")
     else:
