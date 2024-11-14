@@ -250,8 +250,6 @@ def main():
             custom_definitions[key] = value.strip()
 
     kubeconfig = args.kubeconfig
-    if not kubeconfig:
-        kubeconfig = os.getenv('MB_KUBECONFIG')
     kubeconfig_path = os.path.join(base_directory, kubeconfig)
 
     map_customization_rules = args.customization_rules
