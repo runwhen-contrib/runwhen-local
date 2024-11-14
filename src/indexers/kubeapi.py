@@ -221,11 +221,13 @@ def index(component_context: Context):
         logger.info(f"Checking for AKS clusters.")     
         azure_settings = cloud_config_settings.get("azure", {})
         aks_settings: Optional[dict[str, Any]] = azure_settings.get("aksClusters")
+        print(f"aks_settings: {aks_settings}")
         if aks_settings:
             logger.info(f"Discovering AKS clusters: {aks_settings}")
             kubeconfig_path = "/workspace-builder/.kube/config"
             namespace_lods = aks_settings.get("namespaceLODs", {})
             custom_namespace_names = aks_settings.get("namespaces", [])
+            print(f"namespace_list: {custom_namespace_names}")
             exclude_annotations = aks_settings.get("excludeAnnotations", {})
             exclude_labels = aks_settings.get("excludeLabels", {})
 

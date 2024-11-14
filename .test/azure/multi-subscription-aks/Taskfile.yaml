@@ -82,9 +82,12 @@ tasks:
                   server: https://$cluster2_server:443
                   resource_group: $cluster2_resource_group
                   subscriptionId: $cluster2_sub
-              resourceGroupLevelOfDetails:
-                $cluster1_resource_group: detailed
-                $cluster2_resource_group: detailed
+              namespaces: 
+                  - "kube-system"
+                  - "runwhen-local"
+            resourceGroupLevelOfDetails:
+              $cluster1_resource_group: detailed
+              $cluster2_resource_group: detailed
         codeCollections: 
           - repoURL: "https://github.com/stewartshea/rw-cli-codecollection"
             branch: "azure/add_sub_vars"
@@ -94,7 +97,6 @@ tasks:
         #   branch: "$branch_name"
         #   codeBundles: ["$codebundle"]
         custom: 
-          azure_service_principal_secret_name: azure-sp
           kubernetes_distribution_binary: kubectl
         EOF
     silent: true
