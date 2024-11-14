@@ -2,7 +2,7 @@
     "name": "rw-local-dev",
     "shutdownAction": "none",
     "build": {
-        "dockerfile": "Dockerfile"
+        "dockerfile": "devcontainer.Dockerfile"
     },
     "updateRemoteUserUID": false,
     "overrideCommand": false,
