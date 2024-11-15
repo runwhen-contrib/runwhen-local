@@ -73,6 +73,8 @@ tasks:
             clientId: "$AZ_CLIENT_ID"
             clientSecret: "$AZ_CLIENT_SECRET"
             aksClusters: 
+              excludeLabels: 
+                runwhen: "include"
               clusters: 
                 - name: $cluster1_name
                   server: https://$cluster1_server:443
@@ -82,16 +84,13 @@ tasks:
                   server: https://$cluster2_server:443
                   resource_group: $cluster2_resource_group
                   subscriptionId: $cluster2_sub
-              namespaces: 
-                  - "kube-system"
-                  - "runwhen-local"
             resourceGroupLevelOfDetails:
               $cluster1_resource_group: detailed
               $cluster2_resource_group: detailed
         codeCollections: 
           - repoURL: "https://github.com/stewartshea/rw-cli-codecollection"
             branch: "azure/add_sub_vars"
-            codeBundles: ["k8s-namespace-healthcheck", "azure-aks-triage"]
+            codeBundles: ["k8s-namespace-healthcheck", "azure-aks-triage", "k8s-deployment-healthcheck"]
         # codeCollections: []
         # - repoURL: "$repo_url"
         #   branch: "$branch_name"

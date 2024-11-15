@@ -86,6 +86,23 @@ HARDCODED_LOD_ANNOTATIONS = {
     "config.runwhen.com/lod": ["none", "basic", "detailed"]
 }
 
+# Allow users to specify annotations or labels for opting in. 
+# Avoid setting a hardedcoded option here since it would interfere with a configuration
+# that assumes to discover everything (which is the default)
+INCLUDE_ANNOTATIONS_SETTING = Setting("INCLUDE_ANNOTATIONS",
+                                      "includeAnnotations",
+                                      Setting.Type.LIST,
+                                      "Annotations required to include resources in indexing",
+                                      default_value=list())
+
+INCLUDE_LABELS_SETTING = Setting("INCLUDE_LABELS",
+                                 "includeLabels",
+                                 Setting.Type.LIST,
+                                 "Labels required to include resources in indexing",
+                                 default_value=list())
+
+
+
 OWNER_ANNOTATION_KEY = "config.runwhen.com/owner"
 
 DOCUMENTATION = "Index assets from a Kubernetes configuration"
@@ -98,6 +115,8 @@ SETTINGS = (
     SettingDependency(DEFAULT_LOD_SETTING, False),
     SettingDependency(EXCLUDE_ANNOTATIONS_SETTING, False),
     SettingDependency(EXCLUDE_LABELS_SETTING, False),
+    SettingDependency(INCLUDE_ANNOTATIONS_SETTING, False),
+    SettingDependency(INCLUDE_LABELS_SETTING, False),
 )
 
 
@@ -133,6 +152,26 @@ def extract_owner_name(resource) -> Optional[str]:
         return None
     annotations = resource.metadata.annotations if resource.metadata.annotations else {}
     return annotations.get(OWNER_ANNOTATION_KEY)
+
+def has_included_annotations_or_labels(resource, include_annotations: Dict[str, str], include_labels: Dict[str, Any]) -> bool:
+    if not hasattr(resource, 'metadata'):
+        return False
+    metadata = resource.metadata
+    annotations = metadata.annotations if metadata.annotations else {}
+    labels = metadata.labels if metadata.labels else {}
+
+    # Check if any of the inclusion annotations match
+    for key, value in include_annotations.items():
+        if annotations.get(key) == value:
+            return True  # Include if any annotation matches
+
+    # Check if any of the inclusion labels match
+    for key, values in include_labels.items():
+        if key in labels:
+            if (isinstance(values, list) and labels[key] in values) or (not isinstance(values, list) and labels[key] == values):
+                return True  # Include if any label matches
+
+    return False  # Exclude if no inclusion criteria are met
 
 
 
@@ -196,16 +235,17 @@ def index(component_context: Context):
 
     # Extract settings from the context
     cloud_config_settings: Optional[dict[str, Any]] = component_context.get_setting("CLOUD_CONFIG")
+    include_annotations = {}
+    include_labels = {}
+
     if cloud_config_settings:
+        # Retrieve Kubernetes settings, if present
         kubernetes_settings: Optional[dict[str, Any]] = cloud_config_settings.get("kubernetes")
         if kubernetes_settings:
-            # Since the contents of the cloud config are not top-level settings for the
-            # component framework, they don't get the normal settings processing, in
-            # particular the file settings handling that automatically writes the
-            # contents of the file settings to a temp file and replaces the setting with
-            # a path to the temp file. So we need to do it manually here for the
-            # kubeconfig file.
-            logger.info(f"Found kubernetes settings.")
+            # Configure Kubernetes-specific inclusion settings
+            include_annotations = kubernetes_settings.get("includeAnnotations", {})
+            include_labels = kubernetes_settings.get("includeLabels", {})
+            
             encoded_kubeconfig_file = kubernetes_settings.get("kubeconfigFile")
             kubeconfig_path = "/workspace-builder/.kube/config"
             namespace_lods = kubernetes_settings.get("namespaceLODs", {})
@@ -213,23 +253,19 @@ def index(component_context: Context):
             exclude_annotations = kubernetes_settings.get("excludeAnnotations", {})
             exclude_labels = kubernetes_settings.get("excludeLabels", {})
 
-        # Same process as above for AKS clusters
-        ## TODO Combine this with vanilla kubernetes (and future other cloud k8s discovery)
-        ## into a dict list, as some of these settings will overlap themselves
-        ## though, in theory, many of these settings will never be used if annotations 
-        ## or labels are used for lod discovery
-        logger.info(f"Checking for AKS clusters.")     
+        # Retrieve AKS clusters settings, if present
         azure_settings = cloud_config_settings.get("azure", {})
         aks_settings: Optional[dict[str, Any]] = azure_settings.get("aksClusters")
-        print(f"aks_settings: {aks_settings}")
         if aks_settings:
-            logger.info(f"Discovering AKS clusters: {aks_settings}")
+            # Configure AKS-specific inclusion settings if applicable
+            include_annotations = aks_settings.get("includeAnnotations", include_annotations)
+            include_labels = aks_settings.get("includeLabels", include_labels)
+            
             kubeconfig_path = "/workspace-builder/.kube/config"
-            namespace_lods = aks_settings.get("namespaceLODs", {})
-            custom_namespace_names = aks_settings.get("namespaces", [])
-            print(f"namespace_list: {custom_namespace_names}")
-            exclude_annotations = aks_settings.get("excludeAnnotations", {})
-            exclude_labels = aks_settings.get("excludeLabels", {})
+            namespace_lods = aks_settings.get("namespaceLODs", namespace_lods)
+            custom_namespace_names = aks_settings.get("namespaces", custom_namespace_names)
+            exclude_annotations.update(aks_settings.get("excludeAnnotations", {}))
+            exclude_labels.update(aks_settings.get("excludeLabels", {}))
 
 
     # Hard-code values to be added
@@ -403,6 +439,10 @@ def index(component_context: Context):
                     ret = core_api_client.list_namespace()
                     logger.debug(f"kube API scan: {len(ret.items)} namespaces")
                     for raw_resource in ret.items:
+                        # Check inclusion criteria directly
+                        if (include_annotations or include_labels) and not has_included_annotations_or_labels(raw_resource, include_annotations, include_labels):
+                            continue  # Skip this resource if it doesn't meet inclusion criteria
+
                         if has_excluded_annotations_or_labels(raw_resource, exclude_annotations, exclude_labels):
                             continue
                         namespace_name = raw_resource.metadata.name
@@ -448,6 +488,8 @@ def index(component_context: Context):
                                 # If so, then that seems like a better way to infer the namespace name.
                                 # But for now we'll just map from the name of the project
                                 metadata = raw_resource['metadata']
+                                if (include_annotations or include_labels) and not has_included_annotations_or_labels(raw_resource, include_annotations, include_labels):
+                                    continue  # Skip this resource if it doesn't meet inclusion criteria
                                 if has_excluded_annotations_or_labels(raw_resource, exclude_annotations, exclude_labels):
                                     continue
                                 project_name = metadata['name']
@@ -511,7 +553,7 @@ def index(component_context: Context):
                 # Filter namespace_names to include only those specified in both namespace_lods and namespace_names
                 if namespace_lods:
                     namespace_names = namespace_names.intersection(namespace_lods.keys())
-                    
+
                 for namespace_name in namespace_names:
                     namespace_qualified_name = get_qualified_name(cluster_name, namespace_name)
                     # FIXME: Currently you can't have different levels of detail for namespaces with
@@ -533,7 +575,9 @@ def index(component_context: Context):
                         
                         if namespace_lod == LevelOfDetail.NONE:
                             continue
-                        
+                        if (include_annotations or include_labels) and not has_included_annotations_or_labels(raw_resource, include_annotations, include_labels):
+                            continue  # Skip this resource if it doesn't meet inclusion criteria
+
                         if has_excluded_annotations_or_labels(raw_resource, exclude_annotations, exclude_labels):
                             continue
 
@@ -587,6 +631,8 @@ def index(component_context: Context):
                         try:
                             ret = app_class_list_method(namespace_name)
                             for raw_resource in ret.items:
+                                if (include_annotations or include_labels) and not has_included_annotations_or_labels(raw_resource, include_annotations, include_labels):
+                                    continue  # Skip this resource if it doesn't meet inclusion criteria
                                 if has_excluded_annotations_or_labels(raw_resource, exclude_annotations, exclude_labels):
                                     continue
                                 owner_name = extract_owner_name(raw_resource)
@@ -616,6 +662,9 @@ def index(component_context: Context):
                         ret = networking_api_client.list_namespaced_ingress(namespace_name)
                         logger.debug(f"kube API scan: {len(ret.items)} ingresses")
                         for raw_resource in ret.items:
+                            if (include_annotations or include_labels) and not has_included_annotations_or_labels(raw_resource, include_annotations, include_labels):
+                                continue  # Skip this resource if it doesn't meet inclusion criteria
+
                             if has_excluded_annotations_or_labels(raw_resource, exclude_annotations, exclude_labels):
                                 continue
                             owner_name = extract_owner_name(raw_resource)
@@ -649,6 +698,9 @@ def index(component_context: Context):
                         ret = core_api_client.list_namespaced_service(namespace_name)
                         logger.debug(f"kube API scan: {len(ret.items)} services")
                         for raw_resource in ret.items:
+                            if (include_annotations or include_labels) and not has_included_annotations_or_labels(raw_resource, include_annotations, include_labels):
+                                continue  # Skip this resource if it doesn't meet inclusion criteria
+
                             if has_excluded_annotations_or_labels(raw_resource, exclude_annotations, exclude_labels):
                                 continue
                             owner_name = extract_owner_name(raw_resource)
@@ -677,6 +729,9 @@ def index(component_context: Context):
                         ret = core_api_client.list_namespaced_persistent_volume_claim(namespace_name, watch=False)
                         logger.debug(f"kube API scan for namespace {namespace_name}: {len(ret.items)} pvcs")
                         for raw_resource in ret.items:
+                            if (include_annotations or include_labels) and not has_included_annotations_or_labels(raw_resource, include_annotations, include_labels):
+                                continue  # Skip this resource if it doesn't meet inclusion criteria
+
                             if has_excluded_annotations_or_labels(raw_resource, exclude_annotations, exclude_labels):
                                 continue
                             owner_name = extract_owner_name(raw_resource)
@@ -755,6 +810,9 @@ def index(component_context: Context):
                                                                                               namespace=namespace_name,
                                                                                               plural=plural_name)
                                 for raw_resource in ret['items']:
+                                    if (include_annotations or include_labels) and not has_included_annotations_or_labels(raw_resource, include_annotations, include_labels):
+                                        continue  # Skip this resource if it doesn't meet inclusion criteria
+
                                     if has_excluded_annotations_or_labels(raw_resource, exclude_annotations, exclude_labels):
                                         continue
                                     owner_name = extract_owner_name(raw_resource)
