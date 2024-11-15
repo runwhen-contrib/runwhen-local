@@ -112,6 +112,21 @@ platform_specs = [
                            ]),
 ]
 
+def has_included_tags(resource_data: dict, include_tags: dict[str, str]) -> bool:
+    """Returns True if any of the tags in `include_tags` are found in `resource_data`."""
+    tags = resource_data.get("tags", {})
+    return any(tags.get(key) == value for key, value in include_tags.items())
+
+
+def has_excluded_tags(resource_data: dict, exclude_tags: dict[str, str]) -> bool:
+    """Returns True if any of the tags in `exclude_tags` are found in `resource_data`."""
+    tags = resource_data.get("tags", {})
+    for key, value in exclude_tags.items():
+        if tags.get(key) == value:
+            logger.info(f"Excluding resource {resource_data.get('name', 'unknown')} due to tag '{key}: {value}'")
+            return True
+    return False
+
 def invoke_cloudquery(cq_command: str,
                       cq_config_dir: str,
                       cq_env_vars: dict[str, str],
@@ -454,6 +469,7 @@ def index(context: Context):
     init_cloudquery_table_info()
 
     cloud_config = context.get_setting("CLOUD_CONFIG")
+
     if cloud_config:
         platform_handlers: dict[str, PlatformHandler] = context.get_property(PLATFORM_HANDLERS_PROPERTY_NAME)
         accessed_resource_type_specs: dict[str, dict[ResourceTypeSpec, list[GenerationRuleInfo]]] = \
@@ -480,15 +496,20 @@ def index(context: Context):
                 sql_connection = sqlite3.connect(sqlite_database_file_path)
                 cursor = sql_connection.cursor()
                 for cq_platform_spec, cq_resource_type_specs in cq_platform_infos:
-                    platform_config_data = cloud_config.get(cq_platform_spec.name, dict())
-                    platform_handler = platform_handlers[cq_platform_spec.name]
+                    platform_name = cq_platform_spec.name
+                    platform_config_data = cloud_config.get(platform_name, dict())
+                    platform_handler = platform_handlers[platform_name]
+
+                    include_tags = platform_config_data.get("includeTags", {})
+                    exclude_tags = platform_config_data.get("excludeTags", {})
+
                     for cq_resource_type_spec in cq_resource_type_specs:
                         table_name = cq_resource_type_spec.cloudquery_table_name
                         logger.info(f"Processing table: {table_name}")
 
                         try:
                             response = cursor.execute(f"SELECT * FROM {table_name}")
-                        except sqlite3.OperationalError as e:
+                        except sqlite3.OperationalError:
                             logger.warning(f"Table {table_name} not found or no resources discovered.")
                             continue
 
@@ -496,10 +517,11 @@ def index(context: Context):
                         if not table_rows:
                             logger.info(f"No rows found in table {table_name}.")
                             continue
-
                         field_descriptions = response.description
+
                         for table_row in table_rows:
                             resource_data = {}
+
                             for i in range(len(field_descriptions)):
                                 attribute_name = field_descriptions[i][0]
                                 attribute_value = table_row[i]
@@ -510,16 +532,31 @@ def index(context: Context):
                                         pass
                                 resource_data[attribute_name] = attribute_value
 
-                            resource_name, qualified_resource_name, resource_attributes = \
-                                platform_handler.parse_resource_data(resource_data,
-                                                                     cq_resource_type_spec.resource_type_name,
-                                                                     platform_config_data,
-                                                                     context)
+                            resource_data["tags"] = resource_data.get("tags", {})
+                            logger.debug(f"Resource tags: {resource_data['tags']}")
+
+                            if exclude_tags and has_excluded_tags(resource_data, exclude_tags):
+                                logger.info(f"Resource {resource_data.get('name', 'unknown')} excluded due to tags.")
+                                continue
+                            if include_tags and not has_included_tags(resource_data, include_tags):
+                                logger.info(f"Resource {resource_data.get('name', 'unknown')} does not meet inclusion tags, skipping.")
+                                continue
+
+                            try:
+                                resource_name, qualified_resource_name, resource_attributes = \
+                                    platform_handler.parse_resource_data(resource_data,
+                                                                         cq_resource_type_spec.resource_type_name,
+                                                                         platform_config_data,
+                                                                         context)
+                            except WorkspaceBuilderException as e:
+                                logger.warning(f"Resource group or required qualifier missing for resource: {resource_data.get('name', 'unknown')}. Skipping. Error: {e}")
+                                continue
+
                             resource_attributes['resource'] = resource_data
-                            auth_type, auth_secret = get_auth_type(cq_platform_spec.name, platform_config_data)
+                            auth_type, auth_secret = get_auth_type(platform_name, platform_config_data)
                             resource_attributes['auth_type'] = auth_type
                             resource_attributes['auth_secret'] = auth_secret
-                            registry.add_resource(cq_platform_spec.name,
+                            registry.add_resource(platform_name,
                                                   cq_resource_type_spec.resource_type_name,
                                                   resource_name,
                                                   qualified_resource_name,
@@ -527,6 +564,7 @@ def index(context: Context):
                             logger.info(f"Added resource: {resource_name} to registry.")
 
     logger.info("Finished CloudQuery indexing")
+
 
 def get_auth_type(platform_name, platform_config_data: dict[str,Any]): 
     # Determine auth type from platform_config_data for use with azure-auth.yaml template

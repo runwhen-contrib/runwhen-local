@@ -73,8 +73,6 @@ tasks:
             clientId: "$AZ_CLIENT_ID"
             clientSecret: "$AZ_CLIENT_SECRET"
             aksClusters: 
-              excludeLabels: 
-                runwhen: "include"
               clusters: 
                 - name: $cluster1_name
                   server: https://$cluster1_server:443
