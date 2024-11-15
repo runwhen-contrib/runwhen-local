@@ -1,5 +1,6 @@
 src/rw-cli-codecollection-cache
 **tf.local**
+**tf.secret**
 
 # Ignore Terraform state files
 **/terraform.tfstate
