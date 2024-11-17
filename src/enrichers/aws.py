@@ -50,8 +50,9 @@ class AWSPlatformHandler(PlatformHandler):
 
         arn = ARN(arn_string)
         name = resource_data.get("name", arn.resource_id)  # Fallback to ARN resource_id
-        qualified_name = name
         tags = resource_data.get("tags", {})
+
+        # Populate qualifiers
         resource_attributes = {
             'tags': tags,
             'account_id': resource_data.get('account_id', arn.account),
@@ -61,7 +62,7 @@ class AWSPlatformHandler(PlatformHandler):
             'is_public': resource_data.get('policy_status', {}).get('IsPublic', False),
         }
 
-        # Handle level of detail (LOD)
+        # Handle level of detail (LOD) if specified in tags
         for tag_key, tag_value in tags.items():
             if tag_key.lower() in ('lod', 'levelofdetail', 'level-of-detail'):
                 try:
@@ -73,26 +74,30 @@ class AWSPlatformHandler(PlatformHandler):
             lod = context.get_setting("DEFAULT_LOD")
         resource_attributes['lod'] = lod
 
-        # Generate qualified name if applicable
-        if resource_type_name == "aws_s3_buckets":
-            qualified_name = f"{resource_attributes['account_id']}:{resource_attributes['region']}:{name}"
+        qualified_name = f"{resource_attributes['account_id']}:{resource_attributes['region']}:{name}"
 
         return name, qualified_name, resource_attributes
 
+
     def get_resource_qualifier_value(self, resource: Resource, qualifier_name: str) -> Optional[str]:
+        """Fetch AWS-specific qualifier values as strings."""
         if qualifier_name == "account_id":
-            return getattr(resource, "account_id", None)
+            value = getattr(resource, "account_id", None)
         elif qualifier_name == "region":
-            return getattr(resource, "region", None)
+            value = getattr(resource, "region", None)
         elif qualifier_name == "service":
-            return getattr(resource, "service", None)
+            value = getattr(resource, "service", None)
         elif qualifier_name == "is_public":
-            return str(getattr(resource, "is_public", False)).lower()
+            value = getattr(resource, "is_public", None)
         elif qualifier_name == "arn":
-            return getattr(resource, "arn", None)
+            value = getattr(resource, "arn", None)
         else:
             logger.warning(f"Unknown qualifier requested: {qualifier_name}")
             return None
+
+        # Convert to string
+        return str(value) if value is not None else None
+
 
     def get_resource_property_values(self, resource: Resource, property_name: str) -> Optional[list[Any]]:
         property_name = property_name.lower()
@@ -110,13 +115,28 @@ class AWSPlatformHandler(PlatformHandler):
             return None
 
     def get_standard_template_variables(self, resource: Resource) -> dict[str, Any]:
+        """Include all relevant AWS-specific qualifiers as template variables."""
         template_variables = {
-            'account_id': self.get_resource_qualifier_value(resource, "account_id"),
-            'region': self.get_resource_qualifier_value(resource, "region"),
-            'service': self.get_resource_qualifier_value(resource, "service"),
-            'is_public': self.get_resource_qualifier_value(resource, "is_public"),
+            'account_id': str(self.get_resource_qualifier_value(resource, "account_id") or ""),
+            'region': str(self.get_resource_qualifier_value(resource, "region") or ""),
+            'service': str(self.get_resource_qualifier_value(resource, "service") or ""),
+            'is_public': str(self.get_resource_qualifier_value(resource, "is_public") or ""),
+            'arn': str(self.get_resource_qualifier_value(resource, "arn") or ""),
         }
+        logger.debug(f"Template variables before render: {template_variables}")
         return template_variables
 
-    def resolve_template_variable_value(self, resource: Resource, variable_name: str) -> Optional[Any]:
-        return self.get_resource_qualifier_value(resource, variable_name)
+
+        # Add tags as template variables
+        tags = getattr(resource, "tags", {})
+        template_variables.update({f"tag_{key}": value for key, value in tags.items()})
+        return template_variables
+
+
+    # def resolve_template_variable_value(self, resource: Resource, variable_name: str) -> Optional[Any]:
+    #     return self.get_resource_qualifier_value(resource, variable_name)
+
+    def resolve_template_variable_value(self, resource: Resource, variable_name: str) -> Optional[str]:
+        # Ensure the return value is always a string
+        value = self.get_resource_qualifier_value(resource, variable_name)
+        return str(value) if value else None

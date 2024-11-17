@@ -563,6 +563,7 @@ class GenerationRuleInfo:
                f'slx-base-names=[{slx_base_names_str}]'
 
 
+
 def get_template_variables(output_item: OutputItem,
                            resource: Resource,
                            base_template_variables: dict[str, Any],
@@ -625,6 +626,7 @@ def get_template_variables(output_item: OutputItem,
         qualifiers_dict = {qual: template_variables[qual] for qual in output_item.template_variables['qualifiers']}
         template_variables['qualifiers'] = qualifiers_dict
 
+    logger.debug(f"Resolved template variables: {template_variables}")
 
     return template_variables
 
