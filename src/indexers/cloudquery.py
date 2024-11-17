@@ -15,6 +15,7 @@ from typing import Any, Optional, Union
 import subprocess
 import yaml
 import base64
+import boto3
 
 from component import SettingDependency, Context
 from enrichers.generation_rule_types import (
@@ -144,7 +145,6 @@ def invoke_cloudquery(cq_command: str,
     # Ensure all environment variable values are strings
     cq_env_vars = {k: str(v) for k, v in cq_env_vars.items()}
 
-    common_error_message = "Error running CloudQuery to discover resources"
     try:
         cq_args = ["cloudquery"]
         if debug_logging:
@@ -155,22 +155,25 @@ def invoke_cloudquery(cq_command: str,
 
         process_info = subprocess.run(cq_args, capture_output=True, env=cq_env_vars)
 
-        stdout_text = process_info.stdout.decode('utf-8')
-        stderr_text = process_info.stderr.decode('utf-8')
-        logger.debug("Results for subprocess run of cloudquery:")
+        stdout_text = process_info.stdout.decode("utf-8")
+        stderr_text = process_info.stderr.decode("utf-8")
+        logger.debug("Results for subprocess run of CloudQuery:")
         logger.debug(f"args={process_info.args}")
         logger.debug(f"return-code={process_info.returncode}")
         logger.debug(f"stderr: {stderr_text}")
         logger.debug(f"stdout: {stdout_text}")
         if process_info.returncode != 0:
-            error_message = f"{common_error_message}: " \
-                            f"return-code={process_info.returncode}; " \
-                            f"stderr={stderr_text}; " \
-                            f"stdout={stdout_text}"
+            error_message = (
+                f"Error running CloudQuery to discover resources: "
+                f"return-code={process_info.returncode}; "
+                f"stderr={stderr_text}; "
+                f"stdout={stdout_text}"
+            )
             raise WorkspaceBuilderException(error_message)
     except Exception as e:
-        error_message = f"{common_error_message}; error launching CloudQuery; {str(e)}"
+        error_message = f"Error launching CloudQuery; {str(e)}"
         raise WorkspaceBuilderException(error_message) from e
+
 
 cloudquery_premium_table_info: Optional[dict[str, list[str]]] = None
 
@@ -211,6 +214,7 @@ def init_cloudquery_table_info():
             config_file_path = os.path.join(cq_config_dir, platform_spec.config_file_name)
             config_text = render_template_file(platform_spec.config_template_name, template_variables,
                                                template_loader_func)
+            logger.debug(f"-------USING CQ CONFIG-------\n{config_text}")
             write_file(config_file_path, config_text)
 
         cq_env_vars = dict()
@@ -368,6 +372,48 @@ def init_cloudquery_config(context: Context,
                 logger.info(f"GOOGLE_APPLICATION_CREDENTIALS set to: {service_account_file}")
             else:
                 logger.warning("GCP service account credentials file not found in workspaceInfo.yaml")
+
+        elif platform_name == "aws":
+            logger.debug("Entering AWS configuration block")
+
+            # Retrieve credentials from the configuration
+            aws_access_key_id = platform_config_data.get("awsAccessKeyId")
+            aws_secret_access_key = platform_config_data.get("awsSecretAccessKey")
+            aws_session_token = platform_config_data.get("awsSessionToken")
+
+            # Validation logic
+            if aws_access_key_id and aws_secret_access_key and not aws_session_token:
+                # Long-term credentials
+                logger.info("Using long-term AWS credentials.")
+            elif aws_access_key_id and aws_secret_access_key and aws_session_token:
+                # Temporary credentials
+                logger.info("Using temporary AWS credentials.")
+            else:
+                # Invalid configuration
+                error_message = (
+                    "Invalid AWS credentials configuration. "
+                    "Provide either long-term credentials (awsAccessKeyId, awsSecretAccessKey) "
+                    "or temporary credentials (awsAccessKeyId, awsSecretAccessKey, awsSessionToken)."
+                )
+                logger.error(error_message)
+                raise ValueError(error_message)
+
+            # Prepare environment variables for CloudQuery
+            cq_process_environment_vars.update({
+                "AWS_ACCESS_KEY_ID": aws_access_key_id,
+                "AWS_SECRET_ACCESS_KEY": aws_secret_access_key,
+            })
+            if aws_session_token:
+                cq_process_environment_vars["AWS_SESSION_TOKEN"] = aws_session_token
+
+            # Log the credentials for debugging, masking sensitive data
+            logger.debug(f"AWS_ACCESS_KEY_ID: {mask_string(aws_access_key_id)}")
+            logger.debug(f"AWS_SECRET_ACCESS_KEY: {mask_string(aws_secret_access_key)}")
+            logger.debug(f"AWS_SESSION_TOKEN: {'<not set>' if not aws_session_token else mask_string(aws_session_token)}")
+
+            # Skip additional service-specific validation like S3 access
+            logger.info("AWS credentials validation passed.")
+
 
         cq_resource_type_specs = list()
         tables = list()
