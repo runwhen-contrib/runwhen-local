@@ -388,7 +388,12 @@ def main():
             namespace_lods = workspace_info.get('namespaceLODs')
             custom_definitions = workspace_info.get("custom", dict())
             code_collections = workspace_info.get("codeCollections")
-            cloud_config = workspace_info.get("cloudConfig")
+            cloud_config = workspace_info.get('cloudConfig', None)
+            # Immediately error out if no discovery configuraiton is provided. We will deprecate any other
+            # assumed configurations. Discovery must be explicitly set. 
+            if not cloud_config:
+                print("Error: 'cloudConfig' configuration is missing in the workspace info. Exiting.")
+                sys.exit(1)
 
     # If a setting has still not been set, try an environment variable as a last resort
     # FIXME: With the switch to having default values for the command line args, these
