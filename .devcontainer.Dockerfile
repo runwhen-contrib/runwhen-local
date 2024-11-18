@@ -1,20 +1,31 @@
 # Use a Python-based Debian image with Docker installed as the base
 FROM mcr.microsoft.com/vscode/devcontainers/python:3.12
 
+
+ENV RUNWHEN_HOME=/home/runwhen
+
+USER root
+
+# Set up specific RunWhen Home Dir and Permissions
+WORKDIR $RUNWHEN_HOME
+
 # Create the runwhen user and add it to the sudo group
 RUN useradd -m -s /bin/bash runwhen && \
     echo "runwhen ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-
-# Switch to root to install required tools
-USER root
 
 # Update and install dependencies
 RUN apt-get update && apt-get install -y \
     jq \
     curl \
     sudo \
-    unzip \
-    docker.io
+    unzip && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install Terraform
+ENV TERRAFORM_VERSION=1.9.8
+RUN wget https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip && \
+    unzip terraform_${TERRAFORM_VERSION}_linux_amd64.zip terraform -d /usr/local/bin/ && \
+    rm terraform_${TERRAFORM_VERSION}_linux_amd64.zip
 
 # Install yq
 RUN curl -Lo /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 && \
@@ -28,18 +39,27 @@ RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/s
     chmod +x kubectl && \
     mv kubectl /usr/local/bin/
 
-# Install Azure CLI
-RUN curl -sL https://aka.ms/InstallAzureCLIDeb | bash && \
-    az aks install-cli
+# Install AWS CLI v2 using tarball
+RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip" && \
+    unzip /tmp/awscliv2.zip -d /tmp && \
+    /tmp/aws/install && \
+    rm -rf /tmp/awscliv2.zip /tmp/aws
 
-# Install Google Cloud SDK
-RUN curl -sSL https://sdk.cloud.google.com | bash && \
-    echo "source /root/google-cloud-sdk/path.bash.inc" >> /root/.bashrc && \
-    echo "source /root/google-cloud-sdk/completion.bash.inc" >> /root/.bashrc && \
-    /bin/bash -c "source /root/google-cloud-sdk/path.bash.inc && gcloud components install gke-gcloud-auth-plugin --quiet"
+# Install Google Cloud CLI using tarball
+ENV GCLOUD_CLI_VERSION="441.0.0"
+RUN curl -LO "https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-${GCLOUD_CLI_VERSION}-linux-x86_64.tar.gz" && \
+    tar -xzf google-cloud-cli-${GCLOUD_CLI_VERSION}-linux-x86_64.tar.gz -C /usr/local && \
+    /usr/local/google-cloud-sdk/install.sh --quiet && \
+    rm -f google-cloud-cli-${GCLOUD_CLI_VERSION}-linux-x86_64.tar.gz
+
+# Update PATH for gcloud
+ENV PATH="/usr/local/google-cloud-sdk/bin:$PATH"
 
 # Install Trivy
 RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+
+# Adjust permissions for runwhen user
+RUN chown runwhen:0 -R $RUNWHEN_HOME/
 
 # Switch to the runwhen user for Homebrew installation
 USER runwhen
@@ -48,7 +68,7 @@ USER runwhen
 RUN NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || true
 
 # Add Homebrew to PATH for runwhen user
-RUN echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> /home/runwhen/.bashrc
+RUN echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> $RUNWHEN_HOME/.bashrc
 
 # Switch back to root to finalize environment
 USER root
@@ -56,10 +76,15 @@ USER root
 # Set up the environment for Homebrew and Google Cloud SDK
 ENV PATH="/home/linuxbrew/.linuxbrew/bin:/root/google-cloud-sdk/bin:${PATH}"
 
-# Clean up
-RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Set RunWhen Temp Dir
+RUN mkdir -p /var/tmp/runwhen && chmod 1777 /var/tmp/runwhen
+ENV TMPDIR=/var/tmp/runwhen
 
 # Switch back to the 'runwhen' user as default
 USER runwhen
 
-RUN brew install go-task terraform
+RUN brew install \
+    go-task \   
+    azure-cli \
+    awscli
