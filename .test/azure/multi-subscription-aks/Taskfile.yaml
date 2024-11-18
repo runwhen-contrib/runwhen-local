@@ -140,7 +140,7 @@ tasks:
     cmds:
       - |
         # Source Envs for Auth
-        source terraform/tf.local
+        source terraform/tf.secret
 
         # Navigate to the Terraform directory
         if [ ! -d "terraform" ]; then
@@ -174,7 +174,7 @@ tasks:
     cmds:
       - |
         # Source Envs for Auth
-        source terraform/tf.local
+        source terraform/tf.secret
 
 
         # Navigate to the Terraform directory
@@ -198,7 +198,7 @@ tasks:
     cmds:
       - |
         # Source Envs for Auth
-        source terraform/tf.local
+        source terraform/tf.secret
 
         # Navigate to the Terraform directory
         if [ -d "terraform" ]; then
