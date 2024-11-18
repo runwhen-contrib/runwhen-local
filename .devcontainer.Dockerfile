@@ -6,8 +6,12 @@ ENV RUNWHEN_HOME=/home/runwhen
 
 USER root
 
-# Set up specific RunWhen Home Dir and Permissions
-WORKDIR $RUNWHEN_HOME
+# Set up directories and permissions
+RUN mkdir -p $RUNWHEN_HOME/runwhen-local
+WORKDIR $RUNWHEN_HOME/runwhen-local
+
+# Copy files into container with correct ownership
+COPY --chown=runwhen:0 . .
 
 # Create the runwhen user and add it to the sudo group
 RUN useradd -m -s /bin/bash runwhen && \
@@ -80,6 +84,9 @@ ENV PATH="/home/linuxbrew/.linuxbrew/bin:/root/google-cloud-sdk/bin:${PATH}"
 # Set RunWhen Temp Dir
 RUN mkdir -p /var/tmp/runwhen && chmod 1777 /var/tmp/runwhen
 ENV TMPDIR=/var/tmp/runwhen
+
+# Adjust permissions for runwhen user
+RUN chown runwhen:0 -R $RUNWHEN_HOME/runwhen-local
 
 # Switch back to the 'runwhen' user as default
 USER runwhen
