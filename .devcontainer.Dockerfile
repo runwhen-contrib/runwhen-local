@@ -1,29 +1,24 @@
-# Use a Python-based Debian image with Docker installed as the base
-FROM debian:bullseye-slim
+FROM python:3.12.6-slim
 
-
+# Create a non-root user `runwhen` to run commands
 ENV RUNWHEN_HOME=/home/runwhen
 
-USER root
-
-# Set up directories and permissions
-RUN mkdir -p $RUNWHEN_HOME/runwhen-local
-WORKDIR $RUNWHEN_HOME/runwhen-local
-
-# Copy files into container with correct ownership
-COPY --chown=runwhen:0 . .
-
-# Create the runwhen user and add it to the sudo group
-RUN useradd -m -s /bin/bash runwhen && \
+RUN groupadd -r runwhen && \
+    useradd -r -g runwhen -d $RUNWHEN_HOME -m -s /bin/bash runwhen && \
+    mkdir -p $RUNWHEN_HOME && \
+    chown -R runwhen:runwhen $RUNWHEN_HOME && \
     echo "runwhen ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
-# Update and install dependencies
-RUN apt-get update && apt-get install -y \
-    jq \
-    curl \
-    sudo \
-    unzip && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+RUN mkdir $RUNWHEN_HOME/runwhen-local
+WORKDIR $RUNWHEN_HOME/runwhen-local
+
+# Install CLI tools and OS app dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    entr curl wget jq bc vim dnsutils unzip git apt-transport-https lsb-release bsdmainutils \
+    build-essential file locales procps \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /usr/share/doc /usr/share/man /usr/share/info /var/cache/man
 
 # Install Terraform
 ENV TERRAFORM_VERSION=1.9.8
@@ -68,25 +63,28 @@ RUN chown runwhen:0 -R $RUNWHEN_HOME/
 # Switch to the runwhen user for Homebrew installation
 USER runwhen
 
-# Download and install Homebrew in the user's home directory
-RUN NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || true
-
-# Add Homebrew to PATH for runwhen user
-RUN echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> $RUNWHEN_HOME/.bashrc
+RUN git clone https://github.com/Homebrew/brew ~/.linuxbrew/Homebrew \
+&& mkdir ~/.linuxbrew/bin \
+&& ln -s ../Homebrew/bin/brew ~/.linuxbrew/bin \
+&& eval $(~/.linuxbrew/bin/brew shellenv) \
+&& brew --version
 
 # Switch back to root to finalize environment
 USER root
-
-# Set up the environment for Homebrew and Google Cloud SDK
-ENV PATH="/home/linuxbrew/.linuxbrew/bin:/root/google-cloud-sdk/bin:${PATH}"
-
 
 # Set RunWhen Temp Dir
 RUN mkdir -p /var/tmp/runwhen && chmod 1777 /var/tmp/runwhen
 ENV TMPDIR=/var/tmp/runwhen
 
+# Copy files into container with correct ownership
+COPY --chown=runwhen:0 . .
+
 # Adjust permissions for runwhen user
 RUN chown runwhen:0 -R $RUNWHEN_HOME/runwhen-local
+
+# Set up Homebrew path for the runwhen user in the Docker build process
+ENV PATH="/home/runwhen/.linuxbrew/bin:$PATH"
+
 
 # Switch back to the 'runwhen' user as default
 USER runwhen
