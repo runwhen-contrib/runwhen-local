@@ -8,7 +8,7 @@
     "features": {
         "ghcr.io/devcontainers/features/docker-in-docker:2": {}
     },
-    "workspaceFolder": "/home/runwhen/",
+    "workspaceFolder": "/home/runwhen/runwhen-local",
     "customizations": {
         "vscode": {
             "extensions": [
