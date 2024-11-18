@@ -88,3 +88,5 @@ RUN brew install \
     go-task \   
     azure-cli \
     awscli
+
+CMD ["bash"]

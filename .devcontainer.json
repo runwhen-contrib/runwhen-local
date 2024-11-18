@@ -5,7 +5,6 @@
         "dockerfile": ".devcontainer.Dockerfile"
     },
     "updateRemoteUserUID": false,
-    "overrideCommand": false,
     "features": {
         "ghcr.io/devcontainers/features/docker-in-docker:2": {}
     },
