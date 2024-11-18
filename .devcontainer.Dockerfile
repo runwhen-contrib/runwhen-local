@@ -1,5 +1,5 @@
 # Use a Python-based Debian image with Docker installed as the base
-FROM python:3.12-bullseye
+FROM debian:bullseye-slim
 
 
 ENV RUNWHEN_HOME=/home/runwhen
