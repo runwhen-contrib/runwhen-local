@@ -1,5 +1,5 @@
 # Use a Python-based Debian image with Docker installed as the base
-FROM mcr.microsoft.com/vscode/devcontainers/python:3.12
+FROM python:3.12-bullseye
 
 
 ENV RUNWHEN_HOME=/home/runwhen
