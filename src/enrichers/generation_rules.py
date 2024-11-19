@@ -563,6 +563,7 @@ class GenerationRuleInfo:
                f'slx-base-names=[{slx_base_names_str}]'
 
 
+
 def get_template_variables(output_item: OutputItem,
                            resource: Resource,
                            base_template_variables: dict[str, Any],
@@ -625,6 +626,7 @@ def get_template_variables(output_item: OutputItem,
         qualifiers_dict = {qual: template_variables[qual] for qual in output_item.template_variables['qualifiers']}
         template_variables['qualifiers'] = qualifiers_dict
 
+    logger.debug(f"Resolved template variables: {template_variables}")
 
     return template_variables
 
@@ -679,7 +681,6 @@ def generate_output_item(generation_rule_info: GenerationRuleInfo,
     renderer_output_items[path] = output_item
     return True
 
-
 def collect_emitted_slxs(generation_rule_info: GenerationRuleInfo,
                          resource: Resource,
                          level_of_detail: LevelOfDetail,
@@ -687,8 +688,7 @@ def collect_emitted_slxs(generation_rule_info: GenerationRuleInfo,
                          context):
     generation_rule = generation_rule_info.generation_rule
     for slx in generation_rule.slxs:
-        # See if the SLX has anything to output, i.e. has some output item that's not
-        # filtered out by the level of detail
+        # Determine if any output_item should be emitted based on level of detail
         emit_slx = False
         for output_item in slx.output_items:
             logger.debug(f"DEBUG: Collect Emitted SLXs: Review {output_item}")
@@ -698,9 +698,15 @@ def collect_emitted_slxs(generation_rule_info: GenerationRuleInfo,
                 break
 
         if emit_slx:
-            slx_info = SLXInfo(slx, resource, level_of_detail, generation_rule_info, context)
-            logger.debug(f"DEBUG: Collect Emitted SLXs: emit {slx_info}")
-            slxs[slx_info.full_name] = slx_info
+            try:
+                slx_info = SLXInfo(slx, resource, level_of_detail, generation_rule_info, context)
+                logger.debug(f"DEBUG: Collect Emitted SLXs: emit {slx_info}")
+                slxs[slx_info.full_name] = slx_info
+            except WorkspaceBuilderException as e:
+                logger.warning(f"Skipping SLX due to error in processing resource '{resource.name}': {e}")
+                # Skip this SLX if there's an error in SLXInfo initialization
+            except Exception as e:
+                logger.error(f"Unexpected error in SLX processing for resource '{resource.name}': {e}")
 
 
 def assign_slx_names(slxs: dict[str, SLXInfo], workspace_name):

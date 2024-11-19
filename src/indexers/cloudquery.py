@@ -15,6 +15,7 @@ from typing import Any, Optional, Union
 import subprocess
 import yaml
 import base64
+import boto3
 
 from component import SettingDependency, Context
 from enrichers.generation_rule_types import (
@@ -112,6 +113,21 @@ platform_specs = [
                            ]),
 ]
 
+def has_included_tags(resource_data: dict, include_tags: dict[str, str]) -> bool:
+    """Returns True if any of the tags in `include_tags` are found in `resource_data`."""
+    tags = resource_data.get("tags", {})
+    return any(tags.get(key) == value for key, value in include_tags.items())
+
+
+def has_excluded_tags(resource_data: dict, exclude_tags: dict[str, str]) -> bool:
+    """Returns True if any of the tags in `exclude_tags` are found in `resource_data`."""
+    tags = resource_data.get("tags", {})
+    for key, value in exclude_tags.items():
+        if tags.get(key) == value:
+            logger.info(f"Excluding resource {resource_data.get('name', 'unknown')} due to tag '{key}: {value}'")
+            return True
+    return False
+
 def invoke_cloudquery(cq_command: str,
                       cq_config_dir: str,
                       cq_env_vars: dict[str, str],
@@ -129,7 +145,6 @@ def invoke_cloudquery(cq_command: str,
     # Ensure all environment variable values are strings
     cq_env_vars = {k: str(v) for k, v in cq_env_vars.items()}
 
-    common_error_message = "Error running CloudQuery to discover resources"
     try:
         cq_args = ["cloudquery"]
         if debug_logging:
@@ -140,22 +155,25 @@ def invoke_cloudquery(cq_command: str,
 
         process_info = subprocess.run(cq_args, capture_output=True, env=cq_env_vars)
 
-        stdout_text = process_info.stdout.decode('utf-8')
-        stderr_text = process_info.stderr.decode('utf-8')
-        logger.debug("Results for subprocess run of cloudquery:")
+        stdout_text = process_info.stdout.decode("utf-8")
+        stderr_text = process_info.stderr.decode("utf-8")
+        logger.debug("Results for subprocess run of CloudQuery:")
         logger.debug(f"args={process_info.args}")
         logger.debug(f"return-code={process_info.returncode}")
         logger.debug(f"stderr: {stderr_text}")
         logger.debug(f"stdout: {stdout_text}")
         if process_info.returncode != 0:
-            error_message = f"{common_error_message}: " \
-                            f"return-code={process_info.returncode}; " \
-                            f"stderr={stderr_text}; " \
-                            f"stdout={stdout_text}"
+            error_message = (
+                f"Error running CloudQuery to discover resources: "
+                f"return-code={process_info.returncode}; "
+                f"stderr={stderr_text}; "
+                f"stdout={stdout_text}"
+            )
             raise WorkspaceBuilderException(error_message)
     except Exception as e:
-        error_message = f"{common_error_message}; error launching CloudQuery; {str(e)}"
+        error_message = f"Error launching CloudQuery; {str(e)}"
         raise WorkspaceBuilderException(error_message) from e
+
 
 cloudquery_premium_table_info: Optional[dict[str, list[str]]] = None
 
@@ -196,6 +214,7 @@ def init_cloudquery_table_info():
             config_file_path = os.path.join(cq_config_dir, platform_spec.config_file_name)
             config_text = render_template_file(platform_spec.config_template_name, template_variables,
                                                template_loader_func)
+            logger.debug(f"-------USING CQ CONFIG-------\n{config_text}")
             write_file(config_file_path, config_text)
 
         cq_env_vars = dict()
@@ -354,6 +373,48 @@ def init_cloudquery_config(context: Context,
             else:
                 logger.warning("GCP service account credentials file not found in workspaceInfo.yaml")
 
+        elif platform_name == "aws":
+            logger.debug("Entering AWS configuration block")
+
+            # Retrieve credentials from the configuration
+            aws_access_key_id = platform_config_data.get("awsAccessKeyId")
+            aws_secret_access_key = platform_config_data.get("awsSecretAccessKey")
+            aws_session_token = platform_config_data.get("awsSessionToken")
+
+            # Validation logic
+            if aws_access_key_id and aws_secret_access_key and not aws_session_token:
+                # Long-term credentials
+                logger.info("Using long-term AWS credentials.")
+            elif aws_access_key_id and aws_secret_access_key and aws_session_token:
+                # Temporary credentials
+                logger.info("Using temporary AWS credentials.")
+            else:
+                # Invalid configuration
+                error_message = (
+                    "Invalid AWS credentials configuration. "
+                    "Provide either long-term credentials (awsAccessKeyId, awsSecretAccessKey) "
+                    "or temporary credentials (awsAccessKeyId, awsSecretAccessKey, awsSessionToken)."
+                )
+                logger.error(error_message)
+                raise ValueError(error_message)
+
+            # Prepare environment variables for CloudQuery
+            cq_process_environment_vars.update({
+                "AWS_ACCESS_KEY_ID": aws_access_key_id,
+                "AWS_SECRET_ACCESS_KEY": aws_secret_access_key,
+            })
+            if aws_session_token:
+                cq_process_environment_vars["AWS_SESSION_TOKEN"] = aws_session_token
+
+            # Log the credentials for debugging, masking sensitive data
+            logger.debug(f"AWS_ACCESS_KEY_ID: {mask_string(aws_access_key_id)}")
+            logger.debug(f"AWS_SECRET_ACCESS_KEY: {mask_string(aws_secret_access_key)}")
+            logger.debug(f"AWS_SESSION_TOKEN: {'<not set>' if not aws_session_token else mask_string(aws_session_token)}")
+
+            # Skip additional service-specific validation like S3 access
+            logger.info("AWS credentials validation passed.")
+
+
         cq_resource_type_specs = list()
         tables = list()
 
@@ -454,6 +515,7 @@ def index(context: Context):
     init_cloudquery_table_info()
 
     cloud_config = context.get_setting("CLOUD_CONFIG")
+
     if cloud_config:
         platform_handlers: dict[str, PlatformHandler] = context.get_property(PLATFORM_HANDLERS_PROPERTY_NAME)
         accessed_resource_type_specs: dict[str, dict[ResourceTypeSpec, list[GenerationRuleInfo]]] = \
@@ -480,15 +542,20 @@ def index(context: Context):
                 sql_connection = sqlite3.connect(sqlite_database_file_path)
                 cursor = sql_connection.cursor()
                 for cq_platform_spec, cq_resource_type_specs in cq_platform_infos:
-                    platform_config_data = cloud_config.get(cq_platform_spec.name, dict())
-                    platform_handler = platform_handlers[cq_platform_spec.name]
+                    platform_name = cq_platform_spec.name
+                    platform_config_data = cloud_config.get(platform_name, dict())
+                    platform_handler = platform_handlers[platform_name]
+
+                    include_tags = platform_config_data.get("includeTags", {})
+                    exclude_tags = platform_config_data.get("excludeTags", {})
+
                     for cq_resource_type_spec in cq_resource_type_specs:
                         table_name = cq_resource_type_spec.cloudquery_table_name
                         logger.info(f"Processing table: {table_name}")
 
                         try:
                             response = cursor.execute(f"SELECT * FROM {table_name}")
-                        except sqlite3.OperationalError as e:
+                        except sqlite3.OperationalError:
                             logger.warning(f"Table {table_name} not found or no resources discovered.")
                             continue
 
@@ -496,10 +563,11 @@ def index(context: Context):
                         if not table_rows:
                             logger.info(f"No rows found in table {table_name}.")
                             continue
-
                         field_descriptions = response.description
+
                         for table_row in table_rows:
                             resource_data = {}
+
                             for i in range(len(field_descriptions)):
                                 attribute_name = field_descriptions[i][0]
                                 attribute_value = table_row[i]
@@ -510,16 +578,31 @@ def index(context: Context):
                                         pass
                                 resource_data[attribute_name] = attribute_value
 
-                            resource_name, qualified_resource_name, resource_attributes = \
-                                platform_handler.parse_resource_data(resource_data,
-                                                                     cq_resource_type_spec.resource_type_name,
-                                                                     platform_config_data,
-                                                                     context)
+                            resource_data["tags"] = resource_data.get("tags", {})
+                            logger.debug(f"Resource tags: {resource_data['tags']}")
+
+                            if exclude_tags and has_excluded_tags(resource_data, exclude_tags):
+                                logger.info(f"Resource {resource_data.get('name', 'unknown')} excluded due to tags.")
+                                continue
+                            if include_tags and not has_included_tags(resource_data, include_tags):
+                                logger.info(f"Resource {resource_data.get('name', 'unknown')} does not meet inclusion tags, skipping.")
+                                continue
+
+                            try:
+                                resource_name, qualified_resource_name, resource_attributes = \
+                                    platform_handler.parse_resource_data(resource_data,
+                                                                         cq_resource_type_spec.resource_type_name,
+                                                                         platform_config_data,
+                                                                         context)
+                            except WorkspaceBuilderException as e:
+                                logger.warning(f"Resource group or required qualifier missing for resource: {resource_data.get('name', 'unknown')}. Skipping. Error: {e}")
+                                continue
+
                             resource_attributes['resource'] = resource_data
-                            auth_type, auth_secret = get_auth_type(cq_platform_spec.name, platform_config_data)
+                            auth_type, auth_secret = get_auth_type(platform_name, platform_config_data)
                             resource_attributes['auth_type'] = auth_type
                             resource_attributes['auth_secret'] = auth_secret
-                            registry.add_resource(cq_platform_spec.name,
+                            registry.add_resource(platform_name,
                                                   cq_resource_type_spec.resource_type_name,
                                                   resource_name,
                                                   qualified_resource_name,
@@ -527,6 +610,7 @@ def index(context: Context):
                             logger.info(f"Added resource: {resource_name} to registry.")
 
     logger.info("Finished CloudQuery indexing")
+
 
 def get_auth_type(platform_name, platform_config_data: dict[str,Any]): 
     # Determine auth type from platform_config_data for use with azure-auth.yaml template

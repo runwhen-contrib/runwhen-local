@@ -16,17 +16,29 @@ from .match_predicate import base_construct_match_predicate_from_config, match_p
 
 logger = logging.getLogger(__name__)
 
-def get_qualifier_value(qualifier: str, resource: Resource, context: Context) -> str:
-    qualifier = qualifier.lower()
-    if qualifier == 'resource':
-        return resource.name
-    platform_handlers: dict[str, PlatformHandler] = context.get_property(PLATFORM_HANDLERS_PROPERTY_NAME)
-    platform_name = resource.resource_type.platform.name
-    platform_handler = platform_handlers[platform_name]
-    value = platform_handler.get_resource_qualifier_value(resource, qualifier)
-    if value is None:
-        raise WorkspaceBuilderException(f'Unresolved qualifier value for SLX name: "{qualifier}"')
-    return value
+def get_qualifier_value(qualifier: str, resource: Resource, context: Context) -> Optional[str]:
+    try:
+        qualifier = qualifier.lower()
+        if qualifier == 'resource':
+            return resource.name
+        
+        platform_handlers: dict[str, PlatformHandler] = context.get_property(PLATFORM_HANDLERS_PROPERTY_NAME)
+        platform_name = resource.resource_type.platform.name
+        platform_handler = platform_handlers[platform_name]
+
+        value = platform_handler.get_resource_qualifier_value(resource, qualifier)
+        if value is None:
+            raise WorkspaceBuilderException(f'Unresolved qualifier value for SLX name: "{qualifier}"')
+        
+        return value
+
+    except WorkspaceBuilderException as e:
+        logger.warning(f"Unresolved qualifier for SLX '{qualifier}' in resource '{resource.name}'. "
+                       f"Check include/exclude labels on parent resources: {e}")
+        return None  # Return None to allow calling function to handle missing qualifier gracefully
+    except Exception as e:
+        logger.error(f"Unexpected error retrieving qualifier '{qualifier}' for resource '{resource.name}': {e}")
+        return None
 
 
 class SLXInfo:
