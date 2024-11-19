@@ -1,0 +1,43 @@
+{
+    "name": "rw-local-dev",
+    "shutdownAction": "none",
+    "build": {
+        "dockerfile": ".devcontainer.Dockerfile"
+    },
+    "updateRemoteUserUID": false,
+    "features": {
+        "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+    },
+    "workspaceFolder": "/home/runwhen/runwhen-local",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "robocorp.robotframework-lsp",
+                "ms-python.pylint",
+                "ms-python.black-formatter",
+                "ms-python.python",
+                "njpwerner.autodocstring"
+            ],
+            "settings": {
+                "python.languageServer": "Jedi",
+                "python.linting.enabled": true,
+                "python.linting.pylintEnabled": true,
+                "python.linting.pylintArgs": [
+                    "--max-line-length=120",
+                    "--enable=W0614" // track unused imports
+                ],
+                "[python]": {
+                    "editor.insertSpaces": true,
+                    "editor.tabSize": 4
+                },
+                "editor.formatOnSave": true,
+                "editor.lineNumbers": "on",
+                "python.formatting.provider": "black",
+                "python.formatting.blackArgs": [
+                    "--line-length",
+                    "120"
+                ]
+            }
+        }
+    }
+}

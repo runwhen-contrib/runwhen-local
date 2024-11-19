@@ -115,7 +115,7 @@ tasks:
         fi
         
         echo "Cleaning up output directory..."
-        sudo rm -rf output || { echo "Failed to remove output directory"; exit 1; }
+        rm -rf output || { echo "Failed to remove output directory"; exit 1; }
         mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
 
         ## Building Container Image
@@ -236,6 +236,6 @@ tasks:
     desc: "Check and clean up RunWhen Local discovery output"
     cmds:
       - |
-        sudo rm -rf output
+        rm -rf output
         rm workspaceInfo.yaml
     silent: true
