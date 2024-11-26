@@ -9,6 +9,17 @@
       workspaceKey: k8s:file@secret/{{custom.azure_service_principal_secret_name}}:tenantId
     - name: az_clientSecret
       workspaceKey: k8s:file@secret/{{custom.azure_service_principal_secret_name}}:clientSecret
+{% elif cluster.cluster_type == "aks" and cluster.auth_type == "azure_explicit" %}
+    - name: azure_credentials
+      workspaceKey: azure:sp@cli
+    - name: az_subscriptionId
+      workspaceKey: k8s:file@secret/{{custom.azure_service_principal_secret_name}}:subscriptionId
+    - name: az_clientId
+      workspaceKey: k8s:file@secret/{{custom.azure_service_principal_secret_name}}:clientId
+    - name: az_tenantId
+      workspaceKey: k8s:file@secret/{{custom.azure_service_principal_secret_name}}:tenantId
+    - name: az_clientSecret
+      workspaceKey: k8s:file@secret/{{custom.azure_service_principal_secret_name}}:clientSecret
 {% elif match_resource.auth_type == "azure_service_principal_secret" %}
     - name: azure_credentials
       workspaceKey: azure:sp@cli
@@ -20,6 +31,17 @@
       workspaceKey: k8s:file@secret/{{match_resource.auth_secret}}:tenantId
     - name: az_clientSecret
       workspaceKey: k8s:file@secret/{{match_resource.auth_secret}}:clientSecret
+{% elif cluster.cluster_type == "aks" and cluster.auth_type == "azure_service_principal_secret" %}
+    - name: azure_credentials
+      workspaceKey: azure:sp@cli
+    - name: az_subscriptionId
+      workspaceKey: k8s:file@secret/{{cluster.auth_secret}}:subscriptionId
+    - name: az_clientId
+      workspaceKey: k8s:file@secret/{{cluster.auth_secret}}:clientId
+    - name: az_tenantId
+      workspaceKey: k8s:file@secret/{{cluster.auth_secret}}:tenantId
+    - name: az_clientSecret
+      workspaceKey: k8s:file@secret/{{cluster.auth_secret}}:clientSecret
 {% elif match_resource.auth_type == "azure_identity" %}
     - name: azure_credentials
       workspaceKey: azure:identity@cli
