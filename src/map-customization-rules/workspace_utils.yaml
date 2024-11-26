@@ -1,0 +1,10 @@
+apiVersion: runwhen.com/v1
+kind: MapCustomizationRules
+spec:
+  groupRules:
+    - match:
+        type: pattern
+        matchType: base-name
+        pattern: "rw-acr-sync"
+        matchMode: "substring"
+      group: "RunWhen Workspace Utilities"
