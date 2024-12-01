@@ -1,0 +1,73 @@
+# Build the DevContainer Image
+name: Build Dev Image
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".devcontainer.Dockerfile"
+      - ".github/workflows/build_devcontainer.yaml"
+
+permissions:
+  contents: "read"
+  id-token: "write"
+  security-events: "write"
+  actions: "read"
+
+env:
+  IMAGE: runwhen-local-devcontainer
+  DEFAULT_BRANCH: "origin/${{ github.event.repository.default_branch }}"
+  CONTAINER_NAME: "runwhen-local-devcontainer"
+  GHCR_ORG: "runwhen-contrib"
+
+
+jobs:
+  scan-repo:
+    runs-on: ubuntu-latest
+    outputs:
+      image_path: ${{ steps.publish-beta.outputs.image_path }}
+    steps:
+      - uses: actions/checkout@v2
+        name: Checkout
+
+  build-and-push:
+    runs-on: ubuntu-latest
+    outputs:
+      image_path: ${{ steps.publish-beta.outputs.image_path }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set tag 
+        run: |-
+          echo "TAG=$(echo $GITHUB_REF_NAME | sed 's/[^a-zA-Z0-9]/-/g')-${GITHUB_SHA::8}" >> $GITHUB_ENV
+      - name: Login to GHCR
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT }}
+        run: |-
+          echo $GITHUB_TOKEN | docker login ghcr.io -u stewartshea --password-stdin
+      - name: Configure Docker for multi-arch builds
+        run: docker run --privileged --rm tonistiigi/binfmt --install all
+
+      # Build the Docker image
+      - name: Build and push image
+        run: |-
+          cd ./src
+          docker buildx create --use --name=mybuilder
+          docker buildx inspect --bootstrap
+          docker buildx build \
+            --push \
+            --platform linux/amd64 \
+            --tag ghcr.io/$GHCR_ORG/$IMAGE:$TAG \
+            --tag ghcr.io/$GHCR_ORG/$IMAGE:latest \
+            --build-arg GITHUB_SHA="$GITHUB_SHA" \
+            --build-arg GITHUB_REF="$GITHUB_REF" \
+            -f Dockerfile .
+
+      - name: Notify Slack of RunWhen Local Deployment tp GHCR
+        id: slack-deploy-to-ghcr
+        uses: slackapi/slack-github-action@v1.19.0
+        with:
+          channel-id: "#runwhen-local" # Slack channel id or name to post message. https://api.slack.com/methods/chat.postMessage#channels
+          slack-message: "Just deployed latest version of RWL Devcontainer to https://github.com/orgs/runwhen-contrib/packages/container/package/runwhen-local-devcontainer"
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}

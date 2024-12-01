@@ -1,9 +1,7 @@
 {
     "name": "rw-local-dev",
     "shutdownAction": "none",
-    "build": {
-        "dockerfile": ".devcontainer.Dockerfile"
-    },
+    "image": "ghcr.io/runwhen-contrib/runwhen-local-devcontainer:latest",
     "updateRemoteUserUID": false,
     "features": {
         "ghcr.io/devcontainers/features/docker-in-docker:2": {}
