@@ -51,7 +51,6 @@ jobs:
       # Build the Docker image
       - name: Build and push image
         run: |-
-          cd ./src
           docker buildx create --use --name=mybuilder
           docker buildx inspect --bootstrap
           docker buildx build \
@@ -61,7 +60,7 @@ jobs:
             --tag ghcr.io/$GHCR_ORG/$IMAGE:latest \
             --build-arg GITHUB_SHA="$GITHUB_SHA" \
             --build-arg GITHUB_REF="$GITHUB_REF" \
-            -f Dockerfile .
+            -f .devcontainer.Dockerfile
 
       - name: Notify Slack of RunWhen Local Deployment tp GHCR
         id: slack-deploy-to-ghcr
