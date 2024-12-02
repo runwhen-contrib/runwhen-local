@@ -87,7 +87,8 @@ ENV PATH="/home/runwhen/.linuxbrew/bin:$PATH"
 
 # Add sudo
 RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends sudo && \
+    echo "sudo sudo/installer/default_select string N" | debconf-set-selections && \
+    apt-get install -y --no-install-recommends sudo && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt
 
