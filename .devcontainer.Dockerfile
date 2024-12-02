@@ -6,8 +6,7 @@ ENV RUNWHEN_HOME=/home/runwhen
 RUN groupadd -r runwhen && \
     useradd -r -g runwhen -d $RUNWHEN_HOME -m -s /bin/bash runwhen && \
     mkdir -p $RUNWHEN_HOME && \
-    chown -R runwhen:runwhen $RUNWHEN_HOME && \
-    echo "runwhen ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+    chown -R runwhen:runwhen $RUNWHEN_HOME 
 
 RUN mkdir $RUNWHEN_HOME/runwhen-local
 WORKDIR $RUNWHEN_HOME/runwhen-local
@@ -94,12 +93,15 @@ RUN echo "sudo sudo/installer/default_select string N" | debconf-set-selections 
 
 RUN echo "runwhen ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
+RUN groupadd docker || true && \
+    usermod -aG docker runwhen
 
 # Switch back to the 'runwhen' user as default
 USER runwhen
 
 RUN brew install \
     go-task \   
-    azure-cli 
+    azure-cli \
+    gh
 
 CMD ["bash"]

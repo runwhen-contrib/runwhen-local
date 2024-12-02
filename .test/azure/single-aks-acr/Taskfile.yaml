@@ -1,0 +1,229 @@
+version: "3"
+
+tasks:
+  default:
+    desc: "Generate workspaceInfo and rebuild/test"
+    cmds:
+      - task: generate-rwl-config
+      - task: run-rwl-discovery
+
+  clean:
+    desc: "Run cleanup tasks"
+    cmds:
+      - task: check-and-cleanup-terraform
+      - task: clean-rwl-discovery
+
+  build-infra:
+    desc: "Build test infrastructure"
+    cmds:
+      - task: build-terraform-infra
+
+
+  generate-rwl-config:
+    desc: "Generate RunWhen Local configuration (workspaceInfo.yaml)"
+    env:
+      ARM_SUBSCRIPTION_ID: "{{.TF_VAR_subscription_id_1}}"
+      AZ_TENANT_ID: "{{.AZ_TENANT_ID}}"
+      AZ_CLIENT_SECRET: "{{.AZ_CLIENT_SECRET}}"
+      AZ_CLIENT_ID: "{{.AZ_CLIENT_ID}}"
+      RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
+    cmds:
+      - |
+        repo_url=$(git config --get remote.origin.url)
+        branch_name=$(git rev-parse --abbrev-ref HEAD)
+        codebundle=$(basename "$(dirname "$PWD")")
+
+        # Generate workspaceInfo.yaml with fetched cluster details
+        cat <<EOF > workspaceInfo.yaml
+        workspaceName: "$RW_WORKSPACE"
+        workspaceOwnerEmail: authors@runwhen.com
+        defaultLocation: bd97d852-7cfe-4f24-8697-af70a1d8244a
+        defaultLOD: basic
+        cloudConfig:
+          azure:
+            subscriptionId: "$ARM_SUBSCRIPTION_ID"
+            tenantId: "$AZ_TENANT_ID"
+            clientId: "$AZ_CLIENT_ID"
+            clientSecret: "$AZ_CLIENT_SECRET"
+            aksClusters: 
+              clusters: 
+                - name: cluster1
+                  server: https://cluster1-z3hr4n51.hcp.eastus.azmk8s.io:443
+                  resource_group: workspace-utils_azure-rw-acr-helm-update
+                  subscriptionId: $ARM_SUBSCRIPTION_ID
+            resourceGroupLevelOfDetails:
+              workspace-utils_azure-rw-acr-helm-update: detailed
+        codeCollections:
+        - repoURL: "https://github.com/stewartshea/rw-workspace-utils"
+          branch: "rw-acr-helm"
+          codeBundles: ["azure-rw-acr-helm-update"]
+        - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection"
+          branch: "main"
+          codebundles: ["k8s-namespace-healthcheck"]
+        custom: 
+          kubernetes_distribution_binary: kubectl
+          private_registry: azure_acr
+          azure_acr_registry: runwhensandboxacr.azurecr.io
+          azure_service_principal_secret_name: azure-sp
+        EOF
+    silent: true
+
+  run-rwl-discovery:
+    desc: "Run RunWhen Local Discovery on test infrastructure"
+    cmds:
+      - |
+        BUILD_DIR=../../../src
+        CONTAINER_NAME="RunWhenLocal"
+        if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Stopping and removing existing container $CONTAINER_NAME..."
+          docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME
+        elif docker ps -a -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Removing existing stopped container $CONTAINER_NAME..."
+          docker rm $CONTAINER_NAME
+        else
+          echo "No existing container named $CONTAINER_NAME found."
+        fi
+        
+        echo "Cleaning up output directory..."
+        rm -rf output || { echo "Failed to remove output directory"; exit 1; }
+        mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
+
+        docker build \
+          -t runwhen-local:test \
+          -f "$BUILD_DIR/Dockerfile" "$BUILD_DIR"
+
+        echo "Starting new container $CONTAINER_NAME..."
+        echo  "docker run --name $CONTAINER_NAME -e DEBUG_LOGS=true -p 8081:8081 -v /home/runwhen:/shared --security-opt apparmor=unconfined -d runwhen-local:test"
+
+        docker run --name $CONTAINER_NAME -p 8081:8081 -v $(pwd):/shared -d runwhen-local:test || {
+          echo "Failed to start container"; exit 1;
+        }
+
+        echo "Running workspace builder script in container..."
+        docker exec -w /workspace-builder $CONTAINER_NAME ./run.sh $1 --verbose || {
+          echo "Error executing script in container"; exit 1;
+        }
+
+        echo "Review generated config files under output/workspaces/"
+    silent: true
+
+  check-terraform-infra:
+    desc: "Check if Terraform has any deployed infrastructure in the terraform subdirectory"
+    cmds:
+      - |
+        # Source Envs for Auth
+        source terraform/tf.secret
+
+        # Navigate to the Terraform directory
+        if [ ! -d "terraform" ]; then
+          echo "Terraform directory not found."
+          exit 1
+        fi
+        cd terraform
+
+        # Check if Terraform state file exists
+        if [ ! -f "terraform.tfstate" ]; then
+          echo "No Terraform state file found in the terraform directory. No infrastructure is deployed."
+          exit 0
+        fi
+
+        # List resources in Terraform state
+        resources=$(terraform state list)
+
+        # Check if any resources are listed in the state file
+        if [ -n "$resources" ]; then
+          echo "Deployed infrastructure detected."
+          echo "$resources"
+          exit 0
+        else
+          echo "No deployed infrastructure found in Terraform state."
+          exit 0
+        fi
+    silent: true
+
+  clean-rwl-discovery:
+    desc: "Check and clean up RunWhen Local discovery output"
+    cmds:
+      - |
+        rm -rf output
+        rm workspaceInfo.yaml
+    silent: true
+
+  upload-slxs:
+    desc: "Upload SLX files to the appropriate URL"
+    env:
+      RW_WORKSPACE: "{{.RW_WORKSPACE}}"
+      RW_API_URL: "{{.RW_API}}"
+      RW_PAT: "{{.RW_PAT}}"
+    cmds:
+      - |
+        BASE_DIR="output/workspaces/${RW_WORKSPACE}/slxs"
+        if [ ! -d "$BASE_DIR" ]; then
+          echo "Directory $BASE_DIR does not exist. Upload aborted."
+          exit 1
+        fi
+
+        for dir in "$BASE_DIR"/*; do
+          if [ -d "$dir" ]; then
+            SLX_NAME=$(basename "$dir")
+            PAYLOAD=$(jq -n --arg commitMsg "Creating new SLX $SLX_NAME" '{ commitMsg: $commitMsg, files: {} }')
+            for file in slx.yaml runbook.yaml sli.yaml; do
+              if [ -f "$dir/$file" ]; then
+                CONTENT=$(cat "$dir/$file")
+                PAYLOAD=$(echo "$PAYLOAD" | jq --arg fileContent "$CONTENT" --arg fileName "$file" '.files[$fileName] = $fileContent')
+              fi
+            done
+
+            URL="https://${RW_API_URL}/api/v3/workspaces/${RW_WORKSPACE}/branches/main/slxs/${SLX_NAME}"
+            echo "Uploading SLX: $SLX_NAME to $URL"
+            response_code=$(curl -X POST "$URL" \
+              -H "Authorization: Bearer $RW_PAT" \
+              -H "Content-Type: application/json" \
+              -d "$PAYLOAD" \
+              -w "%{http_code}" -o /dev/null -s)
+            
+            if [[ "$response_code" == "200" || "$response_code" == "201" ]]; then
+              echo "Successfully uploaded SLX: $SLX_NAME to $URL"
+            elif [[ "$response_code" == "405" ]]; then
+              echo "Failed to upload SLX: $SLX_NAME to $URL. Method not allowed (405)."
+            else
+              echo "Failed to upload SLX: $SLX_NAME to $URL. Unexpected response code: $response_code"
+            fi
+          fi
+        done
+    silent: true
+  delete-slxs:
+    desc: "Delete SLX objects from the appropriate URL"
+    env:
+      RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
+      RW_API_URL: "{{.RW_API}}"
+      RW_PAT: "{{.RW_PAT}}"
+    cmds:
+      - task: check-rwp-config
+      - |
+        BASE_DIR="output/workspaces/${RW_WORKSPACE}/slxs"
+        if [ ! -d "$BASE_DIR" ]; then
+          echo "Directory $BASE_DIR does not exist. Deletion aborted."
+          exit 1
+        fi
+
+        for dir in "$BASE_DIR"/*; do
+          if [ -d "$dir" ]; then
+            SLX_NAME=$(basename "$dir")
+            URL="https://${RW_API_URL}/api/v3/workspaces/${RW_WORKSPACE}/branches/main/slxs/${SLX_NAME}"
+            echo "Deleting SLX: $SLX_NAME from $URL"
+            response_code=$(curl -X DELETE "$URL" \
+              -H "Authorization: Bearer $RW_PAT" \
+              -H "Content-Type: application/json" \
+              -w "%{http_code}" -o /dev/null -s)
+            
+            if [[ "$response_code" == "200" || "$response_code" == "204" ]]; then
+              echo "Successfully deleted SLX: $SLX_NAME from $URL"
+            elif [[ "$response_code" == "405" ]]; then
+              echo "Failed to delete SLX: $SLX_NAME from $URL. Method not allowed (405)."
+            else
+              echo "Failed to delete SLX: $SLX_NAME from $URL. Unexpected response code: $response_code"
+            fi
+          fi
+        done
+    silent: true
