@@ -85,12 +85,13 @@ RUN chown runwhen:0 -R $RUNWHEN_HOME/runwhen-local
 # Set up Homebrew path for the runwhen user in the Docker build process
 ENV PATH="/home/runwhen/.linuxbrew/bin:$PATH"
 
-
-# Sudo
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends sudo && \
+# Add sudo
+RUN echo "sudo sudo/installer/default_select string N" | debconf-set-selections && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends sudo -o Dpkg::Options::="--force-confold" -o Dpkg::Options::="--force-confdef" && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt
+
 RUN echo "runwhen ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
 
@@ -99,7 +100,6 @@ USER runwhen
 
 RUN brew install \
     go-task \   
-    azure-cli \
-    awscli
+    azure-cli 
 
 CMD ["bash"]
