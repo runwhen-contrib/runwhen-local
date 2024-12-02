@@ -100,7 +100,6 @@ USER runwhen
 
 RUN brew install \
     go-task \   
-    azure-cli \
-    awscli
+    azure-cli 
 
 CMD ["bash"]
