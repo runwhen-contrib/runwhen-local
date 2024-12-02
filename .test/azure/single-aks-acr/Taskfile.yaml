@@ -48,7 +48,7 @@ tasks:
             aksClusters: 
               clusters: 
                 - name: cluster1
-                  server: https://cluster1-z3hr4n51.hcp.eastus.azmk8s.io:443
+                  server: https://cluster1-8eedicqw.hcp.eastus.azmk8s.io:443
                   resource_group: workspace-utils_azure-rw-acr-helm-update
                   subscriptionId: $ARM_SUBSCRIPTION_ID
             resourceGroupLevelOfDetails:

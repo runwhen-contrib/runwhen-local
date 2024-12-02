@@ -1,48 +1,48 @@
-{% if match_resource.auth_type == "azure_explicit" %}
+{% if cluster is defined and cluster.cluster_type | default('') == "aks" and cluster.auth_type | default('') == "azure_explicit" %}
     - name: azure_credentials
       workspaceKey: azure:sp@cli
     - name: az_subscriptionId
-      workspaceKey: k8s:file@secret/{{custom.azure_service_principal_secret_name}}:subscriptionId
+      workspaceKey: k8s:file@secret/{{ custom.azure_service_principal_secret_name | default('undefined') }}:subscriptionId
     - name: az_clientId
-      workspaceKey: k8s:file@secret/{{custom.azure_service_principal_secret_name}}:clientId
+      workspaceKey: k8s:file@secret/{{ custom.azure_service_principal_secret_name | default('undefined') }}:clientId
     - name: az_tenantId
-      workspaceKey: k8s:file@secret/{{custom.azure_service_principal_secret_name}}:tenantId
+      workspaceKey: k8s:file@secret/{{ custom.azure_service_principal_secret_name | default('undefined') }}:tenantId
     - name: az_clientSecret
-      workspaceKey: k8s:file@secret/{{custom.azure_service_principal_secret_name}}:clientSecret
-{% elif cluster.cluster_type == "aks" and cluster.auth_type == "azure_explicit" %}
+      workspaceKey: k8s:file@secret/{{ custom.azure_service_principal_secret_name | default('undefined') }}:clientSecret
+{% elif cluster is defined and cluster.cluster_type | default('') == "aks" and cluster.auth_type | default('') == "azure_service_principal_secret" %}
     - name: azure_credentials
       workspaceKey: azure:sp@cli
     - name: az_subscriptionId
-      workspaceKey: k8s:file@secret/{{custom.azure_service_principal_secret_name}}:subscriptionId
+      workspaceKey: k8s:file@secret/{{ cluster.auth_secret | default('undefined') }}:subscriptionId
     - name: az_clientId
-      workspaceKey: k8s:file@secret/{{custom.azure_service_principal_secret_name}}:clientId
+      workspaceKey: k8s:file@secret/{{ cluster.auth_secret | default('undefined') }}:clientId
     - name: az_tenantId
-      workspaceKey: k8s:file@secret/{{custom.azure_service_principal_secret_name}}:tenantId
+      workspaceKey: k8s:file@secret/{{ cluster.auth_secret | default('undefined') }}:tenantId
     - name: az_clientSecret
-      workspaceKey: k8s:file@secret/{{custom.azure_service_principal_secret_name}}:clientSecret
-{% elif match_resource.auth_type == "azure_service_principal_secret" %}
+      workspaceKey: k8s:file@secret/{{ cluster.auth_secret | default('undefined') }}:clientSecret
+{% elif match_resource is defined and match_resource.auth_type | default('') == "azure_explicit" %}
     - name: azure_credentials
       workspaceKey: azure:sp@cli
     - name: az_subscriptionId
-      workspaceKey: k8s:file@secret/{{match_resource.auth_secret}}:subscriptionId
+      workspaceKey: k8s:file@secret/{{ custom.azure_service_principal_secret_name | default('undefined') }}:subscriptionId
     - name: az_clientId
-      workspaceKey: k8s:file@secret/{{match_resource.auth_secret}}:clientId
+      workspaceKey: k8s:file@secret/{{ custom.azure_service_principal_secret_name | default('undefined') }}:clientId
     - name: az_tenantId
-      workspaceKey: k8s:file@secret/{{match_resource.auth_secret}}:tenantId
+      workspaceKey: k8s:file@secret/{{ custom.azure_service_principal_secret_name | default('undefined') }}:tenantId
     - name: az_clientSecret
-      workspaceKey: k8s:file@secret/{{match_resource.auth_secret}}:clientSecret
-{% elif cluster.cluster_type == "aks" and cluster.auth_type == "azure_service_principal_secret" %}
+      workspaceKey: k8s:file@secret/{{ custom.azure_service_principal_secret_name | default('undefined') }}:clientSecret
+{% elif match_resource is defined and match_resource.auth_type | default('') == "azure_service_principal_secret" %}
     - name: azure_credentials
       workspaceKey: azure:sp@cli
     - name: az_subscriptionId
-      workspaceKey: k8s:file@secret/{{cluster.auth_secret}}:subscriptionId
+      workspaceKey: k8s:file@secret/{{ match_resource.auth_secret | default('undefined') }}:subscriptionId
     - name: az_clientId
-      workspaceKey: k8s:file@secret/{{cluster.auth_secret}}:clientId
+      workspaceKey: k8s:file@secret/{{ match_resource.auth_secret | default('undefined') }}:clientId
     - name: az_tenantId
-      workspaceKey: k8s:file@secret/{{cluster.auth_secret}}:tenantId
+      workspaceKey: k8s:file@secret/{{ match_resource.auth_secret | default('undefined') }}:tenantId
     - name: az_clientSecret
-      workspaceKey: k8s:file@secret/{{cluster.auth_secret}}:clientSecret
-{% elif match_resource.auth_type == "azure_identity" %}
+      workspaceKey: k8s:file@secret/{{ match_resource.auth_secret | default('undefined') }}:clientSecret
+{% elif match_resource is defined and match_resource.auth_type | default('') == "azure_identity" %}
     - name: azure_credentials
       workspaceKey: azure:identity@cli
 {% else %}
