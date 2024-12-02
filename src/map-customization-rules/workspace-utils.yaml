@@ -8,3 +8,9 @@ spec:
         pattern: "rw-acr-sync"
         matchMode: "substring"
       group: "Workspace Utilities"
+    - match:
+        type: pattern
+        matchType: base-name
+        pattern: "rw-acr-helm-update"
+        matchMode: "substring"
+      group: "Workspace Utilities"
