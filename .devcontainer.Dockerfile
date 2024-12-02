@@ -86,9 +86,9 @@ RUN chown runwhen:0 -R $RUNWHEN_HOME/runwhen-local
 ENV PATH="/home/runwhen/.linuxbrew/bin:$PATH"
 
 # Add sudo
-RUN apt-get update && \
-    echo "sudo sudo/installer/default_select string N" | debconf-set-selections && \
-    apt-get install -y --no-install-recommends sudo && \
+RUN echo "sudo sudo/installer/default_select string N" | debconf-set-selections && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends sudo -o Dpkg::Options::="--force-confold" -o Dpkg::Options::="--force-confdef" && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt
 
