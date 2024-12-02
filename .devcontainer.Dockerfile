@@ -86,6 +86,14 @@ RUN chown runwhen:0 -R $RUNWHEN_HOME/runwhen-local
 ENV PATH="/home/runwhen/.linuxbrew/bin:$PATH"
 
 
+# Sudo
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends sudo && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /var/cache/apt
+RUN echo "runwhen ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+
+
 # Switch back to the 'runwhen' user as default
 USER runwhen
 
