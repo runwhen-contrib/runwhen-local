@@ -85,12 +85,12 @@ RUN chown runwhen:0 -R $RUNWHEN_HOME/runwhen-local
 # Set up Homebrew path for the runwhen user in the Docker build process
 ENV PATH="/home/runwhen/.linuxbrew/bin:$PATH"
 
-
-# Sudo
+# Add sudo
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends sudo && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends sudo && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt
+
 RUN echo "runwhen ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
 
