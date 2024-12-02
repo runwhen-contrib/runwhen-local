@@ -7,9 +7,12 @@
         "ghcr.io/devcontainers/features/docker-in-docker:2": {}
     },
     "mounts": [
-        "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
+        "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind", 
+        "source=/home/runwhen/runwhen-local/.test/azure/single-aks-acr,target=/workspace/.test/azure/single-aks-acr,type=bind",
     ],
+    "postCreateCommand": "sudo chgrp docker /var/run/docker.sock && sudo chmod 660 /var/run/docker.sock",
     "workspaceFolder": "/home/runwhen/runwhen-local",
+    "remoteUser": "runwhen",
     "customizations": {
         "vscode": {
             "extensions": [

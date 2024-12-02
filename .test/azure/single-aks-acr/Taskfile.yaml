@@ -1,0 +1,148 @@
+version: "3"
+
+tasks:
+  default:
+    desc: "Generate workspaceInfo and rebuild/test"
+    cmds:
+      - task: generate-rwl-config
+      - task: run-rwl-discovery
+
+  clean:
+    desc: "Run cleanup tasks"
+    cmds:
+      - task: check-and-cleanup-terraform
+      - task: clean-rwl-discovery
+
+  build-infra:
+    desc: "Build test infrastructure"
+    cmds:
+      - task: build-terraform-infra
+
+
+  generate-rwl-config:
+    desc: "Generate RunWhen Local configuration (workspaceInfo.yaml)"
+    env:
+      ARM_SUBSCRIPTION_ID: "{{.TF_VAR_subscription_id_1}}"
+      AZ_TENANT_ID: "{{.AZ_TENANT_ID}}"
+      AZ_CLIENT_SECRET: "{{.AZ_CLIENT_SECRET}}"
+      AZ_CLIENT_ID: "{{.AZ_CLIENT_ID}}"
+      RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
+    cmds:
+      - |
+        repo_url=$(git config --get remote.origin.url)
+        branch_name=$(git rev-parse --abbrev-ref HEAD)
+        codebundle=$(basename "$(dirname "$PWD")")
+
+
+        # Generate workspaceInfo.yaml with fetched cluster details
+        cat <<EOF > workspaceInfo.yaml
+        workspaceName: "$RW_WORKSPACE"
+        workspaceOwnerEmail: authors@runwhen.com
+        defaultLocation: location-01
+        defaultLOD: detailed
+        cloudConfig:
+          azure:
+            subscriptionId: "$ARM_SUBSCRIPTION_ID"
+            tenantId: "$AZ_TENANT_ID"
+            clientId: "$AZ_CLIENT_ID"
+            clientSecret: "$AZ_CLIENT_SECRET"
+            aksClusters: 
+              clusters: 
+                - name: cluster1
+                  server: https://cluster1-bmzw343t.hcp.eastus.azmk8s.io:443
+                  resource_group: workspace-utils_azure-rw-acr-helm-update
+                  subscriptionId: 2a0cf760-baef-4446-b75c-75c4f8a6267f
+            resourceGroupLevelOfDetails:
+              workspace-utils_azure-rw-acr-helm-update: detailed
+        codeCollections:
+        - repoURL: "https://github.com/stewartshea/rw-workspace-utils"
+          branch: "rw-acr-helm"
+          codeBundles: ["azure-rw-acr-helm-update"]
+        custom: 
+          kubernetes_distribution_binary: kubectl
+          private_registry: azure_acr
+          azure_acr_registry: runwhensandboxacr.azurecr.io
+          azure_service_principal_secret_name: azure-sp
+        EOF
+    silent: true
+
+  run-rwl-discovery:
+    desc: "Run RunWhen Local Discovery on test infrastructure"
+    cmds:
+      - |
+        BUILD_DIR=/home/runwhen/runwhen-local/src
+        CONTAINER_NAME="RunWhenLocal"
+        if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Stopping and removing existing container $CONTAINER_NAME..."
+          docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME
+        elif docker ps -a -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Removing existing stopped container $CONTAINER_NAME..."
+          docker rm $CONTAINER_NAME
+        else
+          echo "No existing container named $CONTAINER_NAME found."
+        fi
+        
+        echo "Cleaning up output directory..."
+        rm -rf output || { echo "Failed to remove output directory"; exit 1; }
+        mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
+
+        docker build \
+          -t runwhen-local:test \
+          -f "$BUILD_DIR/Dockerfile" "$BUILD_DIR"
+
+        echo "Starting new container $CONTAINER_NAME..."
+        echo  "docker run --name $CONTAINER_NAME -e DEBUG_LOGS=true -p 8081:8081 -v /home/runwhen:/shared --security-opt apparmor=unconfined -d runwhen-local:test"
+
+        docker run --name $CONTAINER_NAME -p 8081:8081 -v $(pwd):/shared -d runwhen-local:test || {
+          echo "Failed to start container"; exit 1;
+        }
+
+        echo "Running workspace builder script in container..."
+        docker exec -w /workspace-builder $CONTAINER_NAME ./run.sh $1 --verbose || {
+          echo "Error executing script in container"; exit 1;
+        }
+
+        echo "Review generated config files under output/workspaces/"
+    silent: true
+
+  check-terraform-infra:
+    desc: "Check if Terraform has any deployed infrastructure in the terraform subdirectory"
+    cmds:
+      - |
+        # Source Envs for Auth
+        source terraform/tf.secret
+
+        # Navigate to the Terraform directory
+        if [ ! -d "terraform" ]; then
+          echo "Terraform directory not found."
+          exit 1
+        fi
+        cd terraform
+
+        # Check if Terraform state file exists
+        if [ ! -f "terraform.tfstate" ]; then
+          echo "No Terraform state file found in the terraform directory. No infrastructure is deployed."
+          exit 0
+        fi
+
+        # List resources in Terraform state
+        resources=$(terraform state list)
+
+        # Check if any resources are listed in the state file
+        if [ -n "$resources" ]; then
+          echo "Deployed infrastructure detected."
+          echo "$resources"
+          exit 0
+        else
+          echo "No deployed infrastructure found in Terraform state."
+          exit 0
+        fi
+    silent: true
+
+  clean-rwl-discovery:
+    desc: "Check and clean up RunWhen Local discovery output"
+    cmds:
+      - |
+        rm -rf output
+        rm workspaceInfo.yaml
+    silent: true
