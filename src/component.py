@@ -358,11 +358,6 @@ def run_components(context: Context, components: list[Component]) -> None:
 
 # Shared/common settings that are accessed across multiple components
 
-KUBECONFIG_SETTING = Setting("KUBECONFIG",
-                             "kubeconfig",
-                             Setting.Type.FILE,
-                             "Location of kubeconfig file for the Kubernetes cluster to be indexed")
-
 WORKSPACE_NAME_SETTING = Setting("WORKSPACE_NAME",
                                  "workspaceName",
                                  Setting.Type.STRING,
@@ -380,6 +375,11 @@ DEFAULT_LOCATION_SETTING = Setting("DEFAULT_LOCATION",
                                    "defaultLocation",
                                    Setting.Type.STRING,
                                    "Default location")
+
+DEFAULT_LOCATION_NAME_SETTING = Setting("DEFAULT_LOCATION_NAME",
+                                        "defaultLocationName",
+                                        Setting.Type.STRING,
+                                        "Default location name")
 
 WORKSPACE_OUTPUT_PATH_SETTING = Setting("WORKSPACE_OUTPUT_PATH",
                                         "workspaceOutputPath",

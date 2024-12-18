@@ -70,9 +70,6 @@ RUN pip install --no-cache-dir \
     pymdown-extensions \
     ruamel.yaml \
     gitpython \
-    azure-identity \
-    azure-mgmt-containerservice \
-    azure-mgmt-resource \
     pyyaml
 RUN npm install -g npm@10.8.3
 

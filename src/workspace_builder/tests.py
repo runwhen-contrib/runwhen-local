@@ -22,11 +22,20 @@ if not git_repo_root:
           "code collection repos are cloned.")
 
 workspace_info_name_default = os.getenv("WB_WORKSPACE_INFO_NAME", "workspaceInfo.yaml")
+upload_info_name_default = os.getenv("WB_UPLOAD_INFO_NAME", "uploadInfo.yaml")
 base_directory_default = os.getenv("WB_BASE_DIRECTORY", "shared")
 
 
-def build_rest_request_data(base_directory, workspace_info_data: dict[str, Any], **kwargs) -> str:
+def build_rest_request_data(base_directory,
+                            workspace_info_data: dict[str, Any],
+                            upload_info_data: dict[str, Any],
+                            **kwargs) -> str:
     request_data = workspace_info_data.copy()
+    # FIXME: Hacky code that hard-codes the fields in upload info that we care about
+    for key in ("workspaceName", "defaultLocation", "defaultLocationName"):
+        value = upload_info_data.get(key)
+        if value is not None:
+            request_data[key] = value
     for key, value in kwargs.items():
         request_data[key] = value
     for key in request_data.keys():
@@ -98,15 +107,29 @@ class ProductionComponentTestCase(TestCase):
     requirements that should gate release readiness.
     """
 
-    def run_common(self, components: str, base_directory=None, workspace_info_name=None):
+    def run_common(self, components: str,
+                   base_directory=None,
+                   workspace_info_name=None,
+                   upload_info_name=None):
         if base_directory is None:
             base_directory = base_directory_default
         if workspace_info_name is None:
             workspace_info_name = workspace_info_name_default
+        if upload_info_name is None:
+            upload_info_name = upload_info_name_default
         workspace_info_path = os.path.join(base_directory, workspace_info_name)
         workspace_info_text = read_file(workspace_info_path, "r")
         workspace_info_data = yaml.safe_load(workspace_info_text)
-        request_data = build_rest_request_data(base_directory, workspace_info_data, components=components)
+        upload_info_path = os.path.join(base_directory, upload_info_name)
+        if os.path.exists(upload_info_path):
+            upload_info_text = read_file(upload_info_path, "r")
+            upload_info_data = yaml.safe_load(upload_info_text)
+        else:
+            upload_info_data = dict()
+        request_data = build_rest_request_data(base_directory,
+                                               workspace_info_data,
+                                               upload_info_data,
+                                               components=components)
         response = self.client.post("/run/", data=request_data, content_type="application/json")
         self.assertEqual(HTTPStatus.OK, response.status_code)
         response_data = json.loads(response.content)
