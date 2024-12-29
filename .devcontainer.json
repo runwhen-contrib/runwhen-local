@@ -6,11 +6,7 @@
     "features": {
         "ghcr.io/devcontainers/features/docker-in-docker:2": {}
     },
-    "mounts": [
-        "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind", 
-        "source=/home/runwhen/runwhen-local/.test/azure/single-aks-acr,target=/workspace/.test/azure/single-aks-acr,type=bind",
-    ],
-    "postCreateCommand": "sudo chgrp docker /var/run/docker.sock && sudo chmod 660 /var/run/docker.sock",
+    "postCreateCommand": "docker buildx create --name mybuilder --driver docker-container --use && docker buildx inspect mybuilder --bootstrap &&  git config --unset http.https://github.com/.extraheader",
     "workspaceFolder": "/home/runwhen/runwhen-local",
     "remoteUser": "runwhen",
     "customizations": {
@@ -28,20 +24,16 @@
                 "python.linting.pylintEnabled": true,
                 "python.linting.pylintArgs": [
                     "--max-line-length=120",
-                    "--enable=W0614" // track unused imports
+                    "--enable=W0614"
                 ],
                 "[python]": {
                     "editor.insertSpaces": true,
                     "editor.tabSize": 4
                 },
                 "editor.formatOnSave": true,
-                "editor.lineNumbers": "on",
-                "python.formatting.provider": "black",
-                "python.formatting.blackArgs": [
-                    "--line-length",
-                    "120"
-                ]
+                "editor.lineNumbers": "on"
             }
         }
     }
 }
+ 
