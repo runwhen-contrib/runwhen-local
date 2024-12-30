@@ -439,7 +439,6 @@ def main():
 
     if cloud_config:
         azure_config = workspace_info.get("cloudConfig", {}).get("azure")
-        print(azure_config)
         if azure_config:
             aks_clusters = azure_config.get('aksClusters', {}).get('clusters', [])  # Directly get the 'clusters' list if it exists
 
