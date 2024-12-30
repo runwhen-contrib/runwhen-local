@@ -63,10 +63,10 @@ RUN chown runwhen:0 -R $RUNWHEN_HOME/
 USER runwhen
 
 RUN git clone https://github.com/Homebrew/brew ~/.linuxbrew/Homebrew \
-&& mkdir ~/.linuxbrew/bin \
-&& ln -s ../Homebrew/bin/brew ~/.linuxbrew/bin \
-&& eval $(~/.linuxbrew/bin/brew shellenv) \
-&& brew --version
+    && mkdir ~/.linuxbrew/bin \
+    && ln -s ../Homebrew/bin/brew ~/.linuxbrew/bin \
+    && eval $(~/.linuxbrew/bin/brew shellenv) \
+    && brew --version
 
 # Switch back to root to finalize environment
 USER root
@@ -102,6 +102,7 @@ USER runwhen
 RUN brew install \
     go-task \   
     azure-cli \
-    gh
+    gh \ 
+    helm
 
 CMD ["bash"]

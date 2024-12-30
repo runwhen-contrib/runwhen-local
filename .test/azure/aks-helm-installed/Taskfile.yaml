@@ -1,0 +1,328 @@
+version: "3"
+
+tasks:
+  default:
+    desc: "Generate workspaceInfo and rebuild/test"
+    cmds:
+      - task: generate-rwl-config
+      - task: run-rwl-discovery
+
+  clean:
+    desc: "Run cleanup tasks"
+    cmds:
+      - task: check-and-cleanup-terraform
+      - task: clean-rwl-discovery
+
+  build-infra:
+    desc: "Build test infrastructure"
+    cmds:
+      - task: build-terraform-infra
+
+
+  generate-rwl-config:
+    desc: "Generate RunWhen Local configuration (workspaceInfo.yaml)"
+    env:
+      ARM_SUBSCRIPTION_ID: "{{.TF_VAR_subscription_id}}"
+      AZ_TENANT_ID: "{{.AZ_TENANT_ID}}"
+      AZ_CLIENT_SECRET: "{{.AZ_CLIENT_SECRET}}"
+      AZ_CLIENT_ID: "{{.AZ_CLIENT_ID}}"
+      RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
+    cmds:
+      - |
+        repo_url=$(git config --get remote.origin.url)
+        branch_name=$(git rev-parse --abbrev-ref HEAD)
+        codebundle=$(basename "$(dirname "$PWD")")
+
+        # Fetch individual cluster details from Terraform state
+        pushd terraform > /dev/null
+        cluster_name=$(terraform show -json terraform.tfstate | jq -r '
+          .values.outputs.cluster_name.value')
+        cluster_server=$(terraform show -json terraform.tfstate | jq -r '
+          .values.outputs.cluster_fqdn.value')
+        cluster_resource_group=$(terraform show -json terraform.tfstate | jq -r '
+          .values.outputs.cluster_rg.value')
+        cluster_sub=$(terraform show -json terraform.tfstate | jq -r '
+          .values.outputs.cluster_sub.value')
+
+        popd > /dev/null
+
+        # Check if any of the required cluster variables are empty
+        if [ -z "$cluster_name" ] || [ -z "$cluster_server" ] || [ -z "$cluster_resource_group" ]; then
+          echo "Error: Missing cluster details. Ensure Terraform plan has been applied."
+          exit 1
+        fi
+
+        # Generate workspaceInfo.yaml with fetched cluster details
+        cat <<EOF > workspaceInfo.yaml
+        workspaceName: "$RW_WORKSPACE"
+        workspaceOwnerEmail: authors@runwhen.com
+        defaultLocation: location-01
+        defaultLOD: detailed
+        cloudConfig:
+          kubernetes: null
+          azure:
+            spSecretName: azure-sp
+            aksClusters: 
+              clusters: 
+                - name: $cluster_name
+                  server: https://$cluster_server:443
+                  resource_group: $cluster_resource_group
+                  subscriptionId: $cluster_sub
+            resourceGroupLevelOfDetails:
+              $cluster_resource_group: detailed
+        codeCollections: 
+          - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection"
+            branch: "main"
+            codeBundles: ["k8s-namespace-healthcheck", "azure-aks-triage", "k8s-deployment-healthcheck"]
+        custom: 
+          kubernetes_distribution_binary: kubectl
+        EOF
+
+    silent: true
+
+  run-rwl-discovery:
+    desc: "Run RunWhen Local Discovery on test infrastructure"
+    cmds:
+      - |
+        BUILD_DIR=/home/runwhen/runwhen-local/src
+        CONTAINER_NAME="RunWhenLocal"
+        if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Stopping and removing existing container $CONTAINER_NAME..."
+          docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME
+        elif docker ps -a -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Removing existing stopped container $CONTAINER_NAME..."
+          docker rm $CONTAINER_NAME
+        else
+          echo "No existing container named $CONTAINER_NAME found."
+        fi
+        
+        echo "Cleaning up output directory..."
+        rm -rf output || { echo "Failed to remove output directory"; exit 1; }
+        mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
+
+        ## Building Container Image
+        docker buildx build --builder mybuilder --platform linux/amd64  -t runwhen-local:test -f $BUILD_DIR/Dockerfile $BUILD_DIR --load
+
+        echo "Starting new container $CONTAINER_NAME..."
+
+        docker run -e DEBUG_LOGS=true --name $CONTAINER_NAME -p 8081:8081 -v $(pwd):/shared -d runwhen-local:test || {
+          echo "Failed to start container"; exit 1;
+        }
+
+        echo "Running workspace builder script in container..."
+        docker exec -w /workspace-builder $CONTAINER_NAME ./run.sh $1 --verbose || {
+          echo "Error executing script in container"; exit 1;
+        }
+
+        echo "Review generated config files under output/workspaces/"
+    silent: true
+
+  check-terraform-infra:
+    desc: "Check if Terraform has any deployed infrastructure in the terraform subdirectory"
+    cmds:
+      - |
+        # Source Envs for Auth
+        source terraform/tf.secret
+
+        # Navigate to the Terraform directory
+        if [ ! -d "terraform" ]; then
+          echo "Terraform directory not found."
+          exit 1
+        fi
+        cd terraform
+
+        # Check if Terraform state file exists
+        if [ ! -f "terraform.tfstate" ]; then
+          echo "No Terraform state file found in the terraform directory. No infrastructure is deployed."
+          exit 0
+        fi
+
+        # List resources in Terraform state
+        resources=$(terraform state list)
+
+        # Check if any resources are listed in the state file
+        if [ -n "$resources" ]; then
+          echo "Deployed infrastructure detected."
+          echo "$resources"
+          exit 0
+        else
+          echo "No deployed infrastructure found in Terraform state."
+          exit 0
+        fi
+    silent: true
+
+  build-terraform-infra:
+    desc: "Run terraform apply"
+    cmds:
+      - |
+        # Source Envs for Auth
+        source terraform/tf.secret
+
+
+        # Navigate to the Terraform directory
+        if [ -d "terraform" ]; then
+          cd terraform
+        else
+          echo "Terraform directory not found. Terraform apply aborted."
+          exit 1
+        fi
+        task format-and-init-terraform
+        echo "Starting Terraform Build of Terraform infrastructure..."
+        terraform apply -auto-approve || {
+          echo "Failed to clean up Terraform infrastructure."
+          exit 1
+        }
+        echo "Terraform infrastructure build completed."
+    silent: true
+
+  get-latest-rwl-tag: 
+    desc: Find the latest tag stored in the dev registry (usually these are created when the PR image build completes)
+    cmds: 
+      - | 
+        # Variables
+        REGION="us"                                     
+        PROJECT_ID="runwhen-nonprod-shared"             
+        REPO_NAME="public-images"                       
+        IMAGE_NAME="runwhen-local"               
+
+        # API endpoint for unauthenticated access
+        URL="https://$REGION-docker.pkg.dev/v2/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME/tags/list"
+
+        # Fetch tags and metadata
+        RESPONSE=$(curl -s "$URL")
+
+        # Check if the response is valid
+        if [[ -z "$RESPONSE" || "$(echo "$RESPONSE" | jq '.errors')" != "null" ]]; then
+          echo "Failed to fetch tags. Ensure the image is public and the URL is correct."
+          exit 1
+        fi
+
+        # Fetch the current branch name
+        BRANCH=$(git branch --show-current)
+
+        # Fetch the PR number (without #) associated with the branch using gh CLI
+        PR_ID=$(gh pr list --head "$BRANCH" --state open --json number -q '.[0].number')
+
+        # Check if a PR was found
+        if [[ -z "$PR_ID" ]]; then
+          echo "No open pull request found for branch: $BRANCH"
+          exit 1
+        fi
+
+        echo "Pull Request ID: $PR_ID"
+
+        # Extract and sort tags by timestamp
+        PR_TAG=$(echo "$RESPONSE" | jq -r '.tags' | grep "$PR_ID-" | xargs | tr -d ",")
+
+        echo "$PR_TAG is most likely the desired last build image from this branch - updating values.yaml"
+        yq -i ".runwhenLocal.image.tag = \"${PR_TAG}\"" values.yaml
+
+    silent: true
+
+
+  install-rwl-helm:
+    desc: Install RunWhen Local components into cluster
+    env: 
+      ARM_SUBSCRIPTION_ID: "{{.TF_VAR_subscription_id}}"
+      AZ_TENANT_ID: "{{.AZ_TENANT_ID}}"
+      AZ_CLIENT_SECRET: "{{.AZ_CLIENT_SECRET}}"
+      AZ_CLIENT_ID: "{{.AZ_CLIENT_ID}}"
+      RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
+      RUNNER_TOKEN: "{{.RUNNER_TOKEN}}"
+    cmds: 
+     - | 
+        namespace=runwhen-local
+        kubectl create namespace $namespace || true
+        kubectl create configmap workspaceinfo --from-file=workspaceInfo.yaml -n $namespace
+        kubectl create secret generic runner-registration-token --from-literal=token="$RUNNER_TOKEN" -n $namespace || true
+        kubectl create secret generic azure-sp \
+          --from-literal=clientId=$AZ_CLIENT_ID \
+          --from-literal=clientSecret=$AZ_CLIENT_SECRET \
+          --from-literal=subscriptionId=$ARM_SUBSCRIPTION_ID \
+          --from-literal=tenantId=$AZ_TENANT_ID \
+          --namespace=$namespace  || true
+        helm repo add runwhen-contrib https://runwhen-contrib.github.io/helm-charts
+        helm repo update
+        helm install runwhen-local runwhen-contrib/runwhen-local -f values.yaml -n $namespace
+    silent: true
+
+  delete-rwl-helm:
+    desc: Install RunWhen Local components into cluster
+    env: 
+      ARM_SUBSCRIPTION_ID: "{{.TF_VAR_subscription_id}}"
+      AZ_TENANT_ID: "{{.AZ_TENANT_ID}}"
+      AZ_CLIENT_SECRET: "{{.AZ_CLIENT_SECRET}}"
+      AZ_CLIENT_ID: "{{.AZ_CLIENT_ID}}"
+      RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
+      RUNNER_TOKEN: "{{.RUNNER_TOKEN}}"
+    cmds: 
+     - | 
+        namespace=runwhen-local
+        kubectl delete namespace $namespace
+    silent: true
+
+  upgrade-rwl-helm:
+    desc: Install RunWhen Local components into cluster
+    env: 
+      ARM_SUBSCRIPTION_ID: "{{.TF_VAR_subscription_id}}"
+      AZ_TENANT_ID: "{{.AZ_TENANT_ID}}"
+      AZ_CLIENT_SECRET: "{{.AZ_CLIENT_SECRET}}"
+      AZ_CLIENT_ID: "{{.AZ_CLIENT_ID}}"
+      RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
+      RUNNER_TOKEN: "{{.RUNNER_TOKEN}}"
+    cmds: 
+     - | 
+        namespace=runwhen-local
+        kubectl delete configmap workspaceinfo -n $namespace || true
+        kubectl create configmap workspaceinfo --from-file=workspaceInfo.yaml -n $namespace
+        helm upgrade runwhen-local runwhen-contrib/runwhen-local -f values.yaml -n $namespace
+        kubectl delete pod -l app.kubernetes.io/name=runwhen-local -n runwhen-local
+
+
+
+  cleanup-terraform-infra:
+    desc: "Cleanup deployed Terraform infrastructure"
+    cmds:
+      - |
+        # Source Envs for Auth
+        source terraform/tf.secret
+
+        # Navigate to the Terraform directory
+        if [ -d "terraform" ]; then
+          cd terraform
+        else
+          echo "Terraform directory not found. Cleanup aborted."
+          exit 1
+        fi
+
+        echo "Starting cleanup of Terraform infrastructure..."
+        terraform destroy -auto-approve || {
+          echo "Failed to clean up Terraform infrastructure."
+          exit 1
+        }
+        echo "Terraform infrastructure cleanup completed."
+    silent: true
+
+  check-and-cleanup-terraform:
+    desc: "Check and clean up deployed Terraform infrastructure if it exists"
+    cmds:
+      - |
+        # Capture the output of check-terraform-infra
+        infra_output=$(task check-terraform-infra | tee /dev/tty)
+
+        # Check if output contains indication of deployed infrastructure
+        if echo "$infra_output" | grep -q "Deployed infrastructure detected"; then
+          echo "Infrastructure detected; proceeding with cleanup."
+          task cleanup-terraform-infra
+        else
+          echo "No deployed infrastructure found; no cleanup required."
+        fi
+    silent: true
+
+  clean-rwl-discovery:
+    desc: "Check and clean up RunWhen Local discovery output"
+    cmds:
+      - |
+        rm -rf output
+        rm workspaceInfo.yaml
+    silent: true
