@@ -33,32 +33,32 @@ tasks:
         branch_name=$(git rev-parse --abbrev-ref HEAD)
         codebundle=$(basename "$(dirname "$PWD")")
 
-        # # Fetch individual cluster details from Terraform state
-        # pushd terraform > /dev/null
-        # cluster1_name=$(terraform show -json terraform.tfstate | jq -r '
-        #   .values.outputs.cluster_1_name.value')
-        # cluster1_server=$(terraform show -json terraform.tfstate | jq -r '
-        #   .values.outputs.cluster_1_fqdn.value')
-        # cluster1_resource_group=$(terraform show -json terraform.tfstate | jq -r '
-        #   .values.outputs.cluster_1_rg.value')
-        # cluster1_sub=$(terraform show -json terraform.tfstate | jq -r '
-        #   .values.outputs.cluster_1_sub.value')
+        # Fetch individual cluster details from Terraform state
+        pushd terraform > /dev/null
+        cluster1_name=$(terraform show -json terraform.tfstate | jq -r '
+          .values.outputs.cluster_1_name.value')
+        cluster1_server=$(terraform show -json terraform.tfstate | jq -r '
+          .values.outputs.cluster_1_fqdn.value')
+        cluster1_resource_group=$(terraform show -json terraform.tfstate | jq -r '
+          .values.outputs.cluster_1_rg.value')
+        cluster1_sub=$(terraform show -json terraform.tfstate | jq -r '
+          .values.outputs.cluster_1_sub.value')
 
-        # cluster2_name=$(terraform show -json terraform.tfstate | jq -r '
-        #   .values.outputs.cluster_2_name.value')
-        # cluster2_server=$(terraform show -json terraform.tfstate | jq -r '
-        #   .values.outputs.cluster_2_fqdn.value')
-        # cluster2_resource_group=$(terraform show -json terraform.tfstate | jq -r '
-        #   .values.outputs.cluster_2_rg.value')
-        # cluster2_sub=$(terraform show -json terraform.tfstate | jq -r '
-        #   .values.outputs.cluster_2_sub.value')
-        # popd > /dev/null
+        cluster2_name=$(terraform show -json terraform.tfstate | jq -r '
+          .values.outputs.cluster_2_name.value')
+        cluster2_server=$(terraform show -json terraform.tfstate | jq -r '
+          .values.outputs.cluster_2_fqdn.value')
+        cluster2_resource_group=$(terraform show -json terraform.tfstate | jq -r '
+          .values.outputs.cluster_2_rg.value')
+        cluster2_sub=$(terraform show -json terraform.tfstate | jq -r '
+          .values.outputs.cluster_2_sub.value')
+        popd > /dev/null
 
-        # # Check if any of the required cluster variables are empty
-        # if [ -z "$cluster1_name" ] || [ -z "$cluster1_server" ] || [ -z "$cluster1_resource_group" ]; then
-        #   echo "Error: Missing cluster details. Ensure Terraform plan has been applied."
-        #   exit 1
-        # fi
+        # Check if any of the required cluster variables are empty
+        if [ -z "$cluster1_name" ] || [ -z "$cluster1_server" ] || [ -z "$cluster1_resource_group" ]; then
+          echo "Error: Missing cluster details. Ensure Terraform plan has been applied."
+          exit 1
+        fi
 
         # Generate workspaceInfo.yaml with fetched cluster details
         cat <<EOF > workspaceInfo.yaml
@@ -123,7 +123,7 @@ tasks:
 
         echo "Starting new container $CONTAINER_NAME..."
 
-        docker run --name $CONTAINER_NAME -p 8081:8081 -v $(pwd):/shared -d runwhen-local:test || {
+        docker run -e DEBUG_LOGS=true --name $CONTAINER_NAME -p 8081:8081 -v $(pwd):/shared -d runwhen-local:test || {
           echo "Failed to start container"; exit 1;
         }
 
