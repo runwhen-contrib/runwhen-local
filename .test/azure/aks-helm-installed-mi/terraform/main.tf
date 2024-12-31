@@ -15,14 +15,14 @@ resource "azurerm_resource_group" "cluster_rg" {
 resource "azurerm_role_assignment" "system_identity_admin" {
   scope                = azurerm_kubernetes_cluster.cluster_aks.id
   role_definition_name = "Azure Kubernetes Service RBAC Cluster Admin"
-  principal_id         = azurerm_kubernetes_cluster.cluster_aks.kubelet_identity[0].client_id
+  principal_id         = azurerm_kubernetes_cluster.cluster_aks.kubelet_identity[0].object_id
 }
 
 # Role Assignment for System-Assigned Identity to Reader Scope
 resource "azurerm_role_assignment" "system_identity_reader" {
   scope                = "/subscriptions/${var.subscription_id}"
   role_definition_name = "Reader"
-  principal_id         = azurerm_kubernetes_cluster.cluster_aks.kubelet_identity[0].client_id
+  principal_id         = azurerm_kubernetes_cluster.cluster_aks.kubelet_identity[0].object_id
 }
 
 
