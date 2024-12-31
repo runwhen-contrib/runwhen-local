@@ -1,4 +1,10 @@
-# Auth Login 
+# multi-subscription-aks
+This test infrastructure builds 1 aks cluster and expects to also index a secondard (existing) kubernetes cluster, testing the mixture of askCluster and kubernetes configurations / auth from the cloudConfig stanza in workspaceInfo.yaml. 
+- `task build-infra` - aks infra / clusters are deployed
+- `task generate-rwl-config` - build out the needed workspaceInfo.yaml
+- `task run-rwl-discovery` - build and run the container image from source, indexing the aks cluster and any clusters in the kubeconfig.
+
+### Auth Login 
 Login to azure to generate some of the env vars needed. 
 
 ```
@@ -6,7 +12,7 @@ az login --use-device-code
 
 ```
 
-# Expected Env Variables
+### Expected Env Variables
 The following can/should be stored in a `tf.secret` file in the terraform folder. This file is gitignored. 
 
 ```
@@ -20,7 +26,7 @@ export TF_VAR_sp_principal_id=$(az ad sp show --id $AZ_CLIENT_ID --query id -o t
 export AZ_SECRET_ID=[]
 ```
 
-## Building Infra
+### Building Infra
 
 ```
 source terraform/tf.secret
