@@ -121,15 +121,15 @@ class NameUtilsTest(TestCase):
     def test_qualifier_with_underscore(self):
         qualifiers = ["my_cl", "dev_ns"]
         qualified_slx_name = make_qualified_slx_name("test", qualifiers)
-        self.assertEqual("my-cl-dev-ns-test", qualified_slx_name)
+        self.assertEqual("mc-dn-test-57e43d2d", qualified_slx_name)
         slx_name = make_slx_name("my-workspace", qualified_slx_name)
-        self.assertEqual("my-workspace--my-cl-dev-ns-test", slx_name)
+        self.assertEqual("my-workspace--mc-dn-test-57e43d2d", slx_name)
         qualified_slx_name = make_qualified_slx_name("statefulset-health", ["argo-cd-argocd-application-controller"])
-        self.assertEqual("acaa-statefulset-health", qualified_slx_name)
+        self.assertEqual("acaac-statefulset-health-5fb369e9", qualified_slx_name)
         shortened_base_name = shorten_name("statefulset-health", 15)
         self.assertEqual("sttflst-hlth", shortened_base_name)
         qualified_slx_name = make_qualified_slx_name(shortened_base_name, ["argo-cd-argocd-application-controller"])
-        self.assertEqual("acaac-sttflst-hlth", qualified_slx_name)
+        self.assertEqual("acaac-sttflst-hlth-5fb369e9", qualified_slx_name)
 
 class RepoUtilsTest(TestCase):
 

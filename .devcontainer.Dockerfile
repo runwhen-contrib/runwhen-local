@@ -14,7 +14,7 @@ WORKDIR $RUNWHEN_HOME/runwhen-local
 # Install CLI tools and OS app dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     entr curl wget jq bc vim dnsutils unzip git apt-transport-https lsb-release bsdmainutils \
-    build-essential file locales procps \
+    build-essential file locales procps tree \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* \
     && rm -rf /usr/share/doc /usr/share/man /usr/share/info /var/cache/man
@@ -63,10 +63,10 @@ RUN chown runwhen:0 -R $RUNWHEN_HOME/
 USER runwhen
 
 RUN git clone https://github.com/Homebrew/brew ~/.linuxbrew/Homebrew \
-&& mkdir ~/.linuxbrew/bin \
-&& ln -s ../Homebrew/bin/brew ~/.linuxbrew/bin \
-&& eval $(~/.linuxbrew/bin/brew shellenv) \
-&& brew --version
+    && mkdir ~/.linuxbrew/bin \
+    && ln -s ../Homebrew/bin/brew ~/.linuxbrew/bin \
+    && eval $(~/.linuxbrew/bin/brew shellenv) \
+    && brew --version
 
 # Switch back to root to finalize environment
 USER root
@@ -102,6 +102,7 @@ USER runwhen
 RUN brew install \
     go-task \   
     azure-cli \
-    gh
+    gh \ 
+    helm
 
 CMD ["bash"]

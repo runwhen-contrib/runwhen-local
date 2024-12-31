@@ -242,6 +242,8 @@ def main():
                         help="Email address to use as the owner of the workspace")
     parser.add_argument('--default-location', action='store', dest="default_location",
                         help="Default location to use for the generated workspace")
+    parser.add_argument('--default-location-name', action='store', dest="default_location_name",
+                        help="Default location name to use for the generated workspace")
     parser.add_argument('--default-lod', action='store', dest='default_lod', type=str,
                         help='Default level of detail to use; valid values are "none", "basic", and "detailed".')
     parser.add_argument('--resource-dump-path', action='store', dest='resource_dump_path', type=str,
@@ -304,6 +306,7 @@ def main():
     workspace_name = args.workspace_name
     workspace_owner_email = args.workspace_owner_email
     default_location = args.default_location
+    default_location_name = args.default_location_name
     papi_url = args.papi_url
     default_lod = args.default_lod
     namespaces = [ns.strip() for ns in args.namespaces.split(',')] if args.namespaces else None
@@ -344,6 +347,8 @@ def main():
             workspace_owner_email = upload_info.get('workspaceOwnerEmail')
         if not default_location:
             default_location = upload_info.get("defaultLocation")
+        if not default_location_name:
+            default_location_name = upload_info.get("defaultLocationName")
     except FileNotFoundError:
         # Don't treat this as a fatal error, to handle untethered, pure
         # RunWhen Local operation. In this case we assume that the workspace name
@@ -389,7 +394,7 @@ def main():
             custom_definitions = workspace_info.get("custom", dict())
             code_collections = workspace_info.get("codeCollections")
             cloud_config = workspace_info.get('cloudConfig', None)
-            # Immediately error out if no discovery configuraiton is provided. We will deprecate any other
+            # Immediately error out if no discovery configuration is provided. We will deprecate any other
             # assumed configurations. Discovery must be explicitly set. 
             if not cloud_config:
                 print("Error: 'cloudConfig' configuration is missing in the workspace info. Exiting.")
@@ -413,6 +418,8 @@ def main():
         workspace_owner_email = os.getenv('WB_WORKSPACE_OWNER_EMAIL')
     if not default_location:
         default_location = os.getenv("WB_DEFAULT_LOCATION")
+    if not default_location_name:
+        default_location_name = os.getenv("WB_DEFAULT_LOCATION_NAME")
     if not papi_url:
         papi_url = os.getenv('WB_PAPI_URL')
     if default_lod is None:
@@ -426,31 +433,33 @@ def main():
     if not cloud_config:
         cloud_config = os.getenv("WB_CLOUD_CONFIG")
 
+    azure_config = None
     aks_clusters = None
     azure_kubeconfig_path = None  # Initialize the variable here
 
-    if 'cloudConfig' in workspace_info and 'azure' in workspace_info['cloudConfig']:
-        azure_config = workspace_info['cloudConfig']['azure']
-        aks_clusters = azure_config.get('aksClusters', {}).get('clusters', [])  # Directly get the 'clusters' list if it exists
+    if cloud_config:
+        azure_config = workspace_info.get("cloudConfig", {}).get("azure")
+        if azure_config:
+            aks_clusters = azure_config.get('aksClusters', {}).get('clusters', [])  # Directly get the 'clusters' list if it exists
 
-        if aks_clusters and isinstance(aks_clusters, list):  # Check if aks_clusters is a list of cluster dictionaries
-            # Generate kubeconfig for each cluster with optional server override
-            try:
-                generate_kubeconfig_for_aks(aks_clusters, workspace_info)
-                azure_kubeconfig_path = os.path.expanduser("~/.kube/azure-kubeconfig")
-                print(f"Kubeconfig generated and saved to {azure_kubeconfig_path}")
-            except Exception as e:
-                print(f"Error generating kubeconfig for AKS clusters: {e}")
-                azure_kubeconfig_path = None  # Ensure path is None if generation fails
-        else:
-            print("AKS clusters not found or improperly formatted. Skipping Kubernetes discovery for AKS.")
-    else:
+            if aks_clusters and isinstance(aks_clusters, list):  # Check if aks_clusters is a list of cluster dictionaries
+                # Generate kubeconfig for each cluster with optional server override
+                try:
+                    generate_kubeconfig_for_aks(aks_clusters, workspace_info)
+                    azure_kubeconfig_path = os.path.expanduser("~/.kube/azure-kubeconfig")
+                    print(f"Kubeconfig generated and saved to {azure_kubeconfig_path}")
+                except Exception as e:
+                    print(f"Error generating kubeconfig for AKS clusters: {e}")
+                    azure_kubeconfig_path = None  # Ensure path is None if generation fails
+            else:
+                print("AKS clusters not found or improperly formatted. Skipping Kubernetes discovery for AKS.")
+
+    if not azure_config:
         print("Azure configuration not found in workspace_info.")
+
     # Check Kubernetes configuration in cloudConfig
-    kubernetes_config = None
+    kubernetes_config = cloud_config.get('kubernetes') if cloud_config else None
     kubeconfig_path = None
-    if 'cloudConfig' in workspace_info:
-        kubernetes_config = workspace_info['cloudConfig'].get('kubernetes')
 
     # Skip Kubernetes setup if kubernetes_config is None or doesn't exist
     if not kubernetes_config:
@@ -565,7 +574,12 @@ def main():
         print("Skipping Kubernetes discovery due to missing kubeconfig or AKS clusters configuration.")
         final_kubeconfig_path = None 
 
-    
+    if final_kubeconfig_path:
+        if not kubernetes_config:
+            kubernetes_config = dict()
+            cloud_config["kubernetes"] = kubernetes_config
+        kubernetes_config["kubeconfigFile"] = final_kubeconfig_path
+
     if cloud_config:
         try:
             transform_client_cloud_config(base_directory, cloud_config)
@@ -647,6 +661,8 @@ def main():
             request_data['workspaceOwnerEmail'] = workspace_owner_email
         if default_location:
             request_data['defaultLocation'] = default_location
+        if default_location_name:
+            request_data['defaultLocationName'] = default_location_name
         if default_lod is not None:
             request_data['defaultLOD'] = default_lod
         if namespace_lods:

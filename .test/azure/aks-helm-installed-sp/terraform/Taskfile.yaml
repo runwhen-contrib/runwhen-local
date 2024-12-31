@@ -1,0 +1,69 @@
+version: '3'
+
+env:
+  TERM: screen-256color
+
+tasks:
+  default:
+    cmds:
+      - task: test
+
+  test:
+    desc: Run tests.
+    cmds:
+      - task: test-terraform
+
+  clean:
+    desc: Clean the environment.
+    cmds:
+      - task: clean-go
+      - task: clean-terraform
+
+  clean-terraform:
+    desc: Clean the terraform environment (remove terraform directories and files)
+    cmds:
+      - find . -type d -name .terraform -exec rm -rf {} +
+      - find . -type f -name .terraform.lock.hcl -delete
+
+  format-and-init-terraform:
+    desc: Run Terraform fmt and init
+    cmds: 
+    - |
+      terraform fmt
+      terraform init
+  test-terraform:
+    desc: Run tests for all terraform directories.
+    silent: true
+    env:
+      DIRECTORIES:
+        sh: find . -path '*/.terraform/*' -prune -o -name '*.tf' -type f -exec dirname {} \; | sort -u
+    cmds:
+      - |
+        BOLD=$(tput bold)
+        NORM=$(tput sgr0)
+
+        CWD=$PWD
+
+        for d in $DIRECTORIES; do 
+          cd $d
+          echo "${BOLD}$PWD:${NORM}"
+          if ! terraform fmt -check=true -list=false -recursive=false; then
+            echo "  ✗ terraform fmt" && exit 1
+          else
+            echo "  √ terraform fmt"
+          fi
+
+          if ! terraform init -backend=false -input=false -get=true -no-color > /dev/null; then
+            echo "  ✗ terraform init" && exit 1
+          else
+            echo "  √ terraform init"
+          fi
+
+          if ! terraform validate > /dev/null; then
+            echo "  ✗ terraform validate" && exit 1
+          else
+            echo "  √ terraform validate"
+          fi
+
+          cd $CWD
+        done
