@@ -6,20 +6,17 @@ spec:
         type: pattern
         matchType: base-name
         pattern: "http-ok"
-        matchMode: substring
-        properties: [name]
+        matchMode: exact
       group: "Public HTTP Endpoint Health"
     - match:
         type: pattern
         matchType: base-name
         pattern: "ingress-health"
-        matchMode: substring
-        properties: [name]
+        matchMode: exact
       group: "{{namespace.name}} ({{cluster.name}})"
     - match:
         type: pattern
         matchType: base-name
         pattern: "ingress-gce-health"
-        matchMode: substring
-        properties: [name]
+        matchMode: exact
       group: "{{namespace.name}} ({{cluster.name}})"

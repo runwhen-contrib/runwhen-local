@@ -6,36 +6,31 @@ spec:
         type: pattern
         matchType: base-name
         pattern: "ngx-ing-gmp"
-        matchMode: substring
-        properties: [name]
+        matchMode: exact
       group: "{{namespace.name}} ({{cluster.name}})"
     - match:
         type: pattern
         matchType: base-name
         pattern: "ns-health"
-        matchMode: substring
-        properties: [name]
+        matchMode: exact
       group: "{{namespace.name}} ({{cluster.name}})"
     - match:
         type: pattern
         matchType: base-name
         pattern: "redis-health"
-        matchMode: substring
-        properties: [name]
+        matchMode: exact
       group: "{{namespace.name}} ({{cluster.name}})"
     - match:
         type: pattern
         matchType: base-name
         pattern: "ss-health"
-        matchMode: substring
-        properties: [name]
+        matchMode: exact
       group: "{{namespace.name}} ({{cluster.name}})"
     - match:
         type: pattern
         matchType: base-name
         pattern: "ds-health"
-        matchMode: substring
-        properties: [name]
+        matchMode: exact
       group: "{{namespace.name}} ({{cluster.name}})"
     - match:
         type: pattern
@@ -47,22 +42,19 @@ spec:
         type: pattern
         matchType: base-name
         pattern: "kong-ing-health"
-        matchMode: substring
-        properties: [name]
+        matchMode: exact
       group: "{{namespace.name}} ({{cluster.name}})"
     - match:
         type: pattern
         matchType: base-name
         pattern: "pvc-health"
-        matchMode: substring
-        properties: [name]
+        matchMode: exact
       group: "{{namespace.name}} ({{cluster.name}})"
     - match:
         type: pattern
         matchType: base-name
         pattern: "pod-resources"
-        matchMode: substring
-        properties: [name]
+        matchMode: exact
       group: "{{namespace.name}} ({{cluster.name}})"
     - match:
         type: pattern
