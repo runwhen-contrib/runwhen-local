@@ -5,6 +5,6 @@ spec:
     - match:
         type: pattern
         matchType: base-name
-        pattern: "gcp-function-health"
+        pattern: "aws-c7n-rds-health"
         matchMode: exact
-      group: "GCP Project {{project.name}} Resources"
+      group: "AWS Region {{region}} (Account {{account_id}})"

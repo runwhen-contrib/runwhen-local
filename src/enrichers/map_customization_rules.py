@@ -149,10 +149,21 @@ class SLXPropertyMatchPredicate(MatchPredicate):
                 except AttributeError:
                     resource = slx_info.resource
                 match = match_path(resource, self.match_property, match_func)
+                logger.debug(
+                    f"SLXPropertyMatchPredicate: property='{self.match_property}', pattern='{self.match_pattern}', "
+                    f"resource='{resource}', match={match}"
+                )
                 return match
         if match_value is None:
+            logger.debug(
+                f"SLXPropertyMatchPredicate: property='{self.match_property}', no value found in SLXInfo qualifiers."
+            )
             return False
         match = matches_pattern(match_value, self.match_pattern, self.string_match_mode)
+        logger.debug(
+            f"SLXPropertyMatchPredicate: property='{self.match_property}', value='{match_value}', "
+            f"pattern='{self.match_pattern}', match={match}"
+        )
         return match
 
 

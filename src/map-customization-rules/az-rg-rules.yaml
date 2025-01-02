@@ -6,34 +6,29 @@ spec:
         type: pattern
         matchType: base-name
         pattern: "az-lb-health"
-        matchMode: substring
-        properties: [name]
+        matchMode: exact
       group: "{{resource_group.name}}"
     - match:
         type: pattern
         matchType: base-name
         pattern: "az-appgw-health"
-        matchMode: substring
-        properties: [name]
+        matchMode: exact
       group: "{{resource_group.name}}"
     - match:
         type: pattern
         matchType: base-name
         pattern: "az-appsvc-triage"
-        matchMode: substring
-        properties: [name]
+        matchMode: exact
       group: "{{resource_group.name}}"
     - match:
         type: pattern
         matchType: base-name
         pattern: "az-vm-triage"
-        matchMode: substring
-        properties: [name]
+        matchMode: exact
       group: "{{resource_group.name}}"
     - match:
         type: pattern
         matchType: base-name
         pattern: "az-aks-triage"
-        matchMode: substring
-        properties: [name]
+        matchMode: exact
       group: "{{resource_group.name}}"
