@@ -32,3 +32,9 @@ spec:
         pattern: "az-aks-triage"
         matchMode: exact
       group: "{{resource_group.name}}"
+    - match:
+        type: pattern
+        matchType: base-name
+        pattern: "az-vmss-triage"
+        matchMode: exact
+      group: "{{resource_group.name}}"
