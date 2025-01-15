@@ -2,7 +2,6 @@
     sourceGenerationRuleRepoURL: {{repo_url}}
     sourceGenerationRuleRepoRef: {{ref}}
     sourceGenerationRulePath: {{generation_rule_file_path}}
-    config.runwhen.com/last-updated-by: workspace-builder
     qualifiers: "{{qualifiers}}"
     internal.runwhen.com/generated-by: "{{generated_by}}"
 
