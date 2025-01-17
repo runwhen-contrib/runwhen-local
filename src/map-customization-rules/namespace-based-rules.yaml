@@ -104,3 +104,9 @@ spec:
         pattern: "postgres-health"
         matchMode: substring
       group: "{{namespace.name}} ({{cluster.name}})"
+    - match:
+        type: pattern
+        matchType: base-name
+        pattern: "k8s-deployment-ops"
+        matchMode: substring
+      group: "{{namespace.name}} ({{cluster.name}})"
