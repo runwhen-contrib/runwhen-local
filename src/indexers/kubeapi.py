@@ -192,6 +192,7 @@ def index(component_context: Context):
     with TemporaryDirectory() as temp_dir:
         # Extract settings from the context
         cloud_config_settings: Optional[dict[str, Any]] = component_context.get_setting("CLOUD_CONFIG")
+        default_lod = component_context.get_setting("DEFAULT_LOD")
 
         if cloud_config_settings:
             # Retrieve Kubernetes settings, if present
@@ -242,7 +243,31 @@ def index(component_context: Context):
                 custom_namespace_names = aks_settings.get("namespaces", custom_namespace_names)
                 exclude_annotations.update(aks_settings.get("excludeAnnotations", {}))
                 exclude_labels.update(aks_settings.get("excludeLabels", {}))
-
+                
+            # Retrieve AKS clusters settings, if present
+            azure_settings = cloud_config_settings.get("azure", {})
+            aks_settings: Optional[dict[str, Any]] = azure_settings.get("aksClusters")
+            if aks_settings:
+                # Configure AKS-specific inclusion settings if applicable
+                include_annotations = aks_settings.get("includeAnnotations", include_annotations)
+                include_labels = aks_settings.get("includeLabels", include_labels)
+                namespace_lods = aks_settings.get("namespaceLODs", namespace_lods)
+                exclude_annotations.update(aks_settings.get("excludeAnnotations", {}))
+                exclude_labels.update(aks_settings.get("excludeLabels", {}))
+                
+                # Retrieve cluster-specific settings
+                cluster_defaults = {}
+                cluster_namespace_lods = {}
+                clusters = aks_settings.get("clusters", [])
+                for cluster in clusters:
+                    cluster_name = cluster.get("name")
+                    default_namespace_lod = cluster.get("defaultNamespaceLOD", default_lod if default_lod == LevelOfDetail.NONE else "detailed")
+                    if isinstance(default_namespace_lod, str):
+                        default_namespace_lod = LevelOfDetail.construct_from_config(default_namespace_lod)
+                    cluster_defaults[cluster_name] = default_namespace_lod
+                    
+                    # Support namespaceLODs at the cluster level
+                    cluster_namespace_lods[cluster_name] = cluster.get("namespaceLODs", {})
 
         # Hard-code values to be added
         exclude_annotations.update(HARDCODED_EXCLUDE_ANNOTATIONS)
@@ -265,7 +290,6 @@ def index(component_context: Context):
             logger.info("No Kubernetes configuration found, so skipping Kubernetes indexing")
             return
 
-        default_lod = component_context.get_setting("DEFAULT_LOD")
         all_accessed_resource_type_specs = component_context.get_property(RESOURCE_TYPE_SPECS_PROPERTY)
         accessed_resource_type_specs = all_accessed_resource_type_specs.get(KUBERNETES_PLATFORM, dict()).keys()
         registry: Registry = component_context.get_property(REGISTRY_PROPERTY_NAME)
@@ -516,37 +540,48 @@ def index(component_context: Context):
                     # Update namespace_names with custom_namespace_names only if custom_namespace_names is defined
                     if custom_namespace_names:
                         namespace_names = namespace_names.intersection(custom_namespace_names)
+
                     # Filter namespace_names to include only those specified in both namespace_lods and namespace_names
                     if namespace_lods:
                         namespace_names = namespace_names.intersection(namespace_lods.keys())
 
+                    if cluster_namespaces.get(cluster_name):
+                        namespace_names.update(cluster_namespaces[cluster_name])
+                    
+
                     for namespace_name in namespace_names:
                         namespace_qualified_name = get_qualified_name(cluster_name, namespace_name)
                         # FIXME: Currently you can't have different levels of detail for namespaces with
-                        # the same name in different clusters. Should have syntax in the LOD configuration
+                        # the same name in different clusters (for non-aksClusters). Should have syntax in the LOD configuration
                         # that let's you qualify by cluster name. For example, a key format that's
-                        # "<cluster-name>:<namespace-name>" or something like that.
-
-                        # First, check for LOD in the workspaceInfo configuration
-                        namespace_lod_config = namespace_lods.get(namespace_name)
-                        namespace_lod = LevelOfDetail.construct_from_config(namespace_lod_config) \
-                            if namespace_lod_config is not None else default_lod
-
+                        # "<cluster-name>:<namespace-name>" or something like that.                       
+                        
+                        # Use cluster-specific defaultNamespaceLOD if available, else fallback to global default
+                        default_namespace_lod = cluster_defaults.get(cluster_name, default_lod)
+                        
+                        # Check for cluster-specific namespaceLODs first, then global ones
+                        namespace_lod_config = cluster_namespace_lods.get(cluster_name, {}).get(namespace_name, 
+                                                    namespace_lods.get(namespace_name))
+                        namespace_lod = LevelOfDetail.construct_from_config(namespace_lod_config) if namespace_lod_config is not None else default_namespace_lod
+                        
                         try:
+                            logger.debug(f"Attempting to read namespace: {namespace_name} in cluster: {cluster_name}")
                             raw_resource = core_api_client.read_namespace(namespace_name)
-
+                            
                             # If LOD is not specified in workspaceInfo, check the annotations
-                            if namespace_lod == default_lod:
+                            if namespace_lod == default_namespace_lod:
                                 namespace_lod = get_lod_from_annotations(raw_resource, lod_annotations) or namespace_lod
-
+                            
                             if namespace_lod == LevelOfDetail.NONE:
+                                logger.debug(f"Skipping namespace {namespace_name} due to LevelOfDetail.NONE")
                                 continue
                             if (include_annotations or include_labels) and not has_included_annotations_or_labels(raw_resource, include_annotations, include_labels):
+                                logger.debug(f"Skipping namespace {namespace_name} due to missing inclusion criteria")
                                 continue  # Skip this resource if it doesn't meet inclusion criteria
-
                             if has_excluded_annotations_or_labels(raw_resource, exclude_annotations, exclude_labels):
+                                logger.debug(f"Skipping namespace {namespace_name} due to exclusion criteria")
                                 continue
-
+                            
                             owner_name = extract_owner_name(raw_resource)
                             namespace_attributes = kubeapi_parsers.parse_namespace(raw_resource)
                             namespace_attributes['cluster'] = cluster
@@ -558,8 +593,6 @@ def index(component_context: Context):
                                                             namespace_name,
                                                             namespace_qualified_name,
                                                             namespace_attributes)
-                            cluster_namespaces[namespace_qualified_name] = namespace
-                            namespaces[namespace_qualified_name] = namespace
                         except ApiException:
                             # We weren't able to access the namespace, presumably either because the
                             # namespace name doesn't exist (e.g. invalid configured explicit
@@ -570,6 +603,7 @@ def index(component_context: Context):
                             # FIXME: Could possibly log something here, but the concern is that that would
                             # generate too much noise.
                             pass
+
 
                     for namespace in namespaces.values():
                         namespace_qualified_name = namespace.qualified_name
