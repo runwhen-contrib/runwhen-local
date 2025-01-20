@@ -36,7 +36,7 @@ spec:
         type: pattern
         matchType: base-name
         pattern: "depl-health"
-        matchMode: substring
+        matchMode: exact
       group: "{{namespace.name}} ({{cluster.name}})"
     - match:
         type: pattern
@@ -60,53 +60,53 @@ spec:
         type: pattern
         matchType: base-name
         pattern: "jenkins-health"
-        matchMode: substring
+        matchMode: exact
       group: "{{namespace.name}} ({{cluster.name}})"
     - match:
         type: pattern
         matchType: base-name
         pattern: "image-check"
-        matchMode: substring
+        matchMode: exact
       group: "{{namespace.name}} ({{cluster.name}})"
     - match:
         type: pattern
         matchType: base-name
         pattern: "sa-check"
-        matchMode: substring
+        matchMode: exact
       group: "{{namespace.name}} ({{cluster.name}})"
     - match:
         type: pattern
         matchType: base-name
         pattern: "loki-hlthck"
-        matchMode: substring
+        matchMode: exact
       group: "{{namespace.name}} ({{cluster.name}})"
     - match:
         type: pattern
         matchType: base-name
         pattern: "gitops-gh-fix"
-        matchMode: substring
+        matchMode: exact
       group: "{{namespace.name}} ({{cluster.name}})"
     - match:
         type: pattern
         matchType: base-name
         pattern: "gitops-gh-fix"
-        matchMode: substring
+        matchMode: exact
       group: "{{namespace.name}} ({{cluster.name}})"
     - match:
         type: pattern
         matchType: base-name
         pattern: "jaeger-http"
-        matchMode: substring
+        matchMode: exact
       group: "{{namespace.name}} ({{cluster.name}})"
     - match:
         type: pattern
         matchType: base-name
         pattern: "postgres-health"
-        matchMode: substring
+        matchMode: exact
       group: "{{namespace.name}} ({{cluster.name}})"
     - match:
         type: pattern
         matchType: base-name
-        pattern: "k8s-deployment-ops"
-        matchMode: substring
+        pattern: "depl-ops"
+        matchMode: exact
       group: "{{namespace.name}} ({{cluster.name}})"
