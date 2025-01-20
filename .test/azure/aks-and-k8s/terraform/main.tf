@@ -1,8 +1,21 @@
+# Current sub (assumed from CLI login)
+data "azurerm_subscription" "current" {}
+
+# Get tenant and user details of the current CLI session
+data "azurerm_client_config" "current" {}
+
+
+# Assign the current logged-in user as a Kubernetes RBAC Cluster Admin
+resource "azurerm_role_assignment" "current_user_k8s_admin" {
+  principal_id         = data.azurerm_client_config.current.object_id
+  role_definition_name = "Azure Kubernetes Service RBAC Cluster Admin"
+  scope                = azurerm_kubernetes_cluster.cluster_aks.id
+}
+
 # Cluster 1 Resources
 
 # Resource Group
 resource "azurerm_resource_group" "cluster_rg" {
-  provider = azurerm.cluster
   name     = "azure-aks-k8s-1"
   location = "East US"
   tags = {
@@ -14,7 +27,6 @@ resource "azurerm_resource_group" "cluster_rg" {
 
 # Managed Identity
 resource "azurerm_user_assigned_identity" "cluster_identity" {
-  provider            = azurerm.cluster
   name                = "aks-cl-1-identity"
   location            = azurerm_resource_group.cluster_rg.location
   resource_group_name = azurerm_resource_group.cluster_rg.name
@@ -22,7 +34,6 @@ resource "azurerm_user_assigned_identity" "cluster_identity" {
 
 # Role Assignment for Service Principal
 resource "azurerm_role_assignment" "cluster_sp_owner" {
-  provider             = azurerm.cluster
   scope                = "/subscriptions/${var.subscription_id}"
   role_definition_name = "Azure Kubernetes Service RBAC Cluster Admin"
   principal_id         = var.sp_principal_id
@@ -30,7 +41,6 @@ resource "azurerm_role_assignment" "cluster_sp_owner" {
 }
 # Role Assignment for Service Principal
 resource "azurerm_role_assignment" "cluster_sp_reader" {
-  provider             = azurerm.cluster
   scope                = "/subscriptions/${var.subscription_id}"
   role_definition_name = "Reader"
   principal_id         = var.sp_principal_id
@@ -38,7 +48,6 @@ resource "azurerm_role_assignment" "cluster_sp_reader" {
 }
 # AKS Cluster
 resource "azurerm_kubernetes_cluster" "cluster_aks" {
-  provider            = azurerm.cluster
   name                = "aks-cl-1"
   location            = azurerm_resource_group.cluster_rg.location
   resource_group_name = azurerm_resource_group.cluster_rg.name

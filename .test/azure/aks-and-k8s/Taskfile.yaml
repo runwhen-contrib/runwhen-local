@@ -57,10 +57,10 @@ tasks:
         workspaceName: "$RW_WORKSPACE"
         workspaceOwnerEmail: authors@runwhen.com
         defaultLocation: location-01
-        defaultLOD: detailed
+        defaultLOD: none
         cloudConfig:
-          kubernetes: 
-            kubeconfigFile: /shared/kubeconfig.secret
+          kubernetes: null            
+          # kubeconfigFile: /shared/kubeconfig.secret
           azure:
             subscriptionId: "$ARM_SUBSCRIPTION_ID"
             tenantId: "$AZ_TENANT_ID"
@@ -72,12 +72,14 @@ tasks:
                   server: https://$cluster_server:443
                   resource_group: $cluster_resource_group
                   subscriptionId: $cluster_sub
+                  defaultNamespaceLOD: detailed
             resourceGroupLevelOfDetails:
               $cluster_resource_group: detailed
         codeCollections: 
           - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection"
             branch: "main"
-            codeBundles: ["k8s-namespace-healthcheck", "azure-aks-triage", "k8s-deployment-healthcheck"]
+            # codeBundles: ["k8s-namespace-healthcheck", "azure-aks-triage", "k8s-deployment-healthcheck"]
+            codeBundles: ["*"]
         custom: 
           kubernetes_distribution_binary: kubectl
         EOF
