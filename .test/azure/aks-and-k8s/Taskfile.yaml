@@ -305,7 +305,7 @@ tasks:
           cloudConfig:
             kubernetes:             
               kubeconfigFile: /shared/kubeconfig.secret
-              context:
+              contexts:
                 sandbox-cluster-1: 
                   defaultNamespaceLOD: none
             azure:
@@ -320,6 +320,135 @@ tasks:
                     resource_group: $cluster_resource_group
                     subscriptionId: $cluster_sub
                     defaultNamespaceLOD: none
+              resourceGroupLevelOfDetails:
+                $cluster_resource_group: detailed
+          codeCollections: []
+            # - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection"
+            #   branch: "main"
+            #   codeBundles: ["k8s-namespace-healthcheck", "azure-aks-triage", "k8s-deployment-healthcheck"]
+          custom: 
+            kubernetes_distribution_binary: kubectl
+          EOF
+
+        - task: run-rwl-discovery
+      silent: true
+
+  ci-test-4:
+      desc: "Run CI Discovery Test 4 - AKS only - defaultLOD basic, no K8s Cluster, AKS defaultNamespaceLOD none, kube-system lod detailed from annotation"
+      env:
+        ARM_SUBSCRIPTION_ID: "{{.TF_VAR_subscription_id}}"
+        AZ_TENANT_ID: "{{.AZ_TENANT_ID}}"
+        AZ_CLIENT_SECRET: "{{.AZ_CLIENT_SECRET}}"
+        AZ_CLIENT_ID: "{{.AZ_CLIENT_ID}}"
+        RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
+      cmds:
+        - |
+          repo_url=$(git config --get remote.origin.url)
+          branch_name=$(git rev-parse --abbrev-ref HEAD)
+          codebundle=$(basename "$(dirname "$PWD")")
+
+          # Fetch individual cluster details from Terraform state
+          pushd terraform > /dev/null
+          cluster_name=$(terraform show -json terraform.tfstate | jq -r '
+            .values.outputs.cluster_name.value')
+          cluster_server=$(terraform show -json terraform.tfstate | jq -r '
+            .values.outputs.cluster_fqdn.value')
+          cluster_resource_group=$(terraform show -json terraform.tfstate | jq -r '
+            .values.outputs.cluster_rg.value')
+          cluster_sub=$(terraform show -json terraform.tfstate | jq -r '
+            .values.outputs.cluster_sub.value')
+
+          popd > /dev/null
+
+          # Check if any of the required cluster variables are empty
+          if [ -z "$cluster_name" ] || [ -z "$cluster_server" ] || [ -z "$cluster_resource_group" ]; then
+            echo "Error: Missing cluster details. Ensure Terraform plan has been applied."
+            exit 1
+          fi
+
+          # Generate workspaceInfo.yaml with fetched cluster details
+          cat <<EOF > workspaceInfo.yaml
+          workspaceName: "$RW_WORKSPACE"
+          workspaceOwnerEmail: authors@runwhen.com
+          defaultLocation: location-01
+          defaultLOD: basic
+          cloudConfig:
+            kubernetes: null
+            azure:
+              subscriptionId: "$ARM_SUBSCRIPTION_ID"
+              tenantId: "$AZ_TENANT_ID"
+              clientId: "$AZ_CLIENT_ID"
+              clientSecret: "$AZ_CLIENT_SECRET"
+              aksClusters: 
+                clusters: 
+                  - name: $cluster_name
+                    server: https://$cluster_server:443
+                    resource_group: $cluster_resource_group
+                    subscriptionId: $cluster_sub
+                    defaultNamespaceLOD: none
+              resourceGroupLevelOfDetails:
+                $cluster_resource_group: detailed
+          codeCollections: []
+            # - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection"
+            #   branch: "main"
+            #   codeBundles: ["k8s-namespace-healthcheck", "azure-aks-triage", "k8s-deployment-healthcheck"]
+          custom: 
+            kubernetes_distribution_binary: kubectl
+          EOF
+
+        - task: run-rwl-discovery
+      silent: true
+
+  ci-test-5:
+      desc: "Run CI Discovery Test 4 - K8s only - defaultLOD basic, K8s defaultNamespaceLOD basic, no AKS cluster"
+      env:
+        ARM_SUBSCRIPTION_ID: "{{.TF_VAR_subscription_id}}"
+        AZ_TENANT_ID: "{{.AZ_TENANT_ID}}"
+        AZ_CLIENT_SECRET: "{{.AZ_CLIENT_SECRET}}"
+        AZ_CLIENT_ID: "{{.AZ_CLIENT_ID}}"
+        RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
+      cmds:
+        - |
+          repo_url=$(git config --get remote.origin.url)
+          branch_name=$(git rev-parse --abbrev-ref HEAD)
+          codebundle=$(basename "$(dirname "$PWD")")
+
+          # Fetch individual cluster details from Terraform state
+          pushd terraform > /dev/null
+          cluster_name=$(terraform show -json terraform.tfstate | jq -r '
+            .values.outputs.cluster_name.value')
+          cluster_server=$(terraform show -json terraform.tfstate | jq -r '
+            .values.outputs.cluster_fqdn.value')
+          cluster_resource_group=$(terraform show -json terraform.tfstate | jq -r '
+            .values.outputs.cluster_rg.value')
+          cluster_sub=$(terraform show -json terraform.tfstate | jq -r '
+            .values.outputs.cluster_sub.value')
+
+          popd > /dev/null
+
+          # Check if any of the required cluster variables are empty
+          if [ -z "$cluster_name" ] || [ -z "$cluster_server" ] || [ -z "$cluster_resource_group" ]; then
+            echo "Error: Missing cluster details. Ensure Terraform plan has been applied."
+            exit 1
+          fi
+
+          # Generate workspaceInfo.yaml with fetched cluster details
+          cat <<EOF > workspaceInfo.yaml
+          workspaceName: "$RW_WORKSPACE"
+          workspaceOwnerEmail: authors@runwhen.com
+          defaultLocation: location-01
+          defaultLOD: none
+          cloudConfig:
+            kubernetes:             
+              kubeconfigFile: /shared/kubeconfig.secret
+              contexts:
+                sandbox-cluster-1: 
+                  defaultNamespaceLOD: basic
+            azure:
+              subscriptionId: "$ARM_SUBSCRIPTION_ID"
+              tenantId: "$AZ_TENANT_ID"
+              clientId: "$AZ_CLIENT_ID"
+              clientSecret: "$AZ_CLIENT_SECRET"
               resourceGroupLevelOfDetails:
                 $cluster_resource_group: detailed
           codeCollections: []
