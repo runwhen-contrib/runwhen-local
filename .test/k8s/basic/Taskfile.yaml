@@ -27,10 +27,11 @@ tasks:
         cloudConfig:
           kubernetes: 
             kubeconfigFile: /shared/kubeconfig.secret
-        codeCollections: 
-          - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection"
-            branch: "main"
-            codeBundles: ["k8s-namespace-healthcheck", "k8s-deployment-healthcheck"]
+        codeCollections: []
+        # codeCollections: 
+        #   - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection"
+        #     branch: "main"
+        #     codeBundles: ["k8s-namespace-healthcheck", "k8s-deployment-healthcheck"]
         custom: 
           kubernetes_distribution_binary: kubectl
         EOF
