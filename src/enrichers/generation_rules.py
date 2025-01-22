@@ -12,8 +12,8 @@ from component import (
     WORKSPACE_NAME_SETTING,
     WORKSPACE_OWNER_EMAIL_SETTING,
     WORKSPACE_OUTPUT_PATH_SETTING,
-    DEFAULT_LOCATION_SETTING,
-    DEFAULT_LOCATION_NAME_SETTING,
+    LOCATION_ID_SETTING,
+    LOCATION_NAME_SETTING,
 )
 from exceptions import WorkspaceBuilderException
 from indexers.kubetypes import KUBERNETES_PLATFORM
@@ -106,8 +106,8 @@ SETTINGS = (
     SettingDependency(WORKSPACE_NAME_SETTING, True),
     SettingDependency(WORKSPACE_OWNER_EMAIL_SETTING, True),
     SettingDependency(WORKSPACE_OUTPUT_PATH_SETTING, True),
-    SettingDependency(DEFAULT_LOCATION_SETTING, True),
-    SettingDependency(DEFAULT_LOCATION_NAME_SETTING, False),
+    SettingDependency(LOCATION_ID_SETTING, True),
+    SettingDependency(LOCATION_NAME_SETTING, False),
     SettingDependency(DEFAULT_LOD_SETTING, False),
     SettingDependency(MAP_CUSTOMIZATION_RULES_SETTING, False),
     SettingDependency(CUSTOM_DEFINITIONS_SETTING, False),
@@ -988,12 +988,12 @@ def enrich(context: Context) -> None:
         workspace_output_path = "."
     workspace_path = os.path.join(workspace_output_path, workspace_name)
     slxs_path = os.path.join(workspace_path, "slxs")
-    default_location = context.get_setting("DEFAULT_LOCATION")
-    default_location_name = context.get_setting("DEFAULT_LOCATION_NAME")
-    if default_location_name:
-        location_qualifier = default_location_name
-    elif default_location:
-        location_qualifier = default_location
+    location_id = context.get_setting("LOCATION_ID")
+    location_name = context.get_setting("LOCATION_NAME")
+    if not location_name:
+        location_name = location_id
+    if location_name:
+        location_qualifier = location_name
     else:
         # I think either the default location id or name (or typically both) will always be
         # specified, but just to be safe...
@@ -1004,8 +1004,8 @@ def enrich(context: Context) -> None:
         'workspace_path': workspace_path,
         'wb_version': wb_version,
         'slxs_path': slxs_path,
-        'default_location': default_location,
-        'default_location_name': default_location_name,
+        'location_id': location_id,
+        'location_name': location_name,
         'generated_by': generated_by,
         'custom': custom_definitions,
         'shorten_name': shorten_name,
@@ -1072,7 +1072,9 @@ def enrich(context: Context) -> None:
     # Generate the workspace file
     workspace_template_variables = {
         'workspace': workspace,
-        'default_location': default_location,
+        'location_id': location_id,
+        'location_name': location_name,
+        'generated_by': generated_by,
         'custom': custom_definitions,
         'groups': groups,
         'slx_relationships': slx_relationships,

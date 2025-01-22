@@ -371,15 +371,15 @@ WORKSPACE_OWNER_EMAIL_SETTING = Setting("WORKSPACE_OWNER_EMAIL",
 # Is there a reasonable default value to use for this?
 # i.e. Does this need to be a required setting from the user?
 # FIXME: Need a better doc string
-DEFAULT_LOCATION_SETTING = Setting("DEFAULT_LOCATION",
-                                   "defaultLocation",
-                                   Setting.Type.STRING,
-                                   "Default location")
+LOCATION_ID_SETTING = Setting("LOCATION_ID",
+                              "locationId",
+                              Setting.Type.STRING,
+                              "Location ID")
 
-DEFAULT_LOCATION_NAME_SETTING = Setting("DEFAULT_LOCATION_NAME",
-                                        "defaultLocationName",
-                                        Setting.Type.STRING,
-                                        "Default location name")
+LOCATION_NAME_SETTING = Setting("LOCATION_NAME",
+                                "locationName",
+                                Setting.Type.STRING,
+                                "Location name")
 
 WORKSPACE_OUTPUT_PATH_SETTING = Setting("WORKSPACE_OUTPUT_PATH",
                                         "workspaceOutputPath",

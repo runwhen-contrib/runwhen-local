@@ -4,7 +4,7 @@ import logging
 from typing import Any, Callable, Optional
 
 from component import Context, SettingDependency, WORKSPACE_NAME_SETTING, \
-    DEFAULT_LOCATION_SETTING, WORKSPACE_OUTPUT_PATH_SETTING
+    LOCATION_ID_SETTING, WORKSPACE_OUTPUT_PATH_SETTING
 from template import render_template_file
 
 logger = logging.getLogger(__name__)
@@ -17,8 +17,9 @@ else:
 
 DOCUMENTATION = "Render templated output items"
 
+# FIXME: Not sure these settings dependencies are still needed/valid?
 SETTINGS = (
-    SettingDependency(DEFAULT_LOCATION_SETTING, True),
+    SettingDependency(LOCATION_ID_SETTING, True),
     SettingDependency(WORKSPACE_NAME_SETTING, True),
     SettingDependency(WORKSPACE_OUTPUT_PATH_SETTING, True),
 )
