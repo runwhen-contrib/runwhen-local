@@ -256,6 +256,9 @@ def main():
                         help='On upload, how to merge conflicting SLXs; valid values are:\n'
                              '  "keep-existing": Use the existing content of the SLX from the repo\n'
                              '  "keep-uploaded": Use the uploaded content of the SLX')
+    parser.add_argument('--prune-stale-resources', action='store_true', dest='prune_stale_resources', default=False,
+                        help='On upload, prune from the repo any old/stale resources from previous uploads that\n'
+                             'are no longer active/valid in the current uploaded data.')
     parser.add_argument('--prune-stale-slxs', action='store_true', dest='prune_stale_slxs', default=False,
                         help='On upload, prune from the repo any old/stale SLXs from previous uploads that\n'
                              'are no longer active/valid in the current uploaded data.')
@@ -790,6 +793,7 @@ def main():
             "output": archive_text,
             "mergeMode": merge_mode,
             "pruneStaleSlxs": args.prune_stale_slxs,
+            "pruneStaleResources": args.prune_stale_resources,
             "message": "Updated workspace from map builder.",
             "finalizeAction": "mergeToMain",
         }
