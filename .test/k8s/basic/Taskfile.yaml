@@ -42,7 +42,7 @@ tasks:
     desc: "Build RWL test image"
     cmds:
       - |
-        BUILD_DIR=/home/runwhen/runwhen-local/src
+        BUILD_DIR=~/runwhen-local/src
         CONTAINER_NAME="RunWhenLocal"
         if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
           echo "Stopping and removing existing container $CONTAINER_NAME..."
