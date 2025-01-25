@@ -36,6 +36,8 @@ jobs:
         run: |-
           cd .test/k8s/basic
           echo "${{ env.KUBECONFIG }}" > kubeconfig.secret
+          docker buildx create --use --name=mybuilder
+          docker buildx inspect --bootstrap
           task build-rwl
 
       - name: Run k8s/basic ci-test-1
