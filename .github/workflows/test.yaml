@@ -44,7 +44,7 @@ jobs:
       - name: Run k8s/basic ci-test-1
         run: |-
           cd .test/k8s/basic
-          echo "${{secrets.SANDBOX_KUBECONFIG}}" > kubeconfig.secret
+          printf "%s" "${{ secrets.SANDBOX_KUBECONFIG }}" > kubeconfig.secret
           task ci-test-1
           task clean
 
@@ -52,7 +52,7 @@ jobs:
       - name: Run k8s/basic ci-test-2
         run: |-
           cd .test/k8s/basic
-          echo "${{secrets.SANDBOX_KUBECONFIG}}" > kubeconfig.secret
+          printf "%s" "${{ secrets.SANDBOX_KUBECONFIG }}" > kubeconfig.secret
           task ci-test-2
           task clean
           
