@@ -78,7 +78,8 @@ jobs:
           docker buildx create --use --name=mybuilder
           docker buildx inspect --bootstrap
           task build-rwl
-          docker save -o image.tar my-container:${{ github.sha }}
+          docker save -o image.tar runwhen-local:test || (echo "Image not found!" && exit 1)
+
 
       - name: Upload Image as Artifact
         uses: actions/upload-artifact@v4
