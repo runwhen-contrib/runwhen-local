@@ -3,6 +3,8 @@ name: Discovery Test
 
 on:
   workflow_dispatch:
+  push: 
+    - main
   pull_request:
     paths:
       - "src/**"
@@ -17,7 +19,6 @@ permissions:
 env:
   PROJECT_ID: runwhen-nonprod-shared
   DEFAULT_BRANCH: "origin/${{ github.event.repository.default_branch }}"
-  KUBECONFIG: ${{secrets.SANDBOX_KUBECONFIG}}
 
 
 jobs:
@@ -35,7 +36,6 @@ jobs:
       - name: Build Image
         run: |-
           cd .test/k8s/basic
-          echo "${{ env.KUBECONFIG }}" > kubeconfig.secret
           docker buildx create --use --name=mybuilder
           docker buildx inspect --bootstrap
           task build-rwl
@@ -43,7 +43,7 @@ jobs:
       - name: Run k8s/basic ci-test-1
         run: |-
           cd .test/k8s/basic
-          echo "${{ env.KUBECONFIG }}" > kubeconfig.secret
+          echo "${{secrets.SANDBOX_KUBECONFIG}}" > kubeconfig.secret
           task ci-test-1
           task clean
 
@@ -51,7 +51,7 @@ jobs:
       - name: Run k8s/basic ci-test-2
         run: |-
           cd .test/k8s/basic
-          echo "${{ env.KUBECONFIG }}" > kubeconfig.secret
+          echo "${{secrets.SANDBOX_KUBECONFIG}}" > kubeconfig.secret
           task ci-test-2
           task clean
           
