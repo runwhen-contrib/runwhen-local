@@ -5,6 +5,7 @@ tasks:
     desc: "Generate workspaceInfo and rebuild/test"
     cmds:
       - task: generate-rwl-config
+      - task: build-rwl
       - task: run-rwl-discovery
 
   clean:
@@ -37,8 +38,8 @@ tasks:
         EOF
     silent: true
 
-  run-rwl-discovery:
-    desc: "Run RunWhen Local Discovery on test infrastructure"
+  build-rwl:
+    desc: "Build RWL test image"
     cmds:
       - |
         BUILD_DIR=/home/runwhen/runwhen-local/src
@@ -59,10 +60,32 @@ tasks:
 
         ## Building Container Image
         docker buildx build --builder mybuilder --platform linux/amd64  -t runwhen-local:test -f $BUILD_DIR/Dockerfile $BUILD_DIR --load
+    silent: true
+
+
+  run-rwl-discovery:
+    desc: "Run RunWhen Local Discovery on test infrastructure"
+    cmds:
+      - |
+        rm slx_count.txt || true
+        CONTAINER_NAME="RunWhenLocal"    
+        if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Stopping and removing existing container $CONTAINER_NAME..."
+          docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME
+        elif docker ps -a -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Removing existing stopped container $CONTAINER_NAME..."
+          docker rm $CONTAINER_NAME
+        else
+          echo "No existing container named $CONTAINER_NAME found."
+        fi
+        
+        echo "Cleaning up output directory..."
+        rm -rf output || { echo "Failed to remove output directory"; exit 1; }
+        mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
 
         echo "Starting new container $CONTAINER_NAME..."
 
-        docker run -e DEBUG_LOGGING=true --name $CONTAINER_NAME -p 8081:8081 -v $(pwd):/shared -d runwhen-local:test || {
+        docker run -e DEBUG_LOGS=true --name $CONTAINER_NAME -p 8081:8081 -v $(pwd):/shared -d runwhen-local:test || {
           echo "Failed to start container"; exit 1;
         }
 
@@ -72,6 +95,97 @@ tasks:
         }
 
         echo "Review generated config files under output/workspaces/"
+        total_slxs=$(find $(find 'output/' -type d -name 'slxs') -mindepth 1 -type d | wc -l)
+        echo "Total SLXs: $total_slxs"
+        echo "$total_slxs" > slx_count.txt
+    silent: true
+
+
+  ci-test-1:
+      desc: "Run CI Discovery Test 1 - K8s only - basic LOD "
+      env:
+        RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
+      vars: 
+        EXPECTED_SLXS: "5"
+      cmds:
+        - |
+          # Generate workspaceInfo.yaml with fetched cluster details
+          cat <<EOF > workspaceInfo.yaml
+          workspaceName: "$RW_WORKSPACE"
+          workspaceOwnerEmail: authors@runwhen.com
+          defaultLocation: location-01
+          defaultLOD: none
+          cloudConfig:
+            kubernetes:             
+              kubeconfigFile: /shared/kubeconfig.secret
+              contexts:
+                sandbox-cluster-1: 
+                  defaultNamespaceLOD: basic
+              namespaces:
+                - ci-verify-basic
+          codeCollections: []
+          custom: 
+            kubernetes_distribution_binary: kubectl
+          EOF
+
+        - task: run-rwl-discovery
+        - task: verify-slx-count
+          vars:
+            EXPECTED_SLX_COUNT: "{{.EXPECTED_SLXS}}"
+      silent: true
+
+
+  ci-test-2:
+      desc: "Run CI Discovery Test 2 - K8s only - detailed LOD "
+      env:
+        RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
+      vars: 
+        EXPECTED_SLXS: "12"
+      cmds:
+        - |
+          # Generate workspaceInfo.yaml with fetched cluster details
+          cat <<EOF > workspaceInfo.yaml
+          workspaceName: "$RW_WORKSPACE"
+          workspaceOwnerEmail: authors@runwhen.com
+          defaultLocation: location-01
+          defaultLOD: none
+          cloudConfig:
+            kubernetes:             
+              kubeconfigFile: /shared/kubeconfig.secret
+              contexts:
+                sandbox-cluster-1: 
+                  defaultNamespaceLOD: detailed
+              namespaces:
+                - ci-verify-basic
+          codeCollections: []
+          custom: 
+            kubernetes_distribution_binary: kubectl
+          EOF
+
+      
+        - task: run-rwl-discovery
+        - task: verify-slx-count
+          vars:
+            EXPECTED_SLX_COUNT: "{{.EXPECTED_SLXS}}"
+
+      silent: true
+
+  verify-slx-count: 
+    desc: "Validate SLX Count in CI test"
+    vars:
+      EXPECTED_SLX_COUNT: "{{.EXPECTED_SLX_COUNT | default `0`}}"
+    cmds: 
+      - |
+          total_slxs=$(cat slx_count.txt)
+          echo "---Validating SLX Count---"
+          echo "Total SLXs: $total_slxs (Expected: {{.EXPECTED_SLX_COUNT}})"
+          if [[ "$total_slxs" != "{{.EXPECTED_SLX_COUNT}}" ]]; then
+            echo -e "\033[31m❌ Total SLX count failed\033[0m"
+            exit 1
+          else
+            echo -e "\033[32m✔️ SLX Validation Passed\033[0m"
+            exit 0
+          fi
     silent: true
 
   clean-rwl-discovery:
