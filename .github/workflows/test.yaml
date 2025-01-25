@@ -24,9 +24,10 @@ jobs:
   k8s-basic-test:
     runs-on: ubuntu-latest
     steps:
-      - name: install go-task
-        run: |-
-          sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
 
       - uses: actions/checkout@v2
         name: Checkout
