@@ -1,5 +1,6 @@
 # Build the RunWhen Local image
-name: Build and Push on PR Open
+name: Discovery Test
+
 on:
   workflow_dispatch:
   pull_request:
