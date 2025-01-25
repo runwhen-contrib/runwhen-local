@@ -95,7 +95,6 @@ tasks:
         }
 
         echo "Review generated config files under output/workspaces/"
-        tree output/workspaces/
         total_slxs=$(find $(find 'output/' -type d -name 'slxs') -mindepth 1 -type d | wc -l)
         echo "Total SLXs: $total_slxs"
         echo "$total_slxs" > slx_count.txt
