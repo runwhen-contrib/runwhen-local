@@ -181,13 +181,13 @@ def index(component_context: Context):
     kubeconfig_path: Optional[str] = None
     kubeconfig = None
     encoded_kubeconfig_file = None
-    namespace_lods: Optional[dict[str, LevelOfDetail]] = None
     custom_namespace_names: Optional[list[str]] = None
     exclude_annotations: Dict[str, str] = {}
     exclude_labels: Dict[str, str] = {}
     include_annotations = {}
     include_labels = {}
     lod_annotations = HARDCODED_LOD_ANNOTATIONS
+    default_lod = component_context.get_setting("DEFAULT_LOD")
 
     with TemporaryDirectory() as temp_dir:
         # Extract settings from the context
@@ -196,11 +196,17 @@ def index(component_context: Context):
         if cloud_config_settings:
             # Retrieve Kubernetes settings, if present
             kubernetes_settings: Optional[dict[str, Any]] = cloud_config_settings.get("kubernetes")
+            kube_context_lod_settings = {}
+
+
             if kubernetes_settings:
                 # Configure Kubernetes-specific inclusion settings
                 include_annotations = kubernetes_settings.get("includeAnnotations", {})
                 include_labels = kubernetes_settings.get("includeLabels", {})
-
+                contexts_config = kubernetes_settings.get("contexts", {})
+                if isinstance(contexts_config, dict):  # Ensure it's a dictionary
+                        for context_name, context_data in contexts_config.items():
+                            kube_context_lod_settings[context_name] = context_data.get("defaultNamespaceLOD", default_lod)
                 # FIXME: This kubeconfig file handling is pretty convoluted right now after the
                 # changes with merging/constructing the kubeconfig in the run.py script and then
                 # the subsequent changes to revert to using the encoded kubeconfig in the request
@@ -226,7 +232,6 @@ def index(component_context: Context):
                 kubeconfig_path = os.path.join(temp_dir, "kubeconfig")
                 write_file(kubeconfig_path, kubeconfig_text)
                 kubeconfig = yaml.safe_load(kubeconfig_text)
-                namespace_lods = kubernetes_settings.get("namespaceLODs", {})
                 custom_namespace_names = kubernetes_settings.get("namespaces", [])
                 exclude_annotations = kubernetes_settings.get("excludeAnnotations", {})
                 exclude_labels = kubernetes_settings.get("excludeLabels", {})
@@ -238,7 +243,6 @@ def index(component_context: Context):
                 # Configure AKS-specific inclusion settings if applicable
                 include_annotations = aks_settings.get("includeAnnotations", include_annotations)
                 include_labels = aks_settings.get("includeLabels", include_labels)
-                namespace_lods = aks_settings.get("namespaceLODs", namespace_lods)
                 custom_namespace_names = aks_settings.get("namespaces", custom_namespace_names)
                 exclude_annotations.update(aks_settings.get("excludeAnnotations", {}))
                 exclude_labels.update(aks_settings.get("excludeLabels", {}))
@@ -265,7 +269,6 @@ def index(component_context: Context):
             logger.info("No Kubernetes configuration found, so skipping Kubernetes indexing")
             return
 
-        default_lod = component_context.get_setting("DEFAULT_LOD")
         all_accessed_resource_type_specs = component_context.get_property(RESOURCE_TYPE_SPECS_PROPERTY)
         accessed_resource_type_specs = all_accessed_resource_type_specs.get(KUBERNETES_PLATFORM, dict()).keys()
         registry: Registry = component_context.get_property(REGISTRY_PROPERTY_NAME)
@@ -322,6 +325,16 @@ def index(component_context: Context):
             clusters = kubeconfig.get('clusters', [])
             users = kubeconfig.get('users', [])
             contexts = kubeconfig.get('contexts', [])
+            
+            # Extract explicitly defined AKS clusters and their LOD settings
+            aks_cluster_lod_settings = {}
+            aks_cluster_namespace_lods = {}
+
+            aks_clusters_config = azure_settings.get("aksClusters", {}).get("clusters", [])
+            for cluster in aks_clusters_config:
+                cluster_name = cluster["name"]
+                aks_cluster_lod_settings[cluster_name] = cluster.get("defaultNamespaceLOD", default_lod)
+
 
             for context in contexts:
                 context_name = context.get('name')
@@ -482,11 +495,6 @@ def index(component_context: Context):
                         if namespace_name:
                             namespace_names.add(namespace_name)
 
-                        # Second, add any names gleaned from the namespace LODs setting.
-                        # NB: We check for and exclude namespaces with an LOD of 0 below when
-                        # we check for accessibility of the namespace, so it doesn't make sense
-                        # to also check for it here.
-                        namespace_names.update(namespace_lods)
 
                         # Finally, add the explicit user-configured list of namespace names
                         # FIXME: Currently we don't qualify/scope the configured namespace names with a
@@ -516,67 +524,128 @@ def index(component_context: Context):
                     # Update namespace_names with custom_namespace_names only if custom_namespace_names is defined
                     if custom_namespace_names:
                         namespace_names = namespace_names.intersection(custom_namespace_names)
-                    # Filter namespace_names to include only those specified in both namespace_lods and namespace_names
-                    if namespace_lods:
-                        namespace_names = namespace_names.intersection(namespace_lods.keys())
+                        
+                    # for namespace_name in namespace_names:
+                    #     namespace_qualified_name = get_qualified_name(cluster_name, namespace_name)
+                    #     # FIXME: Currently you can't have different levels of detail for namespaces with
+                    #     # the same name in different clusters. Should have syntax in the LOD configuration
+                    #     # that let's you qualify by cluster name. For example, a key format that's
+                    #     # "<cluster-name>:<namespace-name>" or something like that.
 
+                    #     # First, check for LOD in the workspaceInfo configuration
+                    #     namespace_lod_config = namespace_lods.get(namespace_name)
+                    #     namespace_lod = LevelOfDetail.construct_from_config(namespace_lod_config) \
+                    #         if namespace_lod_config is not None else default_lod
+
+                    #     try:
+                    #         raw_resource = core_api_client.read_namespace(namespace_name)
+
+                    #         # If LOD is not specified in workspaceInfo, check the annotations
+                    #         if namespace_lod == default_lod:
+                    #             namespace_lod = get_lod_from_annotations(raw_resource, lod_annotations) or namespace_lod
+
+                    #         if namespace_lod == LevelOfDetail.NONE:
+                    #             continue
+                    #         if (include_annotations or include_labels) and not has_included_annotations_or_labels(raw_resource, include_annotations, include_labels):
+                    #             continue  # Skip this resource if it doesn't meet inclusion criteria
+
+                    #         if has_excluded_annotations_or_labels(raw_resource, exclude_annotations, exclude_labels):
+                    #             continue
+
+                    #         owner_name = extract_owner_name(raw_resource)
+                    #         namespace_attributes = kubeapi_parsers.parse_namespace(raw_resource)
+                    #         namespace_attributes['cluster'] = cluster
+                    #         namespace_attributes['lod'] = namespace_lod
+                    #         if owner_name:
+                    #             namespace_attributes['owner'] = owner_name
+                    #         namespace = registry.add_resource(KUBERNETES_PLATFORM,
+                    #                                         KubernetesResourceType.NAMESPACE.value,
+                    #                                         namespace_name,
+                    #                                         namespace_qualified_name,
+                    #                                         namespace_attributes)
+                    #         cluster_namespaces[namespace_qualified_name] = namespace
+                    #         namespaces[namespace_qualified_name] = namespace
+                    #     except ApiException:
+                    #         # We weren't able to access the namespace, presumably either because the
+                    #         # namespace name doesn't exist (e.g. invalid configured explicit
+                    #         # namespace name or the namespace name is associated with a different
+                    #         # cluster) or else the user for this context does not have permission
+                    #         # to access the namespace. In either case, we just ignore the error
+                    #         # and continue.
+                    #         # FIXME: Could possibly log something here, but the concern is that that would
+                    #         # generate too much noise.
+                    #         pass
                     for namespace_name in namespace_names:
                         namespace_qualified_name = get_qualified_name(cluster_name, namespace_name)
-                        # FIXME: Currently you can't have different levels of detail for namespaces with
-                        # the same name in different clusters. Should have syntax in the LOD configuration
-                        # that let's you qualify by cluster name. For example, a key format that's
-                        # "<cluster-name>:<namespace-name>" or something like that.
 
-                        # First, check for LOD in the workspaceInfo configuration
-                        namespace_lod_config = namespace_lods.get(namespace_name)
-                        namespace_lod = LevelOfDetail.construct_from_config(namespace_lod_config) \
-                            if namespace_lod_config is not None else default_lod
+                        # Determine if this is an AKS cluster or a kubeconfigFile cluster
+                        is_aks_cluster = cluster_name in aks_cluster_lod_settings
+                        if is_aks_cluster:
+                            namespace_lod = LevelOfDetail.construct_from_config(aks_cluster_lod_settings.get(cluster_name, default_lod))
+                        else:
+                            namespace_lod = LevelOfDetail.construct_from_config(kube_context_lod_settings.get(context_name, default_lod))
+                            if namespace_lod is None:
+                                namespace_lod = default_lod  # Final fallback
+
+                        logger.info(f"Cluster: {cluster_name}, Namespace: {namespace_name}, LOD: {namespace_lod}")
 
                         try:
+                            # Fetch namespace details from the K8s API
                             raw_resource = core_api_client.read_namespace(namespace_name)
 
-                            # If LOD is not specified in workspaceInfo, check the annotations
-                            if namespace_lod == default_lod:
-                                namespace_lod = get_lod_from_annotations(raw_resource, lod_annotations) or namespace_lod
+                            # **Always fetch annotations first**
+                            annotation_lod = get_lod_from_annotations(raw_resource, lod_annotations)
+                            if annotation_lod is not None:
+                                logger.info(f"Overriding LOD for namespace '{namespace_name}' based on annotation: {annotation_lod}")
+                                namespace_lod = annotation_lod  # **Annotations override any config-based LOD**
+                            else:
+                                # If no annotation exists, use cluster-specific or default LOD
+                                if is_aks_cluster:
+                                    namespace_lod = LevelOfDetail.construct_from_config(aks_cluster_lod_settings.get(cluster_name, default_lod))
+                                else:
+                                    namespace_lod = LevelOfDetail.construct_from_config(kube_context_lod_settings.get(context_name, default_lod))
+
+                            # **Final Fallback** (if no valid LOD is set, use BASIC)
+                            if namespace_lod is None:
+                                namespace_lod = LevelOfDetail.BASIC
+
+                            logger.info(f"Final LOD for namespace '{namespace_name}': {namespace_lod}")
 
                             if namespace_lod == LevelOfDetail.NONE:
-                                continue
+                                continue  # Skip namespace if LOD is set to NONE
+
                             if (include_annotations or include_labels) and not has_included_annotations_or_labels(raw_resource, include_annotations, include_labels):
                                 continue  # Skip this resource if it doesn't meet inclusion criteria
 
                             if has_excluded_annotations_or_labels(raw_resource, exclude_annotations, exclude_labels):
                                 continue
-
+                            # Extract owner metadata if available
                             owner_name = extract_owner_name(raw_resource)
                             namespace_attributes = kubeapi_parsers.parse_namespace(raw_resource)
                             namespace_attributes['cluster'] = cluster
                             namespace_attributes['lod'] = namespace_lod
                             if owner_name:
                                 namespace_attributes['owner'] = owner_name
-                            namespace = registry.add_resource(KUBERNETES_PLATFORM,
-                                                            KubernetesResourceType.NAMESPACE.value,
-                                                            namespace_name,
-                                                            namespace_qualified_name,
-                                                            namespace_attributes)
+
+                            namespace = registry.add_resource(
+                                KUBERNETES_PLATFORM,
+                                KubernetesResourceType.NAMESPACE.value,
+                                namespace_name,
+                                namespace_qualified_name,
+                                namespace_attributes
+                            )
+
                             cluster_namespaces[namespace_qualified_name] = namespace
                             namespaces[namespace_qualified_name] = namespace
-                        except ApiException:
-                            # We weren't able to access the namespace, presumably either because the
-                            # namespace name doesn't exist (e.g. invalid configured explicit
-                            # namespace name or the namespace name is associated with a different
-                            # cluster) or else the user for this context does not have permission
-                            # to access the namespace. In either case, we just ignore the error
-                            # and continue.
-                            # FIXME: Could possibly log something here, but the concern is that that would
-                            # generate too much noise.
-                            pass
 
+                        except ApiException as e:
+                            logger.info(f"Error accessing namespace '{namespace_name}' in cluster '{cluster_name}'; skipping. Error: {e}")
+                            pass
                     for namespace in namespaces.values():
                         namespace_qualified_name = namespace.qualified_name
                         namespace_name = namespace.name
-
-                        logger.info(f'Scanning for Kubernetes resources in namespace "{namespace_name}"')
-
+                        logger.info(f'Scanning for Kubernetes resources in namespace "{namespace_name} with LOD: "')
+    
                         #
                         # Index Deployments, DaemonSets and StatefulSets (the common app Kinds)
                         #

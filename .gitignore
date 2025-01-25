@@ -38,3 +38,5 @@ src/rw-cli-codecollection-cache
 **/output/
 **/.test/.task/**
 .vscode/settings.json
+**/slx_count.txt
+
