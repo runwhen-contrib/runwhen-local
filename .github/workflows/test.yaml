@@ -25,7 +25,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: install go-task
-        run: brew install go-task
+        run: |-
+          sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d
 
       - uses: actions/checkout@v2
         name: Checkout
