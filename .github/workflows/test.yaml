@@ -96,6 +96,11 @@ jobs:
       matrix:
         test: [ci-test-1, ci-test-2]  # Define multiple tests
     steps:
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+
       - uses: actions/checkout@v2
         name: Checkout
 
