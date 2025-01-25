@@ -59,8 +59,6 @@ tasks:
         mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
 
         ## Building Container Image
-        pwd
-        ls -lha ~/
         docker buildx build --builder mybuilder --platform linux/amd64  -t runwhen-local:test -f $BUILD_DIR/Dockerfile $BUILD_DIR --load
     silent: true
 

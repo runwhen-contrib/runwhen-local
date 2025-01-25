@@ -42,17 +42,21 @@ jobs:
           task build-rwl
 
       - name: Run k8s/basic ci-test-1
+        env:
+          KUBECONFIG_SECRET: ${{secrets.SANDBOX_KUBECONFIG}}
         run: |-
           cd .test/k8s/basic
-          printf "%s" "${{ secrets.SANDBOX_KUBECONFIG }}" > kubeconfig.secret
+          echo "$KUBECONFIG_SECRET" > kubeconfig.secret
           task ci-test-1
           task clean
 
 
       - name: Run k8s/basic ci-test-2
+        env:
+          KUBECONFIG_SECRET: ${{secrets.SANDBOX_KUBECONFIG}}
         run: |-
           cd .test/k8s/basic
-          printf "%s" "${{ secrets.SANDBOX_KUBECONFIG }}" > kubeconfig.secret
+          echo "$KUBECONFIG_SECRET" > kubeconfig.secret
           task ci-test-2
           task clean
           
