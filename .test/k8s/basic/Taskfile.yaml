@@ -60,7 +60,7 @@ tasks:
 
         ## Building Container Image
         pwd
-        ls -lha
+        ls -lha ~/
         docker buildx build --builder mybuilder --platform linux/amd64  -t runwhen-local:test -f $BUILD_DIR/Dockerfile $BUILD_DIR --load
     silent: true
 
