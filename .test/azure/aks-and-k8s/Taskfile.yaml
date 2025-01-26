@@ -532,7 +532,7 @@ tasks:
         fi
         task format-and-init-terraform
         echo "Starting Terraform Build of Terraform infrastructure..."
-        terraform apply -auto-approve || {
+        terraform apply -auto-approve -lock=false || {
           echo "Failed to clean up Terraform infrastructure."
           exit 1
         }
