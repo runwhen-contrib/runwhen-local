@@ -19,43 +19,6 @@ env:
   DEFAULT_BRANCH: "origin/${{ github.event.repository.default_branch }}"
   AZ_RESOURCE_GROUP: "sandbox"
   AZ_TF_STORAGE_CONTAINER: ${{ secrets.AZ_TF_STORAGE_CONTAINER }}
-
-
-# jobs:
-#   k8s-basic-test:
-#     runs-on: ubuntu-latest
-#     steps:
-#       - name: Install Task
-#         uses: arduino/setup-task@v2
-#         with:
-#           version: 3.x
-
-#       - uses: actions/checkout@v2
-#         name: Checkout
-
-#       - name: Build Image
-#         run: |-
-#           cd .test/k8s/basic
-#           docker buildx create --use --name=mybuilder
-#           docker buildx inspect --bootstrap
-#           task build-rwl
-
-#       - name: Run k8s/basic ci-test-1
-#         env:
-#           KUBECONFIG_SECRET: ${{secrets.SANDBOX_KUBECONFIG}}
-#         run: |-
-#           cd .test/k8s/basic
-#           echo "$KUBECONFIG_SECRET" > kubeconfig.secret
-#           task ci-test-1
-
-
-#       - name: Run k8s/basic ci-test-2
-#         env:
-#           KUBECONFIG_SECRET: ${{secrets.SANDBOX_KUBECONFIG}}
-#         run: |-
-#           cd .test/k8s/basic
-#           echo "$KUBECONFIG_SECRET" > kubeconfig.secret
-#           task ci-test-2
           
 jobs:
   build-image:

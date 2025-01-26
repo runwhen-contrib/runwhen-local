@@ -191,7 +191,8 @@ tasks:
       AZ_CLIENT_SECRET: "{{.AZ_CLIENT_SECRET}}"
       AZ_CLIENT_ID: "{{.AZ_CLIENT_ID}}"
       RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
-      EXPECTED_SLXS: "5"
+    vars: 
+      EXPECTED_SLXS: "8"
     cmds:
       - |
         repo_url=$(git config --get remote.origin.url)
@@ -229,6 +230,8 @@ tasks:
             contexts: 
               sandbox-cluster-1: 
                 defaultNamespaceLOD: basic
+            namespaces:
+              - ci-verify-basic
           azure:
             subscriptionId: "$ARM_SUBSCRIPTION_ID"
             tenantId: "$AZ_TENANT_ID"
@@ -588,6 +591,7 @@ tasks:
           echo "Terraform directory not found. Terraform apply aborted."
           exit 1
         fi
+        task check-backend
         task format-and-init-terraform
         echo "Starting Terraform Build of Terraform infrastructure..."
         terraform apply -auto-approve -lock=false || {
