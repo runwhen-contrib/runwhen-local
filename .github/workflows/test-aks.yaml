@@ -192,7 +192,7 @@ jobs:
             -backend-config="resource_group_name=${{ env.AZ_RESOURCE_GROUP }}" \
             -backend-config="storage_account_name=${{ secrets.AZ_TF_STORAGE_ACCOUNT }}" \
             -backend-config="container_name=${{ secrets.AZ_TF_STORAGE_CONTAINER }}" \
-            -backend-config="key=terraform/$infra_desc/$(echo "${{ github.repository }}" | tr '/' '-')/$(echo "${{ github.ref_name }}" | tr '/' '-')/terraform.tfstate"
+            -backend-config="key=terraform/$infra_desc/azure-aks-and-k8s-infra-build/$(echo "${{ github.repository }}" | tr '/' '-')/$(echo "${{ github.ref_name }}" | tr '/' '-')/terraform.tfstate"
 
           cd ..
           task cleanup-terraform-infra
@@ -250,7 +250,7 @@ jobs:
             # Define variables
             STORAGE_ACCOUNT="${{ secrets.AZ_TF_STORAGE_ACCOUNT }}"
             CONTAINER_NAME="${{ secrets.AZ_TF_STORAGE_CONTAINER }}"
-            STATE_FILE="terraform/$infra_desc/$(echo "${{ github.repository }}" | tr '/' '-')/$(echo "${{ github.ref_name }}" | tr '/' '-')/terraform.tfstate"
+            STATE_FILE="terraform/$infra_desc/azure-aks-and-k8s-infra-build/$(echo "${{ github.repository }}" | tr '/' '-')/$(echo "${{ github.ref_name }}" | tr '/' '-')/terraform.tfstate"
             echo "State file: $STATE_FILE"
             
             # Fetch Terraform state from Azure Blob Storage
