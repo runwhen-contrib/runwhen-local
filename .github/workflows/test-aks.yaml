@@ -119,7 +119,7 @@ jobs:
         id: azure-infra-build
         run: |
           cd .test/azure/aks-and-k8s/terraform
-          infra-desc=$(echo "$PWD" | awk -F'/' '{print $(NF-1)}')
+          infra_desc=$(echo "$PWD" | awk -F'/' '{print $(NF-1)}')
           task check-backend
 
           echo "Setting Azure Service Principal Credentials..."
@@ -136,7 +136,7 @@ jobs:
             -backend-config="resource_group_name=${{ env.AZ_RESOURCE_GROUP }}" \
             -backend-config="storage_account_name=${{ secrets.AZ_TF_STORAGE_ACCOUNT }}" \
             -backend-config="container_name=${{ secrets.AZ_TF_STORAGE_CONTAINER }}" \
-            -backend-config="key=terraform/$infra-desc/${{ github.job }}/$(echo "${{ github.repository }}" | tr '/' '-')/$(echo "${{ github.ref_name }}" | tr '/' '-')/terraform.tfstate"
+            -backend-config="key=terraform/$infra_desc/${{ github.job }}/$(echo "${{ github.repository }}" | tr '/' '-')/$(echo "${{ github.ref_name }}" | tr '/' '-')/terraform.tfstate"
 
           cd ..
           task build-terraform-infra
@@ -169,7 +169,7 @@ jobs:
       - name: Clean up terraform infrastructure
         run: |
           cd .test/azure/aks-and-k8s/terraform
-          infra-desc=$(echo "$PWD" | awk -F'/' '{print $(NF-1)}')
+          infra_desc=$(echo "$PWD" | awk -F'/' '{print $(NF-1)}')
           task check-backend
 
           echo "Setting Azure Service Principal Credentials..."
@@ -185,14 +185,14 @@ jobs:
           az storage blob lease break \
             --account-name ${{ secrets.AZ_TF_STORAGE_ACCOUNT }} \
             --container-name ${{ secrets.AZ_TF_STORAGE_CONTAINER }} \
-            --blob-name "terraform/$infra-desc/$(echo "${{ github.repository }}" | tr '/' '-')/$(echo "${{ github.ref_name }}" | tr '/' '-')/terraform.tfstate"
+            --blob-name "terraform/$infra_desc/$(echo "${{ github.repository }}" | tr '/' '-')/$(echo "${{ github.ref_name }}" | tr '/' '-')/terraform.tfstate"
 
 
           terraform init \
             -backend-config="resource_group_name=${{ env.AZ_RESOURCE_GROUP }}" \
             -backend-config="storage_account_name=${{ secrets.AZ_TF_STORAGE_ACCOUNT }}" \
             -backend-config="container_name=${{ secrets.AZ_TF_STORAGE_CONTAINER }}" \
-            -backend-config="key=terraform/$infra-desc/$(echo "${{ github.repository }}" | tr '/' '-')/$(echo "${{ github.ref_name }}" | tr '/' '-')/terraform.tfstate"
+            -backend-config="key=terraform/$infra_desc/$(echo "${{ github.repository }}" | tr '/' '-')/$(echo "${{ github.ref_name }}" | tr '/' '-')/terraform.tfstate"
 
           cd ..
           task cleanup-terraform-infra
@@ -238,12 +238,12 @@ jobs:
             AZ_SANDBOX: ${{ secrets.AZ_SANDBOX }}
           run: |-
             cd .test/azure/aks-and-k8s/terraform
-            infra-desc=$(echo "$PWD" | awk -F'/' '{print $(NF-1)}')
+            infra_desc=$(echo "$PWD" | awk -F'/' '{print $(NF-1)}')
 
             # Define variables
             STORAGE_ACCOUNT="${{ secrets.AZ_TF_STORAGE_ACCOUNT }}"
             CONTAINER_NAME="${{ secrets.AZ_TF_STORAGE_CONTAINER }}"
-            STATE_FILE="terraform/$infra-desc/$(echo "${{ github.repository }}" | tr '/' '-')/$(echo "${{ github.ref_name }}" | tr '/' '-')/terraform.tfstate"
+            STATE_FILE="terraform/$infra_desc/$(echo "${{ github.repository }}" | tr '/' '-')/$(echo "${{ github.ref_name }}" | tr '/' '-')/terraform.tfstate"
 
             # Fetch Terraform state from Azure Blob Storage
             az storage blob download \
