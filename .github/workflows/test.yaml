@@ -175,7 +175,7 @@ jobs:
 
   azure-aks-and-k8s-infra-cleanup:
     runs-on: ubuntu-latest
-    needs: terraform-apply
+    needs: azure-aks-and-k8s-infra-build
     if: always() # Runs even if terraform-apply fails
 
     steps:
