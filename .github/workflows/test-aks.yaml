@@ -243,19 +243,45 @@ jobs:
             cd .test/azure/aks-and-k8s/terraform
             infra_desc=$(echo "$PWD" | awk -F'/' '{print $(NF-1)}')
 
-            # Define variables
-            STORAGE_ACCOUNT="${{ secrets.AZ_TF_STORAGE_ACCOUNT }}"
-            CONTAINER_NAME="${{ secrets.AZ_TF_STORAGE_CONTAINER }}"
-            STATE_FILE="terraform/$infra_desc/azure-aks-and-k8s-infra-build/$(echo "${{ github.repository }}" | tr '/' '-')/$(echo "${{ github.ref_name }}" | tr '/' '-')/terraform.tfstate"
-            echo "State file: $STATE_FILE"
+            echo "Setting Azure Service Principal Credentials..."
+            echo '${{ secrets.AZ_SANDBOX_CREDS }}' > azure_creds.json
+            export ARM_CLIENT_ID=$(jq -r '.clientId' azure_creds.json)
+            export ARM_CLIENT_SECRET=$(jq -r '.clientSecret' azure_creds.json)
+            export ARM_SUBSCRIPTION_ID=$(jq -r '.subscriptionId' azure_creds.json)
+            export ARM_TENANT_ID=$(jq -r '.tenantId' azure_creds.json)
+            export AZ_TENANT_ID=$ARM_TENANT_ID
+            export AZ_CLIENT_SECRET=$ARM_CLIENT_SECRET
+            export AZ_CLIENT_ID=$ARM_CLIENT_ID
+            export TF_VAR_sp_principal_id=$(az ad sp show --id $ARM_CLIENT_ID --query id -o tsv)
+            export TF_VAR_subscription_id=$ARM_SUBSCRIPTION_ID
+            export TF_VAR_tenant_id=$ARM_TENANT_ID
+  
+            az storage blob lease break \
+              --account-name ${{ secrets.AZ_TF_STORAGE_ACCOUNT }} \
+              --container-name ${{ secrets.AZ_TF_STORAGE_CONTAINER }} \
+              --blob-name "terraform/$infra_desc/$(echo "${{ github.repository }}" | tr '/' '-')/$(echo "${{ github.ref_name }}" | tr '/' '-')/terraform.tfstate"
+  
+  
+            terraform init \
+              -backend-config="resource_group_name=${{ env.AZ_RESOURCE_GROUP }}" \
+              -backend-config="storage_account_name=${{ secrets.AZ_TF_STORAGE_ACCOUNT }}" \
+              -backend-config="container_name=${{ secrets.AZ_TF_STORAGE_CONTAINER }}" \
+              -backend-config="key=terraform/$infra_desc/azure-aks-and-k8s-infra-build/$(echo "${{ github.repository }}" | tr '/' '-')/$(echo "${{ github.ref_name }}" | tr '/' '-')/terraform.tfstate"
+  
+
+            # # Define variables
+            # STORAGE_ACCOUNT="${{ secrets.AZ_TF_STORAGE_ACCOUNT }}"
+            # CONTAINER_NAME="${{ secrets.AZ_TF_STORAGE_CONTAINER }}"
+            # STATE_FILE="terraform/$infra_desc/azure-aks-and-k8s-infra-build/$(echo "${{ github.repository }}" | tr '/' '-')/$(echo "${{ github.ref_name }}" | tr '/' '-')/terraform.tfstate"
+            # echo "State file: $STATE_FILE"
             
-            # Fetch Terraform state from Azure Blob Storage
-            az storage blob download \
-              --account-name "$STORAGE_ACCOUNT" \
-              --container-name "$CONTAINER_NAME" \
-              --name "$STATE_FILE" \
-              --file terraform.tfstate \
-              --auth-mode login
+            # # Fetch Terraform state from Azure Blob Storage
+            # az storage blob download \
+            #   --account-name "$STORAGE_ACCOUNT" \
+            #   --container-name "$CONTAINER_NAME" \
+            #   --name "$STATE_FILE" \
+            #   --file terraform.tfstate \
+            #   --auth-mode login
 
             cd ..
             echo "$KUBECONFIG_SECRET" > kubeconfig.secret
