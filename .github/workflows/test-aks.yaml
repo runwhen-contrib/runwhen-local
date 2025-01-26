@@ -256,11 +256,6 @@ jobs:
             export TF_VAR_subscription_id=$ARM_SUBSCRIPTION_ID
             export TF_VAR_tenant_id=$ARM_TENANT_ID
   
-            az storage blob lease break \
-              --account-name ${{ secrets.AZ_TF_STORAGE_ACCOUNT }} \
-              --container-name ${{ secrets.AZ_TF_STORAGE_CONTAINER }} \
-              --blob-name "terraform/$infra_desc/$(echo "${{ github.repository }}" | tr '/' '-')/$(echo "${{ github.ref_name }}" | tr '/' '-')/terraform.tfstate"
-  
   
             terraform init \
               -backend-config="resource_group_name=${{ env.AZ_RESOURCE_GROUP }}" \
