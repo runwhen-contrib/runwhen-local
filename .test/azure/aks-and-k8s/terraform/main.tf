@@ -31,6 +31,11 @@ resource "azurerm_user_assigned_identity" "cluster_identity" {
   location            = azurerm_resource_group.cluster_rg.location
   resource_group_name = azurerm_resource_group.cluster_rg.name
 }
+resource "azurerm_role_assignment" "sp_owner_rg" {
+  scope                = azurerm_resource_group.cluster_rg.id
+  role_definition_name = "Owner"
+  principal_id         = var.sp_principal_id
+}
 
 # Role Assignment for Service Principal
 resource "azurerm_role_assignment" "cluster_sp_owner" {
