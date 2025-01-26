@@ -145,17 +145,17 @@ jobs:
         run: |
           docker load -i .test/azure/aks-and-k8s/image.tar
 
-    - name: Azure Login
-      uses: azure/login@v2
-      with:
-        creds: ${{ secrets.AZ_SANDBOX_CREDS }}
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZ_SANDBOX_CREDS }}
 
-    - name: Azure CLI script
-      uses: azure/cli@v2
-      with:
-        azcliversion: latest
-        inlineScript: |
-          az account show
+      - name: Azure CLI script
+        uses: azure/cli@v2
+        with:
+          azcliversion: latest
+          inlineScript: |
+            az account show
 
       # - name: Run Test - ${{ matrix.test }}
       #   env:
