@@ -15,6 +15,9 @@ src/rw-cli-codecollection-cache
 **/.terraform/
 **/.terraform.lock.hcl
 
+# Ignore override
+**/override.tf
+
 # Ignore crash logs
 **/crash.log
 

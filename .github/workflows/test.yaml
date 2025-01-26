@@ -165,6 +165,7 @@ jobs:
       - name: Initialize Terraform with Remote State
         run: |
           cd .test/azure/aks-and-k8s/terraform
+          task check-backend
           terraform init \
             -backend-config="resource_group_name=${{ env.AZ_RESOURCE_GROUP }}" \
             -backend-config="storage_account_name=${{ secrets.AZ_TF_STORAGE_ACCOUNT }}" \
