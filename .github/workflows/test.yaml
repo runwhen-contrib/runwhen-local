@@ -171,8 +171,7 @@ jobs:
             -backend-config="container_name=${{ secrets.AZ_TF_STORAGE_CONTAINER }}" \
             -backend-config="key=terraform/$(echo "${{ github.repository }}" | tr '/' '-')/$(echo "${{ github.ref_name }}" | tr '/' '-')/terraform.tfstate"
 
-          cd ..
-          task build-infra
+          terraform plan -lock=false
 
 
   azure-aks-and-k8s-infra-cleanup:
