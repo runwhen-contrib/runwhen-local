@@ -254,7 +254,7 @@ jobs:
               --account-name "$STORAGE_ACCOUNT" \
               --container-name "$CONTAINER_NAME" \
               --name "$STATE_FILE" \
-              --file terraform-state.json \
+              --file terraform-state.tfstate \
               --auth-mode login
 
             cd ..
