@@ -167,6 +167,15 @@ jobs:
         run: |
           cd .test/azure/aks-and-k8s/terraform
           task check-backend
+
+          echo "Setting Azure Service Principal Credentials..."
+          echo '${{ secrets.AZ_SANDBOX_CREDS }}' > azure_creds.json
+          export ARM_CLIENT_ID=$(jq -r '.clientId' azure_creds.json)
+          export ARM_CLIENT_SECRET=$(jq -r '.clientSecret' azure_creds.json)
+          export ARM_SUBSCRIPTION_ID=$(jq -r '.subscriptionId' azure_creds.json)
+          export ARM_TENANT_ID=$(jq -r '.tenantId' azure_creds.json)
+
+
           terraform init \
             -backend-config="resource_group_name=${{ env.AZ_RESOURCE_GROUP }}" \
             -backend-config="storage_account_name=${{ secrets.AZ_TF_STORAGE_ACCOUNT }}" \
