@@ -554,7 +554,7 @@ tasks:
         fi
 
         echo "Starting cleanup of Terraform infrastructure..."
-        terraform destroy -auto-approve || {
+        terraform destroy -auto-approve -lock=false || {
           echo "Failed to clean up Terraform infrastructure."
           exit 1
         }
