@@ -79,9 +79,6 @@ tasks:
             resourceGroupLevelOfDetails:
               $cluster_resource_group: detailed
         codeCollections: []
-          # - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection"
-          #   branch: "main"
-          #   codeBundles: ["k8s-namespace-healthcheck", "azure-aks-triage", "k8s-deployment-healthcheck"]
         custom: 
           kubernetes_distribution_binary: kubectl
         EOF
@@ -186,9 +183,6 @@ tasks:
             resourceGroupLevelOfDetails:
               $cluster_resource_group: detailed
         codeCollections: []
-          # - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection"
-          #   branch: "main"
-          #   codeBundles: ["k8s-namespace-healthcheck", "azure-aks-triage", "k8s-deployment-healthcheck"]
         custom: 
           kubernetes_distribution_binary: kubectl
         EOF

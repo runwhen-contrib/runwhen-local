@@ -1,12 +1,12 @@
 # Build the RunWhen Local image
-name: Discovery Test
+name: Discovery AKS Tests
 
 on:
   workflow_dispatch:
   pull_request:
     paths:
       - "src/**"
-      - ".github/workflows/test.yaml"
+      - ".github/workflows/test-aks.yaml"
 
 permissions:
   contents: "read"
@@ -58,68 +58,34 @@ env:
 #           task ci-test-2
           
 jobs:
-  # build-image:
-    # runs-on: ubuntu-latest
-    # outputs:
-    #   image-tag: ${{ github.sha }}
-    # steps:
-    #   - name: Install Task
-    #     uses: arduino/setup-task@v2
-    #     with:
-    #       version: 3.x
+  build-image:
+    runs-on: ubuntu-latest
+    outputs:
+      image-tag: ${{ github.sha }}
+    steps:
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
 
-    #   - uses: actions/checkout@v2
-    #     name: Checkout
+      - uses: actions/checkout@v2
+        name: Checkout
 
-    #   - name: Build Image
-    #     run: |-
-    #       cd .test/k8s/basic
-    #       docker buildx create --use --name=mybuilder
-    #       docker buildx inspect --bootstrap
-    #       task build-rwl
-    #       docker save -o image.tar runwhen-local:test || (echo "Image not found!" && exit 1)
+      - name: Build Image
+        run: |-
+          cd .test/k8s/basic
+          docker buildx create --use --name=mybuilder
+          docker buildx inspect --bootstrap
+          task build-rwl
+          docker save -o image.tar runwhen-local:test || (echo "Image not found!" && exit 1)
 
 
-    #   - name: Upload Image as Artifact
-    #     uses: actions/upload-artifact@v4
-    #     with:
-    #       name: container-image
-    #       path: .test/k8s/basic/image.tar
-    #       retention-days: 1
-
-  # k8s-basic-test:
-  #   needs: build-image
-  #   runs-on: ubuntu-latest
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       test: [ci-test-1, ci-test-2]  # Define multiple tests
-  #   steps:
-  #     - name: Install Task
-  #       uses: arduino/setup-task@v2
-  #       with:
-  #         version: 3.x
-
-  #     - uses: actions/checkout@v2
-  #       name: Checkout
-
-  #     - name: Download Image Artifact
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: container-image
-  #         path: .test/k8s/basic
-
-  #     - name: Load Docker Image
-  #       run: |
-  #         docker load -i .test/k8s/basic/image.tar
-
-  #     - name: Run Test - ${{ matrix.test }}
-  #       env:
-  #         KUBECONFIG_SECRET: ${{ secrets.SANDBOX_KUBECONFIG }}
-  #       run: |-
-  #         cd .test/k8s/basic
-  #         echo "$KUBECONFIG_SECRET" > kubeconfig.secret
-  #         task ${{ matrix.test }}
+      - name: Upload Image as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: container-image
+          path: .test/k8s/basic/image.tar
+          retention-days: 1
 
   azure-aks-and-k8s-infra-build:
     # needs: build-image
@@ -153,6 +119,7 @@ jobs:
         id: azure-infra-build
         run: |
           cd .test/azure/aks-and-k8s/terraform
+          infra-desc=$(echo "$PWD" | awk -F'/' '{print $(NF-1)}')
           task check-backend
 
           echo "Setting Azure Service Principal Credentials..."
@@ -169,7 +136,7 @@ jobs:
             -backend-config="resource_group_name=${{ env.AZ_RESOURCE_GROUP }}" \
             -backend-config="storage_account_name=${{ secrets.AZ_TF_STORAGE_ACCOUNT }}" \
             -backend-config="container_name=${{ secrets.AZ_TF_STORAGE_CONTAINER }}" \
-            -backend-config="key=terraform/${{ github.job }}/$(echo "${{ github.repository }}" | tr '/' '-')/$(echo "${{ github.ref_name }}" | tr '/' '-')/terraform.tfstate"
+            -backend-config="key=terraform/$infra-desc/${{ github.job }}/$(echo "${{ github.repository }}" | tr '/' '-')/$(echo "${{ github.ref_name }}" | tr '/' '-')/terraform.tfstate"
 
           cd ..
           task build-terraform-infra
@@ -177,7 +144,9 @@ jobs:
 
   azure-aks-and-k8s-infra-cleanup:
     runs-on: ubuntu-latest
-    needs: azure-aks-and-k8s-infra-build
+    needs: 
+      - azure-aks-and-k8s-infra-build
+      - azure-aks-and-k8s-tests
     if: always() # Runs even if terraform-apply fails
 
     steps:
@@ -200,6 +169,7 @@ jobs:
       - name: Clean up terraform infrastructure
         run: |
           cd .test/azure/aks-and-k8s/terraform
+          infra-desc=$(echo "$PWD" | awk -F'/' '{print $(NF-1)}')
           task check-backend
 
           echo "Setting Azure Service Principal Credentials..."
@@ -215,65 +185,74 @@ jobs:
           az storage blob lease break \
             --account-name ${{ secrets.AZ_TF_STORAGE_ACCOUNT }} \
             --container-name ${{ secrets.AZ_TF_STORAGE_CONTAINER }} \
-            --blob-name "terraform/azure-aks-and-k8s-infra-build/$(echo "${{ github.repository }}" | tr '/' '-')/$(echo "${{ github.ref_name }}" | tr '/' '-')/terraform.tfstate"
+            --blob-name "terraform/$infra-desc/$(echo "${{ github.repository }}" | tr '/' '-')/$(echo "${{ github.ref_name }}" | tr '/' '-')/terraform.tfstate"
 
 
           terraform init \
             -backend-config="resource_group_name=${{ env.AZ_RESOURCE_GROUP }}" \
             -backend-config="storage_account_name=${{ secrets.AZ_TF_STORAGE_ACCOUNT }}" \
             -backend-config="container_name=${{ secrets.AZ_TF_STORAGE_CONTAINER }}" \
-            -backend-config="key=terraform/azure-aks-and-k8s-infra-build/$(echo "${{ github.repository }}" | tr '/' '-')/$(echo "${{ github.ref_name }}" | tr '/' '-')/terraform.tfstate"
+            -backend-config="key=terraform/$infra-desc/$(echo "${{ github.repository }}" | tr '/' '-')/$(echo "${{ github.ref_name }}" | tr '/' '-')/terraform.tfstate"
 
           cd ..
           task cleanup-terraform-infra
 
 
 
-# azure-aks-and-k8s-tests:
-#     needs: 
-#       - build-image
-#       - azure-aks-and-k8s-build-infra
-#     runs-on: ubuntu-latest
-#     strategy:
-#       fail-fast: false
-#       matrix:
-#         test: [ci-test-1]  # Define multiple tests
-#     steps:
-#       - name: Install Task
-#         uses: arduino/setup-task@v2
-#         with:
-#           version: 3.x
+  azure-aks-and-k8s-tests:
+      needs: 
+        - build-image
+        - azure-aks-and-k8s-infra-build
+      runs-on: ubuntu-latest
+      strategy:
+        fail-fast: false
+        matrix:
+          test: [ci-test-1]  # Define multiple tests
+      steps:
+        - name: Install Task
+          uses: arduino/setup-task@v2
+          with:
+            version: 3.x
 
-#       - uses: actions/checkout@v2
-#         name: Checkout
+        - uses: actions/checkout@v2
+          name: Checkout
 
-#       - name: Download Image Artifact
-#         uses: actions/download-artifact@v4
-#         with:
-#           name: container-image
-#           path: .test/azure/aks-and-k8s
+        - name: Download Image Artifact
+          uses: actions/download-artifact@v4
+          with:
+            name: container-image
+            path: .test/azure/aks-and-k8s
 
-#       - name: Load Docker Image
-#         run: |
-#           docker load -i .test/azure/aks-and-k8s/image.tar
+        - name: Load Docker Image
+          run: |
+            docker load -i .test/azure/aks-and-k8s/image.tar
 
-#       - name: Azure Login
-#         uses: azure/login@v2
-#         with:
-#           creds: ${{ secrets.AZ_SANDBOX_CREDS }}
+        - name: Azure Login
+          uses: azure/login@v2
+          with:
+            creds: ${{ secrets.AZ_SANDBOX_CREDS }}
 
-#       - name: Azure CLI script
-#         uses: azure/cli@v2
-#         with:
-#           azcliversion: latest
-#           inlineScript: |
-#             az account show
+        - name: Run Test - ${{ matrix.test }}
+          env:
+            KUBECONFIG_SECRET: ${{ secrets.SANDBOX_KUBECONFIG }}
+            AZ_SANDBOX: ${{ secrets.AZ_SANDBOX }}
+          run: |-
+            cd .test/azure/aks-and-k8s/terraform
+            infra-desc=$(echo "$PWD" | awk -F'/' '{print $(NF-1)}')
 
-#       # - name: Run Test - ${{ matrix.test }}
-#       #   env:
-#       #     KUBECONFIG_SECRET: ${{ secrets.SANDBOX_KUBECONFIG }}
-#       #     AZ_SANDBOX: ${{ secrets.AZ_SANDBOX }}
-#       #   run: |-
-#       #     cd .test/k8s/basic
-#       #     echo "$KUBECONFIG_SECRET" > kubeconfig.secret
-#       #     task ${{ matrix.test }}
+            # Define variables
+            STORAGE_ACCOUNT="${{ secrets.AZ_TF_STORAGE_ACCOUNT }}"
+            CONTAINER_NAME="${{ secrets.AZ_TF_STORAGE_CONTAINER }}"
+            STATE_FILE="terraform/$infra-desc/$(echo "${{ github.repository }}" | tr '/' '-')/$(echo "${{ github.ref_name }}" | tr '/' '-')/terraform.tfstate"
+
+            # Fetch Terraform state from Azure Blob Storage
+            az storage blob download \
+              --account-name "$STORAGE_ACCOUNT" \
+              --container-name "$CONTAINER_NAME" \
+              --name "$STATE_FILE" \
+              --file terraform-state.json \
+              --auth-mode login
+
+            cd ..
+            echo "$KUBECONFIG_SECRET" > kubeconfig.secret
+            task ${{ matrix.test }}
