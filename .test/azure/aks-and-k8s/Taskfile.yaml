@@ -267,6 +267,8 @@ tasks:
         AZ_CLIENT_SECRET: "{{.AZ_CLIENT_SECRET}}"
         AZ_CLIENT_ID: "{{.AZ_CLIENT_ID}}"
         RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
+      vars: 
+        EXPECTED_SLXS: "39"
       cmds:
         - |
           repo_url=$(git config --get remote.origin.url)
@@ -316,14 +318,14 @@ tasks:
               resourceGroupLevelOfDetails:
                 $cluster_resource_group: detailed
           codeCollections: []
-            # - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection"
-            #   branch: "main"
-            #   codeBundles: ["k8s-namespace-healthcheck", "azure-aks-triage", "k8s-deployment-healthcheck"]
           custom: 
             kubernetes_distribution_binary: kubectl
           EOF
 
-        - task: run-rwl-discovery
+        - task: ci-run-rwl-discovery
+        - task: verify-slx-count
+          vars:
+            EXPECTED_SLX_COUNT: "{{.EXPECTED_SLXS}}"
       silent: true
 
   ci-test-3:
@@ -334,6 +336,8 @@ tasks:
         AZ_CLIENT_SECRET: "{{.AZ_CLIENT_SECRET}}"
         AZ_CLIENT_ID: "{{.AZ_CLIENT_ID}}"
         RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
+      vars: 
+        EXPECTED_SLXS: "7"
       cmds:
         - |
           repo_url=$(git config --get remote.origin.url)
@@ -342,13 +346,13 @@ tasks:
 
           # Fetch individual cluster details from Terraform state
           pushd terraform > /dev/null
-          cluster_name=$(terraform show -json terraform.tfstate | jq -r '
+          cluster_name=$(terraform show -json  | jq -r '
             .values.outputs.cluster_name.value')
-          cluster_server=$(terraform show -json terraform.tfstate | jq -r '
+          cluster_server=$(terraform show -json  | jq -r '
             .values.outputs.cluster_fqdn.value')
-          cluster_resource_group=$(terraform show -json terraform.tfstate | jq -r '
+          cluster_resource_group=$(terraform show -json  | jq -r '
             .values.outputs.cluster_rg.value')
-          cluster_sub=$(terraform show -json terraform.tfstate | jq -r '
+          cluster_sub=$(terraform show -json  | jq -r '
             .values.outputs.cluster_sub.value')
 
           popd > /dev/null
@@ -393,7 +397,10 @@ tasks:
             kubernetes_distribution_binary: kubectl
           EOF
 
-        - task: run-rwl-discovery
+        - task: ci-run-rwl-discovery
+        - task: verify-slx-count
+          vars:
+            EXPECTED_SLX_COUNT: "{{.EXPECTED_SLXS}}"
       silent: true
 
   ci-test-4:
@@ -404,6 +411,8 @@ tasks:
         AZ_CLIENT_SECRET: "{{.AZ_CLIENT_SECRET}}"
         AZ_CLIENT_ID: "{{.AZ_CLIENT_ID}}"
         RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
+      vars: 
+        EXPECTED_SLXS: "5"
       cmds:
         - |
           repo_url=$(git config --get remote.origin.url)
@@ -452,24 +461,26 @@ tasks:
               resourceGroupLevelOfDetails:
                 $cluster_resource_group: detailed
           codeCollections: []
-            # - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection"
-            #   branch: "main"
-            #   codeBundles: ["k8s-namespace-healthcheck", "azure-aks-triage", "k8s-deployment-healthcheck"]
           custom: 
             kubernetes_distribution_binary: kubectl
           EOF
 
-        - task: run-rwl-discovery
+        - task: ci-run-rwl-discovery
+        - task: verify-slx-count
+          vars:
+            EXPECTED_SLX_COUNT: "{{.EXPECTED_SLXS}}"
       silent: true
 
   ci-test-5:
-      desc: "Run CI Discovery Test 4 - K8s only - defaultLOD basic, K8s defaultNamespaceLOD basic, no AKS cluster"
+      desc: "Run CI Discovery Test 4 - K8s only - defaultLOD basic, K8s defaultNamespaceLOD basic (1 ns), no AKS cluster"
       env:
         ARM_SUBSCRIPTION_ID: "{{.TF_VAR_subscription_id}}"
         AZ_TENANT_ID: "{{.AZ_TENANT_ID}}"
         AZ_CLIENT_SECRET: "{{.AZ_CLIENT_SECRET}}"
         AZ_CLIENT_ID: "{{.AZ_CLIENT_ID}}"
         RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
+      vars: 
+        EXPECTED_SLXS: "6"
       cmds:
         - |
           repo_url=$(git config --get remote.origin.url)
@@ -478,13 +489,13 @@ tasks:
 
           # Fetch individual cluster details from Terraform state
           pushd terraform > /dev/null
-          cluster_name=$(terraform show -json terraform.tfstate | jq -r '
+          cluster_name=$(terraform show -json  | jq -r '
             .values.outputs.cluster_name.value')
-          cluster_server=$(terraform show -json terraform.tfstate | jq -r '
+          cluster_server=$(terraform show -json  | jq -r '
             .values.outputs.cluster_fqdn.value')
-          cluster_resource_group=$(terraform show -json terraform.tfstate | jq -r '
+          cluster_resource_group=$(terraform show -json  | jq -r '
             .values.outputs.cluster_rg.value')
-          cluster_sub=$(terraform show -json terraform.tfstate | jq -r '
+          cluster_sub=$(terraform show -json | jq -r '
             .values.outputs.cluster_sub.value')
 
           popd > /dev/null
@@ -507,6 +518,8 @@ tasks:
               contexts:
                 sandbox-cluster-1: 
                   defaultNamespaceLOD: basic
+              namespaces:
+                - ci-verify-basic
             azure:
               subscriptionId: "$ARM_SUBSCRIPTION_ID"
               tenantId: "$AZ_TENANT_ID"
@@ -515,14 +528,14 @@ tasks:
               resourceGroupLevelOfDetails:
                 $cluster_resource_group: detailed
           codeCollections: []
-            # - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection"
-            #   branch: "main"
-            #   codeBundles: ["k8s-namespace-healthcheck", "azure-aks-triage", "k8s-deployment-healthcheck"]
           custom: 
             kubernetes_distribution_binary: kubectl
           EOF
 
-        - task: run-rwl-discovery
+        - task: ci-run-rwl-discovery
+        - task: verify-slx-count
+          vars:
+            EXPECTED_SLX_COUNT: "{{.EXPECTED_SLXS}}"
       silent: true
 
   install-deployment: 
