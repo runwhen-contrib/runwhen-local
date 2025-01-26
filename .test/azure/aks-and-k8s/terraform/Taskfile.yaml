@@ -29,19 +29,19 @@ tasks:
     desc: "Check if AZ_TF_STORAGE_CONTAINER exists, otherwise use local backend"
     cmds:
       - |
-        if [[ -z "${AZ_TF_STORAGE_CONTAINER}" ]]; then
-          echo "AZ_TF_STORAGE_CONTAINER is not set. Using local backend..."
-          cat <<EOF > override.tf
-          terraform {
-            backend "local" {
-              path = "terraform.tfstate"
-            }
-          }
-          EOF
-        else
-          echo "AZ_TF_STORAGE_CONTAINER is set. Using remote backend."
-          rm -f override.tf  # Ensure local override is removed if remote is available
-        fi
+          if [[ -z "${AZ_TF_STORAGE_CONTAINER}" ]]; then
+            echo "AZ_TF_STORAGE_CONTAINER is not set. Using local backend..."
+            cat > override.tf << 'EOF'
+terraform {
+  backend "local" {
+    path = "terraform.tfstate"
+  }
+}
+EOF
+          else
+            echo "AZ_TF_STORAGE_CONTAINER is set. Using remote backend."
+            rm -f override.tf  # Remove local override if remote backend is available
+          fi
     silent: true
 
   format-and-init-terraform:
