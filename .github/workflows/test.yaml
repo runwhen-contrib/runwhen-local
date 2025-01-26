@@ -193,7 +193,10 @@ jobs:
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZ_SANDBOX_CREDS }}
-
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+    
       - name: Clean up terraform infrastructure
         run: |
           cd .test/azure/aks-and-k8s
