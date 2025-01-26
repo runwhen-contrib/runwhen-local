@@ -491,9 +491,6 @@ tasks:
     desc: "Check if Terraform has any deployed infrastructure in the terraform subdirectory"
     cmds:
       - |
-        # Source Envs for Auth
-        source terraform/tf.secret
-
         # Navigate to the Terraform directory
         if [ ! -d "terraform" ]; then
           echo "Terraform directory not found."
@@ -525,9 +522,6 @@ tasks:
     desc: "Run terraform apply"
     cmds:
       - |
-        # Source Envs for Auth
-        source terraform/tf.secret
-
 
         # Navigate to the Terraform directory
         if [ -d "terraform" ]; then
@@ -550,8 +544,6 @@ tasks:
     desc: "Cleanup deployed Terraform infrastructure"
     cmds:
       - |
-        # Source Envs for Auth
-        source terraform/tf.secret
 
         # Navigate to the Terraform directory
         if [ -d "terraform" ]; then
