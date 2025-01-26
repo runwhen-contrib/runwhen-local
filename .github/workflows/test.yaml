@@ -216,7 +216,7 @@ jobs:
             -backend-config="resource_group_name=${{ env.AZ_RESOURCE_GROUP }}" \
             -backend-config="storage_account_name=${{ secrets.AZ_TF_STORAGE_ACCOUNT }}" \
             -backend-config="container_name=${{ secrets.AZ_TF_STORAGE_CONTAINER }}" \
-            -backend-config="key=terraform/${{ github.job }}/$(echo "${{ github.repository }}" | tr '/' '-')/$(echo "${{ github.ref_name }}" | tr '/' '-')/terraform.tfstate"
+            -backend-config="key=terraform/azure-aks-and-k8s-infra-build/$(echo "${{ github.repository }}" | tr '/' '-')/$(echo "${{ github.ref_name }}" | tr '/' '-')/terraform.tfstate"
 
           terraform destroy
 
