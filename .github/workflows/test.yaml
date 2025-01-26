@@ -165,8 +165,6 @@ jobs:
           export TF_VAR_subscription_id=$ARM_SUBSCRIPTION_ID
           export TF_VAR_tenant_id=$ARM_TENANT_ID
 
-          echo "SP_ID: $TF_VAR_sp_principal_id"
-
           terraform init \
             -backend-config="resource_group_name=${{ env.AZ_RESOURCE_GROUP }}" \
             -backend-config="storage_account_name=${{ secrets.AZ_TF_STORAGE_ACCOUNT }}" \
@@ -183,6 +181,11 @@ jobs:
     if: always() # Runs even if terraform-apply fails
 
     steps:
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+
       - name: Checkout Repository
         uses: actions/checkout@v4
 
@@ -201,6 +204,9 @@ jobs:
           export ARM_CLIENT_SECRET=$(jq -r '.clientSecret' azure_creds.json)
           export ARM_SUBSCRIPTION_ID=$(jq -r '.subscriptionId' azure_creds.json)
           export ARM_TENANT_ID=$(jq -r '.tenantId' azure_creds.json)
+          export TF_VAR_sp_principal_id=$(az ad sp show --id $ARM_CLIENT_ID --query id -o tsv)
+          export TF_VAR_subscription_id=$ARM_SUBSCRIPTION_ID
+          export TF_VAR_tenant_id=$ARM_TENANT_ID
 
           task cleanup-terraform-infra
 
