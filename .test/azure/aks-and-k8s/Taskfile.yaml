@@ -145,6 +145,43 @@ tasks:
         echo "Total SLXs: $total_slxs"
         echo "$total_slxs" > slx_count.txt
     silent: true
+  
+  ci-run-rwl-discovery:
+    desc: "Run RunWhen Local Discovery on test infrastructure"
+    cmds:
+      - |
+        rm slx_count.txt || true
+        CONTAINER_NAME="RunWhenLocal"    
+        if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Stopping and removing existing container $CONTAINER_NAME..."
+          docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME
+        elif docker ps -a -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Removing existing stopped container $CONTAINER_NAME..."
+          docker rm $CONTAINER_NAME
+        else
+          echo "No existing container named $CONTAINER_NAME found."
+        fi
+        
+        echo "Cleaning up output directory..."
+        rm -rf output || { echo "Failed to remove output directory"; exit 1; }
+        mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
+
+        echo "Starting new container $CONTAINER_NAME..."
+
+        docker run -e WB_DEBUG_SUPPRESS_CHEAT_SHEET="true" -e DEBUG_LOGS=true --name $CONTAINER_NAME -p 8081:8081 -v $(pwd):/shared -d runwhen-local:test || {
+          echo "Failed to start container"; exit 1;
+        }
+
+        echo "Running workspace builder script in container..."
+        docker exec -w /workspace-builder $CONTAINER_NAME ./run.sh $1 --verbose || {
+          echo "Error executing script in container"; exit 1;
+        }
+
+        echo "Review generated config files under output/workspaces/"
+        total_slxs=$(find $(find 'output/' -type d -name 'slxs') -mindepth 1 -type d | wc -l)
+        echo "Total SLXs: $total_slxs"
+        echo "$total_slxs" > slx_count.txt
+    silent: true
 
   ci-test-1:
     desc: "Run CI Discovery Test 1 - K8s & AKS - defaultLOD None, K8s context defaultNamespaceLOD Basic, AKS defaultNamespaceLOD Detailed"
@@ -154,6 +191,7 @@ tasks:
       AZ_CLIENT_SECRET: "{{.AZ_CLIENT_SECRET}}"
       AZ_CLIENT_ID: "{{.AZ_CLIENT_ID}}"
       RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
+      EXPECTED_SLXS: "5"
     cmds:
       - |
         repo_url=$(git config --get remote.origin.url)
@@ -210,7 +248,10 @@ tasks:
           kubernetes_distribution_binary: kubectl
         EOF
 
-      - task: run-rwl-discovery
+      - task: ci-run-rwl-discovery
+      - task: verify-slx-count
+        vars:
+          EXPECTED_SLX_COUNT: "{{.EXPECTED_SLXS}}"
     silent: true
 
   ci-test-2:
@@ -600,4 +641,23 @@ tasks:
       - |
         rm -rf output
         rm workspaceInfo.yaml
+    silent: true
+
+
+  verify-slx-count: 
+    desc: "Validate SLX Count in CI test"
+    vars:
+      EXPECTED_SLX_COUNT: "{{.EXPECTED_SLX_COUNT | default `0`}}"
+    cmds: 
+      - |
+          total_slxs=$(cat slx_count.txt)
+          echo "---Validating SLX Count---"
+          echo "Total SLXs: $total_slxs (Expected: {{.EXPECTED_SLX_COUNT}})"
+          if [[ "$total_slxs" != "{{.EXPECTED_SLX_COUNT}}" ]]; then
+            echo -e "\033[31m❌ Total SLX count failed\033[0m"
+            exit 1
+          else
+            echo -e "\033[32m✔️ SLX Validation Passed\033[0m"
+            exit 0
+          fi
     silent: true
