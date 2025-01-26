@@ -218,8 +218,7 @@ jobs:
             -backend-config="container_name=${{ secrets.AZ_TF_STORAGE_CONTAINER }}" \
             -backend-config="key=terraform/${{ github.job }}/$(echo "${{ github.repository }}" | tr '/' '-')/$(echo "${{ github.ref_name }}" | tr '/' '-')/terraform.tfstate"
 
-          cd ..
-          task cleanup-terraform-infra
+          terraform destroy
 
 
 
