@@ -17,6 +17,7 @@ permissions:
 env:
   PROJECT_ID: runwhen-nonprod-shared
   DEFAULT_BRANCH: "origin/${{ github.event.repository.default_branch }}"
+  AZ_RESOURCE_GROUP: "sandbox"
 
 
 # jobs:
@@ -156,6 +157,20 @@ jobs:
           azcliversion: latest
           inlineScript: |
             az account show
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+  
+
+      - name: Initialize Terraform with Remote State
+        run: |
+          cd .test/azure/aks-and-k8s
+          terraform init \
+            -backend="azurerm" \
+            -backend-config="resource_group_name=${{ env.AZ_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ secrets.AZ_TF_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ secrets.AZ_TF_STORAGE_CONTAINER }}" \
+            -backend-config="key=terraform/${{ matrix.test }}/$(echo "${{ github.repository }}" | tr '/' '-')/$(echo "${{ github.ref_name }}" | tr '/' '-')/terraform.tfstate"
 
       # - name: Run Test - ${{ matrix.test }}
       #   env:

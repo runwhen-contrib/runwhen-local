@@ -18,12 +18,6 @@ src/rw-cli-codecollection-cache
 # Ignore crash logs
 **/crash.log
 
-# Ignore override files
-**/*_override.tf
-**/*_override.tf.json
-**/*override.tf
-**/*override.tf.json
-
 # Ignore plan output files
 **/*.tfplan
 
