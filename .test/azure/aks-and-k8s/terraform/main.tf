@@ -37,20 +37,6 @@ resource "azurerm_role_assignment" "sp_owner_rg" {
   principal_id         = var.sp_principal_id
 }
 
-# Role Assignment for Service Principal
-resource "azurerm_role_assignment" "cluster_sp_owner" {
-  scope                = "/subscriptions/${var.subscription_id}"
-  role_definition_name = "Azure Kubernetes Service RBAC Cluster Admin"
-  principal_id         = var.sp_principal_id
-  principal_type       = "ServicePrincipal"
-}
-# Role Assignment for Service Principal
-resource "azurerm_role_assignment" "cluster_sp_reader" {
-  scope                = "/subscriptions/${var.subscription_id}"
-  role_definition_name = "Reader"
-  principal_id         = var.sp_principal_id
-  principal_type       = "ServicePrincipal"
-}
 # AKS Cluster
 resource "azurerm_kubernetes_cluster" "cluster_aks" {
   name                = "aks-cl-1"
