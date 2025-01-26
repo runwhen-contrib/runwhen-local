@@ -251,7 +251,8 @@ jobs:
             STORAGE_ACCOUNT="${{ secrets.AZ_TF_STORAGE_ACCOUNT }}"
             CONTAINER_NAME="${{ secrets.AZ_TF_STORAGE_CONTAINER }}"
             STATE_FILE="terraform/$infra_desc/$(echo "${{ github.repository }}" | tr '/' '-')/$(echo "${{ github.ref_name }}" | tr '/' '-')/terraform.tfstate"
-
+            echo "State file: $STATE_FILE"
+            
             # Fetch Terraform state from Azure Blob Storage
             az storage blob download \
               --account-name "$STORAGE_ACCOUNT" \
