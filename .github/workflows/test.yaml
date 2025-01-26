@@ -199,7 +199,8 @@ jobs:
     
       - name: Clean up terraform infrastructure
         run: |
-          cd .test/azure/aks-and-k8s
+          cd .test/azure/aks-and-k8s/terraform
+          task check-backend
 
           echo "Setting Azure Service Principal Credentials..."
           echo '${{ secrets.AZ_SANDBOX_CREDS }}' > azure_creds.json
@@ -211,6 +212,13 @@ jobs:
           export TF_VAR_subscription_id=$ARM_SUBSCRIPTION_ID
           export TF_VAR_tenant_id=$ARM_TENANT_ID
 
+          terraform init \
+            -backend-config="resource_group_name=${{ env.AZ_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ secrets.AZ_TF_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ secrets.AZ_TF_STORAGE_CONTAINER }}" \
+            -backend-config="key=terraform/${{ github.job }}/$(echo "${{ github.repository }}" | tr '/' '-')/$(echo "${{ github.ref_name }}" | tr '/' '-')/terraform.tfstate"
+
+          cd ..
           task cleanup-terraform-infra
 
 
