@@ -232,6 +232,13 @@ jobs:
           with:
             creds: ${{ secrets.AZ_SANDBOX_CREDS }}
 
+        - name: Azure CLI script
+          uses: azure/cli@v2
+          with:
+            azcliversion: latest
+            inlineScript: |
+              az account show
+
         - name: Run Test - ${{ matrix.test }}
           env:
             KUBECONFIG_SECRET: ${{ secrets.SANDBOX_KUBECONFIG }}
