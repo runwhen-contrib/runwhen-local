@@ -165,6 +165,8 @@ jobs:
           export TF_VAR_subscription_id=$ARM_SUBSCRIPTION_ID
           export TF_VAR_tenant_id=$ARM_TENANT_ID
 
+          echo "SP_ID: $TF_VAR_sp_principal_id"
+
           terraform init \
             -backend-config="resource_group_name=${{ env.AZ_RESOURCE_GROUP }}" \
             -backend-config="storage_account_name=${{ secrets.AZ_TF_STORAGE_ACCOUNT }}" \
