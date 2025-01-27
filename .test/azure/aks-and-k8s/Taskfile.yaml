@@ -421,13 +421,13 @@ tasks:
 
           # Fetch individual cluster details from Terraform state
           pushd terraform > /dev/null
-          cluster_name=$(terraform show -json terraform.tfstate | jq -r '
+          cluster_name=$(terraform show -json | jq -r '
             .values.outputs.cluster_name.value')
-          cluster_server=$(terraform show -json terraform.tfstate | jq -r '
+          cluster_server=$(terraform show -json  | jq -r '
             .values.outputs.cluster_fqdn.value')
-          cluster_resource_group=$(terraform show -json terraform.tfstate | jq -r '
+          cluster_resource_group=$(terraform show -json | jq -r '
             .values.outputs.cluster_rg.value')
-          cluster_sub=$(terraform show -json terraform.tfstate | jq -r '
+          cluster_sub=$(terraform show -json | jq -r '
             .values.outputs.cluster_sub.value')
 
           popd > /dev/null
@@ -472,7 +472,7 @@ tasks:
       silent: true
 
   ci-test-5:
-      desc: "Run CI Discovery Test 4 - K8s only - defaultLOD basic, K8s defaultNamespaceLOD basic (1 ns), no AKS cluster"
+      desc: "Run CI Discovery Test 5 - K8s only - defaultLOD basic, K8s defaultNamespaceLOD basic (1 ns), no AKS cluster"
       env:
         ARM_SUBSCRIPTION_ID: "{{.TF_VAR_subscription_id}}"
         AZ_TENANT_ID: "{{.AZ_TENANT_ID}}"

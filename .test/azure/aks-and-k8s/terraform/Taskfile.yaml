@@ -28,6 +28,8 @@ tasks:
   env-setup:
     env: 
       AZ_TF_STORAGE_CONTAINER: "{{.AZ_TF_STORAGE_CONTAINER}}"
+      GITHUB_REF_NAME: "{{.GITHUB_REF_NAME}}"
+      GITHUB_REPOSITORY: "{{.GITHUB_REPOSITORY}}"
     desc: "Check if AZ_TF_STORAGE_CONTAINER exists, otherwise use local backend"
     cmds:
       - |
@@ -51,7 +53,7 @@ tasks:
           else
               CI_MODE=false
           fi
-
+          echo "CI_MODE=${CI_MODE}"
           # Generate resource prefix based on environment
           if [[ "$CI_MODE" == "true" ]]; then
               # Running in CI/CD
