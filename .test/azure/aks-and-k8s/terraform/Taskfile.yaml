@@ -62,8 +62,15 @@ tasks:
               RESOURCE_SUFFIX="ci-${REPO_NAME}-${BRANCH_NAME}"
 
               # Create override.tfvars for CI/CD
-              echo "resource_suffix = \"$RESOURCE_SUFFIX\"" > override.tfvars
-              echo "CI/CD detected - Using override.tfvars with prefix: $RESOURCE_SUFFIX"
+              echo "CI/CD detected - Using prefix: $RESOURCE_SUFFIX"
+              # Update terraform.tfvars for local use
+              if grep -q "resource_suffix" terraform.tfvars; then
+                  # Replace existing prefix
+                  sed -i "s/^resource_suffix.*/resource_suffix = \"$RESOURCE_SUFFIX\"/" terraform.tfvars
+              else
+                  # Append if not present
+                  echo "resource_suffix = \"$RESOURCE_SUFFIX\"" >> terraform.tfvars
+              fi
           else
               # Running locally, fallback to username or default
               if [[ -n "$GITHUB_USER" ]]; then
@@ -71,7 +78,7 @@ tasks:
               else
                 RESOURCE_SUFFIX="local-$(whoami)"
               fi
-              # Update override.tf for local use
+              # Update terraform.tfvars for local use
               if grep -q "resource_suffix" terraform.tfvars; then
                   # Replace existing prefix
                   sed -i "s/^resource_suffix.*/resource_suffix = \"$RESOURCE_SUFFIX\"/" terraform.tfvars
