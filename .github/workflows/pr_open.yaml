@@ -79,6 +79,8 @@ jobs:
           docker buildx create --use --name=mybuilder
           docker buildx inspect --bootstrap
           docker buildx build \
+            --memory=6g \
+            --memory-swap=8g \
             --sbom=true \
             --push \
             --platform linux/amd64,linux/arm64 \

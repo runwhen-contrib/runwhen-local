@@ -60,6 +60,10 @@ tasks:
 
         ## Building Container Image
         docker buildx build --builder mybuilder --platform linux/amd64  -t runwhen-local:test -f $BUILD_DIR/Dockerfile $BUILD_DIR --load
+
+        ## Use this if you need to test both arm64/amd64 builds
+        # docker buildx build --builder mybuilder --platform linux/amd64,linux/arm64  -t runwhen-local:test -f $BUILD_DIR/Dockerfile $BUILD_DIR
+
     silent: true
 
 
