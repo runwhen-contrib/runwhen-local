@@ -83,7 +83,7 @@ jobs:
         run: |
           cd .test/azure/aks-and-k8s/terraform
           infra_desc=$(echo "$PWD" | awk -F'/' '{print $(NF-1)}')
-          task check-backend
+          task env-setup
 
           echo "Setting Azure Service Principal Credentials..."
           echo '${{ secrets.AZ_SANDBOX_CREDS }}' > azure_creds.json
@@ -133,7 +133,7 @@ jobs:
         run: |
           cd .test/azure/aks-and-k8s/terraform
           infra_desc=$(echo "$PWD" | awk -F'/' '{print $(NF-1)}')
-          task check-backend
+          task env-setup
 
           echo "Setting Azure Service Principal Credentials..."
           echo '${{ secrets.AZ_SANDBOX_CREDS }}' > azure_creds.json
