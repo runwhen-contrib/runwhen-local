@@ -1,8 +1,8 @@
     slx: {{slx_name}}
     workspace: {{workspace.short_name}}
-{% if default_location %}
-    defaultLocation: {{default_location}}
+{% if location_id %}
+    locationId: {{location_id}}
 {% endif %}
-{% if default_location_name %}
-    defaultLocationName: {{default_location_name}}
+{% if location_name %}
+    locationName: {{location_name}}
 {% endif %}

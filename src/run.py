@@ -240,10 +240,10 @@ def main():
                         help="Name of the workspace to populate")
     parser.add_argument('--workspace-owner-email', action='store', dest="workspace_owner_email",
                         help="Email address to use as the owner of the workspace")
-    parser.add_argument('--default-location', action='store', dest="default_location",
-                        help="Default location to use for the generated workspace")
-    parser.add_argument('--default-location-name', action='store', dest="default_location_name",
-                        help="Default location name to use for the generated workspace")
+    parser.add_argument('--location-id', action='store', dest="location_id",
+                        help="Location ID to use for the generated workspace")
+    parser.add_argument('--location-name', action='store', dest="location_name",
+                        help="Location name to use for the generated workspace")
     parser.add_argument('--default-lod', action='store', dest='default_lod', type=str,
                         help='Default level of detail to use; valid values are "none", "basic", and "detailed".')
     parser.add_argument('--resource-dump-path', action='store', dest='resource_dump_path', type=str,
@@ -256,6 +256,9 @@ def main():
                         help='On upload, how to merge conflicting SLXs; valid values are:\n'
                              '  "keep-existing": Use the existing content of the SLX from the repo\n'
                              '  "keep-uploaded": Use the uploaded content of the SLX')
+    parser.add_argument('--prune-stale-resources', action='store_true', dest='prune_stale_resources', default=False,
+                        help='On upload, prune from the repo any old/stale resources from previous uploads that\n'
+                             'are no longer active/valid in the current uploaded data.')
     parser.add_argument('--prune-stale-slxs', action='store_true', dest='prune_stale_slxs', default=False,
                         help='On upload, prune from the repo any old/stale SLXs from previous uploads that\n'
                              'are no longer active/valid in the current uploaded data.')
@@ -305,8 +308,8 @@ def main():
     # These have the highest precedence, i.e. over the same setting from the workspace info.
     workspace_name = args.workspace_name
     workspace_owner_email = args.workspace_owner_email
-    default_location = args.default_location
-    default_location_name = args.default_location_name
+    location_id = args.location_id
+    location_name = args.location_name
     papi_url = args.papi_url
     default_lod = args.default_lod
     namespaces = [ns.strip() for ns in args.namespaces.split(',')] if args.namespaces else None
@@ -345,10 +348,16 @@ def main():
             workspace_name = upload_info.get('workspaceName')
         if not workspace_owner_email:
             workspace_owner_email = upload_info.get('workspaceOwnerEmail')
-        if not default_location:
-            default_location = upload_info.get("defaultLocation")
-        if not default_location_name:
-            default_location_name = upload_info.get("defaultLocationName")
+        if not location_id:
+            location_id = upload_info.get("locationId")
+            # This is backwards compatibility code to support the old name that can eventually go away
+            if not location_id:
+                location_id = upload_info.get("defaultLocation")
+        if not location_name:
+            location_name = upload_info.get("locationName")
+            # This is backwards compatibility code to support the old name that can eventually go away
+            if not location_name:
+                location_name = upload_info.get("defaultLocationName")
     except FileNotFoundError:
         # Don't treat this as a fatal error, to handle untethered, pure
         # RunWhen Local operation. In this case we assume that the workspace name
@@ -380,8 +389,15 @@ def main():
                 papi_url = workspace_info.get('papiURL')
             if not workspace_owner_email:
                 workspace_owner_email = workspace_info.get('workspaceOwnerEmail')
-            if not default_location:
-                default_location = workspace_info.get("defaultLocation")
+            if not location_id:
+                location_id = workspace_info.get("locationId")
+                if not location_id:
+                    location_id = workspace_info.get("defaultLocation")
+            if not location_name:
+                location_name = workspace_info.get("locationName")
+                # This is backwards compatibility code to support the old name that can eventually go away
+                if not location_name:
+                    location_name = workspace_info.get("defaultLocationName")
             if default_lod is None:
                 default_lod = workspace_info.get("defaultLOD")
             if not namespaces:
@@ -416,10 +432,10 @@ def main():
         workspace_name = os.getenv('WB_WORKSPACE_NAME')
     if not workspace_owner_email:
         workspace_owner_email = os.getenv('WB_WORKSPACE_OWNER_EMAIL')
-    if not default_location:
-        default_location = os.getenv("WB_DEFAULT_LOCATION")
-    if not default_location_name:
-        default_location_name = os.getenv("WB_DEFAULT_LOCATION_NAME")
+    if not location_id:
+        location_id = os.getenv("WB_LOCATION_ID")
+    if not location_name:
+        location_name = os.getenv("WB_LOCATION_NAME")
     if not papi_url:
         papi_url = os.getenv('WB_PAPI_URL')
     if default_lod is None:
@@ -659,10 +675,10 @@ def main():
             request_data['workspaceName'] = workspace_name
         if workspace_owner_email:
             request_data['workspaceOwnerEmail'] = workspace_owner_email
-        if default_location:
-            request_data['defaultLocation'] = default_location
-        if default_location_name:
-            request_data['defaultLocationName'] = default_location_name
+        if location_id:
+            request_data['locationId'] = location_id
+        if location_name:
+            request_data['locationName'] = location_name
         if default_lod is not None:
             request_data['defaultLOD'] = default_lod
         if namespace_lods:
@@ -777,6 +793,7 @@ def main():
             "output": archive_text,
             "mergeMode": merge_mode,
             "pruneStaleSlxs": args.prune_stale_slxs,
+            "pruneStaleResources": args.prune_stale_resources,
             "message": "Updated workspace from map builder.",
             "finalizeAction": "mergeToMain",
         }

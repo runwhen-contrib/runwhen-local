@@ -4,6 +4,14 @@ metadata:
   name: {{workspace.short_name}}
   labels:
     workspace: {{workspace.short_name}}
+{% if location_id %}
+    locationId: {{location_id}}
+{% endif %}
+{% if location_name %}
+    locationName: {{location_name}}
+{% endif %}
+  annotations:
+    internal.runwhen.com/generated-by: "{{generated_by}}"
 spec:
   permissions:
   - user: {{workspace.owner_email}}
