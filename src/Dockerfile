@@ -40,11 +40,12 @@ WORKDIR $PYSETUP_PATH
 COPY pyproject.toml ./
 
 # Install Python Dependencies
+RUN poetry run pip install --upgrade pip setuptools wheel
 RUN poetry install --only main
 
 # Final Image Stage
 FROM node-base AS app
-LABEL org.opencontainers.image.description="The RunWhen Local container image discovers your cloud resources and provides tailored and executable troubleshooting and health check commands from a community of experts."
+LABEL org.opencontainers.image.description="RunWhen Local discovers and generates troubleshooting and automation tasks for your environment."
 RUN groupadd -r runwhen && useradd --no-log-init -r -g runwhen runwhen
 
 ENV RUNWHEN_HOME='/workspace-builder' \
