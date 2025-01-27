@@ -57,9 +57,8 @@ tasks:
           # Generate resource prefix based on environment
           if [[ "$CI_MODE" == "true" ]]; then
               # Running in CI/CD
-              REPO_NAME=$(echo "$GITHUB_REPOSITORY" | sed 's/\//-/g')
               BRANCH_NAME=$(echo "$GITHUB_REF_NAME" | sed 's/\//-/g')
-              RESOURCE_SUFFIX="ci-${REPO_NAME}-${BRANCH_NAME}"
+              RESOURCE_SUFFIX="ci-${BRANCH_NAME}"
 
               # Create override.tfvars for CI/CD
               echo "CI/CD detected - Using prefix: $RESOURCE_SUFFIX"
