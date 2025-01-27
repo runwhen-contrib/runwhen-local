@@ -91,13 +91,15 @@ jobs:
     if: always() 
 
     steps:
-      - name: Determine Overall Workflow Status
+      - name: Set Workflow Status
+        id: status
         run: |
-          if contains('["${{ needs.*.result }}"]', 'failure'); then
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
             echo "status=❌ *Failure*" >> $GITHUB_ENV
           else
             echo "status=✅ *Success*" >> $GITHUB_ENV
           fi
+
 
       - name: Send Slack Notification
         uses: slackapi/slack-github-action@v1

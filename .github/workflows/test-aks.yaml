@@ -240,9 +240,10 @@ jobs:
     if: always()  # Ensure this runs even if previous jobs fail
 
     steps:
-      - name: Determine Overall Workflow Status
+      - name: Set Workflow Status
+        id: status
         run: |
-          if contains('["${{ needs.*.result }}"]', 'failure'); then
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
             echo "status=❌ *Failure*" >> $GITHUB_ENV
           else
             echo "status=✅ *Success*" >> $GITHUB_ENV
