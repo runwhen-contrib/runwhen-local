@@ -81,7 +81,7 @@ jobs:
           docker buildx build \
             --sbom=true \
             --push \
-            --platform linux/amd64, \
+            --platform linux/amd64,linux/arm64 \
             --tag "${{ env.SHARED_ARTIFACT_REPOSITORY_PATH }}/$IMAGE:$TAG" \
             --build-arg GITHUB_SHA="$GITHUB_SHA" \
             --build-arg GITHUB_REF="$GITHUB_REF" \
