@@ -25,6 +25,71 @@ tasks:
       - find . -type d -name .terraform -exec rm -rf {} +
       - find . -type f -name .terraform.lock.hcl -delete
 
+  env-setup:
+    env: 
+      AZ_TF_STORAGE_CONTAINER: "{{.AZ_TF_STORAGE_CONTAINER}}"
+      GITHUB_REF_NAME: "{{.GITHUB_REF_NAME}}"
+      GITHUB_REPOSITORY: "{{.GITHUB_REPOSITORY}}"
+    desc: "Check if AZ_TF_STORAGE_CONTAINER exists, otherwise use local backend"
+    cmds:
+      - |
+          if [ -z "${AZ_TF_STORAGE_CONTAINER}" ]; then
+            echo "AZ_TF_STORAGE_CONTAINER is not set. Using local backend..."
+            cat > override.tf <<EOF
+          terraform {
+            backend "local" {
+              path = "terraform.tfstate"
+            }
+          }
+          EOF
+          else
+            echo "AZ_TF_STORAGE_CONTAINER is set. Using remote backend."
+            rm -f override.tf  # Ensure local override is removed if remote is available
+          fi
+
+          # Set up var prefix
+          if [[ -n "$GITHUB_REPOSITORY" && -n "$GITHUB_REF_NAME" ]]; then
+              CI_MODE=true
+          else
+              CI_MODE=false
+          fi
+          echo "CI_MODE=${CI_MODE}"
+          # Generate resource prefix based on environment
+          if [[ "$CI_MODE" == "true" ]]; then
+              # Running in CI/CD
+              BRANCH_NAME=$(echo "$GITHUB_REF_NAME" | sed 's/\//-/g')
+              RESOURCE_SUFFIX="ci-${BRANCH_NAME}"
+
+              # Create override.tfvars for CI/CD
+              echo "CI/CD detected - Using prefix: $RESOURCE_SUFFIX"
+              # Update terraform.tfvars for local use
+              if grep -q "resource_suffix" terraform.tfvars; then
+                  # Replace existing prefix
+                  sed -i "s/^resource_suffix.*/resource_suffix = \"$RESOURCE_SUFFIX\"/" terraform.tfvars
+              else
+                  # Append if not present
+                  echo "resource_suffix = \"$RESOURCE_SUFFIX\"" >> terraform.tfvars
+              fi
+          else
+              # Running locally, fallback to username or default
+              if [[ -n "$GITHUB_USER" ]]; then
+                RESOURCE_SUFFIX="local-${GITHUB_USER}"
+              else
+                RESOURCE_SUFFIX="local-$(whoami)"
+              fi
+              # Update terraform.tfvars for local use
+              if grep -q "resource_suffix" terraform.tfvars; then
+                  # Replace existing prefix
+                  sed -i "s/^resource_suffix.*/resource_suffix = \"$RESOURCE_SUFFIX\"/" terraform.tfvars
+              else
+                  # Append if not present
+                  echo "resource_suffix = \"$RESOURCE_SUFFIX\"" >> terraform.tfvars
+              fi
+              echo "Local environment detected - Updated terraform.tfvars with prefix: $RESOURCE_SUFFIX"
+          fi
+
+    silent: true
+
   format-and-init-terraform:
     desc: Run Terraform fmt and init
     cmds: 

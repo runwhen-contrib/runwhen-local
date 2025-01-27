@@ -5,6 +5,7 @@ tasks:
     desc: "Generate workspaceInfo and rebuild/test"
     cmds:
       - task: generate-rwl-config
+      - task: build-rwl  
       - task: run-rwl-discovery
 
   clean:
@@ -79,19 +80,16 @@ tasks:
             resourceGroupLevelOfDetails:
               $cluster_resource_group: detailed
         codeCollections: []
-          # - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection"
-          #   branch: "main"
-          #   codeBundles: ["k8s-namespace-healthcheck", "azure-aks-triage", "k8s-deployment-healthcheck"]
         custom: 
           kubernetes_distribution_binary: kubectl
         EOF
     silent: true
 
-  run-rwl-discovery:
-    desc: "Run RunWhen Local Discovery on test infrastructure"
+  build-rwl:
+    desc: "Build RWL test image"
     cmds:
       - |
-        BUILD_DIR=/home/runwhen/runwhen-local/src
+        BUILD_DIR=../../../src/
         CONTAINER_NAME="RunWhenLocal"
         if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
           echo "Stopping and removing existing container $CONTAINER_NAME..."
@@ -109,6 +107,27 @@ tasks:
 
         ## Building Container Image
         docker buildx build --builder mybuilder --platform linux/amd64  -t runwhen-local:test -f $BUILD_DIR/Dockerfile $BUILD_DIR --load
+    silent: true
+
+  run-rwl-discovery:
+    desc: "Run RunWhen Local Discovery on test infrastructure"
+    cmds:
+      - |
+        rm slx_count.txt || true
+        CONTAINER_NAME="RunWhenLocal"    
+        if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Stopping and removing existing container $CONTAINER_NAME..."
+          docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME
+        elif docker ps -a -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Removing existing stopped container $CONTAINER_NAME..."
+          docker rm $CONTAINER_NAME
+        else
+          echo "No existing container named $CONTAINER_NAME found."
+        fi
+        
+        echo "Cleaning up output directory..."
+        rm -rf output || { echo "Failed to remove output directory"; exit 1; }
+        mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
 
         echo "Starting new container $CONTAINER_NAME..."
 
@@ -122,9 +141,47 @@ tasks:
         }
 
         echo "Review generated config files under output/workspaces/"
-        echo "Total SLXs: $(find $(find 'output/' -type d -name 'slxs') -mindepth 1 -type d | wc -l)"
+        total_slxs=$(find $(find 'output/' -type d -name 'slxs') -mindepth 1 -type d | wc -l)
+        echo "Total SLXs: $total_slxs"
+        echo "$total_slxs" > slx_count.txt
     silent: true
+  
+  ci-run-rwl-discovery:
+    desc: "Run RunWhen Local Discovery on test infrastructure"
+    cmds:
+      - |
+        rm slx_count.txt || true
+        CONTAINER_NAME="RunWhenLocal"    
+        if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Stopping and removing existing container $CONTAINER_NAME..."
+          docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME
+        elif docker ps -a -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Removing existing stopped container $CONTAINER_NAME..."
+          docker rm $CONTAINER_NAME
+        else
+          echo "No existing container named $CONTAINER_NAME found."
+        fi
+        
+        echo "Cleaning up output directory..."
+        rm -rf output || { echo "Failed to remove output directory"; exit 1; }
+        mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
 
+        echo "Starting new container $CONTAINER_NAME..."
+
+        docker run -e WB_DEBUG_SUPPRESS_CHEAT_SHEET="true" -e DEBUG_LOGS=true --name $CONTAINER_NAME -p 8081:8081 -v $(pwd):/shared -d runwhen-local:test || {
+          echo "Failed to start container"; exit 1;
+        }
+
+        echo "Running workspace builder script in container..."
+        docker exec -w /workspace-builder $CONTAINER_NAME ./run.sh $1 --verbose || {
+          echo "Error executing script in container"; exit 1;
+        }
+
+        echo "Review generated config files under output/workspaces/"
+        total_slxs=$(find $(find 'output/' -type d -name 'slxs') -mindepth 1 -type d | wc -l)
+        echo "Total SLXs: $total_slxs"
+        echo "$total_slxs" > slx_count.txt
+    silent: true
 
   ci-test-1:
     desc: "Run CI Discovery Test 1 - K8s & AKS - defaultLOD None, K8s context defaultNamespaceLOD Basic, AKS defaultNamespaceLOD Detailed"
@@ -134,6 +191,8 @@ tasks:
       AZ_CLIENT_SECRET: "{{.AZ_CLIENT_SECRET}}"
       AZ_CLIENT_ID: "{{.AZ_CLIENT_ID}}"
       RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
+    vars: 
+      EXPECTED_SLXS: "30"
     cmds:
       - |
         repo_url=$(git config --get remote.origin.url)
@@ -142,13 +201,13 @@ tasks:
 
         # Fetch individual cluster details from Terraform state
         pushd terraform > /dev/null
-        cluster_name=$(terraform show -json terraform.tfstate | jq -r '
+        cluster_name=$(terraform show -json | jq -r '
           .values.outputs.cluster_name.value')
-        cluster_server=$(terraform show -json terraform.tfstate | jq -r '
+        cluster_server=$(terraform show -json | jq -r '
           .values.outputs.cluster_fqdn.value')
-        cluster_resource_group=$(terraform show -json terraform.tfstate | jq -r '
+        cluster_resource_group=$(terraform show -json | jq -r '
           .values.outputs.cluster_rg.value')
-        cluster_sub=$(terraform show -json terraform.tfstate | jq -r '
+        cluster_sub=$(terraform show -json | jq -r '
           .values.outputs.cluster_sub.value')
 
         popd > /dev/null
@@ -171,6 +230,8 @@ tasks:
             contexts: 
               sandbox-cluster-1: 
                 defaultNamespaceLOD: basic
+            namespaces:
+              - ci-verify-basic
           azure:
             subscriptionId: "$ARM_SUBSCRIPTION_ID"
             tenantId: "$AZ_TENANT_ID"
@@ -183,17 +244,19 @@ tasks:
                   resource_group: $cluster_resource_group
                   subscriptionId: $cluster_sub
                   defaultNamespaceLOD: detailed
+              namespaces: 
+                - kube-system
             resourceGroupLevelOfDetails:
               $cluster_resource_group: detailed
         codeCollections: []
-          # - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection"
-          #   branch: "main"
-          #   codeBundles: ["k8s-namespace-healthcheck", "azure-aks-triage", "k8s-deployment-healthcheck"]
         custom: 
           kubernetes_distribution_binary: kubectl
         EOF
 
-      - task: run-rwl-discovery
+      - task: ci-run-rwl-discovery
+      - task: verify-slx-count
+        vars:
+          EXPECTED_SLX_COUNT: "{{.EXPECTED_SLXS}}"
     silent: true
 
   ci-test-2:
@@ -204,6 +267,8 @@ tasks:
         AZ_CLIENT_SECRET: "{{.AZ_CLIENT_SECRET}}"
         AZ_CLIENT_ID: "{{.AZ_CLIENT_ID}}"
         RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
+      vars: 
+        EXPECTED_SLXS: "39"
       cmds:
         - |
           repo_url=$(git config --get remote.origin.url)
@@ -212,13 +277,13 @@ tasks:
 
           # Fetch individual cluster details from Terraform state
           pushd terraform > /dev/null
-          cluster_name=$(terraform show -json terraform.tfstate | jq -r '
+          cluster_name=$(terraform show -json | jq -r '
             .values.outputs.cluster_name.value')
-          cluster_server=$(terraform show -json terraform.tfstate | jq -r '
+          cluster_server=$(terraform show -json | jq -r '
             .values.outputs.cluster_fqdn.value')
-          cluster_resource_group=$(terraform show -json terraform.tfstate | jq -r '
+          cluster_resource_group=$(terraform show -json | jq -r '
             .values.outputs.cluster_rg.value')
-          cluster_sub=$(terraform show -json terraform.tfstate | jq -r '
+          cluster_sub=$(terraform show -json | jq -r '
             .values.outputs.cluster_sub.value')
 
           popd > /dev/null
@@ -253,14 +318,14 @@ tasks:
               resourceGroupLevelOfDetails:
                 $cluster_resource_group: detailed
           codeCollections: []
-            # - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection"
-            #   branch: "main"
-            #   codeBundles: ["k8s-namespace-healthcheck", "azure-aks-triage", "k8s-deployment-healthcheck"]
           custom: 
             kubernetes_distribution_binary: kubectl
           EOF
 
-        - task: run-rwl-discovery
+        - task: ci-run-rwl-discovery
+        - task: verify-slx-count
+          vars:
+            EXPECTED_SLX_COUNT: "{{.EXPECTED_SLXS}}"
       silent: true
 
   ci-test-3:
@@ -271,6 +336,8 @@ tasks:
         AZ_CLIENT_SECRET: "{{.AZ_CLIENT_SECRET}}"
         AZ_CLIENT_ID: "{{.AZ_CLIENT_ID}}"
         RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
+      vars: 
+        EXPECTED_SLXS: "7"
       cmds:
         - |
           repo_url=$(git config --get remote.origin.url)
@@ -279,13 +346,13 @@ tasks:
 
           # Fetch individual cluster details from Terraform state
           pushd terraform > /dev/null
-          cluster_name=$(terraform show -json terraform.tfstate | jq -r '
+          cluster_name=$(terraform show -json  | jq -r '
             .values.outputs.cluster_name.value')
-          cluster_server=$(terraform show -json terraform.tfstate | jq -r '
+          cluster_server=$(terraform show -json  | jq -r '
             .values.outputs.cluster_fqdn.value')
-          cluster_resource_group=$(terraform show -json terraform.tfstate | jq -r '
+          cluster_resource_group=$(terraform show -json  | jq -r '
             .values.outputs.cluster_rg.value')
-          cluster_sub=$(terraform show -json terraform.tfstate | jq -r '
+          cluster_sub=$(terraform show -json  | jq -r '
             .values.outputs.cluster_sub.value')
 
           popd > /dev/null
@@ -330,7 +397,10 @@ tasks:
             kubernetes_distribution_binary: kubectl
           EOF
 
-        - task: run-rwl-discovery
+        - task: ci-run-rwl-discovery
+        - task: verify-slx-count
+          vars:
+            EXPECTED_SLX_COUNT: "{{.EXPECTED_SLXS}}"
       silent: true
 
   ci-test-4:
@@ -341,6 +411,8 @@ tasks:
         AZ_CLIENT_SECRET: "{{.AZ_CLIENT_SECRET}}"
         AZ_CLIENT_ID: "{{.AZ_CLIENT_ID}}"
         RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
+      vars: 
+        EXPECTED_SLXS: "5"
       cmds:
         - |
           repo_url=$(git config --get remote.origin.url)
@@ -349,13 +421,13 @@ tasks:
 
           # Fetch individual cluster details from Terraform state
           pushd terraform > /dev/null
-          cluster_name=$(terraform show -json terraform.tfstate | jq -r '
+          cluster_name=$(terraform show -json | jq -r '
             .values.outputs.cluster_name.value')
-          cluster_server=$(terraform show -json terraform.tfstate | jq -r '
+          cluster_server=$(terraform show -json  | jq -r '
             .values.outputs.cluster_fqdn.value')
-          cluster_resource_group=$(terraform show -json terraform.tfstate | jq -r '
+          cluster_resource_group=$(terraform show -json | jq -r '
             .values.outputs.cluster_rg.value')
-          cluster_sub=$(terraform show -json terraform.tfstate | jq -r '
+          cluster_sub=$(terraform show -json | jq -r '
             .values.outputs.cluster_sub.value')
 
           popd > /dev/null
@@ -389,24 +461,26 @@ tasks:
               resourceGroupLevelOfDetails:
                 $cluster_resource_group: detailed
           codeCollections: []
-            # - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection"
-            #   branch: "main"
-            #   codeBundles: ["k8s-namespace-healthcheck", "azure-aks-triage", "k8s-deployment-healthcheck"]
           custom: 
             kubernetes_distribution_binary: kubectl
           EOF
 
-        - task: run-rwl-discovery
+        - task: ci-run-rwl-discovery
+        - task: verify-slx-count
+          vars:
+            EXPECTED_SLX_COUNT: "{{.EXPECTED_SLXS}}"
       silent: true
 
   ci-test-5:
-      desc: "Run CI Discovery Test 4 - K8s only - defaultLOD basic, K8s defaultNamespaceLOD basic, no AKS cluster"
+      desc: "Run CI Discovery Test 5 - K8s only - defaultLOD basic, K8s defaultNamespaceLOD basic (1 ns), no AKS cluster"
       env:
         ARM_SUBSCRIPTION_ID: "{{.TF_VAR_subscription_id}}"
         AZ_TENANT_ID: "{{.AZ_TENANT_ID}}"
         AZ_CLIENT_SECRET: "{{.AZ_CLIENT_SECRET}}"
         AZ_CLIENT_ID: "{{.AZ_CLIENT_ID}}"
         RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
+      vars: 
+        EXPECTED_SLXS: "6"
       cmds:
         - |
           repo_url=$(git config --get remote.origin.url)
@@ -415,13 +489,13 @@ tasks:
 
           # Fetch individual cluster details from Terraform state
           pushd terraform > /dev/null
-          cluster_name=$(terraform show -json terraform.tfstate | jq -r '
+          cluster_name=$(terraform show -json  | jq -r '
             .values.outputs.cluster_name.value')
-          cluster_server=$(terraform show -json terraform.tfstate | jq -r '
+          cluster_server=$(terraform show -json  | jq -r '
             .values.outputs.cluster_fqdn.value')
-          cluster_resource_group=$(terraform show -json terraform.tfstate | jq -r '
+          cluster_resource_group=$(terraform show -json  | jq -r '
             .values.outputs.cluster_rg.value')
-          cluster_sub=$(terraform show -json terraform.tfstate | jq -r '
+          cluster_sub=$(terraform show -json | jq -r '
             .values.outputs.cluster_sub.value')
 
           popd > /dev/null
@@ -444,6 +518,8 @@ tasks:
               contexts:
                 sandbox-cluster-1: 
                   defaultNamespaceLOD: basic
+              namespaces:
+                - ci-verify-basic
             azure:
               subscriptionId: "$ARM_SUBSCRIPTION_ID"
               tenantId: "$AZ_TENANT_ID"
@@ -452,14 +528,14 @@ tasks:
               resourceGroupLevelOfDetails:
                 $cluster_resource_group: detailed
           codeCollections: []
-            # - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection"
-            #   branch: "main"
-            #   codeBundles: ["k8s-namespace-healthcheck", "azure-aks-triage", "k8s-deployment-healthcheck"]
           custom: 
             kubernetes_distribution_binary: kubectl
           EOF
 
-        - task: run-rwl-discovery
+        - task: ci-run-rwl-discovery
+        - task: verify-slx-count
+          vars:
+            EXPECTED_SLX_COUNT: "{{.EXPECTED_SLXS}}"
       silent: true
 
   install-deployment: 
@@ -491,9 +567,6 @@ tasks:
     desc: "Check if Terraform has any deployed infrastructure in the terraform subdirectory"
     cmds:
       - |
-        # Source Envs for Auth
-        source terraform/tf.secret
-
         # Navigate to the Terraform directory
         if [ ! -d "terraform" ]; then
           echo "Terraform directory not found."
@@ -525,9 +598,6 @@ tasks:
     desc: "Run terraform apply"
     cmds:
       - |
-        # Source Envs for Auth
-        source terraform/tf.secret
-
 
         # Navigate to the Terraform directory
         if [ -d "terraform" ]; then
@@ -536,9 +606,10 @@ tasks:
           echo "Terraform directory not found. Terraform apply aborted."
           exit 1
         fi
+        task env-setup
         task format-and-init-terraform
         echo "Starting Terraform Build of Terraform infrastructure..."
-        terraform apply -auto-approve || {
+        terraform apply -auto-approve -lock=false || {
           echo "Failed to clean up Terraform infrastructure."
           exit 1
         }
@@ -550,8 +621,6 @@ tasks:
     desc: "Cleanup deployed Terraform infrastructure"
     cmds:
       - |
-        # Source Envs for Auth
-        source terraform/tf.secret
 
         # Navigate to the Terraform directory
         if [ -d "terraform" ]; then
@@ -562,7 +631,7 @@ tasks:
         fi
 
         echo "Starting cleanup of Terraform infrastructure..."
-        terraform destroy -auto-approve || {
+        terraform destroy -auto-approve -lock=false || {
           echo "Failed to clean up Terraform infrastructure."
           exit 1
         }
@@ -591,4 +660,23 @@ tasks:
       - |
         rm -rf output
         rm workspaceInfo.yaml
+    silent: true
+
+
+  verify-slx-count: 
+    desc: "Validate SLX Count in CI test"
+    vars:
+      EXPECTED_SLX_COUNT: "{{.EXPECTED_SLX_COUNT | default `0`}}"
+    cmds: 
+      - |
+          total_slxs=$(cat slx_count.txt)
+          echo "---Validating SLX Count---"
+          echo "Total SLXs: $total_slxs (Expected: {{.EXPECTED_SLX_COUNT}})"
+          if [[ "$total_slxs" != "{{.EXPECTED_SLX_COUNT}}" ]]; then
+            echo -e "\033[31m❌ Total SLX count failed\033[0m"
+            exit 1
+          else
+            echo -e "\033[32m✔️ SLX Validation Passed\033[0m"
+            exit 0
+          fi
     silent: true
