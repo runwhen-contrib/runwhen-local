@@ -148,3 +148,29 @@ jobs:
           slack-message: "Just deployed latest version of RunWhen Local to https://github.com/orgs/runwhen-contrib/packages/container/package/runwhen-local"
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+
+  notify:
+    runs-on: ubuntu-latest
+    needs:
+      - build-and-push-to-shared-artifact-repo
+      - scan-repo
+    if: always()  # Ensure this runs even if previous jobs fail
+
+    steps:
+      - name: Set Workflow Status
+        id: status
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
+            echo "status=❌ *Failure*" >> $GITHUB_ENV
+          else
+            echo "status=✅ *Success*" >> $GITHUB_ENV
+          fi
+
+      - name: Send Slack Notification
+        uses: slackapi/slack-github-action@v1
+        with:
+          channel-id: "#runwhen-local"
+          slack-message: "${{ env.status }} - Workflow *${{ github.workflow }}* in repo *${{ github.repository }}* on branch *${{ github.ref_name }}*"
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        
