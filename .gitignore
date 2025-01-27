@@ -17,6 +17,7 @@ src/rw-cli-codecollection-cache
 
 # Ignore override
 **/override.tf
+**/override.tfvars
 
 # Ignore crash logs
 **/crash.log

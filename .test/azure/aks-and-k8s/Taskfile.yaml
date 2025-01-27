@@ -606,13 +606,14 @@ tasks:
           echo "Terraform directory not found. Terraform apply aborted."
           exit 1
         fi
-        task check-backend
+        task env-setup
         task format-and-init-terraform
         echo "Starting Terraform Build of Terraform infrastructure..."
-        terraform apply -auto-approve -lock=false || {
-          echo "Failed to clean up Terraform infrastructure."
-          exit 1
-        }
+        terraform plan
+        # terraform apply -auto-approve -lock=false || {
+        #   echo "Failed to clean up Terraform infrastructure."
+        #   exit 1
+        # }
         echo "Terraform infrastructure build completed."
 
     silent: true

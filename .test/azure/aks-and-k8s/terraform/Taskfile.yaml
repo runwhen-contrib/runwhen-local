@@ -25,7 +25,7 @@ tasks:
       - find . -type d -name .terraform -exec rm -rf {} +
       - find . -type f -name .terraform.lock.hcl -delete
 
-  check-backend:
+  env-setup:
     env: 
       AZ_TF_STORAGE_CONTAINER: "{{.AZ_TF_STORAGE_CONTAINER}}"
     desc: "Check if AZ_TF_STORAGE_CONTAINER exists, otherwise use local backend"
@@ -44,6 +44,42 @@ tasks:
             echo "AZ_TF_STORAGE_CONTAINER is set. Using remote backend."
             rm -f override.tf  # Ensure local override is removed if remote is available
           fi
+
+          # Set up var prefix
+          if [[ -n "$GITHUB_REPOSITORY" && -n "$GITHUB_REF_NAME" ]]; then
+              CI_MODE=true
+          else
+              CI_MODE=false
+          fi
+
+          # Generate resource prefix based on environment
+          if [[ "$CI_MODE" == "true" ]]; then
+              # Running in CI/CD
+              REPO_NAME=$(echo "$GITHUB_REPOSITORY" | sed 's/\//-/g')
+              BRANCH_NAME=$(echo "$GITHUB_REF_NAME" | sed 's/\//-/g')
+              RESOURCE_SUFFIX="ci-${REPO_NAME}-${BRANCH_NAME}"
+
+              # Create override.tfvars for CI/CD
+              echo "resource_suffix = \"$RESOURCE_SUFFIX\"" > override.tfvars
+              echo "CI/CD detected - Using override.tfvars with prefix: $RESOURCE_SUFFIX"
+          else
+              # Running locally, fallback to username or default
+              if [[ -n "$GITHUB_USER" ]]; then
+                RESOURCE_SUFFIX="local-${GITHUB_USER}"
+              else
+                RESOURCE_SUFFIX="local-$(whoami)"
+              fi
+              # Update override.tf for local use
+              if grep -q "resource_suffix" terraform.tfvars; then
+                  # Replace existing prefix
+                  sed -i "s/^resource_suffix.*/resource_suffix = \"$RESOURCE_SUFFIX\"/" terraform.tfvars
+              else
+                  # Append if not present
+                  echo "resource_suffix = \"$RESOURCE_SUFFIX\"" >> terraform.tfvars
+              fi
+              echo "Local environment detected - Updated terraform.tfvars with prefix: $RESOURCE_SUFFIX"
+          fi
+
     silent: true
 
   format-and-init-terraform:

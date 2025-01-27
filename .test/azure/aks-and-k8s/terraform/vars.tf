@@ -20,3 +20,4 @@ variable "tags" {
 variable "subscription_id" { type = string }
 variable "tenant_id" { type = string }
 variable "sp_principal_id" { type = string }
+variable "resource_suffix" { type = string }

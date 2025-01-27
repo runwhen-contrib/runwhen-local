@@ -16,7 +16,7 @@ resource "azurerm_role_assignment" "current_user_k8s_admin" {
 
 # Resource Group
 resource "azurerm_resource_group" "cluster_rg" {
-  name     = "azure-aks-k8s-1"
+  name     = "azure-aks-k8s-1-${var.resource_suffix}"
   location = "East US"
   tags = {
     "env"       = "test"
@@ -27,7 +27,7 @@ resource "azurerm_resource_group" "cluster_rg" {
 
 # Managed Identity
 resource "azurerm_user_assigned_identity" "cluster_identity" {
-  name                = "aks-cl-1-identity"
+  name                = "aks-cl-1-identity-${var.resource_suffix}"
   location            = azurerm_resource_group.cluster_rg.location
   resource_group_name = azurerm_resource_group.cluster_rg.name
 }
@@ -39,10 +39,10 @@ resource "azurerm_role_assignment" "sp_owner_rg" {
 
 # AKS Cluster
 resource "azurerm_kubernetes_cluster" "cluster_aks" {
-  name                = "aks-cl-1"
+  name                = "aks-cl-1-${var.resource_suffix}"
   location            = azurerm_resource_group.cluster_rg.location
   resource_group_name = azurerm_resource_group.cluster_rg.name
-  dns_prefix          = "aks-cl-1"
+  dns_prefix          = "aks-cl-1-${var.resource_suffix}"
 
   default_node_pool {
     name       = "default"
