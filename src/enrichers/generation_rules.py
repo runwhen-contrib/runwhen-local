@@ -637,7 +637,6 @@ def get_template_variables(output_item: OutputItem,
 
 def should_emit_output_item(output_item: OutputItem, level_of_detail: LevelOfDetail) -> bool:
     # FIXME: Would be a bit nicer if the enum instances were directly comparable
-    print(f"Output Item Level of Detail: {output_item.level_of_detail}, Config Level of Detail: {level_of_detail}")
     try:
         return output_item and output_item.level_of_detail.value <= level_of_detail.value
     except Exception as e:

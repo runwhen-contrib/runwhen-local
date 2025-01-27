@@ -6,4 +6,4 @@ tags = {
   "lifecycle" : "deleteme",
   "product" : "runwhen"
 }
-
+resource_suffix = "local-stewartshea"

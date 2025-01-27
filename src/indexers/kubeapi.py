@@ -182,6 +182,8 @@ def index(component_context: Context):
     kubeconfig = None
     encoded_kubeconfig_file = None
     custom_namespace_names: Optional[list[str]] = None
+    kubernetes_explicit_namespace_names: Optional[list[str]] = None
+    aks_explicit_namespace_names: Optional[list[str]] = None
     exclude_annotations: Dict[str, str] = {}
     exclude_labels: Dict[str, str] = {}
     include_annotations = {}
@@ -232,7 +234,8 @@ def index(component_context: Context):
                 kubeconfig_path = os.path.join(temp_dir, "kubeconfig")
                 write_file(kubeconfig_path, kubeconfig_text)
                 kubeconfig = yaml.safe_load(kubeconfig_text)
-                custom_namespace_names = kubernetes_settings.get("namespaces", [])
+                custom_namespace_names = list(kubernetes_settings.get("namespaces", []))  # Explicit copy
+                kubernetes_explicit_namespace_names = kubernetes_settings.get("namespaces", [])
                 exclude_annotations = kubernetes_settings.get("excludeAnnotations", {})
                 exclude_labels = kubernetes_settings.get("excludeLabels", {})
 
@@ -243,10 +246,14 @@ def index(component_context: Context):
                 # Configure AKS-specific inclusion settings if applicable
                 include_annotations = aks_settings.get("includeAnnotations", include_annotations)
                 include_labels = aks_settings.get("includeLabels", include_labels)
-                custom_namespace_names = aks_settings.get("namespaces", custom_namespace_names)
+                custom_namespace_names.extend(aks_settings.get("namespaces", []))
+                aks_explicit_namespace_names = aks_settings.get("namespaces", [])
                 exclude_annotations.update(aks_settings.get("excludeAnnotations", {}))
                 exclude_labels.update(aks_settings.get("excludeLabels", {}))
 
+        logger.info(f"Custom Namespace List: {custom_namespace_names}")
+        logger.info(f"Kubernetes Namespace List: {kubernetes_explicit_namespace_names}")
+        logger.info(f"AKS Namespace List: {aks_explicit_namespace_names}")
 
         # Hard-code values to be added
         exclude_annotations.update(HARDCODED_EXCLUDE_ANNOTATIONS)
@@ -522,8 +529,8 @@ def index(component_context: Context):
 
                     namespaces = dict()
                     # Update namespace_names with custom_namespace_names only if custom_namespace_names is defined
-                    if custom_namespace_names:
-                        namespace_names = namespace_names.intersection(custom_namespace_names)
+                    # if custom_namespace_names:
+                    #     namespace_names = namespace_names.intersection(custom_namespace_names)
                         
                     # for namespace_name in namespace_names:
                     #     namespace_qualified_name = get_qualified_name(cluster_name, namespace_name)
@@ -577,12 +584,19 @@ def index(component_context: Context):
                     #         pass
                     for namespace_name in namespace_names:
                         namespace_qualified_name = get_qualified_name(cluster_name, namespace_name)
-
                         # Determine if this is an AKS cluster or a kubeconfigFile cluster
+                        # TODO This is a little kludgy - we should likely bet using a full dict when deciding
+                        # which namespaces to index from which kube cluster type / configuration setting. 
                         is_aks_cluster = cluster_name in aks_cluster_lod_settings
                         if is_aks_cluster:
+                            if aks_explicit_namespace_names and namespace_name not in aks_explicit_namespace_names:
+                                logger.info(f"Skipping {namespace_name} due to explicit namespace setting in workspaceInfo cloudConfig.azure.aksClusters.namespaces")
+                                continue 
                             namespace_lod = LevelOfDetail.construct_from_config(aks_cluster_lod_settings.get(cluster_name, default_lod))
                         else:
+                            if kubernetes_explicit_namespace_names and namespace_name not in kubernetes_explicit_namespace_names:
+                                logger.info(f"Skipping {namespace_name} due to explicit namespace setting in workspaceInfo cloudConfig.kubernetes.namespaces")
+                                continue
                             namespace_lod = LevelOfDetail.construct_from_config(kube_context_lod_settings.get(context_name, default_lod))
                             if namespace_lod is None:
                                 namespace_lod = default_lod  # Final fallback
@@ -619,6 +633,7 @@ def index(component_context: Context):
 
                             if has_excluded_annotations_or_labels(raw_resource, exclude_annotations, exclude_labels):
                                 continue
+                                                 
                             # Extract owner metadata if available
                             owner_name = extract_owner_name(raw_resource)
                             namespace_attributes = kubeapi_parsers.parse_namespace(raw_resource)

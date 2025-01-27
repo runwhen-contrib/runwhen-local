@@ -16,7 +16,7 @@ resource "azurerm_role_assignment" "current_user_k8s_admin" {
 
 # Resource Group
 resource "azurerm_resource_group" "cluster_rg" {
-  name     = "azure-aks-k8s-1"
+  name     = "azure-aks-k8s-1-${var.resource_suffix}"
   location = "East US"
   tags = {
     "env"       = "test"
@@ -27,31 +27,22 @@ resource "azurerm_resource_group" "cluster_rg" {
 
 # Managed Identity
 resource "azurerm_user_assigned_identity" "cluster_identity" {
-  name                = "aks-cl-1-identity"
+  name                = "aks-cl-1-identity-${var.resource_suffix}"
   location            = azurerm_resource_group.cluster_rg.location
   resource_group_name = azurerm_resource_group.cluster_rg.name
+}
+resource "azurerm_role_assignment" "sp_owner_rg" {
+  scope                = azurerm_resource_group.cluster_rg.id
+  role_definition_name = "Owner"
+  principal_id         = var.sp_principal_id
 }
 
-# Role Assignment for Service Principal
-resource "azurerm_role_assignment" "cluster_sp_owner" {
-  scope                = "/subscriptions/${var.subscription_id}"
-  role_definition_name = "Azure Kubernetes Service RBAC Cluster Admin"
-  principal_id         = var.sp_principal_id
-  principal_type       = "ServicePrincipal"
-}
-# Role Assignment for Service Principal
-resource "azurerm_role_assignment" "cluster_sp_reader" {
-  scope                = "/subscriptions/${var.subscription_id}"
-  role_definition_name = "Reader"
-  principal_id         = var.sp_principal_id
-  principal_type       = "ServicePrincipal"
-}
 # AKS Cluster
 resource "azurerm_kubernetes_cluster" "cluster_aks" {
-  name                = "aks-cl-1"
+  name                = "aks-cl-1-${var.resource_suffix}"
   location            = azurerm_resource_group.cluster_rg.location
   resource_group_name = azurerm_resource_group.cluster_rg.name
-  dns_prefix          = "aks-cl-1"
+  dns_prefix          = "aks-cl-1-${var.resource_suffix}"
 
   default_node_pool {
     name       = "default"
