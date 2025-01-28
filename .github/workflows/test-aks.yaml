@@ -228,6 +228,8 @@ jobs:
 
             cd ..
             echo "$KUBECONFIG_SECRET" > kubeconfig.secret
+            echo "Task Description:"
+            yq '.tasks.${{ matrix.test }}.desc' Taskfile.yaml
             task ${{ matrix.test }}
 
   notify:

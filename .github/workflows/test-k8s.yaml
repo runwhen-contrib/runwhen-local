@@ -80,6 +80,8 @@ jobs:
         run: |-
           cd .test/k8s/basic
           echo "$KUBECONFIG_SECRET" > kubeconfig.secret
+          echo "Task Description:"
+          yq '.tasks.${{ matrix.test }}.desc' Taskfile.yaml
           task ${{ matrix.test }}
 
 

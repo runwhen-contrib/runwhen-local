@@ -329,7 +329,7 @@ tasks:
       silent: true
 
   ci-test-3:
-      desc: "Run CI Discovery Test 3 - K8s & AKS - defaultLOD detailed, K8s cluster defaultNamespaceLOD none, AKS defaultNamespaceLOD none"
+      desc: "Run CI Discovery Test 3 - K8s & AKS - defaultLOD None, K8s cluster defaultNamespaceLOD none, AKS defaultNamespaceLOD none, single azure.resourceGroupLevelOfDetails detailed"
       env:
         ARM_SUBSCRIPTION_ID: "{{.TF_VAR_subscription_id}}"
         AZ_TENANT_ID: "{{.AZ_TENANT_ID}}"
@@ -354,7 +354,8 @@ tasks:
             .values.outputs.cluster_rg.value')
           cluster_sub=$(terraform show -json  | jq -r '
             .values.outputs.cluster_sub.value')
-
+          node_pool_rg=$(terraform show -json  | jq -r '
+            .values.root_module.resources[] | select(.type == "azurerm_kubernetes_cluster") | .values.node_resource_group')
           popd > /dev/null
 
           # Check if any of the required cluster variables are empty
@@ -368,7 +369,7 @@ tasks:
           workspaceName: "$RW_WORKSPACE"
           workspaceOwnerEmail: authors@runwhen.com
           defaultLocation: location-01
-          defaultLOD: detailed
+          defaultLOD: none
           cloudConfig:
             kubernetes:             
               kubeconfigFile: /shared/kubeconfig.secret
@@ -389,6 +390,8 @@ tasks:
                     defaultNamespaceLOD: none
               resourceGroupLevelOfDetails:
                 $cluster_resource_group: detailed
+                $node_pool_rg: detailed
+
           codeCollections: []
             # - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection"
             #   branch: "main"
