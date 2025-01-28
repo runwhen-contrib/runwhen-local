@@ -991,6 +991,7 @@ def enrich(context: Context) -> None:
     location_name = context.get_setting("LOCATION_NAME")
     if not location_name:
         location_name = location_id
+
     if location_name:
         location_qualifier = location_name
     else:
@@ -1005,6 +1006,7 @@ def enrich(context: Context) -> None:
         'slxs_path': slxs_path,
         'location_id': location_id,
         'location_name': location_name,
+        'default_location': location_id,
         'generated_by': generated_by,
         'custom': custom_definitions,
         'shorten_name': shorten_name,
