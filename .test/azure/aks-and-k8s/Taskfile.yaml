@@ -407,7 +407,7 @@ tasks:
       silent: true
 
   ci-test-4:
-      desc: "Run CI Discovery Test 4 - AKS only - defaultLOD basic, no K8s Cluster, AKS defaultNamespaceLOD none, kube-system lod detailed from annotation"
+      desc: "Run CI Discovery Test 4 - AKS only - defaultLOD none, no K8s Cluster, AKS defaultNamespaceLOD none, kube-system lod detailed from annotation"
       env:
         ARM_SUBSCRIPTION_ID: "{{.TF_VAR_subscription_id}}"
         AZ_TENANT_ID: "{{.AZ_TENANT_ID}}"
@@ -432,6 +432,8 @@ tasks:
             .values.outputs.cluster_rg.value')
           cluster_sub=$(terraform show -json | jq -r '
             .values.outputs.cluster_sub.value')
+          node_pool_rg=$(terraform show -json  | jq -r '
+            .values.root_module.resources[] | select(.type == "azurerm_kubernetes_cluster") | .values.node_resource_group')
 
           popd > /dev/null
 
@@ -446,7 +448,7 @@ tasks:
           workspaceName: "$RW_WORKSPACE"
           workspaceOwnerEmail: authors@runwhen.com
           defaultLocation: location-01
-          defaultLOD: basic
+          defaultLOD: none
           cloudConfig:
             kubernetes: null
             azure:
@@ -463,6 +465,7 @@ tasks:
                     defaultNamespaceLOD: none
               resourceGroupLevelOfDetails:
                 $cluster_resource_group: detailed
+                $node_pool_rg: detailed
           codeCollections: []
           custom: 
             kubernetes_distribution_binary: kubectl
