@@ -173,6 +173,7 @@ tasks:
         - task: verify-slx-count
           vars:
             EXPECTED_SLX_COUNT: "{{.EXPECTED_SLXS}}"
+        - task: verify-rwl-output
       silent: true
 
 
@@ -227,6 +228,37 @@ tasks:
             echo -e "\033[32m✔️ SLX Validation Passed\033[0m"
             exit 0
           fi
+    silent: true
+
+  verify-rwl-output: 
+    desc: "Validate that rendered content is as intended"
+    cmds: 
+      - | 
+        echo "Validate Runbook location configuration"
+        RUNBOOK_FILE=$(find . -type f -name "runbook.yaml" | head -n 1)
+        if [ -z "$RUNBOOK_FILE" ]; then
+          echo "Error: No runbook.yaml file found in subdirectories." >&2
+          exit 1
+        fi
+        LOCATION=$(yq e '.spec.location' "$RUNBOOK_FILE")
+        if [ "$LOCATION" = "missing_workspaceInfo_custom_variable" ]; then
+          echo "Error: runbook.yaml contains an invalid spec.location value." >&2
+          exit 1
+        fi
+        echo "Validation successful: $RUNBOOK_FILE has a valid spec.location."
+
+        echo "Validate SLI location configuration"
+        SLI_FILE=$(find . -type f -name "sli.yaml" | head -n 1)
+        if [ -z "$SLI_FILE" ]; then
+          echo "Error: No sli.yaml file found in subdirectories." >&2
+          exit 1
+        fi
+        LOCATION=$(yq e '.spec.location' "$SLI_FILE")
+        if [ "$LOCATION" = "missing_workspaceInfo_custom_variable" ]; then
+          echo "Error: runbook.yaml contains an invalid spec.location value." >&2
+          exit 1
+        fi
+        echo "Validation successful: $SLI_FILE has a valid spec.location."
     silent: true
 
   clean-rwl-discovery:
