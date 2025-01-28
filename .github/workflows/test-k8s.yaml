@@ -7,9 +7,8 @@ on:
     paths:
       - "src/**"
       - ".github/workflows/test-k8s.yaml"
-    paths-ignore:
-      - "src/VERSION"
-      
+      - "!src/VERSION"
+
 permissions:
   contents: "read"
   id-token: "write"
