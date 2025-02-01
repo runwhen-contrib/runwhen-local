@@ -261,7 +261,6 @@ tasks:
               echo "$response"
             fi
           fi
-      - task: ci-run-rwl-discovery-with-upload
         
     silent: true
   
@@ -397,4 +396,74 @@ tasks:
             fi
           fi
         done
+    silent: true
+
+  reset-workspace:
+    desc: "Remove SLXs & workspace biulder manifest from Workspace"
+    env:
+      GITLAB_TOKEN: "{{.GITLAB_TOKEN}}"
+      GITLAB_URL: "{{.GITLAB_URL}}"
+    cmds:
+      - |
+          if [ ! -f ./uploadInfo.yaml ]; then 
+            echo "Missing uploadInfo.yaml"
+            exit 1
+          fi
+
+          # We don't really need this for discovery, but it's useful in other scripts for 
+          # api related manipulation
+          defaultLocation=$(yq .locationName uploadInfo.yaml)
+          workspaceName=$(yq .workspaceName uploadInfo.yaml)
+          workspaceOwnerEmail=$(yq .workspaceOwnerEmail uploadInfo.yaml)
+          papiURL=$(yq .papiURL uploadInfo.yaml)
+          
+          REPO_URL=$GITLAB_URL/platform-cluster/$workspaceName.git
+          echo "Repo URL: $REPO_URL"
+
+          # Extract repo name
+          REPO_NAME=$(basename -s .git "$REPO_URL")
+          CLONE_DIR=$REPO_NAME
+          rm -rf $CLONE_DIR || true 
+          TARGET_BRANCH="main" 
+
+          # Clone the repo with authentication
+          echo "Cloning repository..."
+          git clone --depth 1 "https://oauth2:${GITLAB_TOKEN}@${REPO_URL#https://}" "$CLONE_DIR"
+          if [ $? -ne 0 ]; then
+              echo "Failed to clone repository."
+              exit 1
+          fi
+
+          cd "$CLONE_DIR" || exit
+
+          # Checkout the target branch
+          git checkout "$TARGET_BRANCH"
+
+          # Apply file modifications
+          echo "Removing content and workspace builder files"
+          rm -rf slxs 
+          rm -rf workflows 
+          rm .workspace-builder-manifest.yaml
+          yq eval 'del(.metadata.annotations) | .spec.slxGroups = []' -i workspace.yaml
+
+
+          # Check for changes
+          if git diff --quiet && git diff --cached --quiet; then
+              echo "No changes to commit."
+              exit 0
+          fi
+
+          # Commit and force push
+          echo "Committing changes..."
+          git add .
+          git commit -m "Workspace reset"
+          echo "Force pushing changes..."
+          git push --force
+
+          # Cleanup
+          cd ..
+          rm -rf "$CLONE_DIR"
+
+          echo "Done."
+
     silent: true
