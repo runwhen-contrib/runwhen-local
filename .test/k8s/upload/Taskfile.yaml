@@ -430,16 +430,14 @@ tasks:
             exit 1
           else
             echo -e "\033[32m✔️ SLX Patch Validation Passed\033[0m"
-            exit 0
           fi
-
 
           validation_failed=false
           # Check for specific deleted SLX
           SELECTED_DIR=$(find "$BASE_DIR" -mindepth 1 -maxdepth 1 -type d | while read -r dir; do
               if [[ -f "$dir/slx.yaml" && -f "$dir/runbook.yaml" && -f "$dir/sli.yaml" ]]; then
-                  slx_alias=$(cat $dir/slx.yaml | yq '.spec.alias')
-                  if [[ "slx_alias" == "sandbox-cluster-1 Cluster Node Health" ]]; then
+                  slx_alias=$(yq '.spec.alias' "$dir/slx.yaml")
+                  if [[ "$slx_alias" == "sandbox-cluster-1 Cluster Node Health" ]]; then
                     echo "$dir"
                     break
                   fi
