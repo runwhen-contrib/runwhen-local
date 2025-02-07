@@ -186,21 +186,21 @@ tasks:
         - task: verify-rwl-output
         - task: modify-slx-content
         - task: ci-run-rwl-discovery-with-upload
+        - task: verify-modified-content
       silent: true
-
-  modify-slx-content: 
-    desc: "Modify SLX fields and validate upload"
+  modify-slx-content:
+    desc: "Modify SLX fields via PATCH instead of local file edits"
     env:
       RW_PAT: "{{.RW_PAT}}"
-    cmds: 
+    cmds:
       - |
+          # Make sure uploadInfo.yaml is available
           if [ ! -f ./uploadInfo.yaml ]; then 
             echo "Missing uploadInfo.yaml"
             exit 1
           fi
 
-          # We don't really need this for discovery, but it's useful in other scripts for 
-          # api related manipulation
+          # Extract relevant info from uploadInfo.yaml
           defaultLocation=$(yq .locationName uploadInfo.yaml)
           workspaceName=$(yq .workspaceName uploadInfo.yaml)
           workspaceOwnerEmail=$(yq .workspaceOwnerEmail uploadInfo.yaml)
@@ -218,52 +218,185 @@ tasks:
                   break
               fi
           done)
-
+          
           # Ensure a valid directory was found
           if [[ -z "$SELECTED_DIR" ]]; then
               echo "Error: No subdirectory in $BASE_DIR contains all required YAML files."
               exit 1
           fi
 
-          echo "Selected directory: $SELECTED_DIR"    
+          echo "Selected directory: $SELECTED_DIR"
 
-          echo "Modify SLX Owner"
-          yq -i '(.spec.owners // []) += ["'"zac.pez@runwhen.com"'"]' "${SELECTED_DIR}/slx.yaml"
+          SLX_NAME=$(basename "${SELECTED_DIR}")
 
-          echo "Modify Runbook Secret"
-          yq -i '.spec.secretsProvided[] |= select(.name == "kubeconfig").workspaceKey = "updated-kubeconfig"' "${SELECTED_DIR}/runbook.yaml"
-          
-          echo "Modify SLI ConfigProvided"
-          yq -i '.spec.configProvided[] |= select(.name == "CONTAINER_RESTART_THRESHOLD").value = "10"' "${SELECTED_DIR}/sli.yaml"
+          sleep 120
 
-          echo "Uploading SLX Changes"
+          for file in "${REQUIRED_FILES[@]}"; do
+            # One PATCH call per file
+            echo "Patching SLX with: $file"
 
-          if [ -d "${SELECTED_DIR}" ]; then
-            SLX_NAME=$(basename "${SELECTED_DIR}")
-            PAYLOAD=$(jq -n --arg commitMsg "Modifying Existing $SLX_NAME" '{ commitMsg: $commitMsg, files: {} }')
-            for file in slx.yaml runbook.yaml sli.yaml; do
-              if [ -f "${SELECTED_DIR}/$file" ]; then
-                CONTENT=$(cat "${SELECTED_DIR}/$file")
-                PAYLOAD=$(echo "$PAYLOAD" | jq --arg fileContent "$CONTENT" --arg fileName "$file" '.files[$fileName] = $fileContent')
-              fi
-            done
+            if [[ "$file" == "slx.yaml" ]]; then 
+              PATCH_URL="${papiURL}/api/v3/workspaces/${workspaceName}/branches/main/slxs/${SLX_NAME}/slx.yaml"
+              echo "Modify SLX Owner"
+              PATCH_PAYLOAD='{ "patch": { "spec": { "owners": ["shea.stewart@runwhen.com", "zac.pez@runwhen.com"] }}}'
 
-            URL="$papiURL/api/v3/workspaces/$workspaceName/branches/main/slxs/${SLX_NAME}"
-            echo "Updating SLX: $SLX_NAME to $URL"
-            response=$(curl -vvv -X POST "$URL" \
+            elif [[ "$file" == "sli.yaml" ]]; then 
+              PATCH_URL="${papiURL}/api/v3/workspaces/${workspaceName}/branches/main/slxs/${SLX_NAME}/sli.yaml"
+              echo "Modify ConfigProvided Value"
+              yq -i '.spec.configProvided[] |= select(.name == "CONTAINER_RESTART_THRESHOLD").value = "10"' "${SELECTED_DIR}/sli.yaml"
+              updated_json=$(yq -o=json "${SELECTED_DIR}/sli.yaml")
+              updated_configProvided=$(echo "$updated_json" | jq '.spec.configProvided')
+              PATCH_PAYLOAD=$(
+                jq -n --argjson conf "$updated_configProvided" '
+                  {
+                    patch: {
+                      spec: {
+                        configProvided: $conf
+                      }
+                    }
+                  }
+                '
+              )
+
+            elif [[ "$file" == "runbook.yaml" ]]; then
+              PATCH_URL="${papiURL}/api/v3/workspaces/${workspaceName}/branches/main/slxs/${SLX_NAME}/runbook.yaml"
+              echo "Modify Runbook Secret"
+              yq -i '.spec.secretsProvided[] |= select(.name == "kubeconfig").workspaceKey = "updated-kubeconfig"' "${SELECTED_DIR}/runbook.yaml"    
+              updated_json=$(yq -o=json "${SELECTED_DIR}/runbook.yaml")
+              updated_secretsProvided=$(echo "$updated_json" | jq '.spec.secretsProvided')
+              PATCH_PAYLOAD=$(
+                jq -n --argjson conf "$updated_secretsProvided" '
+                  {
+                    patch: {
+                      spec: {
+                        secretsProvided: $conf
+                      }
+                    }
+                  }
+                '
+              )
+            else 
+              break
+            fi
+
+            echo "Patching with:"
+            echo $PATCH_PAYLOAD
+
+            echo "Patching SLX at $PATCH_URL..."
+            response=$(curl -s -X PATCH "$PATCH_URL" \
               -H "Authorization: Bearer $RW_PAT" \
               -H "Content-Type: application/json" \
-              -d "$PAYLOAD" -w "%{http_code}" -o /dev/null -s 2>&1)
-            if [[ "$response" =~ 200|201 ]]; then
-              echo "Successfully uploaded SLX: $SLX_NAME to $URL"
-            else
-              echo "Failed to upload SLX: $SLX_NAME to $URL. Response:"
-              echo "$response"
+              -d "$PATCH_PAYLOAD" \
+              -w "%{http_code}" \
+              -o /dev/null)
+
+            if [[ "$response" != "200" && "$response" != "201" ]]; then
+                echo "Failed to patch $file. Status: $response"
+                exit 1
             fi
+            echo "$file patched successfully."
+          done
+
+          echo "SLX patch completed."
+  verify-modified-content:
+    desc: "Verify Modified Content"
+    env:
+      RW_PAT: "{{.RW_PAT}}"
+    cmds:
+      - |
+          # Make sure uploadInfo.yaml is available
+          if [ ! -f ./uploadInfo.yaml ]; then 
+            echo "Missing uploadInfo.yaml"
+            exit 1
           fi
-        
+
+          # Extract relevant info from uploadInfo.yaml
+          defaultLocation=$(yq .locationName uploadInfo.yaml)
+          workspaceName=$(yq .workspaceName uploadInfo.yaml)
+          workspaceOwnerEmail=$(yq .workspaceOwnerEmail uploadInfo.yaml)
+          papiURL=$(yq .papiURL uploadInfo.yaml)
+
+          BASE_DIR="output/workspaces/${workspaceName}/slxs"
+
+          # Required files
+          REQUIRED_FILES=("slx.yaml" "runbook.yaml" "sli.yaml")
+
+          # Find a valid directory that contains all required files
+          SELECTED_DIR=$(find "$BASE_DIR" -mindepth 1 -maxdepth 1 -type d | while read -r dir; do
+              if [[ -f "$dir/slx.yaml" && -f "$dir/runbook.yaml" && -f "$dir/sli.yaml" ]]; then
+                  echo "$dir"
+                  break
+              fi
+          done)
+          
+          # Ensure a valid directory was found
+          if [[ -z "$SELECTED_DIR" ]]; then
+              echo "Error: No subdirectory in $BASE_DIR contains all required YAML files."
+              exit 1
+          fi
+
+          sleep 120
+
+          echo "Selected directory: $SELECTED_DIR"
+
+          SLX_NAME=$(basename "${SELECTED_DIR}")
+          SLX_CONTENTS=$(curl -s -X GET "${papiURL}/api/v3/workspaces/${workspaceName}/branches/main/slxs/${SLX_NAME}" \
+              -H "Authorization: Bearer $RW_PAT" \
+              -H "Content-Type: application/json")
+
+          validation_failed=false
+
+          for file in "${REQUIRED_FILES[@]}"; do
+            echo "Validating $file"
+            file_contents=$(echo "$SLX_CONTENTS" | jq ".files[\"$file\"]")
+            unescaped_file_contents=$(echo "$file_contents" | sed $'s/\\n/\\\n/g')
+            file_yaml=$(echo "$unescaped_file_contents" | yq e .)
+
+            if [[ "$file" == "slx.yaml" ]]; then 
+              value=$(echo "$file_yaml" | yq e -r '.spec.owners[]')
+              echo "Got: $value"
+              if [[ $value =~ zac.pez@runwhen.com ]] && [[ $value =~ shea.stewart@runwhen.com ]]; then
+                continue
+              else
+                validation_failed=true
+                break
+              fi
+
+            elif [[ "$file" == "sli.yaml" ]]; then
+              value=$(echo "$file_yaml" | yq e -r '.spec.configProvided[] | select(.name == "CONTAINER_RESTART_THRESHOLD").value')
+              echo "Got: $value"
+              if [[ "$value" == "10" ]]; then
+                continue
+              else
+                validation_failed=true
+                break
+              fi
+
+            elif [[ "$file" == "runbook.yaml" ]]; then
+              value=$(echo "$file_yaml" | yq e -r '.spec.secretsProvided[] | select(.name == "kubeconfig").workspaceKey')
+              echo "Got: $value"
+              if [[ "$value" == "updated-kubeconfig" ]]; then
+                continue
+              else
+                validation_failed=true
+                break
+              fi
+            else 
+              break
+            fi
+          done
+
+          if [[ "$validation_failed" == "true" ]]; then
+            echo -e "\033[31m❌ Total SLX count failed\033[0m"
+            exit 1
+          else
+            echo -e "\033[32m✔️ SLX Validation Passed\033[0m"
+            exit 0
+          fi
+
+          echo "Verification Completed."
     silent: true
-  
+
   verify-slx-count: 
     desc: "Validate SLX Count in CI test"
     vars:
