@@ -212,10 +212,14 @@ tasks:
           REQUIRED_FILES=("slx.yaml" "runbook.yaml" "sli.yaml")
 
           # Find a valid directory that contains all required files
+          # Find a specific namespace SLX (this helps for manually validating changes)
           SELECTED_DIR=$(find "$BASE_DIR" -mindepth 1 -maxdepth 1 -type d | while read -r dir; do
               if [[ -f "$dir/slx.yaml" && -f "$dir/runbook.yaml" && -f "$dir/sli.yaml" ]]; then
-                  echo "$dir"
-                  break
+                  slx_alias=$(yq '.spec.alias' "$dir/slx.yaml")
+                  if [[ "$slx_alias" == "ci-verify-basic Namespace Health" ]]; then
+                    echo "$dir"
+                    break
+                  fi
               fi
           done)
           
@@ -228,7 +232,7 @@ tasks:
           echo "Selected directory: $SELECTED_DIR"
 
           SLX_NAME=$(basename "${SELECTED_DIR}")
-
+          echo "Selected SLX: $SLX_NAME"
           sleep 120
 
           for file in "${REQUIRED_FILES[@]}"; do
@@ -296,8 +300,43 @@ tasks:
             fi
             echo "$file patched successfully."
           done
-
           echo "SLX patch completed."
+
+
+          # Delete a specific SLX
+          SELECTED_DIR=$(find "$BASE_DIR" -mindepth 1 -maxdepth 1 -type d | while read -r dir; do
+              if [[ -f "$dir/slx.yaml" && -f "$dir/runbook.yaml" && -f "$dir/sli.yaml" ]]; then
+                  slx_alias=$(yq '.spec.alias' "$dir/slx.yaml")
+                  if [[ "$slx_alias" == "sandbox-cluster-1 Cluster Node Health" ]]; then
+                    echo "$dir"
+                    break
+                  fi
+              fi
+          done)
+
+          # Ensure a valid directory was found
+          if [[ -z "$SELECTED_DIR" ]]; then
+              echo "Error: No subdirectory in $BASE_DIR contains all required YAML files."
+              exit 1
+          fi
+
+          echo "Selected directory: $SELECTED_DIR"
+          SLX_NAME=$(basename "${SELECTED_DIR}")
+
+          SLX_URL="${papiURL}/api/v3/workspaces/${workspaceName}/branches/main/slxs/${SLX_NAME}"
+          echo "Deleting SLX_NAME at $DELETE_URL..."
+          response=$(curl -s -X DELETE "$SLX_URL" \
+            -H "Authorization: Bearer $RW_PAT" \
+            -H "Content-Type: application/json" \
+            -w "%{http_code}" \
+            -o /dev/null)
+
+          if [[ "$response" != "204" && "$response" != "201" ]]; then
+              echo "Failed to delete $SLX_NAME. Status: $response"
+              exit 1
+          fi
+          echo "$SLX_NAME deleted successfully."
+
   verify-modified-content:
     desc: "Verify Modified Content"
     env:
@@ -387,14 +426,55 @@ tasks:
           done
 
           if [[ "$validation_failed" == "true" ]]; then
-            echo -e "\033[31m❌ Total SLX count failed\033[0m"
+            echo -e "\033[31m❌ SLX Patch Validation Failed\033[0m"
             exit 1
           else
-            echo -e "\033[32m✔️ SLX Validation Passed\033[0m"
+            echo -e "\033[32m✔️ SLX Patch Validation Passed\033[0m"
             exit 0
           fi
 
+
+          validation_failed=false
+          # Check for specific deleted SLX
+          SELECTED_DIR=$(find "$BASE_DIR" -mindepth 1 -maxdepth 1 -type d | while read -r dir; do
+              if [[ -f "$dir/slx.yaml" && -f "$dir/runbook.yaml" && -f "$dir/sli.yaml" ]]; then
+                  slx_alias=$(cat $dir/slx.yaml | yq '.spec.alias')
+                  if [[ "slx_alias" == "sandbox-cluster-1 Cluster Node Health" ]]; then
+                    echo "$dir"
+                    break
+                  fi
+              fi
+          done)
+
+          # Ensure a valid directory was found
+          if [[ -z "$SELECTED_DIR" ]]; then
+              echo "Error: No subdirectory in $BASE_DIR contains all required YAML files."
+              exit 1
+          fi
+
+          echo "Selected directory: $SELECTED_DIR"
+          SLX_NAME=$(basename "${SELECTED_DIR}")
+          SLX_URL="${papiURL}/api/v3/workspaces/${workspaceName}/branches/main/slxs/${SLX_NAME}"
+          echo "Validating that SLX $SLX_NAME does not exist..."
+          response=$(curl -s -X GET "$SLX_URL" \
+            -H "Authorization: Bearer $RW_PAT" \
+            -H "Content-Type: application/json" \
+            -w "%{http_code}" \
+            -o /dev/null)
+
+          if [[ "$response" != "404" ]]; then
+              echo "SLX still exists. Status: $response"
+              validation_failed=true
+          fi
           echo "Verification Completed."
+
+          if [[ "$validation_failed" == "true" ]]; then
+            echo -e "\033[31m❌ SLX Likely Still Exists\033[0m"
+            exit 1
+          else
+            echo -e "\033[32m✔️ SLX Deletion Verification Passed\033[0m"
+            exit 0
+          fi
     silent: true
 
   verify-slx-count: 
