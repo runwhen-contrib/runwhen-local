@@ -44,3 +44,10 @@ spec:
         pattern: "az-appgw-health"
         matchMode: exact
       group: "{{resource_group.name}}"
+    - match:
+        type: pattern
+        matchType: base-name
+        pattern: "az-appsvc-ops"
+        matchMode: exact
+      group: "{{resource_group.name}}"
+
