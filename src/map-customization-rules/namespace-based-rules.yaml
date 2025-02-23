@@ -110,3 +110,21 @@ spec:
         pattern: "depl-ops"
         matchMode: exact
       group: "{{namespace.name}} ({{cluster.name}})"
+    - match:
+        type: pattern
+        matchType: base-name
+        pattern: "depl-logs-health"
+        matchMode: exact
+      group: "{{namespace.name}} ({{cluster.name}})"
+    - match:
+        type: pattern
+        matchType: base-name
+        pattern: "ss-logs-health"
+        matchMode: exact
+      group: "{{namespace.name}} ({{cluster.name}})"
+    - match:
+        type: pattern
+        matchType: base-name
+        pattern: "k8s-otelcollector"
+        matchMode: exact
+      group: "{{namespace.name}} ({{cluster.name}})"
