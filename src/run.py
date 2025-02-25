@@ -371,7 +371,12 @@ def main():
         workspace_info_path = os.path.join(base_directory, args.workspace_info)
         if os.path.exists(workspace_info_path):
             workspace_info_str = read_file(workspace_info_path)
-            workspace_info = yaml.safe_load(workspace_info_str)
+            
+            try:
+                workspace_info = yaml.safe_load(workspace_info_str)
+            except yaml.YAMLError as e:
+                raise ValueError(f"Unable to parse workspaceInfo YAML in {workspace_info_path}: {e}")
+
             # FIXME: Should probably tweak the field in the workspace info from the GUI/PAPI
             # to name this just "workspace"
             if not workspace_name:
