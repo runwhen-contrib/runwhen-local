@@ -43,39 +43,9 @@ UPLOAD_COMMAND = 'upload'
 CUSTOMIZATION_RULES_DEFAULT = "map-customization-rules"
 
 
-def read_file(file_path: bytes, mode: str = "r") -> Union[str, bytes]:
-    """
-    Reads the contents of a file (text or binary) and returns it.
-
-    :param file_path: The path to the file, as bytes.
-    :param mode: The mode in which to open the file (e.g., 'r' for text, 'rb' for binary).
-    :return: The contents of the file (str if text mode, bytes if binary).
-    :raises FileNotFoundError: If the file does not exist.
-    :raises PermissionError: If the file cannot be read due to permissions.
-    :raises ValueError: If the file cannot be decoded in text mode.
-    :raises OSError: For other I/O related errors.
-    """
-    # Decide whether to specify an encoding
-    use_encoding = "b" not in mode
-
-    try:
-        if use_encoding:
-            with open(file_path, mode, encoding="utf-8") as f:
-                return f.read()
-        else:
-            with open(file_path, mode) as f:
-                return f.read()
-    except FileNotFoundError as e:
-        # You could log here if desired, then re-raise
-        raise FileNotFoundError(f"File not found: {file_path!r}") from e
-    except PermissionError as e:
-        raise PermissionError(f"Permission denied when accessing: {file_path!r}") from e
-    except UnicodeDecodeError as e:
-        # Usually raised if the file is not valid UTF-8 in text mode
-        raise ValueError(f"Could not decode file with UTF-8: {file_path!r}") from e
-    except OSError as e:
-        # Catches other I/O issues (e.g., IsADirectoryError, etc.)
-        raise OSError(f"Error reading file {file_path!r}: {e}") from e
+def read_file(file_path: bytes, mode="r") -> Union[str, bytes]:
+    with open(file_path, mode) as f:
+        return f.read()
 
 
 def fatal(message: str = None) -> None:
@@ -401,14 +371,14 @@ def main():
         workspace_info_path = os.path.join(base_directory, args.workspace_info)
         if os.path.exists(workspace_info_path):
             workspace_info_str = read_file(workspace_info_path)
-
+            
             try:
-                return yaml.safe_load(workspace_info_str)
+                workspace_info = yaml.safe_load(workspace_info_str)
             except yaml.YAMLError as e:
-                # If it still fails, raise the original error for clarity
-                raise ValueError(f"Unable to parse workspaceInfo configuration YAML in {workspace_info_path}: {e}")
+                raise ValueError(f"Unable to parse workspaceInfo YAML in {workspace_info_path}: {e}")
 
-
+            # FIXME: Should probably tweak the field in the workspace info from the GUI/PAPI
+            # to name this just "workspace"
             if not workspace_name:
                 workspace_name = workspace_info.get('workspaceName')
                 if not isinstance(workspace_name, str):
