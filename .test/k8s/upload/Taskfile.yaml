@@ -145,7 +145,7 @@ tasks:
   ci-test-1:
       desc: "Run CI Discovery Test 1 - K8s only - basic upload test "
       vars: 
-        EXPECTED_SLXS: "12"
+        EXPECTED_SLXS: "13"
       cmds:
         - |
           if [ ! -f ./uploadInfo.yaml ]; then 
