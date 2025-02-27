@@ -48,8 +48,14 @@ FROM node-base AS app
 LABEL org.opencontainers.image.description="RunWhen Local discovers and generates troubleshooting and automation tasks for your environment."
 RUN groupadd -r runwhen && useradd --no-log-init -r -g runwhen runwhen
 
-ENV RUNWHEN_HOME='/workspace-builder' \
-    RUNWHEN_SHARED='/shared'
+# Make sure we do NOT override HOME to /workspace-builder; set it to /shared
+ENV RUNWHEN_HOME='/workspace-builder'
+ENV RUNWHEN_SHARED='/shared'
+ENV HOME='/shared'
+
+# Copy in code
+WORKDIR $RUNWHEN_HOME
+ADD . $RUNWHEN_HOME
 
 # Copy Poetry to final image
 COPY --from=builder-base $POETRY_HOME $POETRY_HOME
@@ -117,11 +123,10 @@ RUN ARCH=$(uname -m) && \
     && chmod +x /usr/local/bin/kubelogin
 
 # RunWhen customizations
-ENV HOME $RUNWHEN_HOME
+ENV HOME=$RUNWHEN_HOME
 ADD . $RUNWHEN_HOME
 
-RUN mkdir $RUNWHEN_SHARED \
-    && usermod -g 0 runwhen -G 0  \
+RUN usermod -g 0 runwhen -G 0  \
     && chown -R runwhen:0 $RUNWHEN_HOME $RUNWHEN_SHARED \
     && chmod g=u /etc/passwd \
     && chmod -R g+w ${RUNWHEN_HOME} ${RUNWHEN_SHARED}

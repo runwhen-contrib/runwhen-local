@@ -34,6 +34,7 @@ src/rw-cli-codecollection-cache
 
 # Ignore RunWhen Local test files
 **/workspaceInfo.yaml**
+**/db.sqlite3
 **kubeconfig**
 **/output/
 **/.test/.task/**
