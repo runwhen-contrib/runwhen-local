@@ -78,14 +78,6 @@ RUN pip install --no-cache-dir \
     ruamel.yaml \
     gitpython \
     pyyaml
-RUN npm install -g npm@10.8.3
-
-RUN npm install \
-    xterm \
-    express \
-    ws \
-    node-pty \
-    multer
 
 ENV NODE_PATH="/var/lib/neo4j/node_modules"
 
@@ -126,26 +118,11 @@ RUN ARCH=$(uname -m) && \
 ENV HOME=$RUNWHEN_HOME
 ADD . $RUNWHEN_HOME
 
-RUN usermod -g 0 runwhen -G 0  \
+RUN mkdir -p ${RUNWHEN_SHARED} \
+    && usermod -g 0 runwhen -G 0  \
     && chown -R runwhen:0 $RUNWHEN_HOME $RUNWHEN_SHARED \
     && chmod g=u /etc/passwd \
     && chmod -R g+w ${RUNWHEN_HOME} ${RUNWHEN_SHARED}
-
-# Reverse Proxy Bits
-RUN apt-get update && apt-get install -y nginx \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY nginx.conf /etc/nginx/sites-enabled/default
-
-# Adjust ownership and permissions for Nginx directories and files to ensure compatibility with arbitrary user IDs
-RUN mkdir -p /var/log/nginx /var/lib/nginx /run/nginx /usr/share/nginx/html && \
-    chown -R :0 /etc/nginx /var/log/nginx /usr/share/nginx/html /var/lib/nginx && \
-    chmod -R g+rwX /etc/nginx /var/log/nginx /usr/share/nginx/html /var/lib/nginx && \
-    touch /run/nginx.pid && \
-    chown :0 /run/nginx.pid && \
-    chmod g+rwX /run/nginx.pid && \
-    find /etc/nginx /var/log/nginx /usr/share/nginx/html /var/lib/nginx -type d -exec chmod g+s {} \+
 
 USER runwhen
 EXPOSE 8081

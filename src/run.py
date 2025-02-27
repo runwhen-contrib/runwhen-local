@@ -162,16 +162,6 @@ def create_kubeconfig():
 
     return kubeconfig
 
-def status_update(update, status_file_path, append_mode=True):
-    if cheat_sheet_enabled:
-        # status_fpath = "/shared/output/.status"
-        update_line = f"{update}\n"  # Add a newline character to separate updates
-        print(update_line)
-
-        file_mode = 'a' if os.path.exists(status_file_path) and append_mode else 'w'
-
-        with open(status_file_path, file_mode) as status_file:
-            status_file.write(update_line)
 
 def merge_kubeconfigs(kubeconfig_paths, output_path):
     merged_config = None
@@ -704,11 +694,6 @@ def main():
             encoded_resource_load_data = base64.b64encode(resource_load_data).decode('utf-8')
             request_data['resourceLoadFile'] = encoded_resource_load_data
 
-        if cheat_sheet_enabled:
-            # Update cheat sheet status by copying index
-            timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-            status_update(f"Discovery started at: {timestamp} ", status_file_path, append_mode=False)
-            status_update("Discovering resources...", status_file_path)
         # Invoke the workspace builder /run REST endpoint
         run_url = f"http://{rest_service_host}:{rest_service_port}/run/"
         response = call_rest_service_with_retries(lambda: requests.post(run_url, json=request_data, proxies=get_proxy_config(run_url)))
@@ -840,9 +825,8 @@ def main():
     # run.sh script handle calling it after invoking this tool.
     if cheat_sheet_enabled:
         # Update cheat sheet status by copying index
-        status_update("Starting cheat sheet rendering...", status_file_path)
         cheatsheet.cheat_sheet(output_path)
-        status_update("Cheat sheet rendering completed.", status_file_path)
+
 
 if __name__ == "__main__":
     main()
