@@ -4,7 +4,7 @@ tasks:
   default:
     desc: "Generate workspaceInfo and rebuild/test"
     cmds:
-      - task: generate-rwl-config
+      - task: generate-rwl-config-basic
       - task: build-rwl
       - task: run-rwl-discovery
 
@@ -13,7 +13,7 @@ tasks:
     cmds:
       - task: clean-rwl-discovery
 
-  generate-rwl-config:
+  generate-rwl-config-detailed:
     desc: "Generate RunWhen Local configuration (workspaceInfo.yaml)"
     env:
       RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
@@ -26,8 +26,39 @@ tasks:
         defaultLocation: location-01
         defaultLOD: detailed
         cloudConfig:
-          kubernetes: 
+          kubernetes:             
             kubeconfigFile: /shared/kubeconfig.secret
+            contexts:
+              sandbox-cluster-1: 
+                defaultNamespaceLOD: detailed
+        codeCollections: []
+        # codeCollections: 
+        #   - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection"
+        #     branch: "main"
+        #     codeBundles: ["k8s-namespace-healthcheck", "k8s-deployment-healthcheck"]
+        custom: 
+          kubernetes_distribution_binary: kubectl
+        EOF
+    silent: true
+
+  generate-rwl-config-basic:
+    desc: "Generate RunWhen Local configuration (workspaceInfo.yaml)"
+    env:
+      RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
+    cmds:
+      - |
+        # Generate workspaceInfo.yaml with fetched cluster details
+        cat <<EOF > workspaceInfo.yaml
+        workspaceName: "$RW_WORKSPACE"
+        workspaceOwnerEmail: authors@runwhen.com
+        defaultLocation: location-01
+        defaultLOD: detailed
+        cloudConfig:
+          kubernetes:             
+            kubeconfigFile: /shared/kubeconfig.secret
+            contexts:
+              sandbox-cluster-1: 
+                defaultNamespaceLOD: basic
         codeCollections: []
         # codeCollections: 
         #   - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection"
@@ -196,7 +227,7 @@ tasks:
               kubeconfigFile: /shared/kubeconfig.secret
               contexts:
                 sandbox-cluster-1: 
-                  defaultNamespaceLOD: detailed
+                  defaultNamespaceLOD: basic
               namespaces:
                 - ci-verify-basic
           codeCollections: []

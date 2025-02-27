@@ -53,13 +53,6 @@ tags:
   </div>
 
   <div class="grid-item">
-    <a href="#" id="configLink" onclick="return false;">
-      <img class="card-icon" src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/lock.svg" alt="Icon">
-      Private Configuration
-    </a>
-  </div>
-
-  <div class="grid-item">
     <a href="https://github.com/orgs/runwhen-contrib/discussions?discussions_q=is%3Aopen+{{ runbook_url.split('/')[-2]|urlencode }}" target="_blank">
       <img class="card-icon" src="https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/forum.svg" alt="Icon">
       Join Discussion
@@ -134,84 +127,6 @@ function showCopiedMessage() {
 
 {% endfor %}
 
-<script>
-document.getElementById('configLink').addEventListener('click', function() {
-    showConfig('{{ runbook }}');
-});
-
-function showConfig(runbook) {
-    const popupContainer = document.createElement("div"); // Container for the popup
-    const popup = document.createElement("div");
-    popup.classList.add("popup");
-
-    const loadingMessage = document.createElement("h1");
-    loadingMessage.innerText = "Please wait...";
-
-    popup.appendChild(loadingMessage);
-    popupContainer.appendChild(popup); // Append the popup to the container
-    document.body.appendChild(popupContainer); // Append the container to the document body
-
-    fetch('/get-runbook-config', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            runbook: runbook,
-        }) 
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            return response.text();
-        })
-        .then(data => {
-            popup.removeChild(loadingMessage);
-
-            const closeButton = document.createElement("span");
-            closeButton.classList.add("close");
-            closeButton.innerHTML = "&times;";
-            closeButton.style.fontSize = "24px"; // Increase the font size for better visibility
-            closeButton.style.position = "absolute";
-            closeButton.style.top = "10px";
-            closeButton.style.right = "10px";
-
-            const title = document.createElement("p");
-            title.innerText = "Private configuration for: " + '{{ slx_hints["nice_name"] }}';
-            const configPath = document.createElement("p");
-            configPath.innerText = "Local filesystem path: /shared/output/" + runbook;
-
-            const image = document.createElement("img");
-            image.src = "https://storage.googleapis.com/runwhen-nonprod-shared-images/icons/lock.svg";
-            image.alt = "Icon";
-
-            const codeBlock = document.createElement("pre");
-            codeBlock.classList.add("code-block");
-            codeBlock.innerText = data;
-
-            popup.appendChild(closeButton);
-            popup.appendChild(image); // Append the image to the popup
-            popup.appendChild(title);
-            popup.appendChild(configPath);
-            popup.appendChild(codeBlock);
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert(error);
-        });
-
-    // Event delegation for close button click
-    popupContainer.addEventListener("click", (event) => {
-        const target = event.target;
-        if (target.classList.contains("close")) {
-            event.stopPropagation(); // Stop event propagation
-            document.body.removeChild(popupContainer); // Remove the container instead of the popup
-        }
-    });
-}
-
-</script>
 <style>
   .multiline {
     white-space: pre-wrap;

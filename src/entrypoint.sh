@@ -28,17 +28,8 @@ else
   echo "Directory $OUTPUT has been created."
 fi
 
-if [ -L "cheat-sheet-docs/docs/output" ]; then
-  rm "cheat-sheet-docs/docs/output"
-fi
-
 # Link the shared output dir so that mkdocs and surface config files
-ln -s /shared/output cheat-sheet-docs/output
 mkdocs serve -f cheat-sheet-docs/mkdocs.yml &
-
-# Run node and nginx servers
-node server.js &
-nginx &
 
 # Run Django in the background
 python manage.py migrate

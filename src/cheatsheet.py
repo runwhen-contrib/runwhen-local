@@ -574,23 +574,6 @@ def generate_index(all_support_tags_freq, summarized_resources, workspace_detail
     with open(home_path, 'w') as home_file:
         home_file.write(home_output)
 
-def generate_platform_upload(workspace_info, slx_count, auth_details): 
-    platform_upload_path = f'cheat-sheet-docs/docs/platform-upload.md'
-    platform_upload_template_file = "cheat-sheet-docs/templates/platform-upload.j2"
-    platform_upload_env = jinja2.Environment(loader=jinja2.FileSystemLoader("."))
-    platform_upload_template = platform_upload_env.get_template(platform_upload_template_file)
-
-
-    platform_upload_output = platform_upload_template.render(
-        workspace_info=workspace_info,
-        slx_count=slx_count,
-        auth_details=auth_details,
-        app_url=os.environ.get('RW_LOCAL_APP_ENDPOINT', 'https://app.beta.runwhen.com')
-    )
-
-    with open(platform_upload_path, 'w') as platform_upload_file:
-        platform_upload_file.write(platform_upload_output)
-    platform_upload_file.close()
 
 def env_check():
     config_file = "cheat-sheet-docs/mkdocs.yml"
@@ -601,26 +584,6 @@ def env_check():
     yaml.indent(mapping=4, sequence=4, offset=2)  # Set indentation for dumped YAML
     with open(config_file, "r") as f:
         config = yaml.load(f)
-
-    # Update the 'demo' key under the 'build' dict
-    if "build" not in config:
-        config["build"] = {}
-
-    # Check if RW_LOCAL_DEMO environment variable exists
-    if "RW_LOCAL_DEMO" in os.environ:
-        demo_env_value = os.environ["RW_LOCAL_DEMO"].lower()
-        if demo_env_value == "true":
-            config["build"]["demo"] = True
-        else:
-            config["build"]["demo"] = False
-
-    # Check if RW_LOCAL_DEMO environment variable exists
-    if "RW_LOCAL_TERMINAL_DISABLED" in os.environ:
-        terminal_disabled_env_value = os.environ["RW_LOCAL_TERMINAL_DISABLED"].lower()
-        if terminal_disabled_env_value == "true":
-            config["build"]["terminal_disabled"] = True
-        else:
-            config["build"]["terminal_disabled"] = False
 
     # Write the updated config back to mkdocs.yml file
     with open(config_file, "w") as f:
@@ -793,46 +756,6 @@ def find_group_path(group_name):
         doc_group_dir_path = f'{group_name}'
     return doc_group_dir_path
 
-def generate_auth_details():
-    """
-    Inspects authentication files and assigns useful values to an auth object for 
-    generating upload documentation. 
-
-    Uses markdown extensions from https://facelessuser.github.io/pymdown-extensions/  
-
-    Returns:
-        Object 
-    """    
-    auth_config_details = {
-        'kubernetes': {
-            'kubeconfig_details': None
-        }
-    }
-
-    # Identify kubeconfig auth details
-    kubeconfig_auth = None
-
-    # Check for the existence of the files in the /shared/ directory
-    # Assume user-provided kubeconfig is better than in-cluster auth
-    if os.path.exists('/shared/kubeconfig'):
-        kubeconfig_auth = "user-provided"
-        with open('/shared/kubeconfig', 'r') as file:
-            config_details = yaml.safe_load(file)
-            auth_config_details['kubernetes']['kubeconfig_details'] = config_details
-    elif os.path.exists('/shared/in_cluster_kubeconfig.yaml'):
-        kubeconfig_auth = "in-cluster"
-        with open('/shared/in_cluster_kubeconfig.yaml', 'r') as file:
-            config_details = yaml.safe_load(file)
-            auth_config_details['kubernetes']['kubeconfig_details'] = config_details
-    elif os.path.exists('/workspace-builder/.kube/config'):
-        kubeconfig_auth = "cloud-provider-identity"
-        with open('/workspace-builder/.kube/config', 'r') as file:
-            config_details = yaml.safe_load(file)
-            auth_config_details['kubernetes']['kubeconfig_details'] = config_details
-    auth_config_details['kubernetes']['type']= kubeconfig_auth
-
-
-    return auth_config_details
 
 def warm_git_cache(runbook_files):
     """
@@ -1056,7 +979,6 @@ def cheat_sheet(directory_path):
 
     env_check()
     update_last_scan_time()
-    auth_details=generate_auth_details()
     search_list = ['render_in_commandlist=true', 'show_in_rwl_cheatsheet=true']
     runbook_files = find_files(directory_path, 'runbook.yaml')
     workspace_files = find_files(directory_path, 'workspace.yaml')
@@ -1071,9 +993,6 @@ def cheat_sheet(directory_path):
     # Try to fetch all git clones before processing anything deeper
     warm_git_cache(runbook_files)
     
-    # Generate customized upload page
-    generate_platform_upload(workspace_info, slx_count, auth_details)
-
     ## TODO determine if we wish to support more than one workspace... 
     ## there would be a bit of refactoring to do if this is the case
     resource_dump_file = f'{directory_path}/resource-dump.yaml'
@@ -1134,16 +1053,6 @@ def cheat_sheet(directory_path):
     # If you need a deduplicated list of tags, you can extract keys from the Counter
     all_support_tags_freq = Counter(all_support_tags)
     deduplicated_support_tags = list(all_support_tags_freq.keys())
-
-
-    # # Generate stats and home page
-    # cluster_data = auth_details.get('kubernetes', {}).get('kubeconfig_details', {}).get('clusters', [])
-    # summarized_resources = {}
-    # summarized_resources["groups"] = len(groups)
-    # summarized_resources["num_clusters"] = len(cluster_data)
-    # summarized_resources["cluster_names"] = [cluster.get('name') for cluster in cluster_data]
-    # generate_index(all_support_tags_freq, summarized_resources, workspace_details, command_generation_summary_stats, slx_count)
-    # Collecting resources from various cloud configurations
 
     # Collecting resources from various cloud configurations
     summarized_resources = {
