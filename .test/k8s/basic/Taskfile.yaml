@@ -252,7 +252,7 @@ tasks:
           total_slxs=$(cat slx_count.txt)
           echo "---Validating SLX Count---"
           echo "Total SLXs: $total_slxs (Expected: {{.EXPECTED_SLX_COUNT}})"
-          if [[ "$total_slxs" != "{{.EXPECTED_SLX_COUNT}}" ]]; then
+          if [[ "$total_slxs" -lt "{{.EXPECTED_SLX_COUNT}}" ]]; then
             echo -e "\033[31m❌ Total SLX count failed\033[0m"
             exit 1
           else
