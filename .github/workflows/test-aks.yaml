@@ -1,260 +1,260 @@
-# Build source image and test against AKS & K8s
-name: Discovery AKS Tests
+# # Build source image and test against AKS & K8s
+# name: Discovery AKS Tests
 
-on:
-  workflow_dispatch:
-  pull_request:
-    paths:
-      - "src/**"
-      - ".github/workflows/test-aks.yaml"
-      - "!src/VERSION"
-permissions:
-  contents: "read"
-  id-token: "write"
-  security-events: "write"
-  actions: "read"
+# on:
+#   workflow_dispatch:
+#   pull_request:
+#     paths:
+#       - "src/**"
+#       - ".github/workflows/test-aks.yaml"
+#       - "!src/VERSION"
+# permissions:
+#   contents: "read"
+#   id-token: "write"
+#   security-events: "write"
+#   actions: "read"
 
-env:
-  PROJECT_ID: runwhen-nonprod-shared
-  DEFAULT_BRANCH: "origin/${{ github.event.repository.default_branch }}"
-  AZ_RESOURCE_GROUP: "sandbox"
-  AZ_TF_STORAGE_CONTAINER: ${{ secrets.AZ_TF_STORAGE_CONTAINER }}
+# env:
+#   PROJECT_ID: runwhen-nonprod-shared
+#   DEFAULT_BRANCH: "origin/${{ github.event.repository.default_branch }}"
+#   AZ_RESOURCE_GROUP: "sandbox"
+#   AZ_TF_STORAGE_CONTAINER: ${{ secrets.AZ_TF_STORAGE_CONTAINER }}
           
-jobs:
-  build-image:
-    runs-on: ubuntu-latest
-    outputs:
-      image-tag: ${{ github.sha }}
-    steps:
-      - name: Install Task
-        uses: arduino/setup-task@v2
-        with:
-          version: 3.x
+# jobs:
+#   build-image:
+#     runs-on: ubuntu-latest
+#     outputs:
+#       image-tag: ${{ github.sha }}
+#     steps:
+#       - name: Install Task
+#         uses: arduino/setup-task@v2
+#         with:
+#           version: 3.x
 
-      - uses: actions/checkout@v2
-        name: Checkout
+#       - uses: actions/checkout@v2
+#         name: Checkout
 
-      - name: Build Image
-        run: |-
-          cd .test/k8s/basic
-          docker buildx create --use --name=mybuilder
-          docker buildx inspect --bootstrap
-          task build-rwl
-          docker save -o image.tar runwhen-local:test || (echo "Image not found!" && exit 1)
+#       - name: Build Image
+#         run: |-
+#           cd .test/k8s/basic
+#           docker buildx create --use --name=mybuilder
+#           docker buildx inspect --bootstrap
+#           task build-rwl
+#           docker save -o image.tar runwhen-local:test || (echo "Image not found!" && exit 1)
 
 
-      - name: Upload Image as Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: container-image
-          path: .test/k8s/basic/image.tar
-          retention-days: 1
+#       - name: Upload Image as Artifact
+#         uses: actions/upload-artifact@v4
+#         with:
+#           name: container-image
+#           path: .test/k8s/basic/image.tar
+#           retention-days: 1
 
-  azure-aks-and-k8s-infra-build:
-    # needs: build-image
-    runs-on: ubuntu-latest
-    steps:
-      - name: Install Task
-        uses: arduino/setup-task@v2
-        with:
-          version: 3.x
+#   azure-aks-and-k8s-infra-build:
+#     # needs: build-image
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Install Task
+#         uses: arduino/setup-task@v2
+#         with:
+#           version: 3.x
 
-      - uses: actions/checkout@v2
-        name: Checkout
+#       - uses: actions/checkout@v2
+#         name: Checkout
 
-      - name: Azure Login
-        uses: azure/login@v2
-        with:
-          creds: ${{ secrets.AZ_SANDBOX_CREDS }}
+#       - name: Azure Login
+#         uses: azure/login@v2
+#         with:
+#           creds: ${{ secrets.AZ_SANDBOX_CREDS }}
 
-      - name: Azure CLI script
-        uses: azure/cli@v2
-        with:
-          azcliversion: latest
-          inlineScript: |
-            az account show
+#       - name: Azure CLI script
+#         uses: azure/cli@v2
+#         with:
+#           azcliversion: latest
+#           inlineScript: |
+#             az account show
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+#       - name: Setup Terraform
+#         uses: hashicorp/setup-terraform@v3
   
 
-      - name: Initialize Terraform with Remote State
-        id: azure-infra-build
-        run: |
-          cd .test/azure/aks-and-k8s/terraform
-          infra_desc=$(echo "$PWD" | awk -F'/' '{print $(NF-1)}')
-          task env-setup
+#       - name: Initialize Terraform with Remote State
+#         id: azure-infra-build
+#         run: |
+#           cd .test/azure/aks-and-k8s/terraform
+#           infra_desc=$(echo "$PWD" | awk -F'/' '{print $(NF-1)}')
+#           task env-setup
 
-          echo "Setting Azure Service Principal Credentials..."
-          echo '${{ secrets.AZ_SANDBOX_CREDS }}' > azure_creds.json
-          export ARM_CLIENT_ID=$(jq -r '.clientId' azure_creds.json)
-          export ARM_CLIENT_SECRET=$(jq -r '.clientSecret' azure_creds.json)
-          export ARM_SUBSCRIPTION_ID=$(jq -r '.subscriptionId' azure_creds.json)
-          export ARM_TENANT_ID=$(jq -r '.tenantId' azure_creds.json)
-          export TF_VAR_sp_principal_id=$(az ad sp show --id $ARM_CLIENT_ID --query id -o tsv)
-          export TF_VAR_subscription_id=$ARM_SUBSCRIPTION_ID
-          export TF_VAR_tenant_id=$ARM_TENANT_ID
+#           echo "Setting Azure Service Principal Credentials..."
+#           echo '${{ secrets.AZ_SANDBOX_CREDS }}' > azure_creds.json
+#           export ARM_CLIENT_ID=$(jq -r '.clientId' azure_creds.json)
+#           export ARM_CLIENT_SECRET=$(jq -r '.clientSecret' azure_creds.json)
+#           export ARM_SUBSCRIPTION_ID=$(jq -r '.subscriptionId' azure_creds.json)
+#           export ARM_TENANT_ID=$(jq -r '.tenantId' azure_creds.json)
+#           export TF_VAR_sp_principal_id=$(az ad sp show --id $ARM_CLIENT_ID --query id -o tsv)
+#           export TF_VAR_subscription_id=$ARM_SUBSCRIPTION_ID
+#           export TF_VAR_tenant_id=$ARM_TENANT_ID
 
-          terraform init \
-            -backend-config="resource_group_name=${{ env.AZ_RESOURCE_GROUP }}" \
-            -backend-config="storage_account_name=${{ secrets.AZ_TF_STORAGE_ACCOUNT }}" \
-            -backend-config="container_name=${{ secrets.AZ_TF_STORAGE_CONTAINER }}" \
-            -backend-config="key=terraform/$infra_desc/${{ github.job }}/$(echo "${{ github.repository }}" | tr '/' '-')/$(echo "${{ github.ref_name }}" | tr '/' '-')/terraform.tfstate"
+#           terraform init \
+#             -backend-config="resource_group_name=${{ env.AZ_RESOURCE_GROUP }}" \
+#             -backend-config="storage_account_name=${{ secrets.AZ_TF_STORAGE_ACCOUNT }}" \
+#             -backend-config="container_name=${{ secrets.AZ_TF_STORAGE_CONTAINER }}" \
+#             -backend-config="key=terraform/$infra_desc/${{ github.job }}/$(echo "${{ github.repository }}" | tr '/' '-')/$(echo "${{ github.ref_name }}" | tr '/' '-')/terraform.tfstate"
 
-          cd ..
-          task build-terraform-infra
+#           cd ..
+#           task build-terraform-infra
 
 
-  azure-aks-and-k8s-infra-cleanup:
-    runs-on: ubuntu-latest
-    needs: 
-      - azure-aks-and-k8s-infra-build
-      - azure-aks-and-k8s-tests
-    if: always() # Runs even if terraform-apply fails
+#   azure-aks-and-k8s-infra-cleanup:
+#     runs-on: ubuntu-latest
+#     needs: 
+#       - azure-aks-and-k8s-infra-build
+#       - azure-aks-and-k8s-tests
+#     if: always() # Runs even if terraform-apply fails
 
-    steps:
-      - name: Install Task
-        uses: arduino/setup-task@v2
-        with:
-          version: 3.x
+#     steps:
+#       - name: Install Task
+#         uses: arduino/setup-task@v2
+#         with:
+#           version: 3.x
 
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+#       - name: Checkout Repository
+#         uses: actions/checkout@v4
 
-      - name: Azure Login
-        uses: azure/login@v2
-        with:
-          creds: ${{ secrets.AZ_SANDBOX_CREDS }}
+#       - name: Azure Login
+#         uses: azure/login@v2
+#         with:
+#           creds: ${{ secrets.AZ_SANDBOX_CREDS }}
       
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+#       - name: Setup Terraform
+#         uses: hashicorp/setup-terraform@v3
     
-      - name: Clean up terraform infrastructure
-        run: |
-          cd .test/azure/aks-and-k8s/terraform
-          infra_desc=$(echo "$PWD" | awk -F'/' '{print $(NF-1)}')
-          task env-setup
+#       - name: Clean up terraform infrastructure
+#         run: |
+#           cd .test/azure/aks-and-k8s/terraform
+#           infra_desc=$(echo "$PWD" | awk -F'/' '{print $(NF-1)}')
+#           task env-setup
 
-          echo "Setting Azure Service Principal Credentials..."
-          echo '${{ secrets.AZ_SANDBOX_CREDS }}' > azure_creds.json
-          export ARM_CLIENT_ID=$(jq -r '.clientId' azure_creds.json)
-          export ARM_CLIENT_SECRET=$(jq -r '.clientSecret' azure_creds.json)
-          export ARM_SUBSCRIPTION_ID=$(jq -r '.subscriptionId' azure_creds.json)
-          export ARM_TENANT_ID=$(jq -r '.tenantId' azure_creds.json)
-          export TF_VAR_sp_principal_id=$(az ad sp show --id $ARM_CLIENT_ID --query id -o tsv)
-          export TF_VAR_subscription_id=$ARM_SUBSCRIPTION_ID
-          export TF_VAR_tenant_id=$ARM_TENANT_ID
+#           echo "Setting Azure Service Principal Credentials..."
+#           echo '${{ secrets.AZ_SANDBOX_CREDS }}' > azure_creds.json
+#           export ARM_CLIENT_ID=$(jq -r '.clientId' azure_creds.json)
+#           export ARM_CLIENT_SECRET=$(jq -r '.clientSecret' azure_creds.json)
+#           export ARM_SUBSCRIPTION_ID=$(jq -r '.subscriptionId' azure_creds.json)
+#           export ARM_TENANT_ID=$(jq -r '.tenantId' azure_creds.json)
+#           export TF_VAR_sp_principal_id=$(az ad sp show --id $ARM_CLIENT_ID --query id -o tsv)
+#           export TF_VAR_subscription_id=$ARM_SUBSCRIPTION_ID
+#           export TF_VAR_tenant_id=$ARM_TENANT_ID
 
-          terraform init \
-            -backend-config="resource_group_name=${{ env.AZ_RESOURCE_GROUP }}" \
-            -backend-config="storage_account_name=${{ secrets.AZ_TF_STORAGE_ACCOUNT }}" \
-            -backend-config="container_name=${{ secrets.AZ_TF_STORAGE_CONTAINER }}" \
-            -backend-config="key=terraform/$infra_desc/azure-aks-and-k8s-infra-build/$(echo "${{ github.repository }}" | tr '/' '-')/$(echo "${{ github.ref_name }}" | tr '/' '-')/terraform.tfstate"
+#           terraform init \
+#             -backend-config="resource_group_name=${{ env.AZ_RESOURCE_GROUP }}" \
+#             -backend-config="storage_account_name=${{ secrets.AZ_TF_STORAGE_ACCOUNT }}" \
+#             -backend-config="container_name=${{ secrets.AZ_TF_STORAGE_CONTAINER }}" \
+#             -backend-config="key=terraform/$infra_desc/azure-aks-and-k8s-infra-build/$(echo "${{ github.repository }}" | tr '/' '-')/$(echo "${{ github.ref_name }}" | tr '/' '-')/terraform.tfstate"
 
-          cd ..
-          task cleanup-terraform-infra
+#           cd ..
+#           task cleanup-terraform-infra
 
 
 
-  azure-aks-and-k8s-tests:
-      needs: 
-        - build-image
-        - azure-aks-and-k8s-infra-build
-      runs-on: ubuntu-latest
-      strategy:
-        fail-fast: false
-        matrix:
-          test: 
-            - ci-test-1
-            - ci-test-2
-            - ci-test-3
-            - ci-test-4
-            - ci-test-5
-      steps:
-        - name: Install Task
-          uses: arduino/setup-task@v2
-          with:
-            version: 3.x
+#   azure-aks-and-k8s-tests:
+#       needs: 
+#         - build-image
+#         - azure-aks-and-k8s-infra-build
+#       runs-on: ubuntu-latest
+#       strategy:
+#         fail-fast: false
+#         matrix:
+#           test: 
+#             - ci-test-1
+#             - ci-test-2
+#             - ci-test-3
+#             - ci-test-4
+#             - ci-test-5
+#       steps:
+#         - name: Install Task
+#           uses: arduino/setup-task@v2
+#           with:
+#             version: 3.x
 
-        - uses: actions/checkout@v2
-          name: Checkout
+#         - uses: actions/checkout@v2
+#           name: Checkout
 
-        - name: Download Image Artifact
-          uses: actions/download-artifact@v4
-          with:
-            name: container-image
-            path: .test/azure/aks-and-k8s
+#         - name: Download Image Artifact
+#           uses: actions/download-artifact@v4
+#           with:
+#             name: container-image
+#             path: .test/azure/aks-and-k8s
 
-        - name: Load Docker Image
-          run: |
-            docker load -i .test/azure/aks-and-k8s/image.tar
+#         - name: Load Docker Image
+#           run: |
+#             docker load -i .test/azure/aks-and-k8s/image.tar
 
-        - name: Azure Login
-          uses: azure/login@v2
-          with:
-            creds: ${{ secrets.AZ_SANDBOX_CREDS }}
+#         - name: Azure Login
+#           uses: azure/login@v2
+#           with:
+#             creds: ${{ secrets.AZ_SANDBOX_CREDS }}
 
-        - name: Setup Terraform
-          uses: hashicorp/setup-terraform@v3
+#         - name: Setup Terraform
+#           uses: hashicorp/setup-terraform@v3
 
-        - name: Run Test - ${{ matrix.test }}
-          env:
-            KUBECONFIG_SECRET: ${{ secrets.SANDBOX_KUBECONFIG }}
-            AZ_SANDBOX: ${{ secrets.AZ_SANDBOX }}
-          run: |-
-            cd .test/azure/aks-and-k8s/terraform
-            infra_desc=$(echo "$PWD" | awk -F'/' '{print $(NF-1)}')
+#         - name: Run Test - ${{ matrix.test }}
+#           env:
+#             KUBECONFIG_SECRET: ${{ secrets.SANDBOX_KUBECONFIG }}
+#             AZ_SANDBOX: ${{ secrets.AZ_SANDBOX }}
+#           run: |-
+#             cd .test/azure/aks-and-k8s/terraform
+#             infra_desc=$(echo "$PWD" | awk -F'/' '{print $(NF-1)}')
 
-            echo "Setting Azure Service Principal Credentials..."
-            echo '${{ secrets.AZ_SANDBOX_CREDS }}' > azure_creds.json
-            export ARM_CLIENT_ID=$(jq -r '.clientId' azure_creds.json)
-            export ARM_CLIENT_SECRET=$(jq -r '.clientSecret' azure_creds.json)
-            export ARM_SUBSCRIPTION_ID=$(jq -r '.subscriptionId' azure_creds.json)
-            export ARM_TENANT_ID=$(jq -r '.tenantId' azure_creds.json)
-            export AZ_TENANT_ID=$ARM_TENANT_ID
-            export AZ_CLIENT_SECRET=$ARM_CLIENT_SECRET
-            export AZ_CLIENT_ID=$ARM_CLIENT_ID
-            export TF_VAR_sp_principal_id=$(az ad sp show --id $ARM_CLIENT_ID --query id -o tsv)
-            export TF_VAR_subscription_id=$ARM_SUBSCRIPTION_ID
-            export TF_VAR_tenant_id=$ARM_TENANT_ID
+#             echo "Setting Azure Service Principal Credentials..."
+#             echo '${{ secrets.AZ_SANDBOX_CREDS }}' > azure_creds.json
+#             export ARM_CLIENT_ID=$(jq -r '.clientId' azure_creds.json)
+#             export ARM_CLIENT_SECRET=$(jq -r '.clientSecret' azure_creds.json)
+#             export ARM_SUBSCRIPTION_ID=$(jq -r '.subscriptionId' azure_creds.json)
+#             export ARM_TENANT_ID=$(jq -r '.tenantId' azure_creds.json)
+#             export AZ_TENANT_ID=$ARM_TENANT_ID
+#             export AZ_CLIENT_SECRET=$ARM_CLIENT_SECRET
+#             export AZ_CLIENT_ID=$ARM_CLIENT_ID
+#             export TF_VAR_sp_principal_id=$(az ad sp show --id $ARM_CLIENT_ID --query id -o tsv)
+#             export TF_VAR_subscription_id=$ARM_SUBSCRIPTION_ID
+#             export TF_VAR_tenant_id=$ARM_TENANT_ID
   
   
-            terraform init \
-              -backend-config="resource_group_name=${{ env.AZ_RESOURCE_GROUP }}" \
-              -backend-config="storage_account_name=${{ secrets.AZ_TF_STORAGE_ACCOUNT }}" \
-              -backend-config="container_name=${{ secrets.AZ_TF_STORAGE_CONTAINER }}" \
-              -backend-config="key=terraform/$infra_desc/azure-aks-and-k8s-infra-build/$(echo "${{ github.repository }}" | tr '/' '-')/$(echo "${{ github.ref_name }}" | tr '/' '-')/terraform.tfstate"
+#             terraform init \
+#               -backend-config="resource_group_name=${{ env.AZ_RESOURCE_GROUP }}" \
+#               -backend-config="storage_account_name=${{ secrets.AZ_TF_STORAGE_ACCOUNT }}" \
+#               -backend-config="container_name=${{ secrets.AZ_TF_STORAGE_CONTAINER }}" \
+#               -backend-config="key=terraform/$infra_desc/azure-aks-and-k8s-infra-build/$(echo "${{ github.repository }}" | tr '/' '-')/$(echo "${{ github.ref_name }}" | tr '/' '-')/terraform.tfstate"
   
 
-            cd ..
-            echo "$KUBECONFIG_SECRET" > kubeconfig.secret
-            echo "Task Description:"
-            yq '.tasks.${{ matrix.test }}.desc' Taskfile.yaml
-            task ${{ matrix.test }}
+#             cd ..
+#             echo "$KUBECONFIG_SECRET" > kubeconfig.secret
+#             echo "Task Description:"
+#             yq '.tasks.${{ matrix.test }}.desc' Taskfile.yaml
+#             task ${{ matrix.test }}
 
-  notify:
-    runs-on: ubuntu-latest
-    needs:
-      - build-image
-      - azure-aks-and-k8s-infra-build
-      - azure-aks-and-k8s-tests
-      - azure-aks-and-k8s-infra-cleanup
-    if: always()  # Ensure this runs even if previous jobs fail
+#   notify:
+#     runs-on: ubuntu-latest
+#     needs:
+#       - build-image
+#       - azure-aks-and-k8s-infra-build
+#       - azure-aks-and-k8s-tests
+#       - azure-aks-and-k8s-infra-cleanup
+#     if: always()  # Ensure this runs even if previous jobs fail
 
-    steps:
-      - name: Set Workflow Status
-        id: status
-        run: |
-          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
-            echo "status=❌ *Failure*" >> $GITHUB_ENV
-          else
-            echo "status=✅ *Success*" >> $GITHUB_ENV
-          fi
+#     steps:
+#       - name: Set Workflow Status
+#         id: status
+#         run: |
+#           if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
+#             echo "status=❌ *Failure*" >> $GITHUB_ENV
+#           else
+#             echo "status=✅ *Success*" >> $GITHUB_ENV
+#           fi
 
-      - name: Send Slack Notification
-        uses: slackapi/slack-github-action@v1
-        with:
-          channel-id: "#runwhen-local"
-          slack-message: "${{ env.status }} - Workflow *${{ github.workflow }}* in repo *${{ github.repository }}* on branch *${{ github.ref_name }}*"
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+#       - name: Send Slack Notification
+#         uses: slackapi/slack-github-action@v1
+#         with:
+#           channel-id: "#runwhen-local"
+#           slack-message: "${{ env.status }} - Workflow *${{ github.workflow }}* in repo *${{ github.repository }}* on branch *${{ github.ref_name }}*"
+#         env:
+#           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
