@@ -154,12 +154,11 @@ tasks:
         echo "Cleaning up output directory..."
         rm -rf output || { echo "Failed to remove output directory"; exit 1; }
         mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
-
+        chmod 777 . 
         echo "Starting new container $CONTAINER_NAME..."
         echo "User $(whoami)"
         # 1. Start container in the background
         docker run -d \
-          --user "$(id -u):$(id -g)" \
           -e WB_DEBUG_SUPPRESS_CHEAT_SHEET="true" \
           -e DEBUG_LOGS=true \
           --name "$CONTAINER_NAME" \
