@@ -165,6 +165,7 @@ tasks:
         echo "Cleaning up output directory..."
         rm -rf output || { echo "Failed to remove output directory"; exit 1; }
         mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
+        chmod 777 . 
 
         echo "Starting new container $CONTAINER_NAME..."
 
@@ -187,7 +188,7 @@ tasks:
         # 4. (Optional) Stop container if you no longer need it running
         docker stop "$CONTAINER_NAME"
         docker rm "$CONTAINER_NAME"  
-        
+
         echo "Review generated config files under output/workspaces/"
         total_slxs=$(find $(find 'output/' -type d -name 'slxs') -mindepth 1 -type d | wc -l)
         echo "Total SLXs: $total_slxs"
