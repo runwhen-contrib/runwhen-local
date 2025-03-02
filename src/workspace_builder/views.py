@@ -1,4 +1,5 @@
 import io
+import os
 import tarfile
 import tempfile
 import traceback
@@ -17,6 +18,7 @@ from utils import get_version_info
 from .models import InfoResult, ArchiveRunResult
 from .serializers import InfoResultSerializer, ArchiveRunResultSerializer
 
+tmpdir_value = os.getenv("TMPDIR", "/tmp")  # fallback to /tmp if TMPDIR not set
 
 class InfoView(APIView):
     """
@@ -72,7 +74,7 @@ class RunView(APIView):
                             # FIXME: Fix the problem with the type inferencing for "value" to address the type warning
                             tar_stream = io.BytesIO(value)
                             archive = tarfile.open(fileobj=tar_stream, mode="r")
-                            setting_temp_directory = tempfile.TemporaryDirectory()
+                            setting_temp_directory = tempfile.TemporaryDirectory(dir=tmpdir_value)
                             setting_temp_dirs.append(setting_temp_directory)
                             archive.extractall(setting_temp_directory.name)
                             value = setting_temp_directory.name

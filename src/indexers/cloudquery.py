@@ -32,6 +32,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from k8s_utils import get_secret
 
 logger = logging.getLogger(__name__)
+tmpdir_value = os.getenv("TMPDIR", "/tmp")  # fallback to /tmp if TMPDIR not set
 
 debug_logging_str = os.environ.get('DEBUG_LOGGING')
 debug_logging = debug_logging_str and debug_logging_str.lower() == 'true'
@@ -51,6 +52,9 @@ DOCUMENTATION = "Index resources using CloudQuery"
 SETTINGS = (
     SettingDependency(CLOUD_CONFIG_SETTING, False),
 )
+
+tmpdir_value = os.getenv("TMPDIR", "/tmp")  # fallback to /tmp if TMPDIR not set
+
 
 @dataclass
 class CloudQueryResourceTypeSpec:
@@ -194,7 +198,7 @@ def init_cloudquery_table_info():
     global cloudquery_premium_table_info
     if cloudquery_premium_table_info:
         return
-    with tempfile.TemporaryDirectory() as cq_temp_dir:
+    with tempfile.TemporaryDirectory(dir=tmpdir_value) as cq_temp_dir:
         cq_config_dir = os.path.join(cq_temp_dir, "config")
         cq_output_dir = os.path.join(cq_temp_dir, "docs")
         templates_dir = "indexers/cloudquery_templates"
@@ -522,7 +526,7 @@ def index(context: Context):
             context.get_property(RESOURCE_TYPE_SPECS_PROPERTY)
 
         registry: Registry = context.get_property(REGISTRY_PROPERTY_NAME)
-        with tempfile.TemporaryDirectory() as cq_temp_dir:
+        with tempfile.TemporaryDirectory(dir=tmpdir_value) as cq_temp_dir:
             cq_config_dir = os.path.join(cq_temp_dir, "config")
             os.makedirs(cq_config_dir)
 

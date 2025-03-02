@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # Path to the lock file
-LOCK_FILE="/workspace-builder/.wb_lock"
+TMPDIR=${TMPDIR:-/tmp}
+LOCK_FILE="$TMPDIR/.wb_lock"
 DISABLE_CLOUDQUERY=0
 
 # Parse arguments

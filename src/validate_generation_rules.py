@@ -9,8 +9,9 @@ import os
 from fnmatch import fnmatch
 from typing import Any, Optional
 import yaml
-
+import os
 from utils import read_file, Style
+tmpdir_value = os.getenv("TMPDIR", "/tmp")  # fallback to /tmp if TMPDIR not set
 
 verbose = False
 
@@ -111,7 +112,7 @@ def main():
             if code_collection_name.endswith(".git"):
                 code_collection_name = code_collection_name[:-4]
 
-            with tempfile.TemporaryDirectory() as repo_dir:
+            with tempfile.TemporaryDirectory(dir=tmpdir_value) as repo_dir:
                 Repo.clone_from(code_collection_url, repo_dir, branch=branch)
                 error_count = validate_code_collection(repo_dir,
                                                        code_collection_name,

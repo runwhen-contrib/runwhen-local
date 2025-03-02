@@ -115,7 +115,7 @@ RUN ARCH=$(uname -m) && \
     && chmod +x /usr/local/bin/kubelogin
 
 # RunWhen customizations
-ENV HOME=$RUNWHEN_HOME
+ENV HOME=$RUNWHEN_SHARED
 ADD . $RUNWHEN_HOME
 
 RUN mkdir -p ${RUNWHEN_SHARED} \
@@ -123,6 +123,7 @@ RUN mkdir -p ${RUNWHEN_SHARED} \
     && chown -R runwhen:0 $RUNWHEN_HOME $RUNWHEN_SHARED \
     && chmod g=u /etc/passwd \
     && chmod -R g+w ${RUNWHEN_HOME} ${RUNWHEN_SHARED}
+
 
 USER runwhen
 EXPOSE 8081
