@@ -53,9 +53,6 @@ SETTINGS = (
     SettingDependency(CLOUD_CONFIG_SETTING, False),
 )
 
-tmpdir_value = os.getenv("TMPDIR", "/tmp")  # fallback to /tmp if TMPDIR not set
-
-
 @dataclass
 class CloudQueryResourceTypeSpec:
     resource_type_name: str
@@ -153,6 +150,9 @@ def invoke_cloudquery(cq_command: str,
         cq_args = ["cloudquery"]
         if debug_logging:
             cq_args += ["--log-level", "debug"]
+        # Tell CloudQuery to write logs inside the writable tmp dir
+        log_file_path = os.path.join(tmpdir_value, "cloudquery.log")
+        cq_args += ["--log-file-name", log_file_path]
         cq_args += [cq_command, f"{cq_config_dir}"]
         if cq_output_dir:
             cq_args += ["--output-dir", f"{cq_output_dir}"]
