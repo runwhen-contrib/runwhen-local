@@ -326,7 +326,7 @@ def find_files(directory, pattern):
             matches.append(os.path.join(root, filename))
     return matches
 
-def fetch_robot_source(parsed_runbook_config):
+def fetch_robot_source(parsed_runbook_config, mkdocs_dir):
     """
     Fetch raw robot file from the local cache
     referenced by runbook.yaml.
@@ -337,7 +337,7 @@ def fetch_robot_source(parsed_runbook_config):
     robot_file_path = parsed_runbook_config["spec"]["codeBundle"]["pathToRobot"]
 
     cache_dir_name = f"{owner}_{repo}_{ref}-cache"
-    local_path = os.path.join(os.getcwd(), cache_dir_name)
+    local_path = os.path.join(mkdocs_dir, cache_dir_name)
     file_path = os.path.join(local_path, robot_file_path)
     return file_path
 
@@ -605,8 +605,8 @@ def fetch_github_profile_icon(identifier, mkdocs_dir=None):
         print("KeyError occurred: Required data not found in the API response.")
         return "Not Available"
 
-def get_last_commit_age(owner, repo, ref, path):
-    local_path = os.path.join(os.getcwd(), f'{owner}_{repo}_{ref}-cache')
+def get_last_commit_age(owner, repo, ref, path, mkdocs_dir):
+    local_path = os.path.join(mkdocs_dir, f'{owner}_{repo}_{ref}-cache')
     if not os.path.exists(local_path):
         print(f"The repository for {owner}/{repo} with reference {ref} is not found in the cache.")
         return None
@@ -636,10 +636,10 @@ def get_last_commit_age(owner, repo, ref, path):
         return f"{int(age_in_weeks)} weeks ago"
     return None
 
-def fetch_meta(owner, repo, path, ref="main"):
+def fetch_meta(owner, repo, path, mkdocs_dir, ref="main"):
     cache_dir_name = f"{owner}_{repo}_{ref}-cache"
     meta_path = path.rsplit('/', 1)[0] + '/meta.yaml'
-    local_path = os.path.join(os.getcwd(), cache_dir_name)
+    local_path = os.path.join(mkdocs_dir, cache_dir_name)
     local_meta_path = os.path.join(local_path, meta_path)
     if os.path.exists(local_meta_path):
         try:
@@ -678,7 +678,7 @@ def warm_git_cache(runbook_files, mkdocs_dir):
     for owner, repo, ref in unique_repos:
         repo_url = f"https://github.com/{owner}/{repo}.git"
         cache_dir_name = f"{owner}_{repo}_{ref}-cache"
-        local_path = os.path.join(os.getcwd(), cache_dir_name)
+        local_path = os.path.join(mkdocs_dir, cache_dir_name)
 
         if not os.path.exists(local_path):
             subprocess.run(['git', 'clone', '-b', ref, repo_url, local_path],
@@ -714,7 +714,7 @@ def process_runbook(runbook, groups, search_list, template, mkdocs_dir):
     """
     try:
         parsed_runbook_config = parse_yaml(runbook)
-        robot_file = fetch_robot_source(parsed_runbook_config)
+        robot_file = fetch_robot_source(parsed_runbook_config, mkdocs_dir)
         runbook_url = (
             f'{parsed_runbook_config["spec"]["codeBundle"]["repoUrl"].rstrip(".git")}'
             f'/tree/{parsed_runbook_config["spec"]["codeBundle"]["ref"]}/'
@@ -725,14 +725,14 @@ def process_runbook(runbook, groups, search_list, template, mkdocs_dir):
         path = parsed_runbook_config["spec"]["codeBundle"]["pathToRobot"].rstrip('runbook.robot')
         ref = parsed_runbook_config["spec"]["codeBundle"]["ref"]
 
-        commit_age = get_last_commit_age(owner, repo, ref, path)
+        commit_age = get_last_commit_age(owner, repo, ref, path, mkdocs_dir)
         parsed_robot = parse_robot_file(robot_file)
         slx_hints = generate_slx_hints(runbook)
         doc = ''.join(parsed_robot.get("doc", "").split('\n'))
         author = ''.join(parsed_robot.get("author", "").split('\n'))
         group_name = find_group_name(groups, slx_hints["slx_short_name"])
         group_path = find_group_path(group_name)
-        meta = fetch_meta(owner=owner, repo=repo, path=path, ref=ref)
+        meta = fetch_meta(owner=owner, repo=repo, path=path, mkdocs_dir=mkdocs_dir, ref=ref)
 
         interesting_commands = search_keywords(parsed_robot, parsed_runbook_config, search_list, meta)
         command_generation_summary_stats["total_interesting_commands"] += len(interesting_commands)
