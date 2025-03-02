@@ -770,7 +770,8 @@ def main():
     # run.sh script handle calling it after invoking this tool.
     if cheat_sheet_enabled:
         # Update cheat sheet status by copying index
-        cheatsheet.cheat_sheet(output_path)
+        mkdocs_dir=f"{tmpdir_value}/mkdocs-temp"
+        cheatsheet.cheat_sheet(output_path, mkdocs_dir)
 
 
 if __name__ == "__main__":
