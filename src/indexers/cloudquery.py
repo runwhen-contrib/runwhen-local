@@ -143,29 +143,46 @@ def invoke_cloudquery(cq_command: str,
     if https_proxy:
         cq_env_vars["HTTPS_PROXY"] = https_proxy
 
-    # Ensure all environment variable values are strings
+    # Make sure all env var values are strings
     cq_env_vars = {k: str(v) for k, v in cq_env_vars.items()}
 
+    #
+    # 1) Decide on a plugin directory under your writable temp dir
+    #
+    plugin_dir = os.path.join(os.path.dirname(cq_config_dir), "cloudquery_plugins")
+    os.makedirs(plugin_dir, exist_ok=True)  # Make sure it exists
+    cq_env_vars["CQ_PLUGIN_DIR"] = plugin_dir
+
+    #
+    # 2) Prepare CloudQuery arguments
+    #
+    cq_args = ["cloudquery"]
+    if debug_logging:
+        cq_args += ["--log-level", "debug"]
+    # Optionally pass --plugin-dir here as well:
+    # cq_args += [f"--plugin-dir={plugin_dir}"]
+
+    cq_args += [cq_command, cq_config_dir]
+    if cq_output_dir:
+        cq_args += ["--output-dir", cq_output_dir]
+
     try:
-        cq_args = ["cloudquery"]
-        if debug_logging:
-            cq_args += ["--log-level", "debug"]
-        # Tell CloudQuery to write logs inside the writable tmp dir
-        log_file_path = os.path.join(tmpdir_value, "cloudquery.log")
-        cq_args += ["--log-file-name", log_file_path]
-        cq_args += [cq_command, f"{cq_config_dir}"]
-        if cq_output_dir:
-            cq_args += ["--output-dir", f"{cq_output_dir}"]
+        # 3) Run CloudQuery in a writable working directory
+        process_info = subprocess.run(
+            cq_args,
+            capture_output=True,
+            env=cq_env_vars,
+            cwd=os.path.dirname(cq_config_dir)  # set to the parent (the temp dir) so “.cq” isn’t read-only
+        )
 
-        process_info = subprocess.run(cq_args, capture_output=True, env=cq_env_vars)
-
-        stdout_text = process_info.stdout.decode("utf-8")
-        stderr_text = process_info.stderr.decode("utf-8")
+        stdout_text = process_info.stdout.decode("utf-8", errors="replace")
+        stderr_text = process_info.stderr.decode("utf-8", errors="replace")
         logger.debug("Results for subprocess run of CloudQuery:")
         logger.debug(f"args={process_info.args}")
         logger.debug(f"return-code={process_info.returncode}")
         logger.debug(f"stderr: {stderr_text}")
         logger.debug(f"stdout: {stdout_text}")
+
         if process_info.returncode != 0:
             error_message = (
                 f"Error running CloudQuery to discover resources: "
@@ -175,9 +192,8 @@ def invoke_cloudquery(cq_command: str,
             )
             raise WorkspaceBuilderException(error_message)
     except Exception as e:
-        error_message = f"Error launching CloudQuery; {str(e)}"
+        error_message = f"Error launching CloudQuery; {e}"
         raise WorkspaceBuilderException(error_message) from e
-
 
 cloudquery_premium_table_info: Optional[dict[str, list[str]]] = None
 
