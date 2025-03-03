@@ -1,6 +1,6 @@
 site_name: Troubleshooting Cheat Sheet
 site_author: RunWhen Inc.
-dev_addr: 0.0.0.0:8082
+dev_addr: 0.0.0.0:8081
 theme:
     name: material
     logo: assets/white_runwhen_logo_transparent_bg.png

@@ -48,8 +48,14 @@ FROM node-base AS app
 LABEL org.opencontainers.image.description="RunWhen Local discovers and generates troubleshooting and automation tasks for your environment."
 RUN groupadd -r runwhen && useradd --no-log-init -r -g runwhen runwhen
 
-ENV RUNWHEN_HOME='/workspace-builder' \
-    RUNWHEN_SHARED='/shared'
+# Make sure we do NOT override HOME to /workspace-builder; set it to /shared
+ENV RUNWHEN_HOME='/workspace-builder'
+ENV RUNWHEN_SHARED='/shared'
+ENV HOME='/shared'
+
+# Copy in code
+WORKDIR $RUNWHEN_HOME
+ADD . $RUNWHEN_HOME
 
 # Copy Poetry to final image
 COPY --from=builder-base $POETRY_HOME $POETRY_HOME
@@ -72,14 +78,6 @@ RUN pip install --no-cache-dir \
     ruamel.yaml \
     gitpython \
     pyyaml
-RUN npm install -g npm@10.8.3
-
-RUN npm install \
-    xterm \
-    express \
-    ws \
-    node-pty \
-    multer
 
 ENV NODE_PATH="/var/lib/neo4j/node_modules"
 
@@ -117,30 +115,15 @@ RUN ARCH=$(uname -m) && \
     && chmod +x /usr/local/bin/kubelogin
 
 # RunWhen customizations
-ENV HOME $RUNWHEN_HOME
+ENV HOME=$RUNWHEN_SHARED
 ADD . $RUNWHEN_HOME
 
-RUN mkdir $RUNWHEN_SHARED \
+RUN mkdir -p ${RUNWHEN_SHARED} \
     && usermod -g 0 runwhen -G 0  \
     && chown -R runwhen:0 $RUNWHEN_HOME $RUNWHEN_SHARED \
     && chmod g=u /etc/passwd \
     && chmod -R g+w ${RUNWHEN_HOME} ${RUNWHEN_SHARED}
 
-# Reverse Proxy Bits
-RUN apt-get update && apt-get install -y nginx \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY nginx.conf /etc/nginx/sites-enabled/default
-
-# Adjust ownership and permissions for Nginx directories and files to ensure compatibility with arbitrary user IDs
-RUN mkdir -p /var/log/nginx /var/lib/nginx /run/nginx /usr/share/nginx/html && \
-    chown -R :0 /etc/nginx /var/log/nginx /usr/share/nginx/html /var/lib/nginx && \
-    chmod -R g+rwX /etc/nginx /var/log/nginx /usr/share/nginx/html /var/lib/nginx && \
-    touch /run/nginx.pid && \
-    chown :0 /run/nginx.pid && \
-    chmod g+rwX /run/nginx.pid && \
-    find /etc/nginx /var/log/nginx /usr/share/nginx/html /var/lib/nginx -type d -exec chmod g+s {} \+
 
 USER runwhen
 EXPOSE 8081

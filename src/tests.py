@@ -30,6 +30,9 @@ from enrichers.code_collection import (
 from unittest import TestCase
 from outputter import *
 
+tmpdir_value = os.getenv("TMPDIR", "/tmp")  # fallback to /tmp if TMPDIR not set
+
+
 class OutputterTest(TestCase):
 
     TEST_FILES = (
@@ -40,7 +43,7 @@ class OutputterTest(TestCase):
     )
 
     def setUp(self):
-        self.output_dir = tempfile.TemporaryDirectory()
+        self.output_dir = tempfile.TemporaryDirectory(dir=tmpdir_value)
 
     def tearDown(self):
         self.output_dir.cleanup()
@@ -134,7 +137,7 @@ class NameUtilsTest(TestCase):
 class RepoUtilsTest(TestCase):
 
     def setUp(self):
-        self.output_dir = tempfile.TemporaryDirectory()
+        self.output_dir = tempfile.TemporaryDirectory(dir=tmpdir_value)
 
     def tearDown(self):
         self.output_dir.cleanup()

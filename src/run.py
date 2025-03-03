@@ -42,6 +42,11 @@ UPLOAD_COMMAND = 'upload'
 
 CUSTOMIZATION_RULES_DEFAULT = "map-customization-rules"
 
+tmpdir_value = os.getenv("TMPDIR", "/tmp")  # fallback to /tmp if TMPDIR not set
+print("TMPDIR:", os.environ.get("TMPDIR", "not set"))
+with tempfile.NamedTemporaryFile(delete=True) as f:
+    print("Actual temp file location:", f.name)
+
 
 def read_file(file_path: bytes, mode="r") -> Union[str, bytes]:
     with open(file_path, mode) as f:
@@ -162,16 +167,6 @@ def create_kubeconfig():
 
     return kubeconfig
 
-def status_update(update, status_file_path, append_mode=True):
-    if cheat_sheet_enabled:
-        # status_fpath = "/shared/output/.status"
-        update_line = f"{update}\n"  # Add a newline character to separate updates
-        print(update_line)
-
-        file_mode = 'a' if os.path.exists(status_file_path) and append_mode else 'w'
-
-        with open(status_file_path, file_mode) as status_file:
-            status_file.write(update_line)
 
 def merge_kubeconfigs(kubeconfig_paths, output_path):
     merged_config = None
@@ -318,7 +313,7 @@ def main():
     base_directory = args.base_directory
     if not os.path.exists(base_directory):
         fatal(f'Base directory not found: {base_directory}')
-
+    print(f"Using base directory: {base_directory}")
     # Initialize the settings that don't have corresponding command line arguments
     upload_token = None
     namespace_lods = None
@@ -512,67 +507,6 @@ def main():
             print("No valid kubeconfig found and inClusterAuth is disabled. Skipping Kubernetes setup.")
             final_kubeconfig_path = None
 
-    # # Continue only if valid Kubernetes configurations are found
-    # if final_kubeconfig_path:
-    #     print(f"Final kubeconfig path: {final_kubeconfig_path}")
-    #     # Merge kubeconfigs if necessary
-    #     # Add logic to merge kubeconfigs here if required
-    # else:
-    #     print("Skipping Kubernetes discovery due to missing or invalid configuration.")
-
-    # # Handle user provided kubeconfig
-    # print("Looking for generic kubeconfig...")
-
-    # # Set default kubeconfig path or use provided argument
-    # kubeconfig = args.kubeconfig if args.kubeconfig else 'kubeconfig'
-    # kubeconfig_path = os.path.join(base_directory, kubeconfig)
-
-    # # Check if kubeconfig is specified in cloudConfig
-    # kubeconfig_specified = False
-
-    # if 'cloudConfig' in workspace_info and 'kubernetes' in workspace_info['cloudConfig']:
-    #     kubernetes_config = workspace_info['cloudConfig']['kubernetes']
-    #     kubeconfig_path = kubernetes_config.get('kubeconfigFile', kubeconfig_path)
-
-    #     # If kubeconfigFile is specified, prioritize it and skip inClusterAuth check
-    #     if kubeconfig_path and os.path.exists(kubeconfig_path):
-    #         kubeconfig_specified = True
-    #         print("Using specified kubeconfig path for Kubernetes setup.")
-    #     else:
-    #         print(f"Kubeconfig path specified in config but not found: {kubeconfig_path}")
-
-    # # Check if in-cluster auth is enabled only if kubeconfigFile is not provided
-    # if not kubeconfig_specified:
-    #     in_cluster_auth_enabled = (
-    #         'cloudConfig' in workspace_info and
-    #         'kubernetes' in workspace_info['cloudConfig'] and
-    #         workspace_info['cloudConfig']['kubernetes'].get('inClusterAuth', False)
-    #     )
-
-    #     # Proceed with Kubernetes setup only if inClusterAuth is enabled
-    #     if in_cluster_auth_enabled:
-    #         # Create in-cluster kubeconfig if not specified and in a Kubernetes environment
-    #         if os.getenv('KUBERNETES_SERVICE_HOST'):
-    #             print("Creating in-cluster kubeconfig...")
-    #             kubeconfig_data = create_kubeconfig()
-    #             in_cluster_kubeconfig_file = os.path.join(base_directory, "in_cluster_kubeconfig.yaml")
-                
-    #             # Write the in-cluster kubeconfig to a file
-    #             with open(in_cluster_kubeconfig_file, "w") as f:
-    #                 f.write(yaml.dump(kubeconfig_data))
-    #             print(f"In-cluster kubeconfig created at {in_cluster_kubeconfig_file}")
-
-    #             # Copy the in-cluster kubeconfig to /shared/kubeconfig
-    #             kubeconfig_path = os.path.join(base_directory, "kubeconfig")
-    #             shutil.copyfile(in_cluster_kubeconfig_file, kubeconfig_path)
-    #             print(f"Using in-cluster Kubernetes auth with kubeconfig at {kubeconfig_path}")
-    #         else:
-    #             print("Skipping in-cluster kubeconfig setup.")
-    #     else:
-    #         print("Skipping Kubernetes setup as per inClusterAuth configuration.")
-    # else:
-    #     print("Specified kubeconfig is valid. Proceeding with Kubernetes setup.")
-
     # Continue only if valid kubeconfig paths are found
     if aks_clusters or kubeconfig_path:
         final_kubeconfig_path = os.path.expanduser("~/.kube/config")
@@ -642,6 +576,7 @@ def main():
         # If a map customization rules path was specified, then encode the contents of
         # the file or directory and add it as a request data field.
         if map_customization_rules_path:
+            print(f"Using Map Customization Rules Path: {map_customization_rules_path}")
             if os.path.exists(map_customization_rules_path):
                 if os.path.isdir(map_customization_rules_path):
                     tar_bytes = io.BytesIO()
@@ -704,11 +639,6 @@ def main():
             encoded_resource_load_data = base64.b64encode(resource_load_data).decode('utf-8')
             request_data['resourceLoadFile'] = encoded_resource_load_data
 
-        if cheat_sheet_enabled:
-            # Update cheat sheet status by copying index
-            timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-            status_update(f"Discovery started at: {timestamp} ", status_file_path, append_mode=False)
-            status_update("Discovering resources...", status_file_path)
         # Invoke the workspace builder /run REST endpoint
         run_url = f"http://{rest_service_host}:{rest_service_port}/run/"
         response = call_rest_service_with_retries(lambda: requests.post(run_url, json=request_data, proxies=get_proxy_config(run_url)))
@@ -840,9 +770,9 @@ def main():
     # run.sh script handle calling it after invoking this tool.
     if cheat_sheet_enabled:
         # Update cheat sheet status by copying index
-        status_update("Starting cheat sheet rendering...", status_file_path)
-        cheatsheet.cheat_sheet(output_path)
-        status_update("Cheat sheet rendering completed.", status_file_path)
+        mkdocs_dir=f"{tmpdir_value}/mkdocs-temp"
+        cheatsheet.cheat_sheet(output_path, mkdocs_dir)
+
 
 if __name__ == "__main__":
     main()

@@ -34,9 +34,10 @@ src/rw-cli-codecollection-cache
 
 # Ignore RunWhen Local test files
 **/workspaceInfo.yaml**
+**/db.sqlite3
 **kubeconfig**
 **/output/
 **/.test/.task/**
 .vscode/settings.json
 **/slx_count.txt
-
+**.kube

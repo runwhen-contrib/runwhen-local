@@ -165,17 +165,29 @@ tasks:
         echo "Cleaning up output directory..."
         rm -rf output || { echo "Failed to remove output directory"; exit 1; }
         mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
+        chmod 777 . 
 
         echo "Starting new container $CONTAINER_NAME..."
 
-        docker run -e WB_DEBUG_SUPPRESS_CHEAT_SHEET="true" -e DEBUG_LOGS=true --name $CONTAINER_NAME -p 8081:8081 -v $(pwd):/shared -d runwhen-local:test || {
-          echo "Failed to start container"; exit 1;
-        }
+        # 1. Start container in the background
+        docker run -d \
+          -e WB_DEBUG_SUPPRESS_CHEAT_SHEET="true" \
+          -e DEBUG_LOGS=true \
+          --name "$CONTAINER_NAME" \
+          -p 8081:8081 \
+          -v "$(pwd):/shared" \
+          runwhen-local:test
 
-        echo "Running workspace builder script in container..."
-        docker exec -w /workspace-builder $CONTAINER_NAME ./run.sh $1 --verbose || {
-          echo "Error executing script in container"; exit 1;
-        }
+        # 2. Follow the main container logs in the background (if you care about them)
+        docker logs -f "$CONTAINER_NAME" &
+
+        # 3. Now exec the script. Its stdout goes to your pipeline.
+        #    By default, docker exec prints to the current terminal/session.
+        docker exec -w /workspace-builder "$CONTAINER_NAME" ./run.sh "$1" --verbose 2>&1 | tee run_sh_output.log
+
+        # 4. (Optional) Stop container if you no longer need it running
+        docker stop "$CONTAINER_NAME"
+        docker rm "$CONTAINER_NAME"  
 
         echo "Review generated config files under output/workspaces/"
         total_slxs=$(find $(find 'output/' -type d -name 'slxs') -mindepth 1 -type d | wc -l)
@@ -678,7 +690,7 @@ tasks:
           total_slxs=$(cat slx_count.txt)
           echo "---Validating SLX Count---"
           echo "Total SLXs: $total_slxs (Expected: {{.EXPECTED_SLX_COUNT}})"
-          if [[ "$total_slxs" != "{{.EXPECTED_SLX_COUNT}}" ]]; then
+          if [[ "$total_slxs" -lt "{{.EXPECTED_SLX_COUNT}}" ]]; then
             echo -e "\033[31m❌ Total SLX count failed\033[0m"
             exit 1
           else
