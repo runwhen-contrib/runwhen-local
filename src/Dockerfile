@@ -14,7 +14,7 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=on \
     PIP_DEFAULT_TIMEOUT=100 \
     POETRY_HOME="/opt/poetry" \
-    POETRY_VERSION=2.0.1 \
+    POETRY_VERSION=2.1.1 \
     POETRY_VIRTUALENVS_IN_PROJECT=true \
     POETRY_NO_INTERACTION=1 \
     PYSETUP_PATH="/opt/pysetup" \
@@ -32,7 +32,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Poetry (Utilizes POETRY_HOME & POETRY_VERSION)
-RUN curl -sSL https://install.python-poetry.org | python3 - --version 1.3.2
+RUN curl -sSL https://install.python-poetry.org | python3 - --version $POETRY_VERSION
 
 # Copy project requirement files here to ensure they will be cached.
 WORKDIR $PYSETUP_PATH

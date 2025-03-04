@@ -5,6 +5,7 @@ description = "RunWhen Local"
 authors = ["Kyle Forster <kyle.forster@runwhen.com>",
            "Rob Vaterlaus <rob.vaterlaus@runwhen.com",
            "Shea Stewart <shea.stewart@runwhen.com"]
+package-mode = false
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.13"
@@ -23,4 +24,3 @@ azure-mgmt-containerservice = "^33.0"
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
-package-mode = false
