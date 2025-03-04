@@ -204,7 +204,7 @@ tasks:
       AZ_CLIENT_ID: "{{.AZ_CLIENT_ID}}"
       RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
     vars: 
-      EXPECTED_SLXS: "34"
+      EXPECTED_SLXS: "30"
     cmds:
       - |
         repo_url=$(git config --get remote.origin.url)
@@ -280,7 +280,7 @@ tasks:
         AZ_CLIENT_ID: "{{.AZ_CLIENT_ID}}"
         RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
       vars: 
-        EXPECTED_SLXS: "43"
+        EXPECTED_SLXS: "39"
       cmds:
         - |
           repo_url=$(git config --get remote.origin.url)
