@@ -19,19 +19,19 @@ resource "azurerm_user_assigned_identity" "cluster_identity" {
 }
 
 # Role Assignment for Service Principal
-resource "azurerm_role_assignment" "cluster_sp_owner" {
-  scope                = "/subscriptions/${var.subscription_id}"
-  role_definition_name = "Azure Kubernetes Service RBAC Cluster Admin"
-  principal_id         = var.sp_principal_id
-  principal_type       = "ServicePrincipal"
-}
+#resource "azurerm_role_assignment" "cluster_sp_owner" {
+#  scope                = "/subscriptions/${var.subscription_id}"
+#  role_definition_name = "Azure Kubernetes Service RBAC Cluster Admin"
+#  principal_id         = var.sp_principal_id
+#  principal_type       = "ServicePrincipal"
+#}
 # Role Assignment for Service Principal
-resource "azurerm_role_assignment" "cluster_sp_reader" {
-  scope                = "/subscriptions/${var.subscription_id}"
-  role_definition_name = "Reader"
-  principal_id         = var.sp_principal_id
-  principal_type       = "ServicePrincipal"
-}
+#resource "azurerm_role_assignment" "cluster_sp_reader" {
+#  scope                = "/subscriptions/${var.subscription_id}"
+#  role_definition_name = "Reader"
+#  principal_id         = var.sp_principal_id
+#  principal_type       = "ServicePrincipal"
+#}
 
 # Add Logged-In User as RBAC Admin
 data "azurerm_client_config" "current" {}

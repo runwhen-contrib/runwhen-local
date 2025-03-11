@@ -18,7 +18,7 @@
 ###############################################################################
 ######################## Global/Shared Settings ###############################
 ###############################################################################
-workspaceName: "my-workspace"
+workspaceName: "t-ob-3"
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
@@ -28,7 +28,7 @@ tolerations: []
 affinity: {}
 # Override the container image registry used for all images
 # Note: grafana-agent is a subchart and must still be explicitly updated.
-registryOverride: "runwhensandboxacr.azurecr.io"
+registryOverride: ""
 # Set proxy env for RunWhen Local and Runner Deployments and any supporting infrastructure such as the grafana-agent
 proxy:
   enabled: false
@@ -157,7 +157,7 @@ runwhenLocal:
   # upload is disabled by default; requires a valid uploadInfo.yaml
   autoRun:
     discoveryInterval: 14400 # seconds to wait until a new discovery
-    uploadEnabled: false # upload configuration to RunWhen Platform
+    uploadEnabled: true # upload configuration to RunWhen Platform
     uploadMergeMode: "keep-uploaded" # 'keep-uploaded' or 'keep-existing'
   # Terminal: Enable or disable the in-browser terminal
   # Note: The terminal provides an unauthenticated connection to container shell
@@ -173,7 +173,7 @@ runwhenLocal:
   # can can be obtained immediately after creating a RunWhen Platform workspace.
   uploadInfo:
     secretProvided:
-      enabled: false
+      enabled: true
       secretName: "uploadinfo"
       secretKey: uploadInfo.yaml
       secretPath: uploadInfo.yaml
@@ -223,7 +223,7 @@ runwhenLocal:
 ######################## Runner Configuration #################################
 ###############################################################################
 runner:
-  enabled: false
+  enabled: true
   log:
     level: info
     format: console
@@ -236,10 +236,10 @@ runner:
   image:
     registry: ""
     repository: ""
-    tag: ""
-  controlAddr: "https://runner.beta.runwhen.com"
+    tag: "latest"
+  controlAddr: "https://runner.test.runwhen.com"
   metrics:
-    url: "https://runner-cortex-tenant.beta.runwhen.com/push"
+    url: "https://runner-cortex-tenant.test.runwhen.com/push"
   # securityContext (container) is used to set the security context for the runner container
   securityContext: {}
   # securityContext is used to set the security context for the runner pod
@@ -399,8 +399,8 @@ runner:
   pushgateway:
     image:
       registry: ""
-      repository: "runwhen/pushgateway"
-      tag: "v1.10.0"
+      repository: ""
+      tag: ""
     tolerations: []
 ## opentelemetry-collector is only deployed if runner.enabled is true
 ## https://github.com/open-telemetry/opentelemetry-helm-charts/blob/main/charts/opentelemetry-collector/values.yaml
@@ -409,10 +409,6 @@ opentelemetry-collector:
   configMap:
     create: false
     existingName: "otel-collector"
-  image:
-    repository: "runwhensandboxacr.azurecr.io/runwhen/opentelemetry-collector"
-    pullPolicy: IfNotPresent
-    tag: "0.109.0"
   imagePullSecrets: []
   command:
     name: "otelcol"
