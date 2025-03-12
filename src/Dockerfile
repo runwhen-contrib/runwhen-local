@@ -23,7 +23,7 @@ ENV PYTHONUNBUFFERED=1 \
 ENV PATH="$POETRY_HOME/bin:$VENV_PATH/bin:$PATH"
 
 # Builder stage used for building and installing python dependencies within the venv
-FROM node-base as builder-base
+FROM node-base AS builder-base
 
 # Install Build Time Only Dependencies
 RUN apt-get update \
@@ -84,14 +84,14 @@ ENV NODE_PATH="/var/lib/neo4j/node_modules"
 # Determine architecture and set variables
 RUN ARCH=$(uname -m) && \
     if [ "$ARCH" = "x86_64" ]; then \
-        KUBE_ARCH="amd64"; \
-        CQ_ARCH="amd64"; \
+    KUBE_ARCH="amd64"; \
+    CQ_ARCH="amd64"; \
     elif [ "$ARCH" = "aarch64" ]; then \
-        KUBE_ARCH="arm64"; \
-        CQ_ARCH="arm64"; \
+    KUBE_ARCH="arm64"; \
+    CQ_ARCH="arm64"; \
     else \
-        echo "Unsupported architecture"; \
-        exit 1; \
+    echo "Unsupported architecture"; \
+    exit 1; \
     fi && \
     # Install and validate kubectl
     curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/${KUBE_ARCH}/kubectl" \
@@ -103,8 +103,7 @@ RUN ARCH=$(uname -m) && \
     && KUBECONFIG=/shared/kubeconfig \
     # Download the cloudquery CLI
     # Temporary hack to fix critical vuln
-    && curl -L "https://github.com/stewartshea/cloudquery/releases/download/cli-v5.25.4/cloudquery-linux-${CQ_ARCH}" -o /usr/local/bin/cloudquery \
-    # && curl -L "https://github.com/cloudquery/cloudquery/releases/download/cli-v5.3.0/cloudquery_linux_${CQ_ARCH}" -o /usr/local/bin/cloudquery \
+    && curl -L "https://github.com/stewartshea/cloudquery/releases/latest/download/cloudquery-linux-${CQ_ARCH}" -o /usr/local/bin/cloudquery \
     && chmod a+x /usr/local/bin/cloudquery \
     # Install kubelogin for azure kubeconfig conversion
     && curl -Lo kubelogin.zip https://github.com/Azure/kubelogin/releases/latest/download/kubelogin-linux-amd64.zip \

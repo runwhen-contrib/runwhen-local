@@ -172,7 +172,7 @@ jobs:
         uses: slackapi/slack-github-action@v1
         with:
           channel-id: "#runwhen-local"
-          slack-message: "${{ env.status }} - Workflow *${{ github.workflow }}* in repo *${{ github.repository }}* on branch *${{ github.ref_name }}*"
+          slack-message: "${{ env.status }} - Workflow *${{ github.workflow }}* in repo *${{ github.repository }}* on branch *${{ github.ref_name }}*.\nSee the run: <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         
