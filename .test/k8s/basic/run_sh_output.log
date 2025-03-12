@@ -1,9 +1,0 @@
-Workspace builder REST service isn't available yet; waiting and trying again.
-Workspace builder version: 0.10.0
-Azure configuration not found in workspace_info.
-Processing Kubernetes configuration...
-Using specified kubeconfig path: /shared/kubeconfig.secret
-Merging user-provided kubeconfig into /workspace-builder/.kube/config...
-Merged kubeconfig written to /workspace-builder/.kube/config
-Indexing Kubernetes with kubeconfig from /workspace-builder/.kube/config
-Workspace builder completed successfully.

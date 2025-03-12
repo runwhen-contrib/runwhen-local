@@ -41,3 +41,5 @@ src/rw-cli-codecollection-cache
 .vscode/settings.json
 **/slx_count.txt
 **.kube
+**.bash_history
+**run_sh_output.log
