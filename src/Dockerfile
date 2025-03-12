@@ -23,7 +23,7 @@ ENV PYTHONUNBUFFERED=1 \
 ENV PATH="$POETRY_HOME/bin:$VENV_PATH/bin:$PATH"
 
 # Builder stage used for building and installing python dependencies within the venv
-FROM node-base as builder-base
+FROM node-base AS builder-base
 
 # Install Build Time Only Dependencies
 RUN apt-get update \
