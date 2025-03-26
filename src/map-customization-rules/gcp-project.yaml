@@ -8,3 +8,15 @@ spec:
         pattern: "gcp-function-health"
         matchMode: exact
       group: "GCP Project {{project.name}} Resources"
+    - match:
+        type: pattern
+        matchType: base-name
+        pattern: "gcp-bucket-health"
+        matchMode: exact
+      group: "GCP Project {{project.name}} Resources"
+    - match:
+        type: pattern
+        matchType: base-name
+        pattern: "gke-cluster-health"
+        matchMode: exact
+      group: "GCP Project {{project.name}} Resources"

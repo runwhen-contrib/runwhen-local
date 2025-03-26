@@ -50,4 +50,9 @@ spec:
         pattern: "az-appsvc-ops"
         matchMode: exact
       group: "{{resource_group.name}}"
-
+    - match:
+        type: pattern
+        matchType: base-name
+        pattern: "az-vm-health"
+        matchMode: exact
+      group: "{{resource_group.name}}"
