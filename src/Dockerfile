@@ -5,6 +5,7 @@ RUN apt-get update && apt-get install -y \
     pip \
     entr \
     curl \
+    && apt-get -y upgrade \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
