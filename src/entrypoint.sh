@@ -49,6 +49,9 @@ cd "$MKDOCS_TMP"
 mkdocs serve -f mkdocs.yml &
 echo "MkDocs serve started in the background, serving from $MKDOCS_TMP"
 
+## Clean stale lock files
+rm $TMPDIR/.wb_lock || true
+
 ## Execute main discovery process
 
 cd $RUNWHEN_HOME
