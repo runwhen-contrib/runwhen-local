@@ -39,94 +39,153 @@ class AzurePlatformHandler(PlatformHandler):
     def __init__(self):
         super().__init__(AZURE_PLATFORM)
 
-    def parse_resource_data(self,
-                            resource_data: dict[str, Any],
-                            resource_type_name: str,
-                            platform_config_data: dict[str, Any],
-                            context: Context) -> tuple[str, str, dict[str, Any]]:
-        # FIXME: This assumes that all Azure tables have name and id fields/attributes.
-        # Seems likely, but not 100% sure this is a valid assumption.
-        name: str = resource_data['name']
+    # def parse_resource_data(self,
+    #                         resource_data: dict[str, Any],
+    #                         resource_type_name: str,
+    #                         platform_config_data: dict[str, Any],
+    #                         context: Context) -> tuple[str, str, dict[str, Any]]:
+    #     # FIXME: This assumes that all Azure tables have name and id fields/attributes.
+    #     # Seems likely, but not 100% sure this is a valid assumption.
+    #     name: str = resource_data['name']
+    #     qualified_name = name
+    #     tags = resource_data.get('tags', dict())
+    #     resource_attributes = {'tags': tags}
+
+    #     # Check if subscription_id is part of resource_data and add it to attributes if available
+    #     subscription_id = resource_data.get('subscription_id')
+    #     if subscription_id:
+    #         resource_attributes['subscription_id'] = subscription_id
+    #         logger.info(f"Resource '{name}' includes subscription_id: {subscription_id}")
+    #     else:
+    #         logger.warning(f"Resource '{name}' does not contain subscription_id in data.")
+
+
+    #     if resource_type_name == "resource_group":
+    #         # Set the 'lod' (level-of-detail) resource attribute from the per-resource-group
+    #         # setting in the Azure cloud config or set to the default value if it's unspecified
+    #         # FIXME: It's a bit kludgy to have the level of detail setting in the resource,
+    #         # since that's really a generation rules feature, not an indexing feature.
+    #         # Although we do currently use it in kubeapi to optimize the indexing to skip indexing
+    #         # namespaces whose level-of-detail is "none". But I still think it would be
+    #         # cleaner to not have any LOD setting logic in the indexers and just use it
+    #         # internally in the generation rules module. There could be some other mechanism
+    #         # to disable indexing for particular namespaces / resource groups in the indexers.
+    #         # In any case, we want to skip the else logic here that tries to extract
+    #         # the parent resource group of the resource since that doesn't make sense
+    #         # for the resource group itself (unless Azure supports nested resource
+    #         # groups? but I don't think it does).
+    #         resource_group_level_of_detail_config = platform_config_data.get("resourceGroupLevelOfDetails", dict())
+    #         resource_group_lod_value = resource_group_level_of_detail_config.get(name)
+    #         # FIXME: Not great maintenance-wise to lookup setting values by the setting name here.
+    #         # Would be better to lookup by the actual Setting class singleton (which is not supported
+    #         # by the get_setting method). Unfortunately, currently, if we try to use the default LOD
+    #         # setting it leads to a module import circularity, so some cleanup/refactoring of
+    #         # where the settings are defined is needed to get that to work. So for the time being
+    #         # we still use the hard-coded name :-(
+    #         resource_attributes['lod'] = LevelOfDetail.construct_from_config(resource_group_lod_value) \
+    #             if resource_group_lod_value is not None else context.get_setting("DEFAULT_LOD")
+    #     else:
+    #         # Updated to handle lowercase 'resourcegroups' in ID extraction logic
+    #         id: str = resource_data.get('id', '')
+    #         resource_groups_component_name = "resourcegroups/"
+    #         resource_group_start = id.lower().find(resource_groups_component_name)  # Case-insensitive match
+            
+    #         if resource_group_start >= 0:
+    #             resource_group_start += len(resource_groups_component_name)
+    #             resource_group_end = id.find('/', resource_group_start)
+    #             if resource_group_end > resource_group_start:
+    #                 resource_group_name = id[resource_group_start:resource_group_end]
+    #                 # Unfortunately the resource group name that's encoded in the id value has
+    #                 # been converted to all upper-case, so its name doesn't match the key value
+    #                 # in the instances for the ResourceGroup resource type. So instead we need to
+    #                 # iterate over all the instances and do a case-insensitive comparison. Ugh!
+    #                 # Should think some more if there's a better / more efficient way to handle
+    #                 # this. AFAICT, there's no info in the resource attributes from which to
+    #                 # obtain the original, unconverted resource group, so instead would presumably
+    #                 # need to do some custom indexing of the resource groups where the key is
+    #                 # the upper-case version of the name and then use that for the duration of
+    #                 # the indexing process. We sort of do this already for the custom Kubernetes
+    #                 # index (where we maintain a dictionary of the discovered namespaces).
+    #                 # But I'm not sure in practice we're going to have cases where there are a
+    #                 # ton of resource groups (at least not right away) where this would be a
+    #                 # big scalability concern. Famous last words...
+    #                 # NB: Note that this logic assumes that the resource groups are indexed
+    #                 # first, so it should always be the first entry in the resource types
+    #                 # array for the CloudQuery platform spec.
+    #                 # FIXME: Ideally wouldn't hard-code/duplicate the "resource_group" name here
+    #                 # but would instead define it once (not sure where makes the most sense?).
+    #                 registry: Registry = context.get_property(REGISTRY_PROPERTY_NAME)
+    #                 resource_group_resource_type = registry.lookup_resource_type(AZURE_PLATFORM, "resource_group")
+                    
+    #                 if resource_group_resource_type:
+    #                     # Try to find the original casing by iterating over resource group instances
+    #                     for resource_group in resource_group_resource_type.instances.values():
+    #                         if resource_group.name.upper() == resource_group_name.upper():
+    #                             # Switch the resource group name back to the original name,
+    #                             # instead of the all-upper-case version.
+    #                             resource_group_name = resource_group.name
+    #                             resource_attributes['resource_group'] = resource_group
+    #                             break
+    #                 qualified_name = f"{resource_group_name}/{name}"
+
+    #     return name, qualified_name, resource_attributes
+    def parse_resource_data(
+        self,
+        resource_data: dict[str, Any],
+        resource_type_name: str,
+        platform_config_data: dict[str, Any],
+        context: Context,
+    ) -> tuple[str, str, dict[str, Any]]:
+
+        name: str = resource_data["name"]
         qualified_name = name
-        tags = resource_data.get('tags', dict())
-        resource_attributes = {'tags': tags}
+        tags = resource_data.get("tags", {})
+        resource_attributes = {"tags": tags}
 
-        # Check if subscription_id is part of resource_data and add it to attributes if available
-        subscription_id = resource_data.get('subscription_id')
+        # keep subscription_id for per-sub LOD
+        subscription_id = resource_data.get("subscription_id")
         if subscription_id:
-            resource_attributes['subscription_id'] = subscription_id
-            logger.info(f"Resource '{name}' includes subscription_id: {subscription_id}")
-        else:
-            logger.warning(f"Resource '{name}' does not contain subscription_id in data.")
-
+            resource_attributes["subscription_id"] = subscription_id
 
         if resource_type_name == "resource_group":
-            # Set the 'lod' (level-of-detail) resource attribute from the per-resource-group
-            # setting in the Azure cloud config or set to the default value if it's unspecified
-            # FIXME: It's a bit kludgy to have the level of detail setting in the resource,
-            # since that's really a generation rules feature, not an indexing feature.
-            # Although we do currently use it in kubeapi to optimize the indexing to skip indexing
-            # namespaces whose level-of-detail is "none". But I still think it would be
-            # cleaner to not have any LOD setting logic in the indexers and just use it
-            # internally in the generation rules module. There could be some other mechanism
-            # to disable indexing for particular namespaces / resource groups in the indexers.
-            # In any case, we want to skip the else logic here that tries to extract
-            # the parent resource group of the resource since that doesn't make sense
-            # for the resource group itself (unless Azure supports nested resource
-            # groups? but I don't think it does).
-            resource_group_level_of_detail_config = platform_config_data.get("resourceGroupLevelOfDetails", dict())
-            resource_group_lod_value = resource_group_level_of_detail_config.get(name)
-            # FIXME: Not great maintenance-wise to lookup setting values by the setting name here.
-            # Would be better to lookup by the actual Setting class singleton (which is not supported
-            # by the get_setting method). Unfortunately, currently, if we try to use the default LOD
-            # setting it leads to a module import circularity, so some cleanup/refactoring of
-            # where the settings are defined is needed to get that to work. So for the time being
-            # we still use the hard-coded name :-(
-            resource_attributes['lod'] = LevelOfDetail.construct_from_config(resource_group_lod_value) \
-                if resource_group_lod_value is not None else context.get_setting("DEFAULT_LOD")
+                    # nested map built in init_cloudquery_config
+                    sub_map = (
+                        platform_config_data
+                        .get("subscriptionResourceGroupLevelOfDetails", {})
+                        .get(subscription_id, {})
+                    )
+                    global_rg_map = platform_config_data.get("resourceGroupLevelOfDetails", {})
+
+                    lod_value = (
+                        sub_map.get(name)      # 1. explicit RG override
+                        or sub_map.get("*")    # 2. per-subscription default
+                        or global_rg_map.get(name)     # (3) legacy top-level RG
+                        or global_rg_map.get("*")      # (4) legacy wildcard
+                    )
+
+                    resource_attributes["lod"] = (
+                        LevelOfDetail.construct_from_config(lod_value)
+                        if lod_value is not None
+                        else context.get_setting("DEFAULT_LOD")   # 3. workspace default
+                    )
         else:
-            # Updated to handle lowercase 'resourcegroups' in ID extraction logic
-            id: str = resource_data.get('id', '')
-            resource_groups_component_name = "resourcegroups/"
-            resource_group_start = id.lower().find(resource_groups_component_name)  # Case-insensitive match
-            
-            if resource_group_start >= 0:
-                resource_group_start += len(resource_groups_component_name)
-                resource_group_end = id.find('/', resource_group_start)
-                if resource_group_end > resource_group_start:
-                    resource_group_name = id[resource_group_start:resource_group_end]
-                    # Unfortunately the resource group name that's encoded in the id value has
-                    # been converted to all upper-case, so its name doesn't match the key value
-                    # in the instances for the ResourceGroup resource type. So instead we need to
-                    # iterate over all the instances and do a case-insensitive comparison. Ugh!
-                    # Should think some more if there's a better / more efficient way to handle
-                    # this. AFAICT, there's no info in the resource attributes from which to
-                    # obtain the original, unconverted resource group, so instead would presumably
-                    # need to do some custom indexing of the resource groups where the key is
-                    # the upper-case version of the name and then use that for the duration of
-                    # the indexing process. We sort of do this already for the custom Kubernetes
-                    # index (where we maintain a dictionary of the discovered namespaces).
-                    # But I'm not sure in practice we're going to have cases where there are a
-                    # ton of resource groups (at least not right away) where this would be a
-                    # big scalability concern. Famous last words...
-                    # NB: Note that this logic assumes that the resource groups are indexed
-                    # first, so it should always be the first entry in the resource types
-                    # array for the CloudQuery platform spec.
-                    # FIXME: Ideally wouldn't hard-code/duplicate the "resource_group" name here
-                    # but would instead define it once (not sure where makes the most sense?).
+            # ------------- unchanged block resolving parent RG ----------------
+            id_val = resource_data.get("id", "")
+            rg_marker = "resourcegroups/"
+            start = id_val.lower().find(rg_marker)
+            if start >= 0:
+                start += len(rg_marker)
+                end = id_val.find("/", start)
+                if end > start:
+                    rg_name = id_val[start:end]
                     registry: Registry = context.get_property(REGISTRY_PROPERTY_NAME)
-                    resource_group_resource_type = registry.lookup_resource_type(AZURE_PLATFORM, "resource_group")
-                    
-                    if resource_group_resource_type:
-                        # Try to find the original casing by iterating over resource group instances
-                        for resource_group in resource_group_resource_type.instances.values():
-                            if resource_group.name.upper() == resource_group_name.upper():
-                                # Switch the resource group name back to the original name,
-                                # instead of the all-upper-case version.
-                                resource_group_name = resource_group.name
-                                resource_attributes['resource_group'] = resource_group
+                    rg_type = registry.lookup_resource_type(AZURE_PLATFORM, "resource_group")
+                    if rg_type:
+                        for rg in rg_type.instances.values():
+                            if rg.name.upper() == rg_name.upper():
+                                resource_attributes["resource_group"] = rg
+                                qualified_name = f"{rg.name}/{name}"
                                 break
-                    qualified_name = f"{resource_group_name}/{name}"
 
         return name, qualified_name, resource_attributes
 
