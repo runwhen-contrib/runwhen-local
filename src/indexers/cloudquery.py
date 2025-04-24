@@ -608,9 +608,9 @@ def init_cloudquery_config(
                 for item in platform_cfg.get("subscriptions", [])
                 if isinstance(item, dict) and item.get("subscriptionId")
             ]
-            subscription_ids: list[str] = explicit_sub_ids or az["subscription_ids"]
-            if not credential or not subscription_ids:
-                raise ValueError("Azure credential or subscriptionIds missing.")
+            subscription_ids: list[str] = explicit_sub_ids        # (no fallback)
+            if credential is None:
+                raise ValueError("Azure credential missing.")
 
             # ---------------- build nested RG-LOD map ------------
             #   { subId : { rgName|'*' : lod, … } }

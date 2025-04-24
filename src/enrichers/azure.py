@@ -154,10 +154,13 @@ class AzurePlatformHandler(PlatformHandler):
                         .get("subscriptionResourceGroupLevelOfDetails", {})
                         .get(subscription_id, {})
                     )
+                    global_rg_map = platform_config_data.get("resourceGroupLevelOfDetails", {})
 
                     lod_value = (
                         sub_map.get(name)      # 1. explicit RG override
                         or sub_map.get("*")    # 2. per-subscription default
+                        or global_rg_map.get(name)     # (3) legacy top-level RG
+                        or global_rg_map.get("*")      # (4) legacy wildcard
                     )
 
                     resource_attributes["lod"] = (

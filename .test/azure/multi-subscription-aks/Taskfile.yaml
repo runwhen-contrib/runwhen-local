@@ -78,10 +78,12 @@ tasks:
             #       server: https://$cluster1_server:443
             #       resource_group: $cluster1_resource_group
             #       subscriptionId: $cluster1_sub
+            #       defaultNamespaceLOD: basic
             #     - name: $cluster2_name
             #       server: https://$cluster2_server:443
             #       resource_group: $cluster2_resource_group
             #       subscriptionId: $cluster2_sub
+            #       defaultNamespaceLOD: basic
             # resourceGroupLevelOfDetails:
             #   $cluster1_resource_group: detailed
             #   $cluster2_resource_group: detailed
@@ -95,10 +97,10 @@ tasks:
                 defaultLOD: detailed
                 resourceGroupLevelOfDetails:
                   $cluster2_resource_group: detailed
-        codeCollections: []
-          # - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection"
-          #   branch: "main"
-          #   codeBundles: ["k8s-namespace-healthcheck", "azure-aks-triage", "k8s-deployment-healthcheck"]
+        codeCollections: 
+          - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection"
+            branch: "main"
+            codeBundles: ["k8s-namespace-healthcheck", "azure-aks-triage", "k8s-deployment-healthcheck"]
         # codeCollections: []
         # - repoURL: "$repo_url"
         #   branch: "$branch_name"
