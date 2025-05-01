@@ -890,6 +890,11 @@ def load(context: Context) -> None:
                     logger.error(message)
                     context.add_warning(message)
                     continue
+                # If the generation_rules_config is empty, skip processing it.
+                # A config that is empty or contains only comments is still valid, 
+                # so it will not be skipped by the YAMLError handling logic above.
+                if not generation_rules_config:
+                    continue
                 spec_config = generation_rules_config.get("spec", dict())
                 # NOTE: The Kubernetes dependency here is just for backward compatibility, since
                 # the existing gen rules were written before there was the notion of a platform,
