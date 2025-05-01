@@ -80,3 +80,15 @@ spec:
         pattern: "az-kv-health"
         matchMode: exact
       group: "{{resource_group.name}}"
+    - match:
+        type: pattern
+        matchType: base-name
+        pattern: "azure-db-health"
+        matchMode: exact
+      group: "{{resource_group.name}}"
+    - match:
+        type: pattern
+        matchType: base-name
+        pattern: "azure-storage-health"
+        matchMode: exact
+      group: "{{resource_group.name}}"
