@@ -894,6 +894,12 @@ def load(context: Context) -> None:
                 # A config that is empty or contains only comments is still valid, 
                 # so it will not be skipped by the YAMLError handling logic above.
                 if not generation_rules_config:
+                    message = f'Skipping generation rules file that does not contain any data; ' \
+                              f'file="{generation_rule_file_spec.generation_rule_file_name}"; ' \
+                              f'code-bundle="{generation_rule_file_spec.code_bundle_name}"; ' \
+                              f'code-collection="{code_collection_config.repo_url}"; '
+                    logger.error(message)
+                    context.add_warning(message)
                     continue
                 spec_config = generation_rules_config.get("spec", dict())
                 # NOTE: The Kubernetes dependency here is just for backward compatibility, since
