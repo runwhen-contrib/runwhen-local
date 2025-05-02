@@ -7,6 +7,9 @@ from resources import Resource, Registry, REGISTRY_PROPERTY_NAME
 from .generation_rule_types import LevelOfDetail, PlatformHandler
 from utils import write_file
 
+import logging
+logger = logging.getLogger(__name__)
+
 GCP_PLATFORM = "gcp"
 
 APPLICATION_CREDENTIALS_FILE_KEY = "applicationCredentialsFile"

@@ -12,13 +12,6 @@ from exceptions import WorkspaceBuilderException
 AWS_PLATFORM = "aws"
 logger = logging.getLogger(__name__)
 
-# Check for the environment variable and set the log level
-if os.environ.get('DEBUG_LOGGING') == 'true':
-    logger.setLevel(logging.DEBUG)
-else:
-    logger.setLevel(logging.INFO)
-
-
 class ARN:
     def __init__(self, arn_string: str):
         parts = arn_string.split(':', 5)

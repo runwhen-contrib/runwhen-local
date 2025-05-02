@@ -4,8 +4,6 @@ from component import Context
 from resources import Resource, Registry, REGISTRY_PROPERTY_NAME
 from .generation_rule_types import PlatformHandler, LevelOfDetail
 import logging
-
-# Initialize the logger for this module
 logger = logging.getLogger(__name__)
 
 

@@ -937,9 +937,6 @@ def cheat_sheet(directory_path, mkdocs_dir):
     summarized_resources = parse_and_summarize_resource_dump(resource_dump_path)
     summarized_resources["groups"] = len(groups)
 
-    if not any(summarized_resources.get("platforms", {}).values()):
-        logger.warning("No cloud resources found across Kubernetes, Azure, AWS, or GCP.")
-
     generate_index(
         all_support_tags_freq,
         summarized_resources,
