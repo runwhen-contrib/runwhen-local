@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 import logging
-import os
+import os, sys
 import re
 from typing import Any, Union, Optional, Sequence
 import yaml
@@ -54,13 +54,8 @@ from .match_predicate import (
     Visitor as MatchPredicateVisitor
 )
 
+import logging
 logger = logging.getLogger(__name__)
-
-# Check for the environment variable and set the log level
-if os.environ.get('DEBUG_LOGGING') == 'true':
-    logger.setLevel(logging.DEBUG)
-else:
-    logger.setLevel(logging.INFO)
 
 DOCUMENTATION = "Implements pattern-based rules for generating SLXs"
 
@@ -709,7 +704,7 @@ def collect_emitted_slxs(generation_rule_info: GenerationRuleInfo,
                 logger.warning(f"Skipping SLX due to error in processing resource '{resource.name}': {e}")
                 # Skip this SLX if there's an error in SLXInfo initialization
             except Exception as e:
-                logger.error(f"Unexpected error in SLX processing for resource '{resource.name}': {e}")
+                logger.warning(f"Unexpected error in SLX processing for resource '{resource.name}': {e}")
 
 
 def assign_slx_names(slxs: dict[str, SLXInfo], workspace_name):
@@ -887,7 +882,7 @@ def load(context: Context) -> None:
                               f'code-bundle="{generation_rule_file_spec.code_bundle_name}"; ' \
                               f'code-collection="{code_collection_config.repo_url}"; ' \
                               f'exception={e}'
-                    logger.error(message)
+                    logger.warning(message)
                     context.add_warning(message)
                     continue
                 # If the generation_rules_config is empty, skip processing it.
@@ -898,7 +893,7 @@ def load(context: Context) -> None:
                               f'file="{generation_rule_file_spec.generation_rule_file_name}"; ' \
                               f'code-bundle="{generation_rule_file_spec.code_bundle_name}"; ' \
                               f'code-collection="{code_collection_config.repo_url}"; '
-                    logger.error(message)
+                    logger.warning(message)
                     context.add_warning(message)
                     continue
                 spec_config = generation_rules_config.get("spec", dict())
@@ -923,7 +918,7 @@ def load(context: Context) -> None:
                                   f'code-bundle="{generation_rule_file_spec.code_bundle_name}"; ' \
                                   f'code-collection="{code_collection_config.repo_url}"; ' \
                                   f'exception={e}'
-                        logger.error(message)
+                        logger.info(message)
                         context.add_warning(message)
                         continue
 

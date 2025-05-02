@@ -6,6 +6,9 @@ from component import Context
 from exceptions import WorkspaceBuilderException
 from resources import Resource, ResourceTypeSpec, Registry, REGISTRY_PROPERTY_NAME
 
+import logging
+logger = logging.getLogger(__name__)
+
 PLATFORM_HANDLERS_PROPERTY_NAME = "platform-handlers"
 
 # The value of this is a dict whose key is platform names and value is a set of resource type names

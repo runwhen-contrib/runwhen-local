@@ -92,3 +92,9 @@ spec:
         pattern: "azure-storage-health"
         matchMode: exact
       group: "{{resource_group.name}}"
+    - match:
+        type: pattern
+        matchType: base-name
+        pattern: "azure-adf-health"
+        matchMode: exact
+      group: "{{resource_group.name}}"

@@ -11,17 +11,25 @@ https://docs.djangoproject.com/en/4.1/ref/settings/
 """
 
 from pathlib import Path
+import logging.config
 import os
+import secrets
+import sys
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/4.1/howto/deployment/checklist/
+# ───────────────────────────────────────────────────────────────────────────
+# Secret key
+#   • Users deploying in production set DJANGO_SECRET_KEY
+#   • Otherwise we generate a random key at start-up (good enough for
+#     local / ephemeral usage; it changes every start so session cookies
+#     become invalid on restart — fine for CLI tool)
+# ───────────────────────────────────────────────────────────────────────────
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", default=secrets.token_urlsafe(50))
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-3qz#i9i83z*e!mh+@+kqr12lg@8g56f5=pt=ew6)^1dp9@vkbb'
+
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
@@ -131,21 +139,69 @@ REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "workspace_builder.exceptions.handle",
 }
 
-debug_logging = os.environ.get('DEBUG_LOGGING', "false").lower()
-root_log_level = "DEBUG" if debug_logging == 'true' or debug_logging == "1" else "INFO"
+# debug_logging = os.environ.get('DEBUG_LOGGING', "false").lower()
+# root_log_level = "DEBUG" if debug_logging == 'true' or debug_logging == "1" else "INFO"
+
+# LOGGING = {
+#     "version": 1,
+#     "disable_existing_loggers": False,
+#     "handlers": {
+#         "console": {
+#             "class": "logging.StreamHandler",
+#         },
+#     },
+#     "loggers": {
+#         "root": {
+#             "handlers": ["console"],
+#             "level": root_log_level,
+#         },
+#     },
+# }
+
+# ───────────────────────────────────────────────────────────────────────────
+# Logging
+#   • DEBUG_LOGGING=true|1  → root level DEBUG
+#   • otherwise             → root level INFO
+#   • single console handler on stdout so Docker & K8s both collect it
+# ───────────────────────────────────────────────────────────────────────────
+DEBUG_LOGGING = os.getenv("DEBUG_LOGGING", "false").lower() in ("true", "1")
+ROOT_LOG_LEVEL = "DEBUG" if DEBUG_LOGGING else "INFO"
 
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
+    "formatters": {
+        "simple": {
+            "format": "[%(levelname)s] %(name)s: %(message)s",
+        },
+    },
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
+            "stream": "ext://sys.stdout",
+            "formatter": "simple",
         },
     },
+    # ← this is the **actual** root logger, outside "loggers"
+    "root": {
+        "handlers": ["console"],
+        "level": ROOT_LOG_LEVEL,
+    },
     "loggers": {
-        "root": {
+        # keep Django chatter low
+        "django": {
             "handlers": ["console"],
-            "level": root_log_level,
+            "level": "INFO",
+            "propagate": False,
+        },
+        # workspace-builder package follows the root level
+        "workspace_builder": {
+            "handlers": ["console"],
+            "level": ROOT_LOG_LEVEL,
+            "propagate": False,
         },
     },
 }
+
+# Apply the dict-based logging config immediately (helps when unit-testing)
+logging.config.dictConfig(LOGGING)

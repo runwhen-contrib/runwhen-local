@@ -7,6 +7,9 @@ from typing import Any
 from exceptions import WorkspaceBuilderException
 from resources import Resource
 
+import logging
+logger = logging.getLogger(__name__)
+
 class StringMatchMode(Enum):
     EXACT = "exact"
     SUBSTRING = "substring"

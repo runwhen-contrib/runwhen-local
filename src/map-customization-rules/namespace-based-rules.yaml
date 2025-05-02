@@ -128,3 +128,9 @@ spec:
         pattern: "k8s-otelcollector"
         matchMode: exact
       group: "{{namespace.name}} ({{cluster.name}})"
+    - match:
+        type: pattern
+        matchType: base-name
+        pattern: "k8s-istio-system-health"
+        matchMode: exact
+      group: "{{namespace.name}} ({{cluster.name}})"

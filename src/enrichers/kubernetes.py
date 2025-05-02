@@ -12,6 +12,9 @@ from indexers.kubetypes import (
 from resources import Resource, Registry, REGISTRY_PROPERTY_NAME
 from .generation_rule_types import LevelOfDetail, PlatformHandler
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 class KubernetesPlatformHandler(PlatformHandler):
 
