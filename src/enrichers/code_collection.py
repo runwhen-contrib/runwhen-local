@@ -37,6 +37,41 @@ IGNORE_CASE_FIELD_VALUE = "ignoreCase"
 MATCH_MODE_FIELD_NAME = "matchMode"
 ACTION_FIELD_NAME = "action"
 
+# 1) default -> False
+USE_LOCAL_GIT: bool = False
+
+# 2) env-var override (highest precedence)
+_env_val = os.getenv("WB_USE_LOCAL_GIT")
+if _env_val is not None:
+    USE_LOCAL_GIT = _env_val.lower() == "true"
+
+# 3) workspaceInfo.yaml override (if present)
+_ws_path = "/shared/workspaceInfo.yaml"
+if os.path.isfile(_ws_path):
+    try:
+        with open(_ws_path, "r") as f:
+            cfg = yaml.safe_load(f) or {}
+        val = cfg.get("useLocalGit")
+        if isinstance(val, bool):
+            USE_LOCAL_GIT = val
+        elif isinstance(val, str):
+            USE_LOCAL_GIT = val.lower() == "true"
+    except Exception as exc:
+        logger.warning(
+            "Failed to parse %s; falling back to USE_LOCAL_GIT=%s: %s",
+            _ws_path, USE_LOCAL_GIT, exc
+        )
+# ──────────────────────────────────────────────────────────
+
+# root of the bare-mirror cache (same path baked by Dockerfile)
+LOCAL_CACHE_ROOT = os.getenv("CODE_COLLECTION_CACHE_ROOT",
+                             "/opt/runwhen/codecollection-cache")
+
+def local_repo_path(repo_url: str) -> str:
+    """Map a repo URL to its on-disk bare-mirror path."""
+    name = os.path.splitext(os.path.basename(repo_url))[0]
+    return os.path.join(LOCAL_CACHE_ROOT, f"{name}.git")
+
 @dataclass
 class CodeBundleConfig:
     pattern_type: PatternType
@@ -196,21 +231,50 @@ class CodeCollection:
         self.repo_directory_path = None
         self.repo = None
 
+    # def update_repo(self, ref_name: str) -> None:
+    #     # FIXME: This code needs synchronization properly handle concurrent requests.
+    #     # Probably not an issue for RunWhen Local deployments, but if/when we host the
+    #     # workspace builder as a service in the platform architecture it will be an issue.
+    #     # FIXME: The auth credential support is incomplete at this point. Not a big issue
+    #     # in the short-term since there are really only the two RunWhen code collections,
+    #     # both of which are public. But once we have third-party, possibly private
+    #     # code collections the auth credential handling will need to be fleshed out.
+    #     if not self.repo:
+    #         if not self.repo_directory_path:
+    #             repo_name = get_repo_name(self.repo_url)
+    #             self.repo_directory_path = create_repo_directory(code_collection_cache_dir, repo_name)
+    #         self.repo = Repo.clone_from(self.repo_url, self.repo_directory_path, mirror=True)
+    #     # Fetch the ref, in case we haven't got it yet or if there are new changes since the last request
+    #     self.repo.remote().fetch(ref_name)
+
     def update_repo(self, ref_name: str) -> None:
-        # FIXME: This code needs synchronization properly handle concurrent requests.
-        # Probably not an issue for RunWhen Local deployments, but if/when we host the
-        # workspace builder as a service in the platform architecture it will be an issue.
-        # FIXME: The auth credential support is incomplete at this point. Not a big issue
-        # in the short-term since there are really only the two RunWhen code collections,
-        # both of which are public. But once we have third-party, possibly private
-        # code collections the auth credential handling will need to be fleshed out.
-        if not self.repo:
-            if not self.repo_directory_path:
-                repo_name = get_repo_name(self.repo_url)
-                self.repo_directory_path = create_repo_directory(code_collection_cache_dir, repo_name)
-            self.repo = Repo.clone_from(self.repo_url, self.repo_directory_path, mirror=True)
-        # Fetch the ref, in case we haven't got it yet or if there are new changes since the last request
-        self.repo.remote().fetch(ref_name)
+        # already loaded – normal path
+        if self.repo:
+            if self.repo.remotes and not USE_LOCAL_GIT:
+                # remote available ⇒ refresh
+                self.repo.remote().fetch(ref_name, tags=True)
+            return
+
+        if USE_LOCAL_GIT:
+            local_path = local_repo_path(self.repo_url)
+            logger.info(f"Using local git cache dir: {local_path}")
+            if os.path.isdir(local_path):
+                self.repo_directory_path = local_path
+                self.repo = Repo(local_path)
+                return  # nothing to fetch – offline
+
+        # fallback: online clone (mirror=True ensures tags)
+        if not self.repo_directory_path:
+            repo_name = get_repo_name(self.repo_url)
+            self.repo_directory_path = create_repo_directory(code_collection_cache_dir, repo_name)
+        self.repo = Repo.clone_from(
+            self.repo_url,
+            self.repo_directory_path,
+            mirror=True  # includes tags/branches
+        )
+        if not USE_LOCAL_GIT:
+            logger.info("Cloning from git source")
+            self.repo.remote().fetch(ref_name, tags=True)
 
     @staticmethod
     def path_to_components(path: str) -> list[str]:
@@ -385,24 +449,22 @@ def get_code_collection(code_collection_config: CodeCollectionConfig) -> CodeCol
     """
     Return the CodeCollection corresponding to the give config.
     This clones the code collection repo if it hasn't already been loaded/cloned.
-
-    FIXME: The auth handling here is lacking, since it will return an already loaded
-    code collection even if the credentials in the current config are not valid for
-    that code collection. For now, in the RunWhen Local context, this isn't a big
-    deal, since you won't have multiple users with different access privileges
-    using/accessing the same workspace builder REST instance. That, and currently
-    there are really only a small number of RunWhen-authored code collections that
-    are all public repos anyway, so the auth support is somewhat premature anyway.
-    But in the future if we have hosted workspace builder instance running on the
-    platform that's shared by different users from different organizations, then
-    it will be important to flesh out the auth strategy here, presumably by
-    validating the current credentials even if the code collection is already loaded.
     """
-    code_collection = code_collection_cache.get(code_collection_config.repo_url)
+    # code_collection = code_collection_cache.get(code_collection_config.repo_url)
+    # if not code_collection:
+    #     repo_url = code_collection_config.repo_url
+    #     code_collection = CodeCollection(repo_url, code_collection_config.auth_user, code_collection_config.auth_token)
+    #     code_collection_cache[repo_url.lower()] = code_collection
+    # return code_collection
+    key = code_collection_config.repo_url.lower()
+    code_collection = code_collection_cache.get(key)
     if not code_collection:
-        repo_url = code_collection_config.repo_url
-        code_collection = CodeCollection(repo_url, code_collection_config.auth_user, code_collection_config.auth_token)
-        code_collection_cache[repo_url.lower()] = code_collection
+        code_collection = CodeCollection(
+            code_collection_config.repo_url,
+            code_collection_config.auth_user,
+            code_collection_config.auth_token,
+        )
+        code_collection_cache[key] = code_collection
     return code_collection
 
 def cleanup_code_collections():
