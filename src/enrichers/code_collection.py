@@ -256,8 +256,8 @@ class CodeCollection:
             return
 
         if USE_LOCAL_GIT:
-            logger.info("Using local git cache")
             local_path = local_repo_path(self.repo_url)
+            logger.info(f"Using local git cache dir: {local_path}")
             if os.path.isdir(local_path):
                 self.repo_directory_path = local_path
                 self.repo = Repo(local_path)

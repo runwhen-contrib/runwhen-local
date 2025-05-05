@@ -591,7 +591,7 @@ def fetch_github_profile_icon(identifier, mkdocs_dir=None):
         return author_details
 
     except requests.RequestException as e:
-        print(f"Error occurred: {str(e)}")
+        logging.error(f"Error occurred: {str(e)}")
         return "Not Available"
     except requests.HTTPError as e:
         if e.response.status_code == 403:
@@ -599,21 +599,21 @@ def fetch_github_profile_icon(identifier, mkdocs_dir=None):
             author_details["profile_icon_path"] = "apiLimitReached"
             author_details["url"] = "apiLimitReached"
             return author_details
-        print(f"HTTP error occurred: {str(e)}")
+        logging.error(f"HTTP error occurred: {str(e)}")
         return "Not Available"
     except KeyError:
-        print("KeyError occurred: Required data not found in the API response.")
+        logging.warning("KeyError occurred: Required data not found in the API response.")
         return "Not Available"
 
 def get_last_commit_age(owner, repo, ref, path, mkdocs_dir):
     local_path = os.path.join(mkdocs_dir, f'{owner}_{repo}_{ref}-cache')
     if not os.path.exists(local_path):
-        print(f"The repository for {owner}/{repo} with reference {ref} is not found in the cache.")
+        logging.debug(f"The repository for {owner}/{repo} with reference {ref} is not found in the cache.")
         return None
 
     repo_obj = Repo(local_path)
     if ref not in repo_obj.heads:
-        print(f"Reference {ref} not found in the cached repository for {owner}/{repo}.")
+        logging.debug(f"Reference {ref} not found in the cached repository for {owner}/{repo}.")
         return None
 
     commits_touching_path = list(repo_obj.iter_commits(paths=path))

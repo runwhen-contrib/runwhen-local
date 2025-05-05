@@ -125,34 +125,26 @@ RUN mkdir -p ${RUNWHEN_SHARED} \
     && chmod -R g+w ${RUNWHEN_HOME} ${RUNWHEN_SHARED}
 
 
-USER runwhen
-
 # Local CodeCollection Cache
 # ------------------------------------------------------------------
 # Args / env
-ARG INCLUDE_CODE_COLLECTION_CACHE=false
+ARG INCLUDE_CODE_COLLECTION_CACHE=true
 ENV CODE_COLLECTION_CACHE_ROOT=/home/runwhen/codecollection-cache
 # ------------------------------------------------------------------
 
 # Copy defaults list so the build stage can read it
 COPY default-code-collections.yaml ${CODE_COLLECTION_CACHE_ROOT}/
 
-# Optional cache populate
+# clone as root (still) and then chown the result for the app user
 RUN set -eux; \
-    if [ "$INCLUDE_CODE_COLLECTION_CACHE" = "true" ]; then \
-        mkdir -p "${CODE_COLLECTION_CACHE_ROOT}"; \
-        yq -r '.[] | ( .repoURL // . )' \
-            "${CODE_COLLECTION_CACHE_ROOT}/default-code-collections.yaml" \
-        | while read -r url; do \
-              name="$(basename "${url%.*}")"; \
-              dest="${CODE_COLLECTION_CACHE_ROOT}/${name}.git"; \
-              if [ ! -d "$dest" ]; then \
-                  echo ">> Caching $url"; \
-                  git clone --mirror --bare "$url" "$dest"; \
-                  git -C "$dest" fetch --all --tags; \
-              fi; \
-          done; \
-    fi
+    mkdir -p "$CODE_COLLECTION_CACHE_ROOT"; \
+    grep -Eo 'https://[^ ]+' "$CODE_COLLECTION_CACHE_ROOT/default-code-collections.yaml" \
+    | while read -r url; do \
+          name="$(basename "${url%.*}")"; \
+          git clone --mirror --quiet "$url" "$CODE_COLLECTION_CACHE_ROOT/${name}.git"; \
+      done; \
+    chown -R runwhen:runwhen "$CODE_COLLECTION_CACHE_ROOT"
 
+USER runwhen
 EXPOSE 8081
 ENTRYPOINT ["/bin/sh", "-c", "./entrypoint.sh"]

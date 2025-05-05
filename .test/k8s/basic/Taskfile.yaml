@@ -120,7 +120,7 @@ tasks:
 
         echo "Starting new container $CONTAINER_NAME..."
 
-        docker run -e DEBUG_LOGGING=false -e PYTHONUNBUFFERED=1 --name $CONTAINER_NAME -p 8081:8081 -v $(pwd):/shared -d runwhen-local:test || {
+        docker run -e DEBUG_LOGGING=false --add-host github.com:0.0.0.0 --name $CONTAINER_NAME -p 8081:8081 -v $(pwd):/shared -d runwhen-local:test || {
           echo "Failed to start container"; exit 1;
         }
 
