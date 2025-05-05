@@ -60,6 +60,7 @@ tasks:
               sandbox-cluster-1: 
                 defaultNamespaceLOD: basic
         codeCollections: []
+        useLocalGit: true
         # codeCollections: 
         #   - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection"
         #     branch: "main"
@@ -88,9 +89,8 @@ tasks:
         echo "Cleaning up output directory..."
         rm -rf output || { echo "Failed to remove output directory"; exit 1; }
         mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
-
         ## Building Container Image
-        docker buildx build --builder mybuilder --platform linux/amd64  -t runwhen-local:test -f $BUILD_DIR/Dockerfile $BUILD_DIR --load
+        docker buildx build --builder mybuilder --platform linux/amd64  --build-arg INCLUDE_CODE_COLLECTION_CACHE=true -t runwhen-local:test -f $BUILD_DIR/Dockerfile $BUILD_DIR --load
 
         ## Use this if you need to test both arm64/amd64 builds
         # docker buildx build --builder mybuilder --platform linux/amd64,linux/arm64  -t runwhen-local:test -f $BUILD_DIR/Dockerfile $BUILD_DIR
