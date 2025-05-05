@@ -46,6 +46,76 @@ if os.environ.get('DEBUG_LOGGING') == 'true':
 else:
     logger.setLevel(logging.INFO)
 
+
+# ------------------------------------------------------------------
+# Shared git-mirror helpers (same semantics as code_collection.py)
+# ------------------------------------------------------------------
+USE_LOCAL_GIT = os.getenv("WB_USE_LOCAL_GIT", "false").lower() == "true"
+try:
+    with open("/shared/workspaceInfo.yaml", "r") as f:
+        USE_LOCAL_GIT = yaml.safe_load(f).get("useLocalGit", USE_LOCAL_GIT)
+except Exception:
+    pass
+
+LOCAL_CACHE_ROOT = os.getenv("CODE_COLLECTION_CACHE_ROOT",
+                             "/home/runwhen/codecollection-cache")
+
+def mirror_path(owner: str, repo: str) -> str:
+    """Return the bare-mirror directory for owner/repo or '' if absent."""
+    return os.path.join(LOCAL_CACHE_ROOT, f"{repo}.git")
+
+def ensure_worktree_from_mirror(owner: str, repo: str, ref: str, dest: str):
+    """
+    Materialise <ref> (branch *or* tag) from the bare mirror into <dest>.
+
+    * When USE_LOCAL_GIT is true, the mirror **must** exist.
+    * Creates the work-tree in **detached HEAD** mode so tags work.
+    """
+    mpath = mirror_path(owner, repo)
+
+    if USE_LOCAL_GIT:
+        if not os.path.isdir(mpath):
+            raise RuntimeError(
+                f"Local git mirror missing for {owner}/{repo}. "
+                "Rebuild the image with INCLUDE_CODE_COLLECTION_CACHE=true "
+                "or disable useLocalGit."
+            )
+
+        bare = Repo(mpath)
+
+        # Resolve commitish (branch, tag, or SHA); raise if absent.
+        try:
+            commitish = bare.git.rev_parse("--verify", ref)
+        except GitCommandError:
+            # try explicit tag path
+            try:
+                commitish = bare.git.rev_parse("--verify", f"refs/tags/{ref}")
+            except GitCommandError as exc:
+                raise RuntimeError(f"Ref '{ref}' not found in mirror {owner}/{repo}") from exc
+
+        # If dest exists and is already a worktree on the same commit, skip.
+        if os.path.isdir(dest):
+            try:
+                wt = Repo(dest)
+                if wt.head.commit.hexsha == commitish:
+                    return
+            except Exception:
+                shutil.rmtree(dest)
+
+        # Add work-tree in detached-HEAD mode so both branches & tags work.
+        bare.git.worktree("add", "--force", "--detach", dest, commitish)
+        return
+
+    # -------- network-clone fallback --------
+    Repo.clone_from(
+        f"https://github.com/{owner}/{repo}.git",
+        dest,
+        branch=ref,
+        depth=1
+    )
+# ------------------------------------------------------------------
+
+
 @lru_cache(maxsize=2048)
 def parse_robot_file(fpath):
     """
@@ -204,32 +274,22 @@ def cmd_expansion(keyword_arguments, parsed_runbook_config):
 
 def generate_raw_git_url(git_url, file_path, ref):
     """
-    Generates the raw Git URL for a file and checks if it is accessible.
-    Currently supports GitHub, with a structure to add more providers.
+    Returns a file:// URL when using local mirrors, falling back to raw.github
+    when network clones are allowed.
     """
-    def get_github_raw_url(parsed_url, fp, branch):
-        parts = parsed_url.path.split('/')
-        user = parts[1]
-        repo = parts[2].replace('.git', '')
-        return f"https://raw.githubusercontent.com/{user}/{repo}/{branch}/{fp}"
+    parsed = urlparse(git_url)
+    owner, repo = parsed.path.lstrip("/").rstrip(".git").split("/")[:2]
 
-    parsed_url = urlparse(git_url)
-    raw_url = None
-    logger.debug(f"Parsing git url: {git_url}")
-
-    if 'github.com' in parsed_url.netloc:
-        raw_url = get_github_raw_url(parsed_url, file_path, ref)
-
-    if raw_url:
-        try:
-            proxies = get_proxy_config(raw_url)
-            response = requests.get(raw_url, proxies=proxies if proxies else None, verify=get_request_verify())
-            response.raise_for_status()
-            return raw_url
-        except requests.RequestException as e:
-            logger.error(f"Error accessing {raw_url}: {e}")
+    if USE_LOCAL_GIT:
+        mirror = mirror_path(owner, repo)
+        if not os.path.isdir(mirror):
+            logger.error("Mirror missing for %s/%s", owner, repo)
             return None
-    return None
+        return f"file://{mirror}/{file_path}"        # consumed via 'bash -c "$(cat …)"'
+
+    # original behaviour (network)
+    return f"https://raw.githubusercontent.com/{owner}/{repo}/{ref}/{file_path}"
+
 
 def task_name_expansion(task_name, parsed_runbook_config):
     """
@@ -665,34 +725,37 @@ def find_group_path(group_name):
 
 def warm_git_cache(runbook_files, mkdocs_dir):
     """
-    Build a unique set of repos from runbook_files and clone them locally.
+    Build a unique set of repos from runbook_files and materialise them
+    from the local mirror (or network, if allowed) into mkdocs_dir.
     """
-    unique_repos = set()
-    for runbook in runbook_files:
-        parsed_runbook_config = parse_yaml(runbook)
-        repo = parsed_runbook_config["spec"]["codeBundle"]["repoUrl"].rstrip(".git").split("/")[-1]
-        owner = parsed_runbook_config["spec"]["codeBundle"]["repoUrl"].rstrip(".git").split("/")[-2]
-        ref = parsed_runbook_config["spec"]["codeBundle"]["ref"]
-        unique_repos.add((owner, repo, ref))
+    unique_repos = {
+        (
+            cfg["spec"]["codeBundle"]["repoUrl"].rstrip(".git").split("/")[-2],  # owner
+            cfg["spec"]["codeBundle"]["repoUrl"].rstrip(".git").split("/")[-1],  # repo
+            cfg["spec"]["codeBundle"]["ref"]                                     # ref
+        )
+        for cfg in map(parse_yaml, runbook_files)
+    }
 
     for owner, repo, ref in unique_repos:
-        repo_url = f"https://github.com/{owner}/{repo}.git"
-        cache_dir_name = f"{owner}_{repo}_{ref}-cache"
-        local_path = os.path.join(mkdocs_dir, cache_dir_name)
+        worktree_path = os.path.join(mkdocs_dir, f"{owner}_{repo}_{ref}-cache")
+        if os.path.isdir(worktree_path):
+            # optional: fast-forward to latest mirror state
+            try:
+                Repo(worktree_path).git.reset("--hard", f"origin/{ref}")
+            except GitCommandError:
+                shutil.rmtree(worktree_path)
 
-        if not os.path.exists(local_path):
-            subprocess.run(['git', 'clone', '-b', ref, repo_url, local_path],
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        else:
-            subprocess.run(['git', '-C', local_path, 'pull', 'origin', ref],
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if not os.path.isdir(worktree_path):
+            logger.info("Materialising %s/%s@%s", owner, repo, ref)
+            ensure_worktree_from_mirror(owner, repo, ref, worktree_path)
 
-        # Build list of unique authors
-        runbook_robot_files = find_files(f"{owner}_{repo}_{ref}-cache", 'runbook.robot')
-        for rb in runbook_robot_files:
-            parsed_robot = parse_robot_file(rb)
-            author = ''.join(parsed_robot.get("author", "").split('\n'))
-            fetch_github_profile_icon(author, mkdocs_dir)
+        # collect authors for summary
+        for rb in find_files(worktree_path, 'runbook.robot'):
+            author = ''.join(parse_robot_file(rb).get("author", "").split())
+            if author:
+                fetch_github_profile_icon(author, mkdocs_dir)
+
 
 def clean_path(path):
     """
