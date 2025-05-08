@@ -193,6 +193,12 @@ def merge_kubeconfigs(kubeconfig_paths, output_path):
         print(f"Merged kubeconfig written to {output_path}")
     else:
         print("No valid kubeconfig files were found to merge.")
+
+def coalesce(*vals):
+    """Return the first non-empty value or None."""
+    return next((v for v in vals if v not in (None, "")), None)
+
+
 def main():
     parser = ArgumentParser(description="Run onboarding script to generate initial workspace and SLX info")
     parser.add_argument('command', action='store', choices=[INFO_COMMAND, RUN_COMMAND, UPLOAD_COMMAND],
@@ -321,230 +327,256 @@ def main():
     code_collections = None
     cloud_config = None
 
-    # ─────────────────────────────────────────────────────────────────────────────
-    # Helper – assign only if the current value is still None
-    # ─────────────────────────────────────────────────────────────────────────────
-    def set_if_none(var, new_val):
-        return new_val if var is None else var
+    # # Read the information from the uploadInfo.yaml file.
+    # # In theory, we should only need to do this if we're going to try to upload
+    # # to the platform (i.e. upload subcommand or --upload flag), but currently
+    # # there is other information in uploadInfo.yamll (e.g. workspaceName,
+    # # workspaceOwnerEmail, defaultLocation) that affect the workspace generation
+    # # process, so we need to parse the file even just for generation.
+    # # We currently give precedence to the settings in uploadInfo.yaml over
+    # # what's in workspaceInfo.yaml, so if a user has been operating in pure
+    # # RunWhen Local mode and then wants to upload to the platform and downloads
+    # # the uploadInfo.yaml the workspace name there will override whatever they
+    # # had been using in the workspaceInfo.yaml setting.
+    # upload_info_path = os.path.join(base_directory, args.upload_info)
+    # try:
+    #     upload_info_text = read_file(upload_info_path)
+    #     upload_info = yaml.safe_load(upload_info_text)
+    #     upload_token = upload_info.get('token')
+    #     if not papi_url:
+    #         papi_url = upload_info.get('papiURL')
+    #     if not workspace_name:
+    #         workspace_name = upload_info.get('workspaceName')
+    #     if not workspace_owner_email:
+    #         workspace_owner_email = upload_info.get('workspaceOwnerEmail')
+    #     if not location_id:
+    #         location_id = upload_info.get("locationId")
+    #         # This is backwards compatibility code to support the old name that can eventually go away
+    #         if not location_id:
+    #             location_id = upload_info.get("defaultLocation")
+    #     if not location_name:
+    #         location_name = upload_info.get("locationName")
+    #         # This is backwards compatibility code to support the old name that can eventually go away
+    #         if not location_name:
+    #             location_name = upload_info.get("defaultLocationName")
+    # except FileNotFoundError:
+    #     # Don't treat this as a fatal error, to handle untethered, pure
+    #     # RunWhen Local operation. In this case we assume that the workspace name
+    #     # and the other fields are specified in workspaceInfo.yaml (or specified
+    #     # as command line arguments, but I don't think that's a feature that
+    #     # anyone is really using at this point).
+    #     pass
 
-
-    # ─────────────────────────────────────────────────────────────────────────────
-    # 1.  workspaceInfo.yaml  (downloaded from the GUI when the workspace is made)
-    #     These settings have precedence over uploadInfo.yaml.
-    # ─────────────────────────────────────────────────────────────────────────────
-    workspace_info_path = os.path.join(base_directory, args.workspace_info)
-    if os.path.exists(workspace_info_path):
-        try:
-            workspace_info = yaml.safe_load(read_file(workspace_info_path))
-        except yaml.YAMLError as e:
-            raise ValueError(f"Unable to parse workspaceInfo YAML in {workspace_info_path}: {e}")
-
-        # workspace and owner
-        workspace_name        = set_if_none(workspace_name,        workspace_info.get('workspaceName'))
-        workspace_owner_email = set_if_none(workspace_owner_email, workspace_info.get('workspaceOwnerEmail'))
-
-        # location (new + legacy names)
-        location_id   = set_if_none(location_id,
-                                    workspace_info.get('locationId') or workspace_info.get('defaultLocation'))
-        location_name = set_if_none(location_name,
-                                    workspace_info.get('locationName') or workspace_info.get('defaultLocationName'))
-
-        # upload / api tokens (kept for legacy support)
-        upload_token  = set_if_none(upload_token, workspace_info.get('token'))
-        papi_url      = set_if_none(papi_url,     workspace_info.get('papiURL'))
-
-        # misc generation settings
-        default_lod        = set_if_none(default_lod,        workspace_info.get('defaultLOD'))
-        namespaces         = set_if_none(namespaces,         workspace_info.get('namespaces'))
-        resource_dump_path = set_if_none(resource_dump_path,
-                                        workspace_info.get('resourceDumpPath', 'resource-dump.yaml'))
-        resource_load_file = set_if_none(resource_load_file, workspace_info.get('resourceLoadFile'))
-        namespace_lods     = workspace_info.get('namespaceLODs') or namespace_lods
-        custom_definitions = workspace_info.get('custom', {})    or custom_definitions
-        code_collections   = workspace_info.get('codeCollections') or code_collections
-        cloud_config       = workspace_info.get('cloudConfig')   or cloud_config
-
-        # Immediately error out if no discovery configuration is provided.
-        # We will deprecate default assumptions – discovery must be explicit.
-        if cloud_config is None:
-            print("Error: 'cloudConfig' configuration is missing in the workspace info. Exiting.")
-            sys.exit(1)
-
-
-    # ─────────────────────────────────────────────────────────────────────────────
-    # 2.  uploadInfo.yaml  (only fills values still missing after step 1)
-    #     We parse this even for “run” because it carries tokens & PAPI URL that
-    #     affect generation.  Unlike the original code, it NO LONGER overrides a
-    #     non-None value that came from workspaceInfo or CLI.
-    # ─────────────────────────────────────────────────────────────────────────────
-    upload_info_path = os.path.join(base_directory, args.upload_info)
-    if os.path.exists(upload_info_path):
-        # NOTE: absence is NOT fatal – pure RunWhen-Local operation is valid.
-        upload_info = yaml.safe_load(read_file(upload_info_path))
-
-        # upload credentials & endpoints
-        upload_token = set_if_none(upload_token, upload_info.get('token'))
-        papi_url     = set_if_none(papi_url,     upload_info.get('papiURL'))
-
-        # workspace metadata (only if still None)
-        workspace_name        = set_if_none(workspace_name,        upload_info.get('workspaceName'))
-        workspace_owner_email = set_if_none(workspace_owner_email, upload_info.get('workspaceOwnerEmail'))
-
-        # location (legacy names preserved)
-        location_id   = set_if_none(location_id,
-                                    upload_info.get('locationId') or upload_info.get('defaultLocation'))
-        location_name = set_if_none(location_name,
-                                    upload_info.get('locationName') or upload_info.get('defaultLocationName'))
-
-
-    # ─────────────────────────────────────────────────────────────────────────────
-    # 3.  Environment-variable fall-back (lowest precedence)
-    #    If a setting is *still* None, pick it up from WB_* env vars.
-    # ─────────────────────────────────────────────────────────────────────────────
-    if workspace_name is None:
-        workspace_name = os.getenv('WB_WORKSPACE_NAME')
-    if workspace_owner_email is None:
-        workspace_owner_email = os.getenv('WB_WORKSPACE_OWNER_EMAIL')
-    if location_id is None:
-        location_id = os.getenv("WB_LOCATION_ID")
-    if location_name is None:
-        location_name = os.getenv("WB_LOCATION_NAME")
-    if papi_url is None:
-        papi_url = os.getenv('WB_PAPI_URL')
-    if default_lod is None:
-        default_lod = os.getenv("WB_DEFAULT_LOD")
-    if namespace_lods is None:
-        namespace_lods = os.getenv("WB_NAMESPACE_LODS")
-    if namespaces is None:
-        ns_string = os.getenv("WB_NAMESPACES")
-        if ns_string:
-            namespaces = [ns.strip() for ns in ns_string.split(',')]
-    if cloud_config is None:
-        cloud_config = os.getenv("WB_CLOUD_CONFIG")
-
-
-    # # # Read the information from the uploadInfo.yaml file.
-    # # # In theory, we should only need to do this if we're going to try to upload
-    # # # to the platform (i.e. upload subcommand or --upload flag), but currently
-    # # # there is other information in uploadInfo.yamll (e.g. workspaceName,
-    # # # workspaceOwnerEmail, defaultLocation) that affect the workspace generation
-    # # # process, so we need to parse the file even just for generation.
-    # # # We currently give precedence to the settings in uploadInfo.yaml over
-    # # # what's in workspaceInfo.yaml, so if a user has been operating in pure
-    # # # RunWhen Local mode and then wants to upload to the platform and downloads
-    # # # the uploadInfo.yaml the workspace name there will override whatever they
-    # # # had been using in the workspaceInfo.yaml setting.
-    # # upload_info_path = os.path.join(base_directory, args.upload_info)
-    # # try:
-    # #     upload_info_text = read_file(upload_info_path)
-    # #     upload_info = yaml.safe_load(upload_info_text)
-    # #     upload_token = upload_info.get('token')
-    # #     if not papi_url:
-    # #         papi_url = upload_info.get('papiURL')
-    # #     if not workspace_name:
-    # #         workspace_name = upload_info.get('workspaceName')
-    # #     if not workspace_owner_email:
-    # #         workspace_owner_email = upload_info.get('workspaceOwnerEmail')
-    # #     if not location_id:
-    # #         location_id = upload_info.get("locationId")
-    # #         # This is backwards compatibility code to support the old name that can eventually go away
-    # #         if not location_id:
-    # #             location_id = upload_info.get("defaultLocation")
-    # #     if not location_name:
-    # #         location_name = upload_info.get("locationName")
-    # #         # This is backwards compatibility code to support the old name that can eventually go away
-    # #         if not location_name:
-    # #             location_name = upload_info.get("defaultLocationName")
-    # # except FileNotFoundError:
-    # #     # Don't treat this as a fatal error, to handle untethered, pure
-    # #     # RunWhen Local operation. In this case we assume that the workspace name
-    # #     # and the other fields are specified in workspaceInfo.yaml (or specified
-    # #     # as command line arguments, but I don't think that's a feature that
-    # #     # anyone is really using at this point).
-    # #     pass
-
-    # # # Parse the settings info for calling the REST service
-    # # if args.workspace_info:
-    # #     workspace_info_path = os.path.join(base_directory, args.workspace_info)
-    # #     if os.path.exists(workspace_info_path):
-    # #         workspace_info_str = read_file(workspace_info_path)
+    # # Parse the settings info for calling the REST service
+    # if args.workspace_info:
+    #     workspace_info_path = os.path.join(base_directory, args.workspace_info)
+    #     if os.path.exists(workspace_info_path):
+    #         workspace_info_str = read_file(workspace_info_path)
             
-    # #         try:
-    # #             workspace_info = yaml.safe_load(workspace_info_str)
-    # #         except yaml.YAMLError as e:
-    # #             raise ValueError(f"Unable to parse workspaceInfo YAML in {workspace_info_path}: {e}")
+    #         try:
+    #             workspace_info = yaml.safe_load(workspace_info_str)
+    #         except yaml.YAMLError as e:
+    #             raise ValueError(f"Unable to parse workspaceInfo YAML in {workspace_info_path}: {e}")
 
-    # #         # FIXME: Should probably tweak the field in the workspace info from the GUI/PAPI
-    # #         # to name this just "workspace"
-    # #         if not workspace_name:
-    # #             workspace_name = workspace_info.get('workspaceName')
-    # #             if not isinstance(workspace_name, str):
-    # #                 raise ValueError("Workspace name must be a string.")
-    # #         if not upload_token:
-    # #             upload_token = workspace_info.get('token')
-    # #         if not papi_url:
-    # #             papi_url = workspace_info.get('papiURL')
-    # #         if not workspace_owner_email:
-    # #             workspace_owner_email = workspace_info.get('workspaceOwnerEmail')
-    # #         if not location_id:
-    # #             location_id = workspace_info.get("locationId")
-    # #             if not location_id:
-    # #                 location_id = workspace_info.get("defaultLocation")
-    # #         if not location_name:
-    # #             location_name = workspace_info.get("locationName")
-    # #             # This is backwards compatibility code to support the old name that can eventually go away
-    # #             if not location_name:
-    # #                 location_name = workspace_info.get("defaultLocationName")
-    # #         if default_lod is None:
-    # #             default_lod = workspace_info.get("defaultLOD")
-    # #         if not namespaces:
-    # #             namespaces = workspace_info.get("namespaces")
-    # #         if not resource_dump_path:
-    # #             resource_dump_path = workspace_info.get("resourceDumpPath", "resource-dump.yaml")
-    # #         if not resource_load_file:
-    # #             resource_load_file = workspace_info.get("resourceLoadFile")
-    # #         namespace_lods = workspace_info.get('namespaceLODs')
-    # #         custom_definitions = workspace_info.get("custom", dict())
-    # #         code_collections = workspace_info.get("codeCollections")
-    # #         cloud_config = workspace_info.get('cloudConfig', None)
-    # #         # Immediately error out if no discovery configuration is provided. We will deprecate any other
-    # #         # assumed configurations. Discovery must be explicitly set. 
-    # #         if not cloud_config:
-    # #             print("Error: 'cloudConfig' configuration is missing in the workspace info. Exiting.")
-    # #             sys.exit(1)
+    #         # FIXME: Should probably tweak the field in the workspace info from the GUI/PAPI
+    #         # to name this just "workspace"
+    #         if not workspace_name:
+    #             workspace_name = workspace_info.get('workspaceName')
+    #             if not isinstance(workspace_name, str):
+    #                 raise ValueError("Workspace name must be a string.")
+    #         # We've moved the upload token and PAPI URL settings to the uploadInfo.yaml file,
+    #         # but we'll keep support for the old way of putting it in the workspaceInfo.yaml file for
+    #         # a little while to avoid breaking existing setups.
+    #         # FIXME: Should remove this eventually after we think it's safe to assume everybody has
+    #         # switched over to using the uploadInfo.yaml file.
+    #         if not upload_token:
+    #             upload_token = workspace_info.get('token')
+    #         if not papi_url:
+    #             papi_url = workspace_info.get('papiURL')
+    #         if not workspace_owner_email:
+    #             workspace_owner_email = workspace_info.get('workspaceOwnerEmail')
+    #         if not location_id:
+    #             location_id = workspace_info.get("locationId")
+    #             if not location_id:
+    #                 location_id = workspace_info.get("defaultLocation")
+    #         if not location_name:
+    #             location_name = workspace_info.get("locationName")
+    #             # This is backwards compatibility code to support the old name that can eventually go away
+    #             if not location_name:
+    #                 location_name = workspace_info.get("defaultLocationName")
+    #         if default_lod is None:
+    #             default_lod = workspace_info.get("defaultLOD")
+    #         if not namespaces:
+    #             namespaces = workspace_info.get("namespaces")
+    #         if not resource_dump_path:
+    #             resource_dump_path = workspace_info.get("resourceDumpPath", "resource-dump.yaml")
+    #         if not resource_load_file:
+    #             resource_load_file = workspace_info.get("resourceLoadFile")
+    #         namespace_lods = workspace_info.get('namespaceLODs')
+    #         custom_definitions = workspace_info.get("custom", dict())
+    #         code_collections = workspace_info.get("codeCollections")
+    #         cloud_config = workspace_info.get('cloudConfig', None)
+    #         # Immediately error out if no discovery configuration is provided. We will deprecate any other
+    #         # assumed configurations. Discovery must be explicitly set. 
+    #         if not cloud_config:
+    #             print("Error: 'cloudConfig' configuration is missing in the workspace info. Exiting.")
+    #             sys.exit(1)
 
-    # # # If a setting has still not been set, try an environment variable as a last resort
-    # # # FIXME: With the switch to having default values for the command line args, these
-    # # # will typically never be undefined, unless I guess the user explicitly specifies
-    # # # the command line arg with an empty string. Need to think about this some more.
-    # # # One possibility would be to detect if we're using the default values or an
-    # # # explicitly specified command line arg. If it's the default value, then let
-    # # # that be overridden by the environment variable, if specified. There's not a
-    # # # completely straightforward way to detect if an argparse arg is the default
-    # # # value vs. an explicitly specified value that's the same as the default value,
-    # # # but there are some kludgy ways to do it described in some SO posts. For now,
-    # # # though, I don't think anything is reliant on using env vars to specify the
-    # # # settings, so I don't think getting this ironed out is a super high priority.
-    # # if not workspace_name:
-    # #     workspace_name = os.getenv('WB_WORKSPACE_NAME')
-    # # if not workspace_owner_email:
-    # #     workspace_owner_email = os.getenv('WB_WORKSPACE_OWNER_EMAIL')
-    # # if not location_id:
-    # #     location_id = os.getenv("WB_LOCATION_ID")
-    # # if not location_name:
-    # #     location_name = os.getenv("WB_LOCATION_NAME")
-    # # if not papi_url:
-    # #     papi_url = os.getenv('WB_PAPI_URL')
-    # # if default_lod is None:
-    # #     default_lod = os.getenv("WB_DEFAULT_LOD")
-    # # if not namespace_lods:
-    # #     namespace_lods = os.getenv("WB_NAMESPACE_LODS")
-    # # if not namespaces:
-    # #     namespaces_string = os.getenv("WB_NAMESPACES")
-    # #     if namespaces_string:
-    # #         namespaces = [ns.strip() for ns in namespaces_string.split(',')]
-    # # if not cloud_config:
-    # #     cloud_config = os.getenv("WB_CLOUD_CONFIG")
+    # # If a setting has still not been set, try an environment variable as a last resort
+    # # FIXME: With the switch to having default values for the command line args, these
+    # # will typically never be undefined, unless I guess the user explicitly specifies
+    # # the command line arg with an empty string. Need to think about this some more.
+    # # One possibility would be to detect if we're using the default values or an
+    # # explicitly specified command line arg. If it's the default value, then let
+    # # that be overridden by the environment variable, if specified. There's not a
+    # # completely straightforward way to detect if an argparse arg is the default
+    # # value vs. an explicitly specified value that's the same as the default value,
+    # # but there are some kludgy ways to do it described in some SO posts. For now,
+    # # though, I don't think anything is reliant on using env vars to specify the
+    # # settings, so I don't think getting this ironed out is a super high priority.
+    # if not workspace_name:
+    #     workspace_name = os.getenv('WB_WORKSPACE_NAME')
+    # if not workspace_owner_email:
+    #     workspace_owner_email = os.getenv('WB_WORKSPACE_OWNER_EMAIL')
+    # if not location_id:
+    #     location_id = os.getenv("WB_LOCATION_ID")
+    # if not location_name:
+    #     location_name = os.getenv("WB_LOCATION_NAME")
+    # if not papi_url:
+    #     papi_url = os.getenv('WB_PAPI_URL')
+    # if default_lod is None:
+    #     default_lod = os.getenv("WB_DEFAULT_LOD")
+    # if not namespace_lods:
+    #     namespace_lods = os.getenv("WB_NAMESPACE_LODS")
+    # if not namespaces:
+    #     namespaces_string = os.getenv("WB_NAMESPACES")
+    #     if namespaces_string:
+    #         namespaces = [ns.strip() for ns in namespaces_string.split(',')]
+    # if not cloud_config:
+    #     cloud_config = os.getenv("WB_CLOUD_CONFIG")
+
+    # ------------------------------------------------------------------ 1. workspaceInfo
+    workspace_info = {}
+    if args.workspace_info:
+        ws_path = os.path.join(base_directory, args.workspace_info)
+        if os.path.exists(ws_path):
+            try:
+                workspace_info = yaml.safe_load(read_file(ws_path)) or {}
+            except yaml.YAMLError as e:
+                raise ValueError(f"Unable to parse workspaceInfo YAML in {ws_path}: {e}")
+
+    # ------------------------------------------------------------------ 2. uploadInfo
+    upload_info = {}
+    if args.upload_info:
+        up_path = os.path.join(base_directory, args.upload_info)
+        if os.path.exists(up_path):
+            try:
+                upload_info = yaml.safe_load(read_file(up_path)) or {}
+            except yaml.YAMLError as e:
+                raise ValueError(f"Unable to parse uploadInfo YAML in {up_path}: {e}")
+
+    # ------------------------------------------------------------------ 3. merge with precedence rules
+    papi_url = coalesce(
+        papi_url,
+        upload_info.get("papiURL"),
+        workspace_info.get("papiURL"),
+        os.getenv("WB_PAPI_URL"),
+    )
+
+    upload_token = coalesce(
+        upload_token,
+        upload_info.get("token"),
+        workspace_info.get("token"),
+    )
+
+    workspace_name = coalesce(
+        workspace_name,
+        upload_info.get("workspaceName"),
+        workspace_info.get("workspaceName"),
+        os.getenv("WB_WORKSPACE_NAME"),
+    )
+
+    # owner email: workspaceInfo beats uploadInfo, per new requirement
+    workspace_owner_email = coalesce(
+        workspace_owner_email,
+        workspace_info.get("workspaceOwnerEmail"),
+        upload_info.get("workspaceOwnerEmail"),
+        os.getenv("WB_WORKSPACE_OWNER_EMAIL"),
+    )
+
+    location_id = coalesce(
+        location_id,
+        upload_info.get("locationId"),
+        upload_info.get("defaultLocation"),
+        workspace_info.get("locationId"),
+        workspace_info.get("defaultLocation"),
+        os.getenv("WB_LOCATION_ID"),
+    )
+
+    location_name = coalesce(
+        location_name,
+        upload_info.get("locationName"),
+        upload_info.get("defaultLocationName"),
+        workspace_info.get("locationName"),
+        workspace_info.get("defaultLocationName"),
+        os.getenv("WB_LOCATION_NAME"),
+    )
+
+    default_lod = coalesce(
+        default_lod,
+        workspace_info.get("defaultLOD"),
+        os.getenv("WB_DEFAULT_LOD"),
+    )
+
+    namespace_lods = coalesce(
+        namespace_lods,
+        workspace_info.get("namespaceLODs"),
+        os.getenv("WB_NAMESPACE_LODS"),
+    )
+
+    namespaces = namespaces or workspace_info.get("namespaces")
+    if not namespaces:
+        ns_env = os.getenv("WB_NAMESPACES")
+        if ns_env:
+            namespaces = [n.strip() for n in ns_env.split(",") if n.strip()]
+
+    resource_dump_path = coalesce(
+        resource_dump_path,
+        workspace_info.get("resourceDumpPath", "resource-dump.yaml"),
+    )
+
+    resource_load_file = coalesce(
+        resource_load_file,
+        workspace_info.get("resourceLoadFile"),
+    )
+
+    cloud_config = coalesce(
+        cloud_config,
+        workspace_info.get("cloudConfig"),
+        os.getenv("WB_CLOUD_CONFIG"),
+    )
+
+    custom_definitions = workspace_info.get("custom", {})
+    code_collections = workspace_info.get("codeCollections")
+
+    # ------------------------------------------------------------------ 4. validation guards
+    missing = []
+    if not workspace_name:
+        missing.append("workspaceName")
+    if not workspace_owner_email:
+        missing.append("workspaceOwnerEmail")
+    if not location_id:
+        missing.append("locationId")          # locationName no longer required
+
+    if missing:
+        raise ValueError(
+            f"Required setting(s) missing: {', '.join(missing)}. "
+            "Provide them via CLI flags, workspaceInfo.yaml, uploadInfo.yaml, or environment variables."
+    )
+
+    if cloud_config is None:
+        raise ValueError("'cloudConfig' section is missing; discovery configuration must be explicit.")
+
 
     azure_config = None
     aks_clusters = None
