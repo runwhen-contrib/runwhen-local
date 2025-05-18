@@ -14,7 +14,7 @@ WORKDIR $RUNWHEN_HOME/runwhen-local
 # Install CLI tools and OS app dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     entr curl wget jq bc vim dnsutils unzip git apt-transport-https lsb-release bsdmainutils \
-    build-essential file locales procps tree \
+    build-essential file locales procps tree openssh-client\
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* \
     && rm -rf /usr/share/doc /usr/share/man /usr/share/info /var/cache/man
@@ -95,6 +95,10 @@ RUN echo "runwhen ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
 RUN groupadd docker || true && \
     usermod -aG docker runwhen
+
+# Add in requirements for remote containers
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+ && apt-get install -y nodejs
 
 # Switch back to the 'runwhen' user as default
 USER runwhen
