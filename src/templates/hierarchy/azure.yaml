@@ -1,0 +1,9 @@
+additionalContext:
+  hierarchy: ["platform", "subscription", "resourceGroup", "resource"]
+tags:
+  - name: platform
+    value: azure
+  - name: subscription
+    value: "{{ match_resource.subscription_id }}"
+  - name: resource_group
+    value: "{{ match_resource.resource_group.name }}" 

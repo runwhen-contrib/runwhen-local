@@ -1,0 +1,17 @@
+additionalContext:
+  hierarchy: ["platform", "cluster", "namespace", "resource"]
+tags:
+  - name: platform
+    value: kubernetes
+  - name: cluster
+    value: "{{ cluster.name }}"
+  - name: namespace
+    value: "{{ namespace.name }}"
+{% if cluster.cluster_type == "aks" %}
+  - name: "resource_group"
+    value: "{{ cluster.resource_group }}"
+{% endif %}
+{% for k, v in match_resource.resource.metadata.labels.items() %}
+  - name: "[k8s]{{ k }}"
+    value: "{{ v }}"
+{% endfor %}

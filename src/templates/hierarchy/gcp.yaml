@@ -1,0 +1,9 @@
+additionalContext:
+  hierarchy: ["platform", "project", "location", "resource"]
+tags:
+  - name: platform
+    value: gcp
+  - name: project
+    value: "{{ match_resource.project }}"
+  - name: location
+    value: "{{ match_resource.location }}" 

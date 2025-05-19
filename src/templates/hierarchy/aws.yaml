@@ -1,0 +1,9 @@
+additionalContext:
+  hierarchy: ["platform", "account", "region", "resource"]
+tags:
+  - name: platform
+    value: aws
+  - name: account
+    value: "{{ match_resource.account_id }}"
+  - name: region
+    value: "{{ match_resource.region }}" 
