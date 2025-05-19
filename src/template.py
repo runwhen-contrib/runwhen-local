@@ -1,10 +1,11 @@
 import logging
+import os
 from typing import Any
 
 from jinja2.loaders import FileSystemLoader
 from jinja2.sandbox import SandboxedEnvironment
 from jinja2.loaders import BaseLoader, ChoiceLoader
-from jinja2.exceptions import TemplateNotFound, TemplateError
+from jinja2.exceptions import TemplateNotFound, TemplateError, UndefinedError
 from jinja2 import Undefined
 
 from exceptions import WorkspaceBuilderException
@@ -12,11 +13,22 @@ from exceptions import WorkspaceBuilderException
 
 class CustomUndefined(Undefined):
     def __str__(self):
-        # Log the missing variable or substitute with a placeholder
-        # Note: self._undefined_name gives the name of the missing variable
-        missing_var_name = self._undefined_name
-        logging.warning(f"Custom variable '{missing_var_name}' not defined. Substituting with placeholder.")
-        return "missing_workspaceInfo_custom_variable"
+        # Log the missing variable or attribute
+        missing_var = self._undefined_name
+        if self._undefined_obj is not None:
+            # This is an attribute error
+            logging.warning(f"Undefined attribute '{missing_var}' on object {self._undefined_obj}")
+        else:
+            # This is a name error
+            logging.warning(f"Undefined variable '{missing_var}'")
+        return f"undefined_{missing_var}"
+
+    def __getattr__(self, name):
+        if name == '_undefined_name':
+            return self._undefined_name
+        logging.warning(f"Attempted to access attribute '{name}' on undefined variable '{self._undefined_name}'")
+        return self.__class__(f"{self._undefined_name}.{name}")
+
 
 class CustomTemplateLoader(BaseLoader):
     """
@@ -33,14 +45,29 @@ class CustomTemplateLoader(BaseLoader):
             raise TemplateNotFound(name) from e
 
 
-def render_template_string(template_string: str, template_variables: dict[str, Any]) -> str:
+def render_template_string(template_string: str, template_variables: dict[str, Any], template_loader_func=None) -> str:
     try:
-        # FIXME: Should probably support a custom template loader here, but
-        # currently this is only used for path expansion, which is unlikely
-        # to require template inclusion.
-        env = SandboxedEnvironment(trim_blocks=True, lstrip_blocks=True, undefined=CustomUndefined)
+        # Configure loaders to support includes
+        loaders = [FileSystemLoader("templates")]
+        if template_loader_func:
+            loaders.insert(0, CustomTemplateLoader(template_loader_func))
+        
+        # Create environment with loaders to support includes
+        env = SandboxedEnvironment(
+            loader=ChoiceLoader(loaders),
+            trim_blocks=True, 
+            lstrip_blocks=True, 
+            undefined=CustomUndefined
+        )
+        
         result = env.from_string(template_string).render(**template_variables)
         return result
+    except UndefinedError as e:
+        # Handle undefined variables/attributes specifically
+        message = f"Template rendering failed due to undefined variable: {str(e)}\n" \
+                 f"Template string: {template_string}\n" \
+                 f"Template variables: {template_variables}"
+        raise WorkspaceBuilderException(message) from e
     except TemplateNotFound as e:
         # This could have come from loading the top-level template or another
         # template that is included by the top-level template.
@@ -48,16 +75,10 @@ def render_template_string(template_string: str, template_variables: dict[str, A
         message = f"Error opening template file: {missing_template_file_name}"
         raise WorkspaceBuilderException(message) from e
     except TemplateError as e:
-        message = (f"Error processing template content: "
-                   f"template_string{template_string}; "
-                   f"template_variables={template_variables}")
-        # TODO: Should possibly just log an error here, but continue processing
-        # the rest of the output items instead of raising an exception, so that
-        # a single failure doesn't cause the entire request to fail. But
-        # presumably this should only be an issue if there's a problem with
-        # a gen rule or the associated template, so really should only
-        # happen during development of the gen rules or of the core
-        # workspace builder code, so probably not a big practical issue.
+        message = (f"Error processing template content:\n"
+                  f"Error: {str(e)}\n"
+                  f"Template string: {template_string}\n"
+                  f"Template variables: {template_variables}")
         raise WorkspaceBuilderException(message) from e
 
 
@@ -73,6 +94,12 @@ def render_template_file(template_file_name: str,
         env = SandboxedEnvironment(loader=ChoiceLoader(loaders), trim_blocks=True, lstrip_blocks=True, undefined=CustomUndefined)
         template = env.get_template(template_file_name)
         return template.render(**template_variables)
+    except UndefinedError as e:
+        # Handle undefined variables/attributes specifically
+        message = f"Template rendering failed due to undefined variable: {str(e)}\n" \
+                 f"Template file: {template_file_name}\n" \
+                 f"Template variables: {template_variables}"
+        raise WorkspaceBuilderException(message) from e
     except TemplateNotFound as e:
         # This could have come from loading the top-level template or another
         # template that is included by the top-level template.
@@ -82,11 +109,8 @@ def render_template_file(template_file_name: str,
         message = f"Error opening template file: {missing_template_file_name}{parent_template_message}"
         raise WorkspaceBuilderException(message) from e
     except TemplateError as e:
-        # FIXME: Reduce/eliminate code duplication in the error/exception handling
-        # between here and render_template_string.
-        message = (f"Error processing template content: "
-                   f"template_file_name={template_file_name}; "
-                   f"template_variables={template_variables}")
-        # FIXME: See comment above about possibly just logging an error
-        # here instead of raising the exception.
+        message = (f"Error processing template content:\n"
+                  f"Error: {str(e)}\n"
+                  f"Template file: {template_file_name}\n"
+                  f"Template variables: {template_variables}")
         raise WorkspaceBuilderException(message) from e

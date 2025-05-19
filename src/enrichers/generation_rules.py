@@ -562,7 +562,6 @@ class GenerationRuleInfo:
                f'slx-base-names=[{slx_base_names_str}]'
 
 
-
 def get_template_variables(output_item: OutputItem,
                            resource: Resource,
                            base_template_variables: dict[str, Any],
@@ -571,36 +570,18 @@ def get_template_variables(output_item: OutputItem,
     """
     Convert the template variables configuration from a generation rule into
     a corresponding dictionary with the values of the template variables.
-    :param output_item:
-        The output item spec for a generation rule config.
-    :param resource:
-        The Kubernetes/RunWhen resource that's used to evaluate the
-        TemplateValueSourceTypes in the template variable config.
-    :param base_template_variables:
-        base dictionary for the returned dictionary that contains some built-in,
-        automatically defined variables.
-    :param generation_rule_info:
-    :param context:
-    :return: dictionary of the template variables with the resolved/literal values
     """
     template_variables = base_template_variables.copy()
 
     if isinstance(resource, Resource):
-        # If it's a resource (vs. the kludgy overloaded custom defs), then call the
-        # associated platform handler to add any standard/built-in platform-specific
-        # template variables.
         platform_name = resource.resource_type.platform.name
         platform_handlers: dict[str, PlatformHandler] = context.get_property(PLATFORM_HANDLERS_PROPERTY_NAME)
         platform_handler = platform_handlers[platform_name]
         standard_template_variables = platform_handler.get_standard_template_variables(resource)
         template_variables.update(standard_template_variables)
-    else:
-        platform_handler = None
-
 
     output_item_type = output_item.type.lower()
     # Check if the item is a workflow, as it has different path requirements
-    # which are handled later on
     if output_item_type == 'workflow':
          template_variables['is_workflow'] = True
     else: 
@@ -612,6 +593,8 @@ def get_template_variables(output_item: OutputItem,
         raise e
     template_variables['ref'] = generation_rule_info.generation_rule_file_spec.ref_name
     template_variables['generation_rule_file_path'] = generation_rule_info.generation_rule_file_spec.path
+    
+    # Process template variables from output item
     for name, template_string in output_item.template_variables.items():
         value = None
         if platform_handler:
@@ -626,7 +609,6 @@ def get_template_variables(output_item: OutputItem,
         template_variables['qualifiers'] = qualifiers_dict
 
     logger.debug(f"Resolved template variables: {template_variables}")
-
     return template_variables
 
 
