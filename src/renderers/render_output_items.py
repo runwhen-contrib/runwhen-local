@@ -122,12 +122,26 @@ def create_slx_template(platform_name: str) -> str:
     hierarchy_content = load_hierarchy_template_content(platform_name)
     
     # Properly indent the hierarchy content (add 2 spaces to each line)
+    # But exclude the additionalContext section, as we'll include it differently
     indented_content = ""
+    skip_additional_context = False
     for line in hierarchy_content.split('\n'):
+        if line.strip() == "additionalContext:":
+            skip_additional_context = True
+            continue
+        elif skip_additional_context and line.strip() and not line.startswith('  '):
+            skip_additional_context = False
+        elif skip_additional_context:
+            continue
+        
         if line.strip():  # Skip empty lines
             indented_content += f"  {line}\n"
         else:
             indented_content += "\n"
+    
+    # Extract hierarchy value from the template
+    hierarchy_match = re.search(r'hierarchy:\s*(\[.*?\])', hierarchy_content)
+    hierarchy_value = hierarchy_match.group(1) if hierarchy_match else '["platform", "resource"]'
     
     return f"""apiVersion: runwhen.com/v1
 kind: ServiceLevelX
@@ -147,7 +161,8 @@ spec:
   owners:
   - {{{{workspace.owner_email}}}}
   statement: Overall health for {{{{namespace.name}}}} should be 1, 99% of the time. 
-  additionalContext:  
+  additionalContext:
+    hierarchy: {hierarchy_value}
     namespace: "{{{{match_resource.resource.metadata.name}}}}"
     labelMap: "{{{{match_resource.resource.metadata.labels}}}}"
     cluster: "{{{{ cluster.name }}}}"
