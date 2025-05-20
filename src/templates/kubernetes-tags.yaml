@@ -1,0 +1,9 @@
+    - name: platform
+      value: kubernetes
+    
+{% if match_resource.resource.metadata.labels is defined %}
+{% for k, v in match_resource.resource.metadata.labels.items() %}
+    - name: "[k8s]{{ k }}"
+      value: "{{ v }}"
+{% endfor %}
+{% endif %}

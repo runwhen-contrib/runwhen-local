@@ -1,0 +1,6 @@
+    hierarchy: 
+    - platform
+    - subscription_id
+    - resource_group
+    - resource_name
+

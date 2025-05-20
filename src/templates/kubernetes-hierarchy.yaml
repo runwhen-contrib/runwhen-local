@@ -1,0 +1,6 @@
+    hierarchy: 
+    - platform
+    - cluster
+    - namespace
+    - resource
+
