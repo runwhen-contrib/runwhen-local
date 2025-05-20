@@ -7,3 +7,9 @@ tags:
     value: "{{ match_resource.subscription_id }}"
   - name: resource_group
     value: "{{ match_resource.resource_group.name }}" 
+{% if match_resource is defined and match_resource.tags is defined %}
+{% for k, v in match_resource.tags.items() %}
+  - name: "[azure]{{ k }}"
+    value: "{{ v }}"
+{% endfor %}
+{% endif %}

@@ -1,0 +1,18 @@
+TMPDIR: not set
+Actual temp file location: /tmp/tmpxusciiii
+Workspace builder REST service isn't available yet; waiting and trying again.
+Workspace builder REST service isn't available yet; waiting and trying again.
+Workspace builder version: 0.10.9
+Using base directory: /shared
+Using explicit tenant client configuration from workspaceInfo.yaml
+Kubeconfig generated and saved to /shared/.kube/azure-kubeconfig
+Processing Kubernetes configuration...
+Using specified kubeconfig path: /shared/kubeconfig.secret
+Merging azure kubeconfig into /shared/.kube/config...
+Merging user-provided kubeconfig into /shared/.kube/config...
+Merged kubeconfig written to /shared/.kube/config
+Using Map Customization Rules Path: map-customization-rules
+Indexing Kubernetes with kubeconfig from /shared/.kube/config
+Workspace builder completed successfully.
+WARNING: Skipping generation rules file that does not contain any data; file="azure-appservice-webapp-ops.yaml"; code-bundle="azure-appservice-webapp-ops"; code-collection="https://github.com/runwhen-contrib/rw-cli-codecollection.git"; 
+WARNING: Skipping generation rules file that does not contain any data; file="k8s-deployment-ops.yaml"; code-bundle="k8s-deployment-ops"; code-collection="https://github.com/runwhen-contrib/rw-cli-codecollection.git"; 
