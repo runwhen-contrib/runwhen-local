@@ -2,6 +2,10 @@
       value: azure
     - name: subscription_id
       value: {{ match_resource.subscription_id }}
+{% if match_resource.subscription_name is defined %}
+    - name: subscription_name
+      value: {{ match_resource.subscription_name }}
+{% endif %}
     - name: resource_group
       value: {{ match_resource.resource_group.name }}
     - name: resource_name

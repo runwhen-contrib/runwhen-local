@@ -1,6 +1,9 @@
     hierarchy: 
     - platform
     - subscription_id
+    {% if match_resource.subscription_name is defined %}
+    - subscription_name
+    {% endif %}
     - resource_group
     - resource_name
 

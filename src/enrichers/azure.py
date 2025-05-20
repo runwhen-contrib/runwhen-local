@@ -1,4 +1,7 @@
-from typing import Any, Optional
+from typing import Any, Optional, Dict
+from dataclasses import dataclass
+from azure.identity import DefaultAzureCredential
+from azure.mgmt.resource import SubscriptionClient
 
 from component import Context
 from resources import Resource, Registry, REGISTRY_PROPERTY_NAME
@@ -8,6 +11,40 @@ logger = logging.getLogger(__name__)
 
 
 AZURE_PLATFORM = "azure"
+
+# Cache subscription names to avoid repeated API calls
+subscription_names_cache: Dict[str, str] = {}
+
+def get_subscription_name(subscription_id: str) -> str:
+    """
+    Get the display name of a subscription by ID.
+    Uses a cache to avoid repeated API calls.
+    """
+    if not subscription_id:
+        return "Unknown Subscription"
+        
+    # Return cached name if available
+    if subscription_id in subscription_names_cache:
+        return subscription_names_cache[subscription_id]
+    
+    try:
+        # Try to get the subscription name using Azure SDK
+        credential = DefaultAzureCredential()
+        subscription_client = SubscriptionClient(credential)
+        
+        for subscription in subscription_client.subscriptions.list():
+            if subscription.subscription_id == subscription_id:
+                subscription_names_cache[subscription_id] = subscription.display_name
+                return subscription.display_name
+        
+        # If we got here, we couldn't find the subscription
+        logger.warning(f"Could not find display name for subscription ID: {subscription_id}")
+        subscription_names_cache[subscription_id] = f"Subscription {subscription_id}"
+        return f"Subscription {subscription_id}"
+    except Exception as e:
+        logger.warning(f"Error fetching subscription display name for {subscription_id}: {e}")
+        subscription_names_cache[subscription_id] = f"Subscription {subscription_id}"
+        return f"Subscription {subscription_id}"
 
 
 def get_resource_group(resource: Resource) -> Optional[Resource]:
@@ -55,6 +92,10 @@ class AzurePlatformHandler(PlatformHandler):
         subscription_id = resource_data.get("subscription_id")
         if subscription_id:
             resource_attributes["subscription_id"] = subscription_id
+            
+            # Add subscription name to the resource attributes
+            subscription_name = get_subscription_name(subscription_id)
+            resource_attributes["subscription_name"] = subscription_name
 
         if resource_type_name == "resource_group":
                     # nested map built in init_cloudquery_config
@@ -147,6 +188,17 @@ class AzurePlatformHandler(PlatformHandler):
         resource_group = get_resource_group(resource)
         if resource_group:
             template_variables['resource_group'] = resource_group
+        
+        # Add subscription information if available
+        subscription_id = getattr(resource, "subscription_id", None)
+        if subscription_id:
+            template_variables['subscription_id'] = subscription_id
+            
+            # Add subscription name to template variables if available
+            subscription_name = getattr(resource, "subscription_name", None)
+            if subscription_name:
+                template_variables['subscription_name'] = subscription_name
+        
         return template_variables
 
     def resolve_template_variable_value(self, resource: Resource, variable_name: str) -> Optional[Any]:
