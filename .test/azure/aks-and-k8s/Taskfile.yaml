@@ -124,7 +124,6 @@ tasks:
         else
           echo "No existing container named $CONTAINER_NAME found."
         fi
-        
         echo "Cleaning up output directory..."
         rm -rf output || { echo "Failed to remove output directory"; exit 1; }
         mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }

@@ -1,0 +1,1 @@
+hierarchy: ["platform""cluster", "namespace", "deployment"]
