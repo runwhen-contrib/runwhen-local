@@ -9,10 +9,12 @@
     - name: resource_group
       value: {{ match_resource.resource_group.name }}
     - name: resource_name
-      value: {{match_resource.resource.name}}    
-{% if match_resource.resource.tags is defined %}
+      value: {{match_resource.resource.name}} 
+{% set tags = match_resource.resource.tags %}
+{% if tags %}
 {% for k, v in match_resource.tags.items() %}
-    - name: "[azure]{{ k }}"
-      value: "{{ v }}"
+    - name: "[azure]{{ k | string}}"
+      value: "{{ v | string}}"
 {% endfor %}
 {% endif %}
+

@@ -5,4 +5,5 @@
     - location
     {% endif %}
     - resource_type
-    - resource_name 
+    - resource_name
+

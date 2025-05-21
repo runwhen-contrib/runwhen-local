@@ -2,17 +2,19 @@
       value: gcp
     - name: project_id
       value: {{ match_resource.resource.project_id }}
-    {% if match_resource.resource.location is defined %}
+{% if match_resource.resource.location is defined %}
     - name: location
       value: {{ match_resource.resource.location }}
-    {% endif %}
+{% endif %}
     - name: resource_type
       value: {{ match_resource.resource_type.name }}
     - name: resource_name
       value: {{ match_resource.resource.name }}
-    {% if match_resource.resource.labels is defined %}
-    {% for k, v in match_resource.resource.labels.items() %}
-    - name: "[gcp]{{ k }}"
-      value: "{{ v }}"
-    {% endfor %}
-    {% endif %} 
+{% set labels = match_resource.resource.labels %}
+{% if labels %}
+{% for k, v in match_resource.resource.labels.items() %}
+    - name: "[gcp]{{ k | string }}"
+      value: "{{ v | string }}"
+{% endfor %}
+{% endif %}
+

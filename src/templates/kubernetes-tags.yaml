@@ -1,9 +1,26 @@
     - name: platform
       value: kubernetes
-    
-{% if match_resource.resource.metadata.labels is defined %}
+{% if cluster.name %}
+    - name: cluster
+      value: {{ cluster.name }}
+{% endif %}
+{% if match_resource.namespace_name %}
+    - name: namespace
+      value: {{ match_resource.namespace_name }}
+{% endif %}
+{% if match_resource.kind %}
+    - name: kind
+      value: {{ match_resource.kind }}
+{% endif %}
+{% if match_resource.name %}
+    - name: resource_name
+      value: {{ match_resource.name }}
+{% endif %}
+{% set labels = match_resource.resource.metadata.labels %}
+{% if labels %}
 {% for k, v in match_resource.resource.metadata.labels.items() %}
-    - name: "[k8s]{{ k }}"
-      value: "{{ v }}"
+    - name: "[k8s]{{ k | string }}"
+      value: "{{ v | string }}"
 {% endfor %}
 {% endif %}
+
