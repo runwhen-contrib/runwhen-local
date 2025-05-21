@@ -1,7 +1,8 @@
 from typing import Any, Optional, Dict
 from dataclasses import dataclass
-from azure.identity import DefaultAzureCredential
+from azure.identity import DefaultAzureCredential, ClientSecretCredential
 from azure.mgmt.resource import SubscriptionClient
+import os
 
 from component import Context
 from resources import Resource, Registry, REGISTRY_PROPERTY_NAME
@@ -14,6 +15,73 @@ AZURE_PLATFORM = "azure"
 
 # Cache subscription names to avoid repeated API calls
 subscription_names_cache: Dict[str, str] = {}
+# Cache for Azure credentials
+_azure_credentials = {
+    "tenant_id": None,
+    "client_id": None,
+    "client_secret": None,
+    "credential": None
+}
+
+def set_azure_credentials(tenant_id: str = None, client_id: str = None, client_secret: str = None, credential = None):
+    """
+    Explicitly set Azure credentials to use for all Azure operations in this module.
+    This allows another part of the code to pass in credentials that it has already obtained.
+    
+    Args:
+        tenant_id: The Azure tenant ID
+        client_id: The Azure client ID
+        client_secret: The Azure client secret
+        credential: An already-constructed credential object
+    """
+    global _azure_credentials
+    if tenant_id:
+        _azure_credentials["tenant_id"] = tenant_id
+    if client_id:
+        _azure_credentials["client_id"] = client_id
+    if client_secret:
+        _azure_credentials["client_secret"] = client_secret
+    if credential:
+        _azure_credentials["credential"] = credential
+    
+    # If we got new credentials but not a credential object, create one
+    if all([_azure_credentials["tenant_id"], _azure_credentials["client_id"], _azure_credentials["client_secret"]]) and not _azure_credentials["credential"]:
+        _azure_credentials["credential"] = ClientSecretCredential(
+            _azure_credentials["tenant_id"], 
+            _azure_credentials["client_id"], 
+            _azure_credentials["client_secret"]
+        )
+        logger.info("Created new ClientSecretCredential from provided credentials")
+
+def get_azure_credential():
+    """
+    Get Azure credentials using the same approach as CloudQuery.
+    Returns a credential object that can be used with Azure SDK.
+    """
+    global _azure_credentials
+    
+    # First check if we already have a credential object
+    if _azure_credentials["credential"]:
+        return _azure_credentials["credential"]
+    
+    # Try to use service principal credentials from environment variables
+    tenant_id = os.environ.get("AZURE_TENANT_ID")
+    client_id = os.environ.get("AZURE_CLIENT_ID") 
+    client_secret = os.environ.get("AZURE_CLIENT_SECRET")
+    
+    if tenant_id and client_id and client_secret:
+        logger.info("Using service principal credentials from environment variables")
+        credential = ClientSecretCredential(tenant_id, client_id, client_secret)
+        # Cache the credentials for future use
+        set_azure_credentials(tenant_id, client_id, client_secret, credential)
+        return credential
+    
+    # Fallback to DefaultAzureCredential with clear warning
+    logger.warning("Missing Azure service principal credentials. Falling back to DefaultAzureCredential")
+    logger.warning("This may fail if not running in an environment with Azure CLI, managed identity, or other credential source")
+    credential = DefaultAzureCredential(logging_enable=True)
+    _azure_credentials["credential"] = credential
+    return credential
 
 def get_subscription_name(subscription_id: str) -> str:
     """
@@ -29,22 +97,36 @@ def get_subscription_name(subscription_id: str) -> str:
     
     try:
         # Try to get the subscription name using Azure SDK
-        credential = DefaultAzureCredential()
+        logger.info(f"Attempting to retrieve display name for subscription ID: {subscription_id}")
+        
+        # Get credential using the function that checks our cached credentials
+        credential = get_azure_credential()
         subscription_client = SubscriptionClient(credential)
         
-        for subscription in subscription_client.subscriptions.list():
+        # List all subscriptions and log them to verify what's available
+        subscriptions = list(subscription_client.subscriptions.list())
+        logger.info(f"Found {len(subscriptions)} subscriptions with current credentials")
+        
+        for subscription in subscriptions:
+            logger.debug(f"Checking subscription: {subscription.subscription_id} - {subscription.display_name}")
             if subscription.subscription_id == subscription_id:
+                logger.info(f"Found matching subscription: {subscription_id} -> {subscription.display_name}")
                 subscription_names_cache[subscription_id] = subscription.display_name
                 return subscription.display_name
         
         # If we got here, we couldn't find the subscription
         logger.warning(f"Could not find display name for subscription ID: {subscription_id}")
-        subscription_names_cache[subscription_id] = f"Subscription {subscription_id}"
-        return f"Subscription {subscription_id}"
+        subscription_ids = [s.subscription_id for s in subscriptions]
+        logger.warning(f"Available subscription IDs: {subscription_ids}")
+        
+        # Use just the ID as fallback
+        subscription_names_cache[subscription_id] = subscription_id
+        return subscription_id
     except Exception as e:
         logger.warning(f"Error fetching subscription display name for {subscription_id}: {e}")
-        subscription_names_cache[subscription_id] = f"Subscription {subscription_id}"
-        return f"Subscription {subscription_id}"
+        # Use just the ID as fallback
+        subscription_names_cache[subscription_id] = subscription_id
+        return subscription_id
 
 
 def get_resource_group(resource: Resource) -> Optional[Resource]:

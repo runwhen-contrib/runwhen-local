@@ -172,7 +172,7 @@ def invoke_cloudquery(cq_command: str,
             cq_args,
             capture_output=True,
             env=cq_env_vars,
-            cwd=os.path.dirname(cq_config_dir)  # set to the parent (the temp dir) so “.cq” isn’t read-only
+            cwd=os.path.dirname(cq_config_dir)  # set to the parent (the temp dir) so "cq" isn't read-only
         )
 
         stdout_text = process_info.stdout.decode("utf-8", errors="replace")
@@ -276,69 +276,6 @@ def get_managed_identity_details():
         "credential": credential
     }
 
-# def az_get_credentials_and_subscription_id(platform_config_data):
-#     sp_secret_name = platform_config_data.get("spSecretName")
-#     client_id = None
-#     client_secret = None
-#     tenant_id = None
-#     subscription_id = None
-
-#     if sp_secret_name:
-#         logger.info(f"Using Kubernetes secret named {mask_string(sp_secret_name)} from workspaceInfo.yaml")
-#         secret_data = get_secret(sp_secret_name)
-#         tenant_id = base64.b64decode(secret_data.get('tenantId')).decode('utf-8')
-#         client_id = base64.b64decode(secret_data.get('clientId')).decode('utf-8')
-#         client_secret = base64.b64decode(secret_data.get('clientSecret')).decode('utf-8')
-#         subscription_id = base64.b64decode(secret_data.get('subscriptionId')).decode('utf-8') if secret_data.get('subscriptionId') else None
-
-#     if not client_id or not client_secret or not tenant_id:
-#         client_id = platform_config_data.get("clientId")
-#         client_secret = platform_config_data.get("clientSecret")
-#         tenant_id = platform_config_data.get("tenantId")
-#         subscription_id = platform_config_data.get("subscriptionId")
-#         if client_id and tenant_id:
-#             logger.info(f"Retrieved service principal details from workspaceInfo.yaml")
-
-#     if not subscription_id:
-#         subscription_id = os.getenv("AZURE_SUBSCRIPTION_ID")
-#         if subscription_id:
-#             logger.info(f"Retrieved subscription_id from environment variables")
-
-#     if client_id and client_secret and tenant_id:
-#         logger.info("Using service principal credentials for authentication.")
-#         credential = ClientSecretCredential(tenant_id, client_id, client_secret)
-#         return {
-#             "AZURE_CLIENT_ID": client_id,
-#             "AZURE_CLIENT_SECRET": client_secret,
-#             "AZURE_TENANT_ID": tenant_id,
-#             "AZURE_SUBSCRIPTION_ID": subscription_id,
-#             "credential": credential,
-#             "subscription_id": subscription_id
-#         }
-#     else:
-#         try:
-#             logger.info("Falling back to managed identity for authentication.")
-#             managed_identity_details = get_managed_identity_details()
-#             client_id = managed_identity_details.get("AZURE_CLIENT_ID")
-#             tenant_id = managed_identity_details.get("AZURE_TENANT_ID")
-#             subscription_id = managed_identity_details.get("AZURE_SUBSCRIPTION_ID")
-#             credential = managed_identity_details.get("credential")
-
-#             logger.info(f"Using Managed Identity with client_id: {client_id}, tenant_id: {tenant_id}")
-
-#             return {
-#                 "credential": credential,
-#                 "subscription_id": subscription_id
-#             }
-#         except Exception as e:
-#             error_message = f"Failed to acquire token using Managed Identity: {str(e)}"
-#             logger.error(error_message)
-#             raise WorkspaceBuilderException(error_message)
-
-#     if not subscription_id:
-#         logger.error("Parameter 'subscription_id' must not be None.")
-#         raise ValueError("Parameter 'subscription_id' must not be None.")
-
 def az_get_credentials_and_subscription_id(platform_config_data: dict[str, Any]) -> dict[str, Any]:
     """
     Resolve Azure authentication and return:
@@ -404,152 +341,6 @@ def az_get_credentials_and_subscription_id(platform_config_data: dict[str, Any])
     if tenant_id:     result["AZURE_TENANT_ID"]     = tenant_id
     return result
 
-
-
-# def init_cloudquery_config(context: Context,
-#                            cloud_config_data: dict[str, Any],
-#                            cloud_config_dir: str,
-#                            db_file_path: str,
-#                            accessed_resource_type_specs: dict[str, dict[ResourceTypeSpec, list[GenerationRuleInfo]]]
-#                            ) -> tuple[dict[str, str], list[tuple[CloudQueryPlatformSpec, list[CloudQueryResourceTypeSpec]]]]:
-#     cq_process_environment_vars = dict()
-
-#     cloudquery_config = cloud_config_data.get("cloudquery", dict())
-#     cq_api_key = cloudquery_config.get("apiKey")
-#     if cq_api_key:
-#         cq_process_environment_vars["CLOUDQUERY_API_KEY"] = cq_api_key
-
-#     templates_dir = "indexers/cloudquery_templates"
-#     template_loader_func = lambda name: read_file(os.path.join(templates_dir, name))
-
-#     sqlite_config_path = os.path.join(cloud_config_dir, "sqlite.yaml")
-#     template_variables = {"database_path": db_file_path}
-#     sqlite_config_text = render_template_file("sqlite-config.yaml", template_variables, template_loader_func)
-#     write_file(sqlite_config_path, sqlite_config_text)
-
-#     platform_tables: list[tuple[CloudQueryPlatformSpec, list[CloudQueryResourceTypeSpec]]] = list()
-
-#     for platform_spec in platform_specs:
-#         platform_name = platform_spec.name
-#         platform_config_data = cloud_config_data.get(platform_name)
-#         resource_groups_override = None
-#         if platform_config_data is None:
-#             continue
-
-#         if platform_name == "azure":
-#             logger.debug("Entering Azure configuration block")
-#             az_credentials = az_get_credentials_and_subscription_id(platform_config_data)
-#             cq_process_environment_vars.update(az_credentials)
-#             credential = az_credentials.get("credential")
-#             subscription_id = az_credentials.get("subscription_id")
-#             if not credential or not subscription_id:
-#                 raise ValueError("Both 'credential' and 'subscription_id' must be provided for Azure.")
-
-#             resource_groups_override = platform_config_data.get("resourceGroupLevelOfDetails")
-#             if not resource_groups_override:
-#                 discovered_resource_groups = az_discover_resource_groups(credential, subscription_id)
-#                 resource_groups_override = platform_config_data.get("resourceGroups", discovered_resource_groups)
-
-#         elif platform_name == "gcp":
-#             logger.debug("Entering GCP configuration block")
-#             service_account_file = platform_config_data.get("applicationCredentialsFile")
-#             if service_account_file:
-#                 cq_process_environment_vars["GOOGLE_APPLICATION_CREDENTIALS"] = service_account_file
-#                 template_variables["service_account_key_json"] = service_account_file
-#                 logger.info(f"GOOGLE_APPLICATION_CREDENTIALS set to: {service_account_file}")
-#             else:
-#                 logger.warning("GCP service account credentials file not found in workspaceInfo.yaml")
-
-#         elif platform_name == "aws":
-#             logger.debug("Entering AWS configuration block")
-
-#             # Retrieve credentials from the configuration
-#             aws_access_key_id = platform_config_data.get("awsAccessKeyId")
-#             aws_secret_access_key = platform_config_data.get("awsSecretAccessKey")
-#             aws_session_token = platform_config_data.get("awsSessionToken")
-
-#             # Validation logic
-#             if aws_access_key_id and aws_secret_access_key and not aws_session_token:
-#                 # Long-term credentials
-#                 logger.info("Using long-term AWS credentials.")
-#             elif aws_access_key_id and aws_secret_access_key and aws_session_token:
-#                 # Temporary credentials
-#                 logger.info("Using temporary AWS credentials.")
-#             else:
-#                 # Invalid configuration
-#                 error_message = (
-#                     "Invalid AWS credentials configuration. "
-#                     "Provide either long-term credentials (awsAccessKeyId, awsSecretAccessKey) "
-#                     "or temporary credentials (awsAccessKeyId, awsSecretAccessKey, awsSessionToken)."
-#                 )
-#                 logger.error(error_message)
-#                 raise ValueError(error_message)
-
-#             # Prepare environment variables for CloudQuery
-#             cq_process_environment_vars.update({
-#                 "AWS_ACCESS_KEY_ID": aws_access_key_id,
-#                 "AWS_SECRET_ACCESS_KEY": aws_secret_access_key,
-#             })
-#             if aws_session_token:
-#                 cq_process_environment_vars["AWS_SESSION_TOKEN"] = aws_session_token
-
-#             # Log the credentials for debugging, masking sensitive data
-#             logger.debug(f"AWS_ACCESS_KEY_ID: {mask_string(aws_access_key_id)}")
-#             logger.debug(f"AWS_SECRET_ACCESS_KEY: {mask_string(aws_secret_access_key)}")
-#             logger.debug(f"AWS_SESSION_TOKEN: {'<not set>' if not aws_session_token else mask_string(aws_session_token)}")
-
-#             # Skip additional service-specific validation like S3 access
-#             logger.info("AWS credentials validation passed.")
-
-
-#         cq_resource_type_specs = list()
-#         tables = list()
-
-#         for cq_resource_type_spec in platform_spec.resource_type_specs:
-#             if cq_resource_type_spec.mandatory:
-#                 cq_resource_type_specs.append(cq_resource_type_spec)
-#                 tables.append(cq_resource_type_spec.cloudquery_table_name)
-
-#         premium_tables = cloudquery_premium_table_info.get(platform_spec.name, list())
-#         platform_accessed_resource_type_specs = accessed_resource_type_specs.get(platform_name, dict())
-#         for resource_type_spec, generation_rule_infos in platform_accessed_resource_type_specs.items():
-#             resource_type_name = resource_type_spec.resource_type_name
-#             for cq_resource_type_spec in platform_spec.resource_type_specs:
-#                 if cq_resource_type_spec.resource_type_name == resource_type_name:
-#                     break
-#             else:
-#                 cq_resource_type_spec = CloudQueryResourceTypeSpec(resource_type_name, resource_type_name, False)
-#             if not cq_resource_type_spec.mandatory:
-#                 table_name = cq_resource_type_spec.cloudquery_table_name
-#                 if not cq_api_key and table_name in premium_tables:
-#                     premium_table_warning = f'Suppressing access to premium table "{table_name}"; ' \
-#                                             f'an account and API key is required for access.")'
-#                     logger.warning(premium_table_warning)
-#                     context.add_warning(premium_table_warning)
-#                 else:
-#                     cq_resource_type_specs.append(cq_resource_type_spec)
-#                     if table_name not in tables:
-#                         tables.append(table_name)
-
-#         if len(cq_resource_type_specs) == 0:
-#             continue
-
-#         platform_tables.append((platform_spec, cq_resource_type_specs))
-
-#         template_variables = deepcopy(platform_config_data)
-#         template_variables["destination_plugin_name"] = "sqlite"
-#         template_variables["tables"] = tables
-
-#         if resource_groups_override:
-#             template_variables["resourceGroups"] = resource_groups_override
-#         else:
-#             logger.info("No resource groups override found.")
-#         config_file_path = os.path.join(cloud_config_dir, platform_spec.config_file_name)
-#         config_text = render_template_file(platform_spec.config_template_name, template_variables, template_loader_func)
-#         write_file(config_file_path, config_text)
-#         logger.info(f"Wrote config file for platform {platform_name}; tables={tables}")
-
-#     return cq_process_environment_vars, platform_tables
 def init_cloudquery_config(
     context: Context,
     cloud_config_data: dict[str, Any],
@@ -601,6 +392,23 @@ def init_cloudquery_config(
             az = az_get_credentials_and_subscription_id(platform_cfg)
             cq_process_environment_vars.update({k: v for k, v in az.items() if k.startswith("AZURE_")})
             credential = az["credential"]
+            
+            # Update enrichers.azure module with these credentials so it can use them
+            # This ensures consistent authentication between CloudQuery and our code
+            try:
+                from enrichers.azure import set_azure_credentials
+                tenant_id = az.get("AZURE_TENANT_ID")
+                client_id = az.get("AZURE_CLIENT_ID")
+                client_secret = az.get("AZURE_CLIENT_SECRET")
+                logger.debug("Setting Azure credentials in enrichers.azure module")
+                set_azure_credentials(
+                    tenant_id=tenant_id, 
+                    client_id=client_id, 
+                    client_secret=client_secret,
+                    credential=credential
+                )
+            except Exception as e:
+                logger.warning(f"Could not update enrichers.azure credentials: {e}")
 
             # ---------------- subscription list -----------------
             explicit_sub_ids = [
