@@ -1,0 +1,34 @@
+    - name: platform
+      value: aws
+    - name: account_id
+      value: "{{ match_resource.account_id }}"
+{% if match_resource.account_name is defined %}
+    - name: account_name
+      value: {{ match_resource.account_name }}
+{% endif %}
+    - name: region
+      value: {{ match_resource.region }}
+    - name: service
+      value: {{ match_resource.service }}
+    - name: resource_type
+      value: {{ match_resource.resource_type.name }}
+    - name: resource_name
+      value: '{{ match_resource.resource.name }}'
+{% if match_resource.is_public is defined %}
+    - name: is_public
+      value: '{{ match_resource.is_public | string | lower }}'
+{% endif %}
+{% if match_resource.arn is defined %}
+    - name: arn
+      value: "{{ match_resource.arn | replace(":", "_") }}"
+{% endif %}
+{% set tags = match_resource.tags %}
+{% if tags %}
+{% for k, v in match_resource.tags.items() %}
+    {% if v and v|string|trim != "" %}
+    - name: "[aws]{{ k | string }}"
+      value: '{{ v | string }}'
+    {% endif %}
+{% endfor %}
+{% endif %} 
+
