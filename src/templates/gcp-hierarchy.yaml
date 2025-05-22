@@ -1,9 +1,7 @@
     hierarchy: 
     - platform
-    - project
+    - project_id
     {% if match_resource.location is defined %}
     - location
     {% endif %}
-    - resource_type
-    - resource_name
 

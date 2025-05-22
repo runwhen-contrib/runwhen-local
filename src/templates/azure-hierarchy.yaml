@@ -6,5 +6,4 @@
     - subscription_id
     {% endif %}
     - resource_group
-    - resource_name
 

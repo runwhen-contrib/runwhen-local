@@ -6,8 +6,3 @@
 {% if match_resource.namespace %}
     - namespace
 {% endif %}
-{% if match_resource.kind and match_resource.kind != 'Namespace' %}
-    - kind
-{% endif %}
-    - resource_name
-
