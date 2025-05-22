@@ -13,8 +13,10 @@
 {% set tags = match_resource.resource.tags %}
 {% if tags %}
 {% for k, v in match_resource.tags.items() %}
-    - name: "[azure]{{ k | string}}"
-      value: "{{ v | string}}"
+    {% if v and v|string|trim != "" %}
+    - name: "[azure]{{ k | string }}"
+      value: "{{ v | string }}"
+    {% endif %}
 {% endfor %}
 {% endif %}
 

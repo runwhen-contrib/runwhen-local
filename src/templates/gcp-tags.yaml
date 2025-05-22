@@ -13,8 +13,10 @@
 {% set labels = match_resource.resource.labels %}
 {% if labels %}
 {% for k, v in match_resource.resource.labels.items() %}
+    {% if v and v|string|trim != "" %}
     - name: "[gcp]{{ k | string }}"
       value: "{{ v | string }}"
+    {% endif %}
 {% endfor %}
 {% endif %}
 
