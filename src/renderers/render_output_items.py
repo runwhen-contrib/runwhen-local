@@ -1,11 +1,12 @@
 import os
 import yaml
 import logging
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, List
 
 from component import Context, SettingDependency, WORKSPACE_NAME_SETTING, \
     LOCATION_ID_SETTING, WORKSPACE_OUTPUT_PATH_SETTING
 from template import render_template_file
+from exceptions import WorkspaceBuilderException
 
 logger = logging.getLogger(__name__)
 
@@ -63,18 +64,52 @@ def deduplicate_secrets_provided(yaml_text: str) -> str:
 
 def render(context: Context):
     output_items: dict[str, OutputItem] = context.get_property(OUTPUT_ITEMS_PROPERTY, {})
+    skipped_templates: List[dict] = []
+    
     for output_item in output_items.values():
         logger.info(f"Rendering output item: {output_item.path}")
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f"Template variables for {output_item.path}: {output_item.template_variables}")
 
-        # Render the template
-        output_text = render_template_file(output_item.template_name,
-                                           output_item.template_variables,
-                                           output_item.template_loader_func)
+        try:
+            # Render the template
+            output_text = render_template_file(output_item.template_name,
+                                              output_item.template_variables,
+                                              output_item.template_loader_func)
 
-        # Deduplicate 'secretsProvided'
-        deduplicated_output = deduplicate_secrets_provided(output_text)
+            # Deduplicate 'secretsProvided'
+            deduplicated_output = deduplicate_secrets_provided(output_text)
 
-        # Write the deduplicated output to the file
-        context.write_file(output_item.path, deduplicated_output)
+            # Write the deduplicated output to the file
+            context.write_file(output_item.path, deduplicated_output)
+        except WorkspaceBuilderException as e:
+            # Log the error but don't fail
+            logger.warning(f"Skipping template {output_item.template_name} for {output_item.path}: {str(e)}")
+            skipped_templates.append({
+                "path": output_item.path,
+                "template": output_item.template_name,
+                "error": str(e)
+            })
+        except Exception as e:
+            # Catch any other exceptions during rendering
+            logger.warning(f"Unexpected error rendering {output_item.template_name} for {output_item.path}: {str(e)}")
+            skipped_templates.append({
+                "path": output_item.path,
+                "template": output_item.template_name,
+                "error": str(e)
+            })
+    
+    # Generate report of skipped templates if any
+    if skipped_templates:
+        report_content = "# Skipped Templates Report\n\n"
+        report_content += f"Total skipped templates: {len(skipped_templates)}\n\n"
+        
+        for i, item in enumerate(skipped_templates, 1):
+            report_content += f"## {i}. {item['path']}\n"
+            report_content += f"- Template: {item['template']}\n"
+            report_content += f"- Error: {item['error']}\n\n"
+        
+        # Write report to a file
+        report_path = os.path.join(context.get_setting(WORKSPACE_OUTPUT_PATH_SETTING), "skipped_templates_report.md")
+        context.write_file(report_path, report_content)
+        logger.info(f"Generated skipped templates report at {report_path}")

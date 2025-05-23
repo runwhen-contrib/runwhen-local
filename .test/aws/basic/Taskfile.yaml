@@ -12,11 +12,11 @@ tasks:
       - task: clean-rwl-discovery
 
 
-  run-rwl-discovery:
-    desc: "Run RunWhen Local Discovery on test infrastructure"
+  build-rwl:
+    desc: "Build RWL test image"
     cmds:
       - |
-        BUILD_DIR=/home/runwhen/runwhen-local/src
+        BUILD_DIR=../../../src/
         CONTAINER_NAME="RunWhenLocal"
         if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
           echo "Stopping and removing existing container $CONTAINER_NAME..."
@@ -31,13 +31,37 @@ tasks:
         echo "Cleaning up output directory..."
         rm -rf output || { echo "Failed to remove output directory"; exit 1; }
         mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
-
         ## Building Container Image
-        docker buildx build --builder mybuilder --platform linux/amd64  -t runwhen-local:test -f $BUILD_DIR/Dockerfile $BUILD_DIR --load
+        docker buildx build --builder mybuilder --platform linux/amd64  --build-arg INCLUDE_CODE_COLLECTION_CACHE=true -t runwhen-local:test -f $BUILD_DIR/Dockerfile $BUILD_DIR --load
+
+        ## Use this if you need to test both arm64/amd64 builds
+        # docker buildx build --builder mybuilder --platform linux/amd64,linux/arm64  -t runwhen-local:test -f $BUILD_DIR/Dockerfile $BUILD_DIR
+
+    silent: true
+
+  run-rwl-discovery:
+    desc: "Run RunWhen Local Discovery on test infrastructure"
+    cmds:
+      - |
+        rm slx_count.txt || true
+        CONTAINER_NAME="RunWhenLocal"    
+        if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Stopping and removing existing container $CONTAINER_NAME..."
+          docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME
+        elif docker ps -a -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Removing existing stopped container $CONTAINER_NAME..."
+          docker rm $CONTAINER_NAME
+        else
+          echo "No existing container named $CONTAINER_NAME found."
+        fi
+        
+        echo "Cleaning up output directory..."
+        rm -rf output || { echo "Failed to remove output directory"; exit 1; }
+        mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
 
         echo "Starting new container $CONTAINER_NAME..."
 
-        docker run -e DEBUG_LOGGING=true --name $CONTAINER_NAME -p 8081:8081 -v $(pwd):/shared -d runwhen-local:test || {
+        docker run -e DEBUG_LOGGING=false --name $CONTAINER_NAME -p 8081:8081 -v $(pwd):/shared -d runwhen-local:test || {
           echo "Failed to start container"; exit 1;
         }
 
@@ -47,6 +71,91 @@ tasks:
         }
 
         echo "Review generated config files under output/workspaces/"
+        total_slxs=$(find $(find 'output/' -type d -name 'slxs') -mindepth 1 -type d | wc -l)
+        echo "Total SLXs: $total_slxs"
+        echo "$total_slxs" > slx_count.txt
+    silent: true
+
+  upload-slxs:
+      desc: "Upload SLX files to the appropriate URL"
+      env:
+        RW_WORKSPACE: "{{.RW_WORKSPACE}}"
+        RW_API_URL: "{{.RW_API}}"
+        RW_PAT: "{{.RW_PAT}}"
+      cmds:
+        - |
+          BASE_DIR="output/workspaces/${RW_WORKSPACE}/slxs"
+          if [ ! -d "$BASE_DIR" ]; then
+            echo "Directory $BASE_DIR does not exist. Upload aborted."
+            exit 1
+          fi
+
+          for dir in "$BASE_DIR"/*; do
+            if [ -d "$dir" ]; then
+              SLX_NAME=$(basename "$dir")
+              PAYLOAD=$(jq -n --arg commitMsg "Creating new SLX $SLX_NAME" '{ commitMsg: $commitMsg, files: {} }')
+              for file in slx.yaml runbook.yaml sli.yaml; do
+                if [ -f "$dir/$file" ]; then
+                  CONTENT=$(cat "$dir/$file")
+                  PAYLOAD=$(echo "$PAYLOAD" | jq --arg fileContent "$CONTENT" --arg fileName "$file" '.files[$fileName] = $fileContent')
+                fi
+              done
+
+              URL="https://${RW_API_URL}/api/v3/workspaces/${RW_WORKSPACE}/branches/main/slxs/${SLX_NAME}"
+              echo "Uploading SLX: $SLX_NAME to $URL"
+              # response_code=$(curl -X POST "$URL" \
+              #   -H "Authorization: Bearer $RW_PAT" \
+              #   -H "Content-Type: application/json" \
+              #   -d "$PAYLOAD" \
+              #   -w "%{http_code}" -o /dev/null -s)
+              curl -X POST "$URL" \
+                -H "Authorization: Bearer $RW_PAT" \
+                -H "Content-Type: application/json" \
+                -d "$PAYLOAD"             
+              if [[ "$response_code" == "200" || "$response_code" == "201" ]]; then
+                echo "Successfully uploaded SLX: $SLX_NAME to $URL"
+              elif [[ "$response_code" == "405" ]]; then
+                echo "Failed to upload SLX: $SLX_NAME to $URL. Method not allowed (405)."
+              else
+                echo "Failed to upload SLX: $SLX_NAME to $URL. Unexpected response code: $response_code"
+              fi
+            fi
+          done
+      silent: true
+
+  delete-slxs:
+    desc: "Delete SLX objects from the appropriate URL"
+    env:
+      RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
+      RW_API_URL: "{{.RW_API}}"
+      RW_PAT: "{{.RW_PAT}}"
+    cmds:
+      - |
+        BASE_DIR="output/workspaces/${RW_WORKSPACE}/slxs"
+        if [ ! -d "$BASE_DIR" ]; then
+          echo "Directory $BASE_DIR does not exist. Deletion aborted."
+          exit 1
+        fi
+
+        for dir in "$BASE_DIR"/*; do
+          if [ -d "$dir" ]; then
+            SLX_NAME=$(basename "$dir")
+            URL="https://${RW_API_URL}/api/v3/workspaces/${RW_WORKSPACE}/branches/main/slxs/${SLX_NAME}"
+            echo "Deleting SLX: $SLX_NAME from $URL"
+            response_code=$(curl -X DELETE "$URL" \
+              -H "Authorization: Bearer $RW_PAT" \
+              -H "Content-Type: application/json" \
+              -w "%{http_code}" -o /dev/null -s)
+            
+            if [[ "$response_code" == "200" || "$response_code" == "204" ]]; then
+              echo "Successfully deleted SLX: $SLX_NAME from $URL"
+            elif [[ "$response_code" == "405" ]]; then
+              echo "Failed to delete SLX: $SLX_NAME from $URL. Method not allowed (405)."
+            else
+              echo "Failed to delete SLX: $SLX_NAME from $URL. Unexpected response code: $response_code"
+            fi
+          fi
+        done
     silent: true
 
   clean-rwl-discovery:

@@ -803,7 +803,14 @@ def main():
 
         message = response_data.get("message", "Workspace data generated successfully.")
         warnings = response_data.get("warnings", list())
-        print(message)
+        
+        # Count the number of SLXs (folders in the slxs directory)
+        slxs_path = os.path.join(output_path, "workspaces", workspace_name, "slxs")
+        slx_count = 0
+        if os.path.exists(slxs_path) and os.path.isdir(slxs_path):
+            slx_count = len([name for name in os.listdir(slxs_path) if os.path.isdir(os.path.join(slxs_path, name))])
+        
+        print(f"{message} Total SLXs: {slx_count}")
         for warning in warnings:
             print("WARNING: " + warning)
 

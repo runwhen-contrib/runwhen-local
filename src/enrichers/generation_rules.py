@@ -564,8 +564,8 @@ class GenerationRuleInfo:
 
 
 def get_template_variables(output_item: OutputItem,
-                           resource: Resource,
-                           base_template_variables: dict[str, Any],
+    resource: Resource,
+    base_template_variables: dict[str, Any],
                            generation_rule_info: GenerationRuleInfo,
                            context: Context) -> dict[str, Any]:
     """
@@ -583,51 +583,114 @@ def get_template_variables(output_item: OutputItem,
     :param context:
     :return: dictionary of the template variables with the resolved/literal values
     """
-    template_variables = base_template_variables.copy()
-
-    if isinstance(resource, Resource):
-        # If it's a resource (vs. the kludgy overloaded custom defs), then call the
-        # associated platform handler to add any standard/built-in platform-specific
-        # template variables.
-        platform_name = resource.resource_type.platform.name
-        platform_handlers: dict[str, PlatformHandler] = context.get_property(PLATFORM_HANDLERS_PROPERTY_NAME)
-        platform_handler = platform_handlers[platform_name]
-        standard_template_variables = platform_handler.get_standard_template_variables(resource)
-        template_variables.update(standard_template_variables)
-    else:
-        platform_handler = None
-
-
-    output_item_type = output_item.type.lower()
-    # Check if the item is a workflow, as it has different path requirements
-    # which are handled later on
-    if output_item_type == 'workflow':
-         template_variables['is_workflow'] = True
-    else: 
-        template_variables['is_workflow'] = False
-
     try:
-        template_variables['repo_url'] = generation_rule_info.code_collection.repo_url
+        template_variables = base_template_variables.copy()
+
+        if isinstance(resource, Resource):
+            # If it's a resource (vs. the kludgy overloaded custom defs), then call the
+            # associated platform handler to add any standard/built-in platform-specific
+            # template variables.
+            platform_name = resource.resource_type.platform.name
+            platform_handlers: dict[str, PlatformHandler] = context.get_property(PLATFORM_HANDLERS_PROPERTY_NAME)
+            platform_handler = platform_handlers[platform_name]
+            standard_template_variables = platform_handler.get_standard_template_variables(resource)
+            template_variables.update(standard_template_variables)
+        else:
+            platform_handler = None
+
+
+        output_item_type = output_item.type.lower()
+        # Check if the item is a workflow, as it has different path requirements
+        # which are handled later on
+        if output_item_type == 'workflow':
+             template_variables['is_workflow'] = True
+        else: 
+            template_variables['is_workflow'] = False
+
+        # Set the 'kind' variable based on the output item type
+        if output_item_type == 'slx':
+            template_variables['kind'] = 'ServiceLevelX'
+        elif output_item_type == 'sli':
+            template_variables['kind'] = 'ServiceLevelIndicator'
+        elif output_item_type == 'slo':
+            template_variables['kind'] = 'ServiceLevelObjective'
+        elif output_item_type == 'runbook':
+            template_variables['kind'] = 'Runbook'
+        elif output_item_type == 'taskset':
+            template_variables['kind'] = 'TaskSet'
+        elif output_item_type == 'workflow':
+            template_variables['kind'] = 'Workflow'
+
+        try:
+            template_variables['repo_url'] = generation_rule_info.code_collection.repo_url
+        except Exception as e:
+            logger.warning(f"Error getting repo_url from generation_rule_info: {e}")
+            template_variables['repo_url'] = "undefined"
+            
+        try:
+            template_variables['ref'] = generation_rule_info.generation_rule_file_spec.ref_name
+            template_variables['generation_rule_file_path'] = generation_rule_info.generation_rule_file_spec.path
+        except Exception as e:
+            logger.warning(f"Error getting ref or generation_rule_file_path: {e}")
+            template_variables['ref'] = "undefined"
+            template_variables['generation_rule_file_path'] = "undefined"
+            
+        for name, template_string in output_item.template_variables.items():
+            try:
+                value = None
+                if platform_handler:
+                    value = platform_handler.resolve_template_variable_value(resource, template_string)
+                if not value:
+                    value = render_template_string(template_string, template_variables)
+                template_variables[name] = value
+            except Exception as e:
+                logger.warning(f"Error processing template variable {name}: {e}")
+                template_variables[name] = f"error_processing_template_variable_{name}"
+
+        # Add qualifiers to template variables
+        try:
+            if 'qualifiers' in output_item.template_variables:
+                quals = output_item.template_variables['qualifiers']
+                if isinstance(quals, list):
+                    qualifiers_dict = {qual: template_variables.get(qual, f"undefined_{qual}") for qual in quals}
+                    template_variables['qualifiers'] = qualifiers_dict
+        except Exception as e:
+            logger.warning(f"Error processing qualifiers: {e}")
+            template_variables['qualifiers'] = {}
+
+        logger.debug(f"Resolved template variables: {template_variables}")
+
+        return template_variables
     except Exception as e:
-        raise e
-    template_variables['ref'] = generation_rule_info.generation_rule_file_spec.ref_name
-    template_variables['generation_rule_file_path'] = generation_rule_info.generation_rule_file_spec.path
-    for name, template_string in output_item.template_variables.items():
-        value = None
-        if platform_handler:
-            value = platform_handler.resolve_template_variable_value(resource, template_string)
-        if not value:
-            value = render_template_string(template_string, template_variables)
-        template_variables[name] = value
-
-    # Add qualifiers to template variables
-    if 'qualifiers' in output_item.template_variables:
-        qualifiers_dict = {qual: template_variables[qual] for qual in output_item.template_variables['qualifiers']}
-        template_variables['qualifiers'] = qualifiers_dict
-
-    logger.debug(f"Resolved template variables: {template_variables}")
-
-    return template_variables
+        logger.error(f"Error in get_template_variables: {e}", exc_info=True)
+        # Return a minimal set of template variables to allow processing to continue
+        minimal_vars = base_template_variables.copy()
+        minimal_vars['kind'] = 'ServiceLevelX'  # Ensure kind is always set
+        try:
+            output_item_type = output_item.type.lower()
+            if output_item_type == 'slx':
+                minimal_vars['kind'] = 'ServiceLevelX'
+            elif output_item_type == 'sli':
+                minimal_vars['kind'] = 'ServiceLevelIndicator'
+            elif output_item_type == 'slo':
+                minimal_vars['kind'] = 'ServiceLevelObjective'
+            elif output_item_type == 'runbook':
+                minimal_vars['kind'] = 'Runbook'
+            elif output_item_type == 'taskset':
+                minimal_vars['kind'] = 'TaskSet'
+        except Exception:
+            # If we can't determine the type, keep the default ServiceLevelX
+            pass
+        
+        try:
+            minimal_vars['repo_url'] = generation_rule_info.code_collection.repo_url
+        except Exception:
+            minimal_vars['repo_url'] = 'undefined'
+            
+        minimal_vars['ref'] = 'undefined'
+        minimal_vars['generation_rule_file_path'] = 'undefined'
+        minimal_vars['qualifiers'] = {}
+        return minimal_vars
 
 
 def should_emit_output_item(output_item: OutputItem, level_of_detail: LevelOfDetail) -> bool:
@@ -644,40 +707,66 @@ def generate_output_item(generation_rule_info: GenerationRuleInfo,
                          renderer_output_items: dict[str, RendererOutputItem],
                          base_template_variables: dict[str, Any],
                          context: Context) -> bool:
-    template_variables = get_template_variables(output_item,
-                                                resource,
-                                                base_template_variables,
-                                                generation_rule_info,
-                                                context)
-    path_template = output_item.path
-    
-    # Check if the item is a workflow file, and if so, fix the path to 
-    # create a filename based on the SLX and put it in the workflows directory
-    if template_variables['is_workflow']:
-        workflow_name=template_variables['slx_name'].split("--")[-1]
-        path = f"{template_variables['workspace_path']}/workflows/{workflow_name}.yaml"
-    else: 
-        path = render_template_string(path_template, template_variables)
+    try:
+        template_variables = get_template_variables(output_item,
+                                                    resource,
+                                                    base_template_variables,
+                                                    generation_rule_info,
+                                                    context)
+        path_template = output_item.path
+        
+        # Check if the item is a workflow file, and if so, fix the path to 
+        # create a filename based on the SLX and put it in the workflows directory
+        try:
+            if template_variables.get('is_workflow', False):
+                workflow_name = template_variables['slx_name'].split("--")[-1]
+                path = f"{template_variables['workspace_path']}/workflows/{workflow_name}.yaml"
+            else: 
+                path = render_template_string(path_template, template_variables)
+        except Exception as e:
+            logger.warning(f"Error rendering path template {path_template}: {e}")
+            # Generate a fallback path if there's an error
+            try:
+                output_item_type = output_item.type.lower()
+                slx_name = template_variables.get('slx_name', 'unknown')
+                workspace_path = template_variables.get('workspace_path', '.')
+                path = f"{workspace_path}/fallback-outputs/{slx_name}-{output_item_type}.yaml"
+            except Exception:
+                # Use an extremely basic fallback if all else fails
+                path = f"./fallback-output-{hash(str(output_item))}.yaml"
+            
+            # Make sure the directory exists
+            try:
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+            except Exception:
+                pass
 
-    # Only emit the output item if it's a path we haven't seen/emitted yet.
-    # The assumption is that output items triggered from different match
-    # rules/sources but with the same template variable values (and thus the
-    # same path after template substitution) are identical
-    # And we can only have one output item at a given path anyway...
-    if path in renderer_output_items:
-        logger.debug(f"DEBUG: Generate Output Item: {path} already exists")
+        # Only emit the output item if it's a path we haven't seen/emitted yet.
+        # The assumption is that output items triggered from different match
+        # rules/sources but with the same template variable values (and thus the
+        # same path after template substitution) are identical
+        # And we can only have one output item at a given path anyway...
+        if path in renderer_output_items:
+            logger.debug(f"DEBUG: Generate Output Item: {path} already exists")
+            return False
+
+        try:
+            code_collection = generation_rule_info.code_collection
+            if code_collection:
+                ref_name = generation_rule_info.generation_rule_file_spec.ref_name
+                code_bundle_name = generation_rule_info.generation_rule_file_spec.code_bundle_name
+                template_loader_func = lambda name: code_collection.get_template_text(ref_name, code_bundle_name, name)
+            else:
+                template_loader_func = None
+            output_item = RendererOutputItem(path, output_item.template_name, template_variables, template_loader_func)
+            renderer_output_items[path] = output_item
+            return True
+        except Exception as e:
+            logger.error(f"Error creating RendererOutputItem: {e}")
+            return False
+    except Exception as e:
+        logger.error(f"Unhandled error in generate_output_item: {e}", exc_info=True)
         return False
-
-    code_collection = generation_rule_info.code_collection
-    if code_collection:
-        ref_name = generation_rule_info.generation_rule_file_spec.ref_name
-        code_bundle_name = generation_rule_info.generation_rule_file_spec.code_bundle_name
-        template_loader_func = lambda name: code_collection.get_template_text(ref_name, code_bundle_name, name)
-    else:
-        template_loader_func = None
-    output_item = RendererOutputItem(path, output_item.template_name, template_variables, template_loader_func)
-    renderer_output_items[path] = output_item
-    return True
 
 def collect_emitted_slxs(generation_rule_info: GenerationRuleInfo,
                          resource: Resource,
@@ -767,60 +856,91 @@ def generate_slx_output_items(slx_info: SLXInfo,
     :param context:
     :return:
     """
-    resource = slx_info.resource
-    generation_rule_info = slx_info.generation_rule_info
+    try:
+        resource = slx_info.resource
+        generation_rule_info = slx_info.generation_rule_info
 
-    slx_base_template_variables = base_template_variables.copy()
-    slx_base_template_variables['base_name'] = slx_info.base_name
-    slx_base_template_variables['slx_name'] = slx_info.name
-    slx_base_template_variables['full_slx_name'] = slx_info.full_name
-    slxs_path = base_template_variables['slxs_path']
-    slx_directory_path = os.path.join(slxs_path, slx_info.qualified_name)
-    slx_base_template_variables['slx_directory_path'] = slx_directory_path
-    slx_base_template_variables['match_resource'] = resource
-    # Convert qualifiers list to a dictionary of key/value pairs
-    qualifiers_dict = {qual: slx_info.qualifier_values[i] for i, qual in enumerate(slx_info.slx.qualifiers)}
-    slx_base_template_variables['qualifiers'] = qualifiers_dict
-    
-    for output_item in slx_info.slx.output_items:
-        if should_emit_output_item(output_item, slx_info.level_of_detail):
-            generate_output_item(generation_rule_info,
-                                 output_item,
-                                 resource,
-                                 renderer_output_items,
-                                 slx_base_template_variables,
-                                 context)
+        slx_base_template_variables = base_template_variables.copy()
+        try:
+            slx_base_template_variables['base_name'] = slx_info.base_name
+            slx_base_template_variables['slx_name'] = slx_info.name
+            slx_base_template_variables['full_slx_name'] = slx_info.full_name
+            slxs_path = base_template_variables['slxs_path']
+            slx_directory_path = os.path.join(slxs_path, slx_info.qualified_name)
+            slx_base_template_variables['slx_directory_path'] = slx_directory_path
+            slx_base_template_variables['match_resource'] = resource
+        except Exception as e:
+            logger.warning(f"Error setting up base template variables: {e}")
+            # Still continue with what we have
+        
+        # Convert qualifiers list to a dictionary of key/value pairs
+        try:
+            qualifiers_dict = {qual: slx_info.qualifier_values[i] for i, qual in enumerate(slx_info.slx.qualifiers)}
+            slx_base_template_variables['qualifiers'] = qualifiers_dict
+        except Exception as e:
+            logger.warning(f"Error setting qualifiers: {e}")
+            slx_base_template_variables['qualifiers'] = {}
+        
+        for output_item in slx_info.slx.output_items:
+            try:
+                if should_emit_output_item(output_item, slx_info.level_of_detail):
+                    generate_output_item(generation_rule_info,
+                                       output_item,
+                                       resource,
+                                       renderer_output_items,
+                                       slx_base_template_variables,
+                                       context)
+            except Exception as e:
+                logger.error(f"Error generating output item: {e}")
+                # Continue with next output item
 
-    customization_variables = {
-        "resource": resource,
-        "slx-info": slx_info
-    }
+        try:
+            customization_variables = {
+                "resource": resource,
+                "slx-info": slx_info
+            }
 
-    # FIXME: This logic to set the standard template variables is a bit clunky and uses
-    # duplicated code. Should clean up / refactor.
-    platform_name = resource.resource_type.platform.name
-    platform_handlers: dict[str, PlatformHandler] = context.get_property(PLATFORM_HANDLERS_PROPERTY_NAME)
-    platform_handler = platform_handlers[platform_name]
-    standard_template_variables = platform_handler.get_standard_template_variables(resource)
-    customization_variables.update(standard_template_variables)
-    group_name_template = map_customization_rules.match_group_rules(slx_info)
-    if group_name_template:
-        group_name = render_template_string(group_name_template, customization_variables)
-        group = groups.get(group_name)
-        if not group:
-            group = Group(group_name)
-            groups[group_name] = group
-        group.add_slx(slx_info.qualified_name)
+            # FIXME: This logic to set the standard template variables is a bit clunky and uses
+            # duplicated code. Should clean up / refactor.
+            platform_name = resource.resource_type.platform.name
+            platform_handlers: dict[str, PlatformHandler] = context.get_property(PLATFORM_HANDLERS_PROPERTY_NAME)
+            platform_handler = platform_handlers[platform_name]
+            standard_template_variables = platform_handler.get_standard_template_variables(resource)
+            customization_variables.update(standard_template_variables)
+        except Exception as e:
+            logger.warning(f"Error setting up customization variables: {e}")
+            customization_variables = {
+                "resource": resource,
+                "slx-info": slx_info
+            }
+            
+        try:
+            group_name_template = map_customization_rules.match_group_rules(slx_info)
+            if group_name_template:
+                group_name = render_template_string(group_name_template, customization_variables)
+                group = groups.get(group_name)
+                if not group:
+                    group = Group(group_name)
+                    groups[group_name] = group
+                group.add_slx(slx_info.qualified_name)
+        except Exception as e:
+            logger.warning(f"Error processing group rules: {e}")
 
-    subject_template, verb = map_customization_rules.match_slx_relationship_rules(slx_info)
-    if subject_template:
-        subject = render_template_string(subject_template, customization_variables)
-        obj = slx_info.qualified_name
-        if verb == RelationshipVerb.DEPENDED_ON_BY:
-            verb = RelationshipVerb.DEPENDENT_ON
-            subject, obj = obj, subject
-        slx_relationship = SLXRelationship(subject, verb, obj)
-        slx_relationships.append(slx_relationship)
+        try:
+            subject_template, verb = map_customization_rules.match_slx_relationship_rules(slx_info)
+            if subject_template:
+                subject = render_template_string(subject_template, customization_variables)
+                obj = slx_info.qualified_name
+                if verb == RelationshipVerb.DEPENDED_ON_BY:
+                    verb = RelationshipVerb.DEPENDENT_ON
+                    subject, obj = obj, subject
+                slx_relationship = SLXRelationship(subject, verb, obj)
+                slx_relationships.append(slx_relationship)
+        except Exception as e:
+            logger.warning(f"Error processing relationship rules: {e}")
+            
+    except Exception as e:
+        logger.error(f"Unhandled error in generate_slx_output_items: {e}", exc_info=True)
 
 
 class CollectResourceTypeSpecsVisitor(MatchPredicateVisitor):

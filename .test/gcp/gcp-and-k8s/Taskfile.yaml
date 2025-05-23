@@ -1,0 +1,325 @@
+version: "3"
+
+tasks:
+  default:
+    desc: "Generate workspaceInfo and rebuild/test"
+    cmds:
+      - task: generate-rwl-config-basic
+      - task: build-rwl
+      - task: run-rwl-discovery
+
+  clean:
+    desc: "Run cleanup tasks"
+    cmds:
+      - task: clean-rwl-discovery
+
+  generate-rwl-config-detailed:
+    desc: "Generate RunWhen Local configuration (workspaceInfo.yaml)"
+    env:
+      RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
+    cmds:
+      - |
+        # Generate workspaceInfo.yaml with fetched cluster details
+        cat <<EOF > workspaceInfo.yaml
+        workspaceName: "$RW_WORKSPACE"
+        workspaceOwnerEmail: authors@runwhen.com
+        defaultLocation: location-01
+        defaultLOD: detailed
+        cloudConfig:
+          kubernetes:             
+            kubeconfigFile: /shared/kubeconfig.secret
+            contexts:
+              sandbox-cluster-1: 
+                defaultNamespaceLOD: detailed
+          gcp:
+            applicationCredentialsFile: /shared/gcp.secret
+            projects:
+            - runwhen-nonprod-sandbox
+            projectLevelOfDetails:
+              runwhen-nonprod-sandbox: detailed
+        codeCollections: []
+        # codeCollections: 
+        #   - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection"
+        #     branch: "main"
+        #     codeBundles: ["k8s-namespace-healthcheck", "k8s-deployment-healthcheck"]
+        custom: 
+          kubernetes_distribution_binary: kubectl
+        EOF
+    silent: true
+
+  generate-rwl-config-basic:
+    desc: "Generate RunWhen Local configuration (workspaceInfo.yaml)"
+    env:
+      RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
+    cmds:
+      - |
+        # Generate workspaceInfo.yaml with fetched cluster details
+        cat <<EOF > workspaceInfo.yaml
+        workspaceName: "$RW_WORKSPACE"
+        workspaceOwnerEmail: authors@runwhen.com
+        defaultLocation: location-01
+        defaultLOD: detailed
+        cloudConfig:
+          kubernetes:             
+            kubeconfigFile: /shared/kubeconfig.secret
+            contexts:
+              sandbox-cluster-1: 
+                defaultNamespaceLOD: basic
+          gcp:
+            applicationCredentialsFile: /shared/gcp.secret
+            projects:
+            - runwhen-nonprod-sandbox
+            projectLevelOfDetails:
+              runwhen-nonprod-sandbox: basic
+        codeCollections: []
+        # useLocalGit: true
+        # codeCollections: 
+        #   - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection"
+        #     branch: "main"
+        #     codeBundles: ["k8s-namespace-healthcheck", "k8s-deployment-healthcheck"]
+        custom: 
+          kubernetes_distribution_binary: kubectl
+        EOF
+    silent: true
+
+  build-rwl:
+    desc: "Build RWL test image"
+    cmds:
+      - |
+        BUILD_DIR=../../../src/
+        CONTAINER_NAME="RunWhenLocal"
+        if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Stopping and removing existing container $CONTAINER_NAME..."
+          docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME
+        elif docker ps -a -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Removing existing stopped container $CONTAINER_NAME..."
+          docker rm $CONTAINER_NAME
+        else
+          echo "No existing container named $CONTAINER_NAME found."
+        fi
+        
+        echo "Cleaning up output directory..."
+        rm -rf output || { echo "Failed to remove output directory"; exit 1; }
+        mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
+        ## Building Container Image
+        docker buildx build --builder mybuilder --platform linux/amd64  --build-arg INCLUDE_CODE_COLLECTION_CACHE=true -t runwhen-local:test -f $BUILD_DIR/Dockerfile $BUILD_DIR --load
+
+        ## Use this if you need to test both arm64/amd64 builds
+        # docker buildx build --builder mybuilder --platform linux/amd64,linux/arm64  -t runwhen-local:test -f $BUILD_DIR/Dockerfile $BUILD_DIR
+
+    silent: true
+
+
+  run-rwl-discovery:
+    desc: "Run RunWhen Local Discovery on test infrastructure"
+    cmds:
+      - |
+        rm slx_count.txt || true
+        CONTAINER_NAME="RunWhenLocal"    
+        if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Stopping and removing existing container $CONTAINER_NAME..."
+          docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME
+        elif docker ps -a -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Removing existing stopped container $CONTAINER_NAME..."
+          docker rm $CONTAINER_NAME
+        else
+          echo "No existing container named $CONTAINER_NAME found."
+        fi
+        
+        echo "Cleaning up output directory..."
+        rm -rf output || { echo "Failed to remove output directory"; exit 1; }
+        mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
+
+        echo "Starting new container $CONTAINER_NAME..."
+
+        docker run -e DEBUG_LOGGING=false --name $CONTAINER_NAME -p 8081:8081 -v $(pwd):/shared -d runwhen-local:test || {
+          echo "Failed to start container"; exit 1;
+        }
+
+        echo "Running workspace builder script in container..."
+        docker exec -w /workspace-builder $CONTAINER_NAME ./run.sh $1 --verbose || {
+          echo "Error executing script in container"; exit 1;
+        }
+
+        echo "Review generated config files under output/workspaces/"
+        total_slxs=$(find $(find 'output/' -type d -name 'slxs') -mindepth 1 -type d | wc -l)
+        echo "Total SLXs: $total_slxs"
+        echo "$total_slxs" > slx_count.txt
+    silent: true
+
+  ci-run-rwl-discovery:
+    desc: "Run RunWhen Local Discovery on test infrastructure"
+    cmds:
+      - |
+        rm slx_count.txt || true
+        CONTAINER_NAME="RunWhenLocal"    
+        if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Stopping and removing existing container $CONTAINER_NAME..."
+          docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME
+        elif docker ps -a -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Removing existing stopped container $CONTAINER_NAME..."
+          docker rm $CONTAINER_NAME
+        else
+          echo "No existing container named $CONTAINER_NAME found."
+        fi
+        
+        echo "Cleaning up output directory..."
+        rm -rf output || { echo "Failed to remove output directory"; exit 1; }
+        mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
+        chmod 777 . 
+        echo "Starting new container $CONTAINER_NAME..."
+        echo "User $(whoami)"
+        # 1. Start container in the background
+        docker run -d \
+          -e WB_DEBUG_SUPPRESS_CHEAT_SHEET="true" \
+          -e DEBUG_LOGS=true \
+          --name "$CONTAINER_NAME" \
+          -p 8081:8081 \
+          -v "$(pwd):/shared" \
+          runwhen-local:test
+
+        # 2. Follow the main container logs in the background (if you care about them)
+        docker logs -f "$CONTAINER_NAME" &
+
+        # 3. Now exec the script. Its stdout goes to your pipeline.
+        #    By default, docker exec prints to the current terminal/session.
+        docker exec -w /workspace-builder "$CONTAINER_NAME" ./run.sh "$1" --verbose 2>&1 | tee run_sh_output.log
+
+        # 4. (Optional) Stop container if you no longer need it running
+        docker stop "$CONTAINER_NAME"
+        docker rm "$CONTAINER_NAME"        
+
+        echo "Review generated config files under output/workspaces/"
+        total_slxs=$(find $(find 'output/' -type d -name 'slxs') -mindepth 1 -type d | wc -l)
+        echo "Total SLXs: $total_slxs"
+        echo "$total_slxs" > slx_count.txt
+    silent: true
+
+
+  ci-test-1:
+      desc: "Run CI Discovery Test 1 - K8s and GCP - basic LOD "
+      env:
+        RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
+      vars: 
+        EXPECTED_SLXS: "5"
+      cmds:
+        - |
+          # Generate workspaceInfo.yaml with fetched cluster details
+          cat <<EOF > workspaceInfo.yaml
+          workspaceName: "$RW_WORKSPACE"
+          workspaceOwnerEmail: authors@runwhen.com
+          defaultLocation: location-01
+          defaultLOD: none
+          cloudConfig:
+            kubernetes:             
+              kubeconfigFile: /shared/kubeconfig.secret
+              contexts:
+                sandbox-cluster-1: 
+                  defaultNamespaceLOD: detailed
+              
+              # namespaces:
+              #   - ci-verify-basic
+          codeCollections: []
+          custom: 
+            kubernetes_distribution_binary: kubectl
+          EOF
+
+        - task: ci-run-rwl-discovery
+        - task: verify-slx-count
+          vars:
+            EXPECTED_SLX_COUNT: "{{.EXPECTED_SLXS}}"
+        - task: verify-rwl-output
+      silent: true
+
+
+  ci-test-2:
+      desc: "Run CI Discovery Test 2 - K8s and GCP - detailed LOD "
+      env:
+        RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
+      vars: 
+        EXPECTED_SLXS: "12"
+      cmds:
+        - |
+          # Generate workspaceInfo.yaml with fetched cluster details
+          cat <<EOF > workspaceInfo.yaml
+          workspaceName: "$RW_WORKSPACE"
+          workspaceOwnerEmail: authors@runwhen.com
+          defaultLocation: location-01
+          defaultLOD: none
+          cloudConfig:
+            kubernetes:             
+              kubeconfigFile: /shared/kubeconfig.secret
+              contexts:
+                sandbox-cluster-1: 
+                  defaultNamespaceLOD: detailed
+              namespaces:
+                - ci-verify-basic
+          codeCollections: []
+          custom: 
+            kubernetes_distribution_binary: kubectl
+          EOF
+
+      
+        - task: ci-run-rwl-discovery
+        - task: verify-slx-count
+          vars:
+            EXPECTED_SLX_COUNT: "{{.EXPECTED_SLXS}}"
+
+      silent: true
+
+  verify-slx-count: 
+    desc: "Validate SLX Count in CI test"
+    vars:
+      EXPECTED_SLX_COUNT: "{{.EXPECTED_SLX_COUNT | default `0`}}"
+    cmds: 
+      - |
+          total_slxs=$(cat slx_count.txt)
+          echo "---Validating SLX Count---"
+          echo "Total SLXs: $total_slxs (Expected: {{.EXPECTED_SLX_COUNT}})"
+          if [[ "$total_slxs" -lt "{{.EXPECTED_SLX_COUNT}}" ]]; then
+            echo -e "\033[31m❌ Total SLX count failed\033[0m"
+            exit 1
+          else
+            echo -e "\033[32m✔️ SLX Validation Passed\033[0m"
+            exit 0
+          fi
+    silent: true
+
+  verify-rwl-output: 
+    desc: "Validate that rendered content is as intended"
+    cmds: 
+      - | 
+        echo "Validate Runbook location configuration"
+        RUNBOOK_FILE=$(find . -type f -name "runbook.yaml" | head -n 1)
+        if [ -z "$RUNBOOK_FILE" ]; then
+          echo "Error: No runbook.yaml file found in subdirectories." >&2
+          exit 1
+        fi
+        LOCATION=$(yq e '.spec.location' "$RUNBOOK_FILE")
+        if [ "$LOCATION" = "missing_workspaceInfo_custom_variable" ]; then
+          echo "Error: runbook.yaml contains an invalid spec.location value." >&2
+          exit 1
+        fi
+        echo "Validation successful: $RUNBOOK_FILE has a valid spec.location."
+
+        echo "Validate SLI location configuration"
+        SLI_FILE=$(find . -type f -name "sli.yaml" | head -n 1)
+        if [ -z "$SLI_FILE" ]; then
+          echo "Error: No sli.yaml file found in subdirectories." >&2
+          exit 1
+        fi
+        LOCATION=$(yq e '.spec.location' "$SLI_FILE")
+        if [ "$LOCATION" = "missing_workspaceInfo_custom_variable" ]; then
+          echo "Error: runbook.yaml contains an invalid spec.location value." >&2
+          exit 1
+        fi
+        echo "Validation successful: $SLI_FILE has a valid spec.location."
+    silent: true
+
+  clean-rwl-discovery:
+    desc: "Check and clean up RunWhen Local discovery output"
+    cmds:
+      - |
+        rm -rf output
+        rm workspaceInfo.yaml
+    silent: true
