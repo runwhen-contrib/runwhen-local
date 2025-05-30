@@ -30,7 +30,7 @@ spec:
     - "{{slx}}"
     {% endfor %}
     {% endif %}
-    {% if groups.dependencies %}
+    {% if group.dependencies %}
     dependsOn:
     {% for dependency in group.dependencies %}
     - {{dependency}}
@@ -38,11 +38,16 @@ spec:
     {% endif %}
   {% endfor %}
   {% endif %}
-  {% if slx_relationships %}
-  slxRelationships:
-  {% for slx_relationship in slx_relationships %}
-  - subject: {{slx_relationship.subject}}
-    verb: {{slx_relationship.verb}}
-    directObject: {{slx_relationship.object}}
+  {% if subgroups %}
+  slxSubGroups:
+  {% for subgroup in subgroups.values() %}
+  - name: "{{subgroup.name}}"
+    {% if subgroup.slxs %}
+    slxs:
+    {% for slx in subgroup.slxs %}
+    - "{{slx}}"
+    {% endfor %}
+    {% endif %}
   {% endfor %}
   {% endif %}
+  slxRelationships: []

@@ -258,6 +258,48 @@ class GroupRule:
         return self.group_name
 
 
+class SubGroupRule:
+    """
+    A customization rule that maps SLXs to subgroups. Subgroups can be independent
+    or optionally associated with parent groups.
+    """
+    match_predicate: MatchPredicate
+    parent_group: Optional[str]
+    subgroup_name: str
+    priority: int
+
+    def __init__(self, match_predicate: MatchPredicate, subgroup_name: str, priority: int, parent_group: Optional[str] = None):
+        self.match_predicate = match_predicate
+        self.parent_group = parent_group
+        self.subgroup_name = subgroup_name
+        self.priority = priority
+
+    @staticmethod
+    def construct_from_config(subgroup_rule_config: dict[str, Any]):
+        match_predicate_config = subgroup_rule_config.get("match")
+        if not match_predicate_config:
+            raise WorkspaceBuilderUserException(f'A match predicate must be specified for a subgroup rule')
+        match_predicate = construct_slx_match_predicate_from_config(match_predicate_config,
+                                                                  construct_slx_match_predicate_from_config)
+        # parentGroup is now optional - subgroups can be independent
+        parent_group = subgroup_rule_config.get("parentGroup")
+        subgroup_name = subgroup_rule_config.get("subGroup")
+        if not subgroup_name:
+            raise WorkspaceBuilderUserException(f'A subgroup name must be specified for a subgroup rule')
+        priority = subgroup_rule_config.get('priority', 0)
+        return SubGroupRule(match_predicate, subgroup_name, priority, parent_group)
+
+    def match(self, slx_info: SLXInfo, parent_group: Optional[str] = None) -> Optional[str]:
+        # If this rule has a parent group requirement, check if it matches
+        if self.parent_group is not None and self.parent_group != parent_group:
+            return None
+        # If this rule is independent (no parent group), always check the match
+        matches = self.match_predicate.matches(slx_info)
+        if not matches:
+            return None
+        return self.subgroup_name
+
+
 class RelationshipVerb(Enum):
     DEPENDENT_ON = "dependent-on"
     DEPENDED_ON_BY = "depended-on-by"
@@ -307,20 +349,26 @@ class MapCustomizationRules:
     Rules/settings that are specified by the user that customize the generation of the map.
     """
     group_rules: list[GroupRule]
+    subgroup_rules: list[SubGroupRule]
     group_relationship_rules: list[RelationshipRule]
     slx_relationship_rules: list[RelationshipRule]
 
     def __init__(self, group_rules: list[GroupRule] = None,
+                 subgroup_rules: list[SubGroupRule] = None,
                  group_relationship_rules: list[RelationshipRule] = None,
                  slx_relationship_rules: list[RelationshipRule] = None):
         if not group_rules:
             group_rules = []
+        if not subgroup_rules:
+            subgroup_rules = []
         if not group_relationship_rules:
             group_relationship_rules = []
         if not slx_relationship_rules:
             slx_relationship_rules = []
         group_rules.sort(key=lambda e: e.priority)
+        subgroup_rules.sort(key=lambda e: e.priority)
         self.group_rules = group_rules
+        self.subgroup_rules = subgroup_rules
         self.group_relationship_rules = group_relationship_rules
         self.slx_relationship_rules = slx_relationship_rules
 
@@ -333,6 +381,11 @@ class MapCustomizationRules:
         spec = map_customization_rules_config.get('spec', {})
         group_rule_configs = spec.get("groupRules", [])
         group_rules = [GroupRule.construct_from_config(grc) for grc in group_rule_configs]
+        
+        # Add parsing for subgroup rules
+        subgroup_rule_configs = spec.get("subGroupRules", [])
+        subgroup_rules = [SubGroupRule.construct_from_config(sgrc) for sgrc in subgroup_rule_configs]
+        
         group_relationship_verb_default_config: str = spec.get("groupRelationVerbDefault")
         group_relationship_verb_default = RelationshipVerb(group_relationship_verb_default_config) \
             if group_relationship_verb_default_config else RelationshipVerb.DEPENDENT_ON
@@ -353,7 +406,7 @@ class MapCustomizationRules:
                                                    construct_slx_match_predicate_from_config)
             for slx_relationship_rule_config in slx_relationship_rule_configs
         ]
-        return MapCustomizationRules(group_rules, group_relationship_rules, slx_relationship_rules)
+        return MapCustomizationRules(group_rules, subgroup_rules, group_relationship_rules, slx_relationship_rules)
 
     @staticmethod
     def construct_from_config_file(file_path: str) -> "MapCustomizationRules":
@@ -366,14 +419,17 @@ class MapCustomizationRules:
     def merge(map_customization_rules_list: list["MapCustomizationRules"]) -> "MapCustomizationRules":
         # Merge the lists from all the separate map customization rules
         merged_group_rules = list()
+        merged_subgroup_rules = list()
         merged_group_relationship_rules = list()
         merged_slx_relationship_rules = list()
         for map_customization_rules in map_customization_rules_list:
             merged_group_rules += map_customization_rules.group_rules
+            merged_subgroup_rules += map_customization_rules.subgroup_rules
             merged_group_relationship_rules += map_customization_rules.group_relationship_rules
             merged_slx_relationship_rules += map_customization_rules.slx_relationship_rules
 
         return MapCustomizationRules(merged_group_rules,
+                                     merged_subgroup_rules,
                                      merged_group_relationship_rules,
                                      merged_slx_relationship_rules)
 
@@ -404,6 +460,18 @@ class MapCustomizationRules:
             group = group_rule.match(slx_info)
             if group:
                 return group
+        return None
+
+    def match_subgroup_rules(self, slx_info: SLXInfo, parent_group: Optional[str] = None) -> Optional[str]:
+        """
+        Match SLX info against subgroup rules. Can optionally specify a parent group
+        for subgroups that are tied to specific groups, but also matches independent subgroups.
+        Returns the name of the matching subgroup, or None if no match.
+        """
+        for subgroup_rule in self.subgroup_rules:
+            subgroup = subgroup_rule.match(slx_info, parent_group)
+            if subgroup:
+                return subgroup
         return None
 
     @staticmethod

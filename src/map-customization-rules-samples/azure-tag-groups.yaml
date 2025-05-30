@@ -1,0 +1,87 @@
+apiVersion: runwhen.com/v1
+kind: MapCustomizationRules
+spec:
+  # Main groups based on Azure resource groups or subscription
+  groupRules:
+    - match:
+        type: pattern
+        matchProperty: "resource.resourceGroup"
+        pattern: ".*-prod"
+        matchMode: regex
+      group: "Azure Production Resources"
+      priority: 10
+    
+    - match:
+        type: pattern
+        matchProperty: "resource.resourceGroup"
+        pattern: ".*-dev"
+        matchMode: regex
+      group: "Azure Development Resources"
+      priority: 10
+    
+    - match:
+        type: pattern
+        matchProperty: "resource.type"
+        pattern: "Microsoft.Network/.*"
+        matchMode: regex
+      group: "Azure Networking"
+      priority: 20
+    
+    - match:
+        type: pattern
+        matchProperty: "resource.type"
+        pattern: "Microsoft.Compute/.*"
+        matchMode: regex
+      group: "Azure Compute"
+      priority: 20
+  
+  # Subgroups based on Azure resource tags
+  subGroupRules:
+    # Application subgroups
+    - match:
+        type: pattern
+        matchProperty: "resource.tags.Application"
+        pattern: ".*"
+        matchMode: regex
+      parentGroup: "Azure Production Resources"
+      subGroup: "{{resource.tags.Application}}"
+      priority: 10
+    
+    # Environment subgroups
+    - match:
+        type: pattern
+        matchProperty: "resource.tags.Environment"
+        pattern: "Production"
+        matchMode: exact
+      parentGroup: "Azure Compute"
+      subGroup: "Production Compute"
+      priority: 10
+    
+    - match:
+        type: pattern
+        matchProperty: "resource.tags.Environment"
+        pattern: "Staging"
+        matchMode: exact
+      parentGroup: "Azure Compute"
+      subGroup: "Staging Compute"
+      priority: 10
+    
+    # Cost center subgroups
+    - match:
+        type: pattern
+        matchProperty: "resource.tags.CostCenter"
+        pattern: ".*"
+        matchMode: regex
+      parentGroup: "Azure Production Resources"
+      subGroup: "Cost Center {{resource.tags.CostCenter}}"
+      priority: 20
+    
+    # Owner subgroups
+    - match:
+        type: pattern
+        matchProperty: "resource.tags.Owner"
+        pattern: ".*"
+        matchMode: regex
+      parentGroup: "Azure Production Resources"
+      subGroup: "Owned by {{resource.tags.Owner}}"
+      priority: 30 

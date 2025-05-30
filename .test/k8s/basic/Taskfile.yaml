@@ -60,7 +60,7 @@ tasks:
               sandbox-cluster-1: 
                 defaultNamespaceLOD: basic
         codeCollections: []
-        useLocalGit: true
+        # useLocalGit: true
         # codeCollections: 
         #   - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection"
         #     branch: "main"
@@ -163,6 +163,84 @@ tasks:
 
         echo "Running workspace builder script in container..."
         docker exec -w /workspace-builder $CONTAINER_NAME ./run.sh $1 --verbose || {
+          echo "Error executing script in container"; exit 1;
+        }
+
+        echo "Review generated config files under output/workspaces/"
+        total_slxs=$(find $(find 'output/' -type d -name 'slxs') -mindepth 1 -type d | wc -l)
+        echo "Total SLXs: $total_slxs"
+        echo "$total_slxs" > slx_count.txt
+    silent: true
+
+  run-rwl-discovery-with-map-customization-rules-and-upload:
+    desc: "Run RunWhen Local Discovery on test infrastructure"
+    env:
+      RW_WORKSPACE: "{{.RW_WORKSPACE}}"
+    cmds:
+      - |
+        rm slx_count.txt || true
+        CONTAINER_NAME="RunWhenLocal"    
+        if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Stopping and removing existing container $CONTAINER_NAME..."
+          docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME
+        elif docker ps -a -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Removing existing stopped container $CONTAINER_NAME..."
+          docker rm $CONTAINER_NAME
+        else
+          echo "No existing container named $CONTAINER_NAME found."
+        fi
+        
+        echo "Cleaning up output directory..."
+        rm -rf output || { echo "Failed to remove output directory"; exit 1; }
+        mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
+
+        echo "Starting new container $CONTAINER_NAME..."
+
+        docker run -e DEBUG_LOGGING=false --name $CONTAINER_NAME -p 8081:8081 -v $(pwd):/shared -d runwhen-local:test || {
+          echo "Failed to start container"; exit 1;
+        }
+
+        echo "Running workspace builder script in container..."
+        docker exec -w /workspace-builder $CONTAINER_NAME ./run.sh $1 -r /shared/k8s-cluster-namespace.yaml --upload --verbose || {
+          echo "Error executing script in container"; exit 1;
+        }
+
+        echo "Review generated config files under output/workspaces/"
+        total_slxs=$(find $(find 'output/' -type d -name 'slxs') -mindepth 1 -type d | wc -l)
+        echo "Total SLXs: $total_slxs"
+        echo "$total_slxs" > slx_count.txt
+    silent: true
+
+  run-rwl-discovery-with-map-customization-rules:
+    desc: "Run RunWhen Local Discovery on test infrastructure"
+    env:
+      RW_WORKSPACE: "{{.RW_WORKSPACE}}"
+    cmds:
+      - |
+        rm slx_count.txt || true
+        CONTAINER_NAME="RunWhenLocal"    
+        if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Stopping and removing existing container $CONTAINER_NAME..."
+          docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME
+        elif docker ps -a -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Removing existing stopped container $CONTAINER_NAME..."
+          docker rm $CONTAINER_NAME
+        else
+          echo "No existing container named $CONTAINER_NAME found."
+        fi
+        
+        echo "Cleaning up output directory..."
+        rm -rf output || { echo "Failed to remove output directory"; exit 1; }
+        mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
+
+        echo "Starting new container $CONTAINER_NAME..."
+
+        docker run -e DEBUG_LOGGING=false --name $CONTAINER_NAME -p 8081:8081 -v $(pwd):/shared -d runwhen-local:test || {
+          echo "Failed to start container"; exit 1;
+        }
+
+        echo "Running workspace builder script in container..."
+        docker exec -w /workspace-builder $CONTAINER_NAME ./run.sh $1 -r /shared/k8s-cluster-namespace.yaml --verbose || {
           echo "Error executing script in container"; exit 1;
         }
 
@@ -347,4 +425,79 @@ tasks:
       - |
         rm -rf output
         rm workspaceInfo.yaml
+    silent: true
+
+
+  upload-slxs:
+    desc: "Upload SLX files to the appropriate URL"
+    env:
+      RW_WORKSPACE: "{{.RW_WORKSPACE}}"
+      RW_API_URL: "{{.RW_API}}"
+      RW_PAT: "{{.RW_PAT}}"
+    cmds:
+      - |
+        BASE_DIR="output/workspaces/${RW_WORKSPACE}/slxs"
+        if [ ! -d "$BASE_DIR" ]; then
+          echo "Directory $BASE_DIR does not exist. Upload aborted."
+          exit 1
+        fi
+
+        for dir in "$BASE_DIR"/*; do
+          if [ -d "$dir" ]; then
+            SLX_NAME=$(basename "$dir")
+            PAYLOAD=$(jq -n --arg commitMsg "Creating new SLX $SLX_NAME" '{ commitMsg: $commitMsg, files: {} }')
+            for file in slx.yaml runbook.yaml sli.yaml; do
+              if [ -f "$dir/$file" ]; then
+                CONTENT=$(cat "$dir/$file")
+                PAYLOAD=$(echo "$PAYLOAD" | jq --arg fileContent "$CONTENT" --arg fileName "$file" '.files[$fileName] = $fileContent')
+              fi
+            done
+
+            URL="https://${RW_API_URL}/api/v3/workspaces/${RW_WORKSPACE}/branches/main/slxs/${SLX_NAME}"
+            echo "Uploading SLX: $SLX_NAME to $URL"
+            response=$(curl -v -X POST "$URL" \
+              -H "Authorization: Bearer $RW_PAT" \
+              -H "Content-Type: application/json" \
+              -d "$PAYLOAD" -w "%{http_code}" -o /dev/null -s 2>&1)
+            
+            if [[ "$response" =~ 200|201 ]]; then
+              echo "Successfully uploaded SLX: $SLX_NAME to $URL"
+            else
+              echo "Failed to upload SLX: $SLX_NAME to $URL. Response:"
+              echo "$response"
+            fi
+          fi
+        done
+    silent: true
+  delete-slxs:
+    desc: "Delete SLX objects from the appropriate URL"
+    env:
+      RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
+      RW_API_URL: "{{.RW_API}}"
+      RW_PAT: "{{.RW_PAT}}"
+    cmds:
+      - |
+        BASE_DIR="output/workspaces/${RW_WORKSPACE}/slxs"
+        if [ ! -d "$BASE_DIR" ]; then
+          echo "Directory $BASE_DIR does not exist. Deletion aborted."
+          exit 1
+        fi
+
+        for dir in "$BASE_DIR"/*; do
+          if [ -d "$dir" ]; then
+            SLX_NAME=$(basename "$dir")
+            URL="https://${RW_API_URL}/api/v3/workspaces/${RW_WORKSPACE}/branches/main/slxs/${SLX_NAME}"
+            echo "Deleting SLX: $SLX_NAME from $URL"
+            response=$(curl -v -X DELETE "$URL" \
+              -H "Authorization: Bearer $RW_PAT" \
+              -H "Content-Type: application/json" -w "%{http_code}" -o /dev/null -s 2>&1)
+
+            if [[ "$response" =~ 200|204 ]]; then
+              echo "Successfully deleted SLX: $SLX_NAME from $URL"
+            else
+              echo "Failed to delete SLX: $SLX_NAME from $URL. Response:"
+              echo "$response"
+            fi
+          fi
+        done
     silent: true

@@ -112,6 +112,7 @@ SETTINGS = (
 )
 
 GROUPS_PROPERTY = "groups"
+SUBGROUPS_PROPERTY = "subgroups"
 SLXS_PROPERTY = "SLXS"
 SLX_RELATIONSHIPS_PROPERTY = "slx-relationships"
 GENERATION_RULES_PROPERTY = "generation-rules"
@@ -532,6 +533,23 @@ class Group:
         self.dependencies.append(dependency)
 
 
+class SubGroup:
+    """
+    Class to represent a standalone subgroup that contains SLXs.
+    """
+    name: str
+    slxs: list[str]
+
+    def __init__(self, name: str, slxs: Optional[list[str]] = None):
+        if slxs is None:
+            slxs = []
+        self.name = name
+        self.slxs = slxs
+
+    def add_slx(self, slx_name: str):
+        self.slxs.append(slx_name)
+
+
 class GenerationRuleInfo:
     """
     Collects the information that's obtained during the load phase that will later
@@ -841,6 +859,7 @@ def generate_slx_output_items(slx_info: SLXInfo,
                               renderer_output_items: dict[str, RendererOutputItem],
                               map_customization_rules: MapCustomizationRules,
                               groups: dict[str, Group],
+                              subgroups: dict[str, SubGroup],
                               slx_relationships: list[SLXRelationship],
                               context: Context) -> None:
     """
@@ -852,6 +871,7 @@ def generate_slx_output_items(slx_info: SLXInfo,
     :param renderer_output_items:
     :param map_customization_rules:
     :param groups:
+    :param subgroups:
     :param slx_relationships:
     :param context:
     :return:
@@ -925,6 +945,18 @@ def generate_slx_output_items(slx_info: SLXInfo,
                 group.add_slx(slx_info.qualified_name)
         except Exception as e:
             logger.warning(f"Error processing group rules: {e}")
+
+        try:
+            subgroup_name_template = map_customization_rules.match_subgroup_rules(slx_info)
+            if subgroup_name_template:
+                subgroup_name = render_template_string(subgroup_name_template, customization_variables)
+                subgroup = subgroups.get(subgroup_name)
+                if not subgroup:
+                    subgroup = SubGroup(subgroup_name)
+                    subgroups[subgroup_name] = subgroup
+                subgroup.add_slx(slx_info.qualified_name)
+        except Exception as e:
+            logger.warning(f"Error processing subgroup rules: {e}")
 
         try:
             subject_template, verb = map_customization_rules.match_slx_relationship_rules(slx_info)
@@ -1103,6 +1135,11 @@ def enrich(context: Context) -> None:
         groups = dict()
         context.set_property(GROUPS_PROPERTY, groups)
 
+    subgroups = context.get_property(SUBGROUPS_PROPERTY)
+    if subgroups is None:
+        subgroups = dict()
+        context.set_property(SUBGROUPS_PROPERTY, subgroups)
+
     slx_relationships = context.get_property(SLX_RELATIONSHIPS_PROPERTY)
     if slx_relationships is None:
         slx_relationships = list()
@@ -1185,6 +1222,7 @@ def enrich(context: Context) -> None:
                                   renderer_output_items,
                                   map_customization_rules,
                                   groups,
+                                  subgroups,
                                   slx_relationships,
                                   context)
 
@@ -1204,6 +1242,7 @@ def enrich(context: Context) -> None:
         'generated_by': generated_by,
         'custom': custom_definitions,
         'groups': groups,
+        'subgroups': subgroups,
         'slx_relationships': slx_relationships,
     }
     path = f"{workspace_path}/workspace.yaml"

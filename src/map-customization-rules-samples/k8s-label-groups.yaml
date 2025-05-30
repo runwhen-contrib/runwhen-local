@@ -1,0 +1,95 @@
+apiVersion: runwhen.com/v1
+kind: MapCustomizationRules
+spec:
+  # Main groups based on Kubernetes namespace or application
+  groupRules:
+    - match:
+        type: pattern
+        matchProperty: "resource.metadata.namespace"
+        pattern: ".*-prod"
+        matchMode: regex
+      group: "Production Applications"
+      priority: 10
+    
+    - match:
+        type: pattern
+        matchProperty: "resource.metadata.namespace"
+        pattern: ".*-staging"
+        matchMode: regex
+      group: "Staging Applications"
+      priority: 10
+    
+    - match:
+        type: pattern
+        matchProperty: "resource.metadata.namespace"
+        pattern: "monitoring"
+        matchMode: exact
+      group: "Cluster Monitoring"
+      priority: 20
+    
+    - match:
+        type: pattern
+        matchProperty: "resource.metadata.namespace"
+        pattern: "kube-system"
+        matchMode: exact
+      group: "Cluster System"
+      priority: 20
+  
+  # Subgroups based on Kubernetes labels
+  subGroupRules:
+    # Component-type subgroups for Production
+    - match:
+        type: pattern
+        matchProperty: "resource.metadata.labels.component-type"
+        pattern: "frontend"
+        matchMode: exact
+      parentGroup: "Production Applications"
+      subGroup: "Frontend Services"
+      priority: 10
+    
+    - match:
+        type: pattern
+        matchProperty: "resource.metadata.labels.component-type"
+        pattern: "backend"
+        matchMode: exact
+      parentGroup: "Production Applications"
+      subGroup: "Backend Services"
+      priority: 10
+    
+    - match:
+        type: pattern
+        matchProperty: "resource.metadata.labels.component-type"
+        pattern: "database"
+        matchMode: exact
+      parentGroup: "Production Applications"
+      subGroup: "Database Services"
+      priority: 10
+    
+    # Stateful/stateless division
+    - match:
+        type: pattern
+        matchProperty: "resource.metadata.labels.stateful"
+        pattern: "true"
+        matchMode: exact
+      parentGroup: "Production Applications"
+      subGroup: "Stateful Services"
+      priority: 20
+    
+    - match:
+        type: pattern
+        matchProperty: "resource.metadata.labels.stateful"
+        pattern: "false"
+        matchMode: exact
+      parentGroup: "Production Applications"
+      subGroup: "Stateless Services"
+      priority: 20
+    
+    # Team-based subgroups
+    - match:
+        type: pattern
+        matchProperty: "resource.metadata.labels.team"
+        pattern: ".*"
+        matchMode: regex
+      parentGroup: "Production Applications"
+      subGroup: "Team {{resource.metadata.labels.team}} Services"
+      priority: 30 

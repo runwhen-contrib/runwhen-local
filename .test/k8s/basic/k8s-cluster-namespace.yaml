@@ -1,0 +1,55 @@
+apiVersion: runwhen.com/v1
+kind: MapCustomizationRules
+spec:
+  # Create one major group for the entire cluster
+  groupRules:
+    - match:
+        type: pattern
+        matchProperty: "cluster"
+        pattern: "sandbox-cluster-1"
+        matchMode: exact
+      group: "Sandbox Cluster"
+      priority: 10
+  
+  # Create subgroups organized by namespace
+  subGroupRules:
+    - match:
+        type: pattern
+        matchProperty: "namespace" 
+        pattern: "flux-system"
+        matchMode: exact
+      subGroup: "flux-system Namespace"
+      priority: 10
+    
+    - match:
+        type: pattern
+        matchProperty: "namespace"
+        pattern: "backstage"
+        matchMode: exact
+      subGroup: "backstage Namespace"
+      priority: 10
+    
+    - match:
+        type: pattern
+        matchProperty: "namespace"
+        pattern: "kube-system"
+        matchMode: exact
+      subGroup: "kube-system Namespace"
+      priority: 15
+    
+    - match:
+        type: pattern
+        matchProperty: "namespace"
+        pattern: "default"
+        matchMode: exact
+      subGroup: "default Namespace"
+      priority: 15
+    
+    # Catch-all subgroup for any other namespaces
+    - match:
+        type: pattern
+        matchProperty: "namespace"
+        pattern: ".*"
+        matchMode: substring
+      subGroup: "Other Namespaces"
+      priority: 20 

@@ -1,0 +1,87 @@
+apiVersion: runwhen.com/v1
+kind: MapCustomizationRules
+spec:
+  # Main groups based on AWS service type
+  groupRules:
+    - match:
+        type: pattern
+        matchProperty: "service"
+        pattern: "rds"
+        matchMode: exact
+      group: "AWS Database Services"
+      priority: 10
+      
+    - match:
+        type: pattern
+        matchProperty: "service"
+        pattern: "ec2"
+        matchMode: exact
+      group: "AWS Compute Services"
+      priority: 10
+      
+    - match:
+        type: pattern
+        matchProperty: "service"
+        pattern: "s3"
+        matchMode: exact
+      group: "AWS Storage Services"
+      priority: 10
+  
+  # Subgroups based on AWS resource tags
+  subGroupRules:
+    # Environment-based subgroups for databases
+    - match:
+        type: pattern
+        matchProperty: "[aws]Environment"
+        pattern: "Production"
+        matchMode: exact
+      parentGroup: "AWS Database Services"
+      subGroup: "Production Databases"
+      priority: 10
+    
+    - match:
+        type: pattern
+        matchProperty: "[aws]Environment"
+        pattern: "Staging"
+        matchMode: exact
+      parentGroup: "AWS Database Services"
+      subGroup: "Staging Databases"
+      priority: 10
+    
+    # Purpose-based subgroups for compute
+    - match:
+        type: pattern
+        matchProperty: "[aws]Purpose"
+        pattern: "WebServer"
+        matchMode: exact
+      parentGroup: "AWS Compute Services"
+      subGroup: "Web Servers"
+      priority: 10
+    
+    - match:
+        type: pattern
+        matchProperty: "[aws]Purpose"
+        pattern: "BatchProcessing"
+        matchMode: exact
+      parentGroup: "AWS Compute Services"
+      subGroup: "Batch Processing"
+      priority: 10
+    
+    # Access pattern subgroups for storage
+    - match:
+        type: pattern
+        matchProperty: "[aws]AccessPattern"
+        pattern: "HighFrequency"
+        matchMode: exact
+      parentGroup: "AWS Storage Services"
+      subGroup: "Hot Storage"
+      priority: 10
+    
+    - match:
+        type: pattern
+        matchProperty: "[aws]AccessPattern"
+        pattern: "Archive"
+        matchMode: exact
+      parentGroup: "AWS Storage Services"
+      subGroup: "Archive Storage"
+      priority: 10 
