@@ -1,6 +1,6 @@
     hierarchy: 
     - platform
-{% if match_resource.cluster %}
+{% if cluster.name %}
     - cluster
 {% endif %}
 {% if match_resource.namespace %}
