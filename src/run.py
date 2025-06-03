@@ -892,10 +892,24 @@ def main():
             # the WB error handler is derived from the PAPI error handler, so, at least
             # currently, they're mostly the same), so we don't use
             # handle_rest_service_error here.
-            response_data = response.json()
-            detail = response_data.get('detail')
-            code = response_data.get('code')
-            fatal(f"Error uploading map builder data; {detail}; status={response.status_code}; code={code}")
+            try:
+                # Check if response has JSON content-type
+                content_type = response.headers.get('content-type', '').lower()
+                if 'application/json' not in content_type:
+                    fatal(f"Error uploading map builder data; Non-JSON response (Content-Type: {content_type}); "
+                          f"status={response.status_code}; Response body: {response.text[:500]}")
+                
+                # Check if response body is empty
+                if not response.text.strip():
+                    fatal(f"Error uploading map builder data; Empty response body; status={response.status_code}")
+                
+                response_data = response.json()
+                detail = response_data.get('detail')
+                code = response_data.get('code')
+                fatal(f"Error uploading map builder data; {detail}; status={response.status_code}; code={code}")
+            except requests.exceptions.JSONDecodeError as e:
+                fatal(f"Error uploading map builder data; Invalid JSON response: {e}; "
+                      f"status={response.status_code}; Response body: {response.text[:500]}")
 
         print("Workspace builder data uploaded successfully.")
 
