@@ -280,10 +280,13 @@ class AzurePlatformHandler(PlatformHandler):
         if subscription_id:
             template_variables['subscription_id'] = subscription_id
             
-            # Add subscription name to template variables if available
+            # Always add subscription name - get_subscription_name() handles fallbacks
             subscription_name = getattr(resource, "subscription_name", None)
             if subscription_name:
                 template_variables['subscription_name'] = subscription_name
+            else:
+                # Fallback: if somehow subscription_name wasn't set during parsing, get it now
+                template_variables['subscription_name'] = get_subscription_name(subscription_id)
         
         return template_variables
 

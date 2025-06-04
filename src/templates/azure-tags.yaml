@@ -2,13 +2,8 @@
       value: azure
     - name: subscription_id
       value: {{ subscription_id | default(match_resource.subscription_id) }}
-{% if subscription_name is defined %}
     - name: subscription_name
-      value: {{ subscription_name }}
-{% elif match_resource.subscription_name is defined %}
-    - name: subscription_name
-      value: {{ match_resource.subscription_name }}
-{% endif %}
+      value: {{ subscription_name | default(match_resource.subscription_name, match_resource.subscription_id) }}
     - name: resource_group
       value: {{ resource_group.name | default(match_resource.resource_group.name) }}
     - name: resource_name
