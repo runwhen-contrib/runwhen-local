@@ -170,8 +170,17 @@ class AzurePlatformHandler(PlatformHandler):
         tags = resource_data.get("tags", {})
         resource_attributes = {"tags": tags}
 
-        # keep subscription_id for per-sub LOD
+        # Get subscription_id - either from direct field or extract from resource ID
         subscription_id = resource_data.get("subscription_id")
+        if not subscription_id:
+            # Extract subscription_id from resource ID path
+            resource_id = resource_data.get("id", "")
+            if "/subscriptions/" in resource_id:
+                parts = resource_id.split("/subscriptions/")
+                if len(parts) > 1:
+                    subscription_part = parts[1].split("/")[0]
+                    subscription_id = subscription_part
+        
         if subscription_id:
             resource_attributes["subscription_id"] = subscription_id
             
