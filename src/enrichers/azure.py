@@ -244,6 +244,10 @@ class AzurePlatformHandler(PlatformHandler):
             else:
                 # Handle case when resource_group is None
                 return None
+        elif qualifier_name == "subscription_id":
+            return getattr(resource, 'subscription_id', None)
+        elif qualifier_name == "subscription_name":
+            return getattr(resource, 'subscription_name', None)
         else:
             # Log or raise an error if qualifier is unknown, or simply return None
             return None
@@ -271,7 +275,7 @@ class AzurePlatformHandler(PlatformHandler):
         if resource_group:
             template_variables['resource_group'] = resource_group
         
-        # Add subscription information if available
+        # Always add subscription information as top-level template variables
         subscription_id = getattr(resource, "subscription_id", None)
         if subscription_id:
             template_variables['subscription_id'] = subscription_id
