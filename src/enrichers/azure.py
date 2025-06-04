@@ -170,8 +170,17 @@ class AzurePlatformHandler(PlatformHandler):
         tags = resource_data.get("tags", {})
         resource_attributes = {"tags": tags}
 
-        # keep subscription_id for per-sub LOD
+        # Get subscription_id - either from direct field or extract from resource ID
         subscription_id = resource_data.get("subscription_id")
+        if not subscription_id:
+            # Extract subscription_id from resource ID path
+            resource_id = resource_data.get("id", "")
+            if "/subscriptions/" in resource_id:
+                parts = resource_id.split("/subscriptions/")
+                if len(parts) > 1:
+                    subscription_part = parts[1].split("/")[0]
+                    subscription_id = subscription_part
+        
         if subscription_id:
             resource_attributes["subscription_id"] = subscription_id
             
@@ -244,6 +253,10 @@ class AzurePlatformHandler(PlatformHandler):
             else:
                 # Handle case when resource_group is None
                 return None
+        elif qualifier_name == "subscription_id":
+            return getattr(resource, 'subscription_id', None)
+        elif qualifier_name == "subscription_name":
+            return getattr(resource, 'subscription_name', None)
         else:
             # Log or raise an error if qualifier is unknown, or simply return None
             return None
@@ -271,15 +284,19 @@ class AzurePlatformHandler(PlatformHandler):
         if resource_group:
             template_variables['resource_group'] = resource_group
         
-        # Add subscription information if available
-        subscription_id = getattr(resource, "subscription_id", None)
+        # Always add subscription information as top-level template variables
+        # Access subscription info using the same methods as qualifiers
+        subscription_id = self.get_common_resource_property_values(resource, "subscription_id")
         if subscription_id:
             template_variables['subscription_id'] = subscription_id
             
-            # Add subscription name to template variables if available
-            subscription_name = getattr(resource, "subscription_name", None)
+            # Always add subscription name - get_subscription_name() handles fallbacks
+            subscription_name = self.get_common_resource_property_values(resource, "subscription_name")
             if subscription_name:
                 template_variables['subscription_name'] = subscription_name
+            else:
+                # Fallback: if somehow subscription_name wasn't set during parsing, get it now
+                template_variables['subscription_name'] = get_subscription_name(subscription_id)
         
         return template_variables
 

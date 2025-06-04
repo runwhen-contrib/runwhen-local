@@ -1,18 +1,16 @@
     - name: platform
       value: azure
     - name: subscription_id
-      value: {{ match_resource.subscription_id }}
-{% if match_resource.subscription_name is defined %}
+      value: {{ subscription_id | default(match_resource.subscription_id) }}
     - name: subscription_name
-      value: {{ match_resource.subscription_name }}
-{% endif %}
+      value: {{ subscription_name | default(match_resource.subscription_name, match_resource.subscription_id) }}
     - name: resource_group
-      value: {{ match_resource.resource_group.name }}
+      value: {{ resource_group.name | default(match_resource.resource_group.name) }}
     - name: resource_name
       value: {{match_resource.resource.name}} 
 {% set tags = match_resource.resource.tags %}
 {% if tags %}
-{% for k, v in match_resource.tags.items() %}
+{% for k, v in tags.items() %}
     {% if v and v|string|trim != "" %}
     - name: "[azure]{{ k | string }}"
       value: "{{ v | string }}"
