@@ -276,12 +276,13 @@ class AzurePlatformHandler(PlatformHandler):
             template_variables['resource_group'] = resource_group
         
         # Always add subscription information as top-level template variables
-        subscription_id = getattr(resource, "subscription_id", None)
+        # Access subscription info using the same methods as qualifiers
+        subscription_id = self.get_common_resource_property_values(resource, "subscription_id")
         if subscription_id:
             template_variables['subscription_id'] = subscription_id
             
             # Always add subscription name - get_subscription_name() handles fallbacks
-            subscription_name = getattr(resource, "subscription_name", None)
+            subscription_name = self.get_common_resource_property_values(resource, "subscription_name")
             if subscription_name:
                 template_variables['subscription_name'] = subscription_name
             else:
