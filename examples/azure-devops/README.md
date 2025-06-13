@@ -119,11 +119,11 @@ The Azure DevOps indexer discovers and indexes resources with a clear hierarchic
 All resources follow the pattern: `{organization}/{project}/{resource}` (or `{organization}/{project}` for projects, or `{organization}` for organizations)
 
 **Examples:**
-- Organization: `runwhen-labs`
-- Project: `runwhen-labs/DevOps-Triage-Test`
-- Repository: `runwhen-labs/DevOps-Triage-Test/test-pipeline-repo`
-- Pipeline: `runwhen-labs/DevOps-Triage-Test/Failing-Pipeline`
-- Release: `runwhen-labs/DevOps-Triage-Test/Production-Release`
+- Organization: `your-organization`
+- Project: `your-organization/your-project`
+- Repository: `your-organization/your-project/your-repository`
+- Pipeline: `your-organization/your-project/your-pipeline`
+- Release: `your-organization/your-project/your-release`
 
 ### Organizations
 - **Properties:** name, url, **organization**
@@ -161,15 +161,15 @@ All resources now include an `organization` attribute that contains the organiza
 
 **Example Resource with Organization:**
 ```yaml
-runwhen-labs/DevOps-Triage-Test/test-pipeline-repo: !Resource
-  id: c2a4b5cd-ae02-47b9-852f-5aa33334c7e5
-  name: test-pipeline-repo
-  organization: runwhen-labs
+your-organization/your-project/your-repository: !Resource
+  id: abc123ef-1234-5678-9abc-def123456789
+  name: your-repository
+  organization: your-organization
   project: !Resource { ... }
-  qualified_name: runwhen-labs/DevOps-Triage-Test/test-pipeline-repo
-  remote_url: https://runwhen-labs@dev.azure.com/runwhen-labs/DevOps-Triage-Test/_git/test-pipeline-repo
+  qualified_name: your-organization/your-project/your-repository
+  remote_url: https://your-organization@dev.azure.com/your-organization/your-project/_git/your-repository
   size: 188
-  url: https://dev.azure.com/runwhen-labs/8f7ed6e6-ab60-4047-a8b9-ad656f4bbf36/_apis/git/repositories/c2a4b5cd-ae02-47b9-852f-5aa33334c7e5
+  url: https://dev.azure.com/your-organization/12345678-1234-5678-9abc-def123456789/_apis/git/repositories/abc123ef-1234-5678-9abc-def123456789
 ```
 
 ## Generation Rules Examples
@@ -245,193 +245,7 @@ matchRules:
 ```yaml
 matchRules:
   - type: pattern
-    pattern: "runwhen-labs"
+    pattern: "your-organization"
     properties: ["organization"]
     mode: exact
 ```
-
-### Custom Variable Matching
-```yaml
-matchRules:
-  - type: custom-variable
-    path: custom.azure_devops.environment
-    pattern: "production"
-    mode: exact
-```
-
-### Logical Operators
-```yaml
-# AND - All conditions must match
-matchRules:
-  - type: and
-    matches:
-      - type: pattern
-        pattern: "prod"
-        properties: ["name"]
-        mode: substring
-      - type: pattern
-        pattern: "deploy"
-        properties: ["name"]
-        mode: substring
-
-# OR - At least one condition must match
-matchRules:
-  - type: or
-    matches:
-      - type: pattern
-        pattern: "ci"
-        properties: ["name"]
-        mode: substring
-      - type: pattern
-        pattern: "build"
-        properties: ["name"]
-        mode: substring
-```
-
-## Qualifiers
-
-Qualifiers determine how resources are named in the generated SLXs. With the new hierarchical structure:
-
-- **`["name"]`** - Use only the resource name
-- **`["organization", "name"]`** - Use organization and resource name
-- **`["project.name", "name"]`** - Use project name and resource name  
-- **`["organization", "project.name", "name"]`** - Use full hierarchy
-- **`["resource"]`** - Use a generic resource identifier
-
-**Recommended Qualifiers:**
-- For organization-wide resources: `["organization", "name"]`
-- For project-specific resources: `["project.name", "name"]`
-- For unique global naming: `["organization", "project.name", "name"]`
-
-## Level of Detail
-
-- **`basic`** - Minimal information for lightweight monitoring
-- **`detailed`** - Comprehensive information for thorough analysis
-
-## Output Items
-
-- **`slx`** - Service Level eXpectation for monitoring
-- **`runbook`** - Troubleshooting procedures and automation
-- **`sli`** - Service Level Indicator (if supported by templates)
-
-## Getting Started
-
-1. **Copy the example configuration:**
-   ```bash
-   cp examples/azure-devops/workspaceInfo-example.yaml workspaceInfo.yaml
-   ```
-
-2. **Update the configuration:**
-   - Replace placeholder values with your actual Azure DevOps organization details
-   - Choose your preferred authentication method
-   - Customize the custom variables section
-
-3. **Copy the generation rules:**
-   ```bash
-   cp examples/azure-devops/azure-devops-examples.yaml generation-rules.yaml
-   ```
-
-4. **Customize the generation rules:**
-   - Modify match patterns to fit your naming conventions
-   - Adjust qualifiers and level of detail as needed
-   - Add or remove rules based on your requirements
-   - Consider organization-specific rules for multi-org environments
-
-5. **Run RunWhen Local:**
-   ```bash
-   runwhen-local build --workspace-info workspaceInfo.yaml
-   ```
-
-## Multi-Organization Support
-
-The indexer now fully supports multiple Azure DevOps organizations:
-
-```yaml
-# Example: Different rules for different organizations
-generationRules:
-  - resourceTypes:
-      - pipeline
-    matchRules:
-      - type: and
-        matches:
-          - type: pattern
-            pattern: "prod-org"
-            properties: ["organization"]
-            mode: exact
-          - type: pattern
-            pattern: "deploy"
-            properties: ["name"]
-            mode: substring
-    slxs:
-      - baseName: prod-org-pipeline-health
-        qualifiers: ["organization", "project.name", "name"]
-        
-  - resourceTypes:
-      - pipeline
-    matchRules:
-      - type: pattern
-        pattern: "dev-org"
-        properties: ["organization"]
-        mode: exact
-    slxs:
-      - baseName: dev-org-pipeline-health
-        qualifiers: ["project.name", "name"]
-```
-
-## Troubleshooting
-
-### Authentication Issues
-
-**Problem:** "Failed to authenticate to Azure DevOps"
-**Solutions:**
-1. Verify your PAT has the correct scopes and is not expired
-2. If using Kubernetes secret for PAT, ensure the secret exists and has the correct key name
-3. Check that service principal has access to Azure DevOps organization
-4. Ensure Azure CLI is logged in for DefaultAzureCredential
-
-### No Resources Found
-
-**Problem:** "No Azure DevOps resources indexed"
-**Solutions:**
-1. Verify the organization URL is correct (format: `https://dev.azure.com/organization-name`)
-2. Check that the authenticated user/service principal has access to projects
-3. Ensure the Azure DevOps organization exists and is accessible
-4. Verify organization name extraction from URL is working (check logs)
-
-### Generation Rules Not Matching
-
-**Problem:** "No SLXs generated despite having resources"
-**Solutions:**
-1. Check that resource properties match your patterns (remember: properties now include `organization`)
-2. Verify custom variables are correctly defined
-3. Test with simpler match rules first
-4. Use hierarchical qualified names in your rules when needed
-
-### Organization Extraction Issues
-
-**Problem:** Organization attribute is missing or incorrect
-**Solutions:**
-1. Ensure `organizationUrl` follows the format: `https://dev.azure.com/organization-name`
-2. Check indexer logs for organization extraction warnings
-3. Verify the URL doesn't have trailing slashes or extra path components
-
-## Best Practices
-
-1. **Use Service Principal for Production:** More secure and auditable than PATs
-2. **Use Kubernetes Secrets for PATs:** If using PATs in production, store them in Kubernetes secrets rather than config files
-3. **Scope PATs Appropriately:** Only grant necessary permissions
-4. **Use Custom Variables:** Make generation rules flexible and reusable
-5. **Leverage Hierarchical Structure:** Use the organization/project/resource hierarchy in your rules
-6. **Organization-Specific Rules:** Create separate rules for different organizations when needed
-7. **Start Simple:** Begin with basic match rules and add complexity gradually
-8. **Test Thoroughly:** Validate generation rules in development before production
-9. **Monitor Resource Changes:** Update generation rules when Azure DevOps structure changes
-10. **Use Meaningful Qualifiers:** Choose qualifiers that create intuitive resource names
-
-## Support
-
-For additional help:
-- Check the main RunWhen Local documentation
-- Review Azure DevOps API documentation
-- Consult Azure AD authentication guides
-- Open issues in the RunWhen Local repository 

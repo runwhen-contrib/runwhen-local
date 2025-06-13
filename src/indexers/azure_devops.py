@@ -106,7 +106,6 @@ def index(context: Context) -> None:
     logger.debug(f"Azure config keys: {list(azure_config.keys())}")
     
     azure_devops_config = azure_config.get("devops", {})
-    logger.debug(f"Azure DevOps config: {azure_devops_config}")
     
     if not azure_devops_config:
         logger.warning("No Azure DevOps configuration found. Skipping indexing.")
@@ -123,9 +122,9 @@ def index(context: Context) -> None:
         # URL format: https://dev.azure.com/organization-name
         if "dev.azure.com/" in organization_url:
             organization_name = organization_url.split("dev.azure.com/")[1].rstrip("/")
-        logger.info(f"Extracted organization name: {organization_name}")
+        logger.info("Extracted organization name from Azure DevOps URL")
     except Exception as e:
-        logger.warning(f"Could not extract organization name from URL {organization_url}: {e}")
+        logger.warning(f"Could not extract organization name from Azure DevOps URL: {e}")
 
     # Try multiple authentication methods in order of preference
     connection = None
@@ -191,7 +190,7 @@ def index(context: Context) -> None:
         if organization_name:
             organization_attributes = {
                 "name": organization_name,
-                "url": organization_url,
+                "platform": "azure_devops",
                 "organization": organization_name  # Self-reference for consistency
             }
             
@@ -303,7 +302,7 @@ def index(context: Context) -> None:
                     release_attributes
                 )
 
-        logger.info(f"Successfully indexed Azure DevOps resources for organization: {organization_url}")
+        logger.info("Successfully indexed Azure DevOps resources")
         logger.info(f"Found {len(projects)} projects, {sum(len(index_repositories(connection, p)) for p in projects)} repositories, "
                    f"{sum(len(index_pipelines(connection, p)) for p in projects)} pipelines, and "
                    f"{sum(len(index_releases(connection, p)) for p in projects)} releases")
