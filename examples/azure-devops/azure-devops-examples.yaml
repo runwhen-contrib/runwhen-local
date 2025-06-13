@@ -1,0 +1,330 @@
+# Azure DevOps Generation Rules Examples
+# This file demonstrates various ways to create generation rules for Azure DevOps resources
+# including projects, repositories, pipelines, and releases.
+
+apiVersion: runwhen.com/v1
+kind: GenerationRules
+spec:
+  platform: azure_devops
+  generationRules:
+    
+    # ========================================
+    # PROJECT-BASED GENERATION RULES
+    # ========================================
+    
+    # Example 1: Generate SLXs for production projects
+    - resourceTypes:
+        - project
+      matchRules:
+        - type: pattern
+          pattern: "prod"
+          properties: ["name"]
+          mode: substring
+      slxs:
+        - baseName: ado-project-health
+          qualifiers: ["name"]
+          baseTemplateName: azure-devops-project-health
+          levelOfDetail: detailed
+          outputItems:
+            - type: slx
+            - type: runbook
+              templateName: azure-devops-project-troubleshoot.yaml
+
+    # Example 2: Generate SLXs for private projects
+    - resourceTypes:
+        - project
+      matchRules:
+        - type: pattern
+          pattern: "private"
+          properties: ["visibility"]
+          mode: exact
+      slxs:
+        - baseName: ado-private-project-health
+          qualifiers: ["name"]
+          baseTemplateName: azure-devops-private-project-health
+          levelOfDetail: basic
+          outputItems:
+            - type: slx
+
+    # Example 3: Generate SLXs for projects using custom variables
+    - resourceTypes:
+        - project
+      matchRules:
+        - type: custom-variable
+          path: custom.azure_devops.environment
+          pattern: "production"
+          mode: exact
+      slxs:
+        - baseName: ado-prod-project-health
+          qualifiers: ["name"]
+          baseTemplateName: azure-devops-prod-project-health
+          levelOfDetail: detailed
+          outputItems:
+            - type: slx
+            - type: runbook
+              templateName: azure-devops-prod-project-troubleshoot.yaml
+
+    # ========================================
+    # REPOSITORY-BASED GENERATION RULES
+    # ========================================
+
+    # Example 4: Generate SLXs for repositories with main branch protection
+    - resourceTypes:
+        - repository
+      matchRules:
+        - type: pattern
+          pattern: "main"
+          properties: ["default_branch"]
+          mode: exact
+      slxs:
+        - baseName: ado-repo-health
+          qualifiers: ["project.name", "name"]
+          baseTemplateName: azure-devops-repo-health
+          levelOfDetail: detailed
+          outputItems:
+            - type: slx
+            - type: runbook
+              templateName: azure-devops-repo-troubleshoot.yaml
+
+    # Example 5: Generate SLXs for large repositories
+    - resourceTypes:
+        - repository
+      matchRules:
+        - type: custom-variable
+          path: custom.azure_devops.repository_size_threshold
+          pattern: "1000"
+          mode: exact
+      slxs:
+        - baseName: ado-large-repo-health
+          qualifiers: ["project.name", "name"]
+          baseTemplateName: azure-devops-large-repo-health
+          levelOfDetail: detailed
+          outputItems:
+            - type: slx
+            - type: runbook
+              templateName: azure-devops-large-repo-troubleshoot.yaml
+
+    # Example 6: Generate SLXs for repositories with specific naming patterns
+    - resourceTypes:
+        - repository
+      matchRules:
+        - type: pattern
+          pattern: "^(api|service|microservice)-.*"
+          properties: ["name"]
+          mode: substring
+      slxs:
+        - baseName: ado-service-repo-health
+          qualifiers: ["project.name", "name"]
+          baseTemplateName: azure-devops-service-repo-health
+          levelOfDetail: basic
+          outputItems:
+            - type: slx
+
+    # ========================================
+    # PIPELINE-BASED GENERATION RULES
+    # ========================================
+
+    # Example 7: Generate SLXs for production deployment pipelines
+    - resourceTypes:
+        - pipeline
+      matchRules:
+        - type: and
+          matches:
+            - type: pattern
+              pattern: "prod"
+              properties: ["name"]
+              mode: substring
+            - type: pattern
+              pattern: "deploy"
+              properties: ["name"]
+              mode: substring
+      slxs:
+        - baseName: ado-pipeline-health
+          qualifiers: ["project.name", "name"]
+          baseTemplateName: azure-devops-pipeline-health
+          levelOfDetail: detailed
+          outputItems:
+            - type: slx
+            - type: runbook
+              templateName: azure-devops-pipeline-troubleshoot.yaml
+
+    # Example 8: Generate SLXs for infrastructure pipelines
+    - resourceTypes:
+        - pipeline
+      matchRules:
+        - type: and
+          matches:
+            - type: pattern
+              pattern: "deploy"
+              properties: ["name"]
+              mode: substring
+            - type: custom-variable
+              path: custom.azure_devops.pipeline_type
+              pattern: "infrastructure"
+              mode: exact
+      slxs:
+        - baseName: ado-infra-pipeline-health
+          qualifiers: ["project.name", "name"]
+          baseTemplateName: azure-devops-infra-pipeline-health
+          levelOfDetail: detailed
+          outputItems:
+            - type: slx
+            - type: runbook
+              templateName: azure-devops-infra-pipeline-troubleshoot.yaml
+
+    # Example 9: Generate SLXs for CI/CD pipelines
+    - resourceTypes:
+        - pipeline
+      matchRules:
+        - type: or
+          matches:
+            - type: pattern
+              pattern: "ci"
+              properties: ["name"]
+              mode: substring
+            - type: pattern
+              pattern: "cd"
+              properties: ["name"]
+              mode: substring
+            - type: pattern
+              pattern: "build"
+              properties: ["name"]
+              mode: substring
+      slxs:
+        - baseName: ado-cicd-pipeline-health
+          qualifiers: ["project.name", "name"]
+          baseTemplateName: azure-devops-cicd-pipeline-health
+          levelOfDetail: basic
+          outputItems:
+            - type: slx
+
+    # ========================================
+    # RELEASE-BASED GENERATION RULES
+    # ========================================
+
+    # Example 10: Generate SLXs for production release definitions
+    - resourceTypes:
+        - release
+      matchRules:
+        - type: pattern
+          pattern: "prod-.*"
+          properties: ["name"]
+          mode: substring
+      slxs:
+        - baseName: ado-release-health
+          qualifiers: ["project.name", "name"]
+          baseTemplateName: azure-devops-release-health
+          levelOfDetail: detailed
+          outputItems:
+            - type: slx
+            - type: runbook
+              templateName: azure-devops-release-troubleshoot.yaml
+
+    # Example 11: Generate SLXs for multi-stage releases
+    - resourceTypes:
+        - release
+      matchRules:
+        - type: pattern
+          pattern: "multi-stage"
+          properties: ["name"]
+          mode: substring
+      slxs:
+        - baseName: ado-multistage-release-health
+          qualifiers: ["project.name", "name"]
+          baseTemplateName: azure-devops-multistage-release-health
+          levelOfDetail: detailed
+          outputItems:
+            - type: slx
+            - type: runbook
+              templateName: azure-devops-multistage-release-troubleshoot.yaml
+
+    # ========================================
+    # COMPLEX MATCHING EXAMPLES
+    # ========================================
+
+    # Example 12: Generate SLXs for critical resources using multiple conditions
+    - resourceTypes:
+        - project
+        - repository
+        - pipeline
+      matchRules:
+        - type: and
+          matches:
+            - type: or
+              matches:
+                - type: pattern
+                  pattern: "critical"
+                  properties: ["name"]
+                  mode: substring
+                - type: pattern
+                  pattern: "prod"
+                  properties: ["name"]
+                  mode: substring
+            - type: custom-variable
+              path: custom.azure_devops.environment
+              pattern: "production"
+              mode: exact
+      slxs:
+        - baseName: ado-critical-resource-health
+          qualifiers: ["resource"]
+          baseTemplateName: azure-devops-critical-resource-health
+          levelOfDetail: detailed
+          outputItems:
+            - type: slx
+            - type: runbook
+              templateName: azure-devops-critical-resource-troubleshoot.yaml
+
+    # Example 13: Generate SLXs for all resources in specific projects
+    - resourceTypes:
+        - repository
+        - pipeline
+        - release
+      matchRules:
+        - type: custom-variable
+          path: custom.azure_devops.critical_project
+          pattern: "your-main-project"
+          mode: exact
+      slxs:
+        - baseName: ado-main-project-resource-health
+          qualifiers: ["project.name", "name"]
+          baseTemplateName: azure-devops-main-project-resource-health
+          levelOfDetail: basic
+          outputItems:
+            - type: slx
+
+# ========================================
+# NOTES AND BEST PRACTICES
+# ========================================
+
+# 1. Resource Types Available:
+#    - project: Azure DevOps projects
+#    - repository: Git repositories within projects
+#    - pipeline: Build and deployment pipelines
+#    - release: Release definitions
+
+# 2. Match Rule Types:
+#    - pattern: Match against resource properties using regex or substring
+#    - custom-variable: Match against custom variables from workspaceInfo.yaml
+#    - and: All conditions must match
+#    - or: At least one condition must match
+
+# 3. Common Properties by Resource Type:
+#    Project: name, description, state, visibility, url
+#    Repository: name, url, default_branch, size, remote_url
+#    Pipeline: name, url, revision
+#    Release: name, url, revision
+
+# 4. Qualifiers:
+#    - "name": Use the resource name
+#    - "resource": Use a generic resource identifier
+#    - "project.name": Use the parent project name
+#    - Custom combinations like ["project.name", "name"]
+
+# 5. Level of Detail:
+#    - basic: Minimal information
+#    - detailed: Comprehensive information
+
+# 6. Output Items:
+#    - slx: Service Level eXpectation
+#    - runbook: Troubleshooting runbook
+#    - sli: Service Level Indicator (if supported) 
