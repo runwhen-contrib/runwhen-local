@@ -6,15 +6,42 @@ This directory contains examples for integrating RunWhen Local with Azure DevOps
 
 - **`workspaceInfo-example.yaml`** - Complete workspace configuration example showing all authentication methods
 - **`azure-devops-examples.yaml`** - Comprehensive generation rules examples for Azure DevOps resources
+- **`create-pat-secret.sh`** - Helper script to create Kubernetes secret for PAT authentication
 - **`README.md`** - This documentation file
 
 ## Authentication Methods
 
-The Azure DevOps indexer supports three authentication methods, tried in order of preference:
+The Azure DevOps indexer supports four authentication methods, tried in order of preference:
 
 ### 1. Personal Access Token (PAT) - Recommended for Development
 
 **Best for:** Local development, testing, individual developer use
+
+#### Option 1a: Kubernetes Secret (Recommended for Production PAT Usage)
+
+```yaml
+cloudConfig:
+  azure:
+    devops:
+      organizationUrl: "https://dev.azure.com/your-organization"
+      patSecretName: "azure-devops-pat"
+```
+
+**Create the Kubernetes secret:**
+```bash
+kubectl create secret generic azure-devops-pat \
+  --from-literal=personalAccessToken=your-personal-access-token \
+  --namespace=your-namespace
+```
+
+**Or use the helper script:**
+```bash
+./create-pat-secret.sh your-personal-access-token azure-devops-pat your-namespace
+```
+
+**Supported secret keys:** `personalAccessToken`, `pat`, `token`, or `access_token`
+
+#### Option 1b: Direct Configuration (Development Only)
 
 ```yaml
 cloudConfig:
@@ -24,7 +51,8 @@ cloudConfig:
       personalAccessToken: "your-personal-access-token"
 ```
 
-**Environment Variable Alternative:**
+#### Option 1c: Environment Variable
+
 ```bash
 export AZURE_DEVOPS_PAT="your-personal-access-token"
 ```
@@ -63,7 +91,7 @@ export AZURE_CLIENT_SECRET="your-client-secret"
 2. Grant the service principal appropriate permissions in Azure DevOps
 3. Add the service principal to your Azure DevOps organization
 
-### 3. DefaultAzureCredential - Automatic Fallback
+### 4. DefaultAzureCredential - Automatic Fallback
 
 **Best for:** Azure-hosted environments, Azure CLI users
 
@@ -248,9 +276,10 @@ Qualifiers determine how resources are named in the generated SLXs:
 
 **Problem:** "Failed to authenticate to Azure DevOps"
 **Solutions:**
-1. Verify your PAT has the correct scopes
-2. Check that service principal has access to Azure DevOps organization
-3. Ensure Azure CLI is logged in for DefaultAzureCredential
+1. Verify your PAT has the correct scopes and is not expired
+2. If using Kubernetes secret for PAT, ensure the secret exists and has the correct key name
+3. Check that service principal has access to Azure DevOps organization
+4. Ensure Azure CLI is logged in for DefaultAzureCredential
 
 ### No Resources Found
 
@@ -271,11 +300,12 @@ Qualifiers determine how resources are named in the generated SLXs:
 ## Best Practices
 
 1. **Use Service Principal for Production:** More secure and auditable than PATs
-2. **Scope PATs Appropriately:** Only grant necessary permissions
-3. **Use Custom Variables:** Make generation rules flexible and reusable
-4. **Start Simple:** Begin with basic match rules and add complexity gradually
-5. **Test Thoroughly:** Validate generation rules in development before production
-6. **Monitor Resource Changes:** Update generation rules when Azure DevOps structure changes
+2. **Use Kubernetes Secrets for PATs:** If using PATs in production, store them in Kubernetes secrets rather than config files
+3. **Scope PATs Appropriately:** Only grant necessary permissions
+4. **Use Custom Variables:** Make generation rules flexible and reusable
+5. **Start Simple:** Begin with basic match rules and add complexity gradually
+6. **Test Thoroughly:** Validate generation rules in development before production
+7. **Monitor Resource Changes:** Update generation rules when Azure DevOps structure changes
 
 ## Support
 

@@ -21,7 +21,9 @@ spec:
         organizationUrl: "https://dev.azure.com/your-organization"
         
         # Authentication Method 2: Personal Access Token (Recommended for Development)
-        # Uncomment the line below to use PAT authentication instead of service principal
+        # Option 2a: Use Kubernetes secret (Recommended for production PAT usage)
+        # patSecretName: "azure-devops-pat"
+        # Option 2b: Use explicit PAT in config (Not recommended for production)
         # personalAccessToken: "your-personal-access-token"
         
         # Authentication Method 3: DefaultAzureCredential (Automatic Fallback)
@@ -54,3 +56,8 @@ spec:
 # AZURE_TENANT_ID=your-tenant-id
 # AZURE_CLIENT_ID=your-client-id
 # AZURE_CLIENT_SECRET=your-client-secret
+
+# Kubernetes Secret for PAT (create with):
+# kubectl create secret generic azure-devops-pat \
+#   --from-literal=personalAccessToken=your-personal-access-token \
+#   --namespace=your-namespace

@@ -8,11 +8,13 @@ from azure.identity import DefaultAzureCredential, ClientSecretCredential
 import logging
 import os
 import requests
+import base64
 from typing import Any, Dict, List, Optional
 
 from component import Context, SettingDependency
 from resources import Registry, REGISTRY_PROPERTY_NAME
 from .common import CLOUD_CONFIG_SETTING
+from k8s_utils import get_secret
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +46,30 @@ def get_azure_devops_connection_with_service_principal(organization_url: str, ac
     """Create an Azure DevOps connection using Azure AD access token."""
     credentials = BasicAuthentication('', access_token)
     return Connection(base_url=organization_url, creds=credentials)
+
+def get_pat_from_secret(secret_name: str) -> str:
+    """Get Personal Access Token from Kubernetes secret."""
+    try:
+        logger.info(f"Attempting to retrieve PAT from Kubernetes secret: {secret_name}")
+        secret_data = get_secret(secret_name)
+        
+        # Try different possible key names for the PAT
+        pat_keys = ['personalAccessToken', 'pat', 'token', 'access_token']
+        for key in pat_keys:
+            if key in secret_data:
+                pat = base64.b64decode(secret_data[key]).decode('utf-8')
+                logger.info(f"Successfully retrieved PAT from secret key: {key}")
+                return pat
+        
+        # If no standard keys found, list available keys for debugging
+        available_keys = list(secret_data.keys())
+        logger.error(f"PAT not found in secret '{secret_name}'. Available keys: {available_keys}")
+        logger.error("Expected one of: personalAccessToken, pat, token, access_token")
+        raise ValueError(f"PAT not found in secret '{secret_name}'. Available keys: {available_keys}")
+        
+    except Exception as e:
+        logger.error(f"Failed to retrieve PAT from Kubernetes secret '{secret_name}': {e}")
+        raise
 
 def index_projects(connection: Connection) -> List[TeamProject]:
     """Get all projects in the organization."""
@@ -94,16 +120,27 @@ def index(context: Context) -> None:
     # Try multiple authentication methods in order of preference
     connection = None
     
-    # Method 1: Personal Access Token (from config or environment)
-    personal_access_token = azure_devops_config.get("personalAccessToken") or os.environ.get("AZURE_DEVOPS_PAT")
-    if personal_access_token:
-        logger.info("Using Personal Access Token for Azure DevOps authentication")
+    # Method 1: Personal Access Token from Kubernetes secret
+    pat_secret_name = azure_devops_config.get("patSecretName")
+    if pat_secret_name:
+        logger.info("Using Personal Access Token from Kubernetes secret for Azure DevOps authentication")
         try:
+            personal_access_token = get_pat_from_secret(pat_secret_name)
             connection = get_azure_devops_connection_with_pat(organization_url, personal_access_token)
         except Exception as e:
-            logger.warning(f"Failed to authenticate with Personal Access Token: {e}")
+            logger.warning(f"Failed to authenticate with PAT from Kubernetes secret: {e}")
     
-    # Method 2: Service Principal (from Azure config or environment variables)
+    # Method 2: Personal Access Token (from config or environment)
+    if not connection:
+        personal_access_token = azure_devops_config.get("personalAccessToken") or os.environ.get("AZURE_DEVOPS_PAT")
+        if personal_access_token:
+            logger.info("Using Personal Access Token for Azure DevOps authentication")
+            try:
+                connection = get_azure_devops_connection_with_pat(organization_url, personal_access_token)
+            except Exception as e:
+                logger.warning(f"Failed to authenticate with Personal Access Token: {e}")
+    
+    # Method 3: Service Principal (from Azure config or environment variables)
     if not connection:
         tenant_id = azure_config.get("tenantId") or os.environ.get("AZURE_TENANT_ID")
         client_id = azure_config.get("clientId") or os.environ.get("AZURE_CLIENT_ID")
@@ -117,7 +154,7 @@ def index(context: Context) -> None:
             except Exception as e:
                 logger.warning(f"Failed to authenticate with Service Principal: {e}")
     
-    # Method 3: Default Azure Credential (for managed identity, Azure CLI, etc.)
+    # Method 4: Default Azure Credential (for managed identity, Azure CLI, etc.)
     if not connection:
         logger.info("Trying DefaultAzureCredential for Azure DevOps authentication")
         try:
@@ -129,9 +166,10 @@ def index(context: Context) -> None:
     
     if not connection:
         logger.error("Failed to authenticate to Azure DevOps. Please provide either:")
-        logger.error("1. Personal Access Token (personalAccessToken in config or AZURE_DEVOPS_PAT environment variable)")
-        logger.error("2. Service Principal credentials (tenantId, clientId, clientSecret in config or environment variables)")
-        logger.error("3. Azure CLI login or managed identity")
+        logger.error("1. Personal Access Token from Kubernetes secret (patSecretName in config)")
+        logger.error("2. Personal Access Token (personalAccessToken in config or AZURE_DEVOPS_PAT environment variable)")
+        logger.error("3. Service Principal credentials (tenantId, clientId, clientSecret in config or environment variables)")
+        logger.error("4. Azure CLI login or managed identity")
         return
     
     try:
