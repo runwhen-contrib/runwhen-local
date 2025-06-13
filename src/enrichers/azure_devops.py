@@ -53,6 +53,8 @@ class AzureDevOpsPlatformHandler(PlatformHandler):
             project = getattr(resource, "project", None)
             if project:
                 return project.name
+        elif qualifier_name == "organization":
+            return getattr(resource, "organization", None)
         return None
 
     def get_resource_property_values(self, resource: Resource, property_name: str) -> Optional[list[Any]]:
@@ -68,6 +70,11 @@ class AzureDevOpsPlatformHandler(PlatformHandler):
         project = getattr(resource, "project", None)
         if project:
             template_variables["project"] = project
+        
+        organization = getattr(resource, "organization", None)
+        if organization:
+            template_variables["organization"] = organization
+            
         return template_variables
 
     def resolve_template_variable_value(self, resource: Resource, variable_name: str) -> Optional[Any]:

@@ -1,6 +1,6 @@
 # Azure DevOps Generation Rules Examples
 # This file demonstrates various ways to create generation rules for Azure DevOps resources
-# including projects, repositories, pipelines, and releases.
+# including organizations, projects, repositories, pipelines, and releases.
 
 apiVersion: runwhen.com/v1
 kind: GenerationRules
@@ -8,6 +8,46 @@ spec:
   platform: azure_devops
   generationRules:
     
+    # ========================================
+    # ORGANIZATION-BASED GENERATION RULES
+    # ========================================
+    
+    # Example 1: Generate organization-level health SLX
+    - resourceTypes:
+        - organization
+      matchRules:
+        - type: pattern
+          pattern: ".+"
+          properties: ["name"]
+          mode: substring
+      slxs:
+        - baseName: ado-org-health
+          qualifiers: ["resource"]  # Creates one SLX per organization
+          baseTemplateName: azure-devops-org-health
+          levelOfDetail: detailed
+          outputItems:
+            - type: slx
+            - type: runbook
+              templateName: azure-devops-org-troubleshoot.yaml
+
+    # Example 2: Generate organization governance SLX for specific organizations
+    - resourceTypes:
+        - organization
+      matchRules:
+        - type: pattern
+          pattern: "prod-|production-"
+          properties: ["name"]
+          mode: substring
+      slxs:
+        - baseName: ado-org-governance
+          qualifiers: ["resource"]
+          baseTemplateName: azure-devops-org-governance
+          levelOfDetail: detailed
+          outputItems:
+            - type: slx
+            - type: sli
+              templateName: azure-devops-org-metrics.yaml
+
     # ========================================
     # PROJECT-BASED GENERATION RULES
     # ========================================

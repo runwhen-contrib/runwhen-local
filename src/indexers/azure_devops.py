@@ -117,6 +117,16 @@ def index(context: Context) -> None:
         logger.error("Azure DevOps organization URL not specified.")
         return
 
+    # Extract organization name from URL
+    organization_name = None
+    try:
+        # URL format: https://dev.azure.com/organization-name
+        if "dev.azure.com/" in organization_url:
+            organization_name = organization_url.split("dev.azure.com/")[1].rstrip("/")
+        logger.info(f"Extracted organization name: {organization_name}")
+    except Exception as e:
+        logger.warning(f"Could not extract organization name from URL {organization_url}: {e}")
+
     # Try multiple authentication methods in order of preference
     connection = None
     
@@ -177,76 +187,120 @@ def index(context: Context) -> None:
         # Get registry
         registry: Registry = context.get_property(REGISTRY_PROPERTY_NAME)
 
+        # Index the organization itself as a resource
+        if organization_name:
+            organization_attributes = {
+                "name": organization_name,
+                "url": organization_url,
+                "organization": organization_name  # Self-reference for consistency
+            }
+            
+            organization_resource = registry.add_resource(
+                AZURE_DEVOPS_PLATFORM,
+                "organization",
+                organization_name,
+                organization_name,  # Qualified name is just the org name
+                organization_attributes
+            )
+
         # Index projects
         projects = index_projects(connection)
         for project in projects:
+            project_attributes = {
+                "id": project.id,
+                "name": project.name,
+                "description": project.description,
+                "state": project.state,
+                "revision": project.revision,
+                "url": project.url,
+                "visibility": project.visibility
+            }
+            if organization_name:
+                project_attributes["organization"] = organization_name
+
+            # Create hierarchical qualified name for project
+            project_qualified_name = f"{organization_name}/{project.name}" if organization_name else project.name
+
             project_resource = registry.add_resource(
                 AZURE_DEVOPS_PLATFORM,
                 "project", 
                 project.name,
-                project.name,
-                {
-                    "id": project.id,
-                    "name": project.name,
-                    "description": project.description,
-                    "state": project.state,
-                    "revision": project.revision,
-                    "url": project.url,
-                    "visibility": project.visibility
-                }
+                project_qualified_name,
+                project_attributes
             )
 
             # Index repositories for this project
             repositories = index_repositories(connection, project)
             for repo in repositories:
+                repo_attributes = {
+                    "id": repo.id,
+                    "name": repo.name,
+                    "url": repo.url,
+                    "default_branch": repo.default_branch,
+                    "size": repo.size,
+                    "remote_url": repo.remote_url,
+                    "project": project_resource
+                }
+                if organization_name:
+                    repo_attributes["organization"] = organization_name
+
+                # Create hierarchical qualified name for repository
+                repo_qualified_name = f"{organization_name}/{project.name}/{repo.name}" if organization_name else f"{project.name}/{repo.name}"
+
                 repo_resource = registry.add_resource(
                     AZURE_DEVOPS_PLATFORM,
                     "repository",
                     repo.name,
-                    f"{project.name}/{repo.name}",
-                    {
-                        "id": repo.id,
-                        "name": repo.name,
-                        "url": repo.url,
-                        "default_branch": repo.default_branch,
-                        "size": repo.size,
-                        "remote_url": repo.remote_url,
-                        "project": project_resource
-                    }
+                    repo_qualified_name,
+                    repo_attributes
                 )
 
             # Index pipelines for this project
             pipelines = index_pipelines(connection, project)
             for pipeline in pipelines:
+                pipeline_attributes = {
+                    "id": pipeline.id,
+                    "name": pipeline.name,
+                    "url": pipeline.url,
+                    "revision": pipeline.revision,
+                    "project": project_resource
+                }
+                if organization_name:
+                    pipeline_attributes["organization"] = organization_name
+
+                # Create hierarchical qualified name for pipeline
+                pipeline_qualified_name = f"{organization_name}/{project.name}/{pipeline.name}" if organization_name else f"{project.name}/{pipeline.name}"
+
                 pipeline_resource = registry.add_resource(
                     AZURE_DEVOPS_PLATFORM,
                     "pipeline",
                     pipeline.name,
-                    f"{project.name}/{pipeline.name}",
-                    {
-                        "id": pipeline.id,
-                        "name": pipeline.name,
-                        "url": pipeline.url,
-                        "revision": pipeline.revision,
-                        "project": project_resource
-                    }
+                    pipeline_qualified_name,
+                    pipeline_attributes
                 )
 
             # Index releases for this project
             releases = index_releases(connection, project)
             for release in releases:
+                release_attributes = {
+                    "id": release.id,
+                    "name": release.name,
+                    "url": release.url,
+                    "revision": release.revision,
+                    "project": project_resource
+                }
+                if organization_name:
+                    release_attributes["organization"] = organization_name
+
+                # Create hierarchical qualified name for release
+                release_qualified_name = f"{organization_name}/{project.name}/{release.name}" if organization_name else f"{project.name}/{release.name}"
+
                 release_resource = registry.add_resource(
                     AZURE_DEVOPS_PLATFORM,
                     "release",
                     release.name,
-                    f"{project.name}/{release.name}",
-                    {
-                        "id": release.id,
-                        "name": release.name,
-                        "url": release.url,
-                        "revision": release.revision,
-                        "project": project_resource
-                    }
+                    release_qualified_name,
+                    release_attributes
                 )
 
         logger.info(f"Successfully indexed Azure DevOps resources for organization: {organization_url}")

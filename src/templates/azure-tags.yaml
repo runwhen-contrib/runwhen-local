@@ -1,4 +1,22 @@
     - name: platform
+{% if organization is defined %}
+      {# Azure DevOps resources #}
+      value: azure_devops
+{% if qualifiers and qualifiers.project is defined %}
+    - name: organization
+      value: {{ organization | default(match_resource.organization) }}
+    - name: project
+      value: {{ project.name | default(match_resource.project.name) }}
+{% elif qualifiers and qualifiers.resource and match_resource.resource_type.name != 'organization' %}
+    - name: organization
+      value: {{ organization | default(match_resource.organization) }}
+{% endif %}
+    - name: resource_name
+      value: {{ match_resource.name }}
+    - name: resource_type
+      value: {{ match_resource.resource_type.name }}
+{% else %}
+      {# Azure ARM resources #}
       value: azure
     - name: subscription_id
       value: {{ subscription_id | default(match_resource.subscription_id) }}
@@ -16,5 +34,6 @@
       value: "{{ v | string }}"
     {% endif %}
 {% endfor %}
+{% endif %}
 {% endif %}
 

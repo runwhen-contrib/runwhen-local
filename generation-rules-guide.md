@@ -443,3 +443,5 @@ All matched resources provide these template variables:
 - Verify template variable names match the qualifier names
 - Use `{{.qualifiers.qualifier_name}}` to access qualifier values
 - Check that the template exists and has the expected variable names 
+
+### Template Variable Access 
