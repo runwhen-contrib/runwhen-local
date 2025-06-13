@@ -53,9 +53,9 @@ fi
 touch "$LOCK_FILE"
 
 # Construct components string based on whether --disable-cloudquery is set
-COMPONENTS="load_resources,kubeapi,generation_rules,render_output_items,dump_resources"
+COMPONENTS="load_resources,kubeapi,azure_devops,generation_rules,render_output_items,dump_resources"
 if [ $DISABLE_CLOUDQUERY -eq 0 ]; then
-    COMPONENTS="load_resources,kubeapi,cloudquery,generation_rules,render_output_items,dump_resources"
+    COMPONENTS="load_resources,kubeapi,cloudquery,azure_devops,generation_rules,render_output_items,dump_resources"
 fi
 
 # Run the Python script with your specified arguments

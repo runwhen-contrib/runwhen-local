@@ -1,9 +1,21 @@
     hierarchy: 
     - platform
+{% if organization is defined %}
+    {# Azure DevOps resources #}
+{% if qualifiers and qualifiers.project is defined %}
+    - organization
+    - project
+{% elif qualifiers and qualifiers.resource and match_resource.resource_type.name != 'organization' %}
+    - organization
+{% endif %}
+{% else %}
+    {# Azure ARM resources #}
 {% if subscription_name is defined %}
     - subscription_name
 {% else %}
     - subscription_id
 {% endif %}
     - resource_group
+{% endif %}
+    - resource_type
 

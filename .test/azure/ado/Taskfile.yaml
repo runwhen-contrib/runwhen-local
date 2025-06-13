@@ -1,0 +1,146 @@
+version: "3"
+
+tasks:
+  default:
+    desc: "Generate workspaceInfo and rebuild/test"
+    cmds:
+      - task: generate-rwl-config
+      - task: build-rwl  
+      - task: run-rwl-discovery
+
+  clean:
+    desc: "Run cleanup tasks"
+    cmds:
+      - task: check-and-cleanup-terraform
+      - task: clean-rwl-discovery
+
+
+  generate-rwl-config:
+    desc: "Generate RunWhen Local configuration (workspaceInfo.yaml)"
+    env:
+      ARM_SUBSCRIPTION_ID: "{{.TF_VAR_subscription_id}}"
+      AZ_TENANT_ID: "{{.AZ_TENANT_ID}}"
+      AZ_CLIENT_SECRET: "{{.AZ_CLIENT_SECRET}}"
+      AZ_CLIENT_ID: "{{.AZ_CLIENT_ID}}"
+      RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
+      AZ_DEVOPS_ORGANIZATION_URL: '{{.AZ_DEVOPS_ORGANIZATION_URL | default "https://dev.azure.com/your-organization"}}'
+    cmds:
+      - |
+        # Generate workspaceInfo.yaml with fetched cluster details
+        cat <<EOF > workspaceInfo.yaml
+        workspaceName: "$RW_WORKSPACE"
+        workspaceOwnerEmail: authors@runwhen.com
+        defaultLocation: location-01
+        defaultLOD: none
+        cloudConfig:
+          azure:
+            subscriptionId: "$ARM_SUBSCRIPTION_ID"
+            tenantId: "$AZ_TENANT_ID"
+            clientId: "$AZ_CLIENT_ID"
+            clientSecret: "$AZ_CLIENT_SECRET"
+            devops:
+              organizationUrl: "$AZ_DEVOPS_ORGANIZATION_URL"          
+        # codeCollections: []
+        codeCollections:
+        - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection"
+          branch: "ado"
+          codeBundles: ["azure-devops-triage"]
+        custom:
+          devops_org: runwhen-labs
+          devops_project: DevOps-Triage-Test
+        EOF
+    silent: true
+
+  build-rwl:
+    desc: "Build RWL test image"
+    cmds:
+      - |
+        BUILD_DIR=../../../src/
+        CONTAINER_NAME="RunWhenLocal"
+        if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Stopping and removing existing container $CONTAINER_NAME..."
+          docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME
+        elif docker ps -a -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Removing existing stopped container $CONTAINER_NAME..."
+          docker rm $CONTAINER_NAME
+        else
+          echo "No existing container named $CONTAINER_NAME found."
+        fi
+        
+        echo "Cleaning up output directory..."
+        rm -rf output || { echo "Failed to remove output directory"; exit 1; }
+        mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
+
+        ## Building Container Image
+        docker buildx build --builder mybuilder --platform linux/amd64  -t runwhen-local:test -f $BUILD_DIR/Dockerfile $BUILD_DIR --load
+    silent: true
+
+  run-rwl-discovery:
+    desc: "Run RunWhen Local Discovery on test infrastructure"
+    cmds:
+      - |
+        rm slx_count.txt || true
+        CONTAINER_NAME="RunWhenLocal"    
+        if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Stopping and removing existing container $CONTAINER_NAME..."
+          docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME
+        elif docker ps -a -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Removing existing stopped container $CONTAINER_NAME..."
+          docker rm $CONTAINER_NAME
+        else
+          echo "No existing container named $CONTAINER_NAME found."
+        fi
+        
+        echo "Cleaning up output directory..."
+        rm -rf output || { echo "Failed to remove output directory"; exit 1; }
+        mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
+
+        echo "Starting new container $CONTAINER_NAME..."
+
+        docker run -e DEBUG_LOGS=true --name $CONTAINER_NAME -p 8081:8081 -v $(pwd):/shared -d runwhen-local:test || {
+          echo "Failed to start container"; exit 1;
+        }
+
+        echo "Running workspace builder script in container..."
+        docker exec -w /workspace-builder $CONTAINER_NAME ./run.sh $1 --verbose || {
+          echo "Error executing script in container"; exit 1;
+        }
+
+        echo "Review generated config files under output/workspaces/"
+        total_slxs=$(find $(find 'output/' -type d -name 'slxs') -mindepth 1 -type d | wc -l)
+        echo "Total SLXs: $total_slxs"
+        echo "$total_slxs" > slx_count.txt
+    silent: true
+
+  install-deployment: 
+    desc: "Install basic runwhen-local deployment"
+    cmds: 
+      - | 
+
+        # Fetch individual cluster details from Terraform state
+        pushd terraform > /dev/null
+        cluster_name=$(terraform show -json terraform.tfstate | jq -r '
+          .values.outputs.cluster_name.value')
+        cluster_server=$(terraform show -json terraform.tfstate | jq -r '
+          .values.outputs.cluster_fqdn.value')
+        cluster_resource_group=$(terraform show -json terraform.tfstate | jq -r '
+          .values.outputs.cluster_rg.value')
+        cluster_sub=$(terraform show -json terraform.tfstate | jq -r '
+          .values.outputs.cluster_sub.value')
+
+        popd > /dev/null
+        az aks get-credentials --resource-group $cluster_resource_group --name $cluster_name --overwrite-existing
+        kubelogin convert-kubeconfig -l azurecli
+        namespace=runwhen-local
+        kubectl create ns $namespace
+        helm repo add runwhen-contrib https://runwhen-contrib.github.io/helm-charts
+        helm repo update
+        helm install runwhen-local runwhen-contrib/runwhen-local -n $namespace
+
+  clean-rwl-discovery:
+    desc: "Check and clean up RunWhen Local discovery output"
+    cmds:
+      - |
+        rm -rf output
+        rm workspaceInfo.yaml
+    silent: true

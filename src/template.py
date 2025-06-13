@@ -9,6 +9,8 @@ from jinja2 import Undefined
 
 from exceptions import WorkspaceBuilderException
 
+logger = logging.getLogger(__name__)
+
 
 class CustomUndefined(Undefined):
     def __str__(self):
@@ -49,8 +51,12 @@ def render_template_string(template_string: str, template_variables: dict[str, A
         raise WorkspaceBuilderException(message) from e
     except TemplateError as e:
         message = (f"Error processing template content: "
-                   f"template_string{template_string}; "
-                   f"template_variables={template_variables}")
+                   f"template_string_snippet={template_string[:100]}{'...' if len(template_string) > 100 else ''}; "
+                   f"underlying_error={str(e)}; "
+                   f"error_type={type(e).__name__}")
+        # Add template variables only if debugging is enabled to avoid noise
+        if logger.isEnabledFor(logging.DEBUG):
+            message += f"; template_variables={template_variables}"
         # TODO: Should possibly just log an error here, but continue processing
         # the rest of the output items instead of raising an exception, so that
         # a single failure doesn't cause the entire request to fail. But
@@ -86,7 +92,11 @@ def render_template_file(template_file_name: str,
         # between here and render_template_string.
         message = (f"Error processing template content: "
                    f"template_file_name={template_file_name}; "
-                   f"template_variables={template_variables}")
+                   f"underlying_error={str(e)}; "
+                   f"error_type={type(e).__name__}")
+        # Add template variables only if debugging is enabled to avoid noise
+        if logger.isEnabledFor(logging.DEBUG):
+            message += f"; template_variables={template_variables}"
         # FIXME: See comment above about possibly just logging an error
         # here instead of raising the exception.
         raise WorkspaceBuilderException(message) from e

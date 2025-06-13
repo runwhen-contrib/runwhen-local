@@ -29,6 +29,7 @@ from .kubernetes import KubernetesPlatformHandler
 from .azure import AzurePlatformHandler, AZURE_PLATFORM
 from .gcp import GCPPlatformHandler, GCP_PLATFORM
 from .aws import AWSPlatformHandler, AWS_PLATFORM
+from .azure_devops import AzureDevOpsPlatformHandler
 
 from renderers.render_output_items import OUTPUT_ITEMS_PROPERTY
 from renderers.render_output_items import OutputItem as RendererOutputItem
@@ -977,6 +978,7 @@ def load(context: Context) -> None:
         AZURE_PLATFORM: AzurePlatformHandler(),
         GCP_PLATFORM: GCPPlatformHandler(),
         AWS_PLATFORM: AWSPlatformHandler(),
+        "azure_devops": AzureDevOpsPlatformHandler(),
     }
     context.set_property(PLATFORM_HANDLERS_PROPERTY_NAME, platform_handlers)
     request_code_collections = context.get_setting("CODE_COLLECTIONS")

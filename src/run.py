@@ -226,7 +226,7 @@ def main():
                         help=f'Host/port info for where the {SERVICE_NAME} REST service is running. '
                              f'Format is <host>:<port>')
     parser.add_argument('-c', '--components', action='store',
-                        default="load_resources,kubeapi,cloudquery,generation_rules,render_output_items,dump_resources")
+                        default="load_resources,kubeapi,cloudquery,azure_devops,generation_rules,render_output_items,dump_resources")
     parser.add_argument('-o', '--output', action='store', dest='output_path', default="output",
                         help="Path to output directory for generated files. "
                              "The path is relative to the base directory.")

@@ -42,3 +42,4 @@ src/rw-cli-codecollection-cache
 **/slx_count.txt
 **.kube
 **.bash_history**
+**/.azure-devops/

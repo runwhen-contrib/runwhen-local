@@ -1,0 +1,63 @@
+apiVersion: runwhen.com/v1
+kind: WorkspaceInfo
+metadata:
+  name: azure-devops-example
+spec:
+  cloudConfig:
+    azure:
+      # Azure subscription configuration
+      subscriptionId: "your-subscription-id"
+      
+      # Authentication Method 1: Service Principal (Recommended for Production)
+      # This method uses Azure AD service principal for both Azure resources and Azure DevOps
+      tenantId: "your-tenant-id"
+      clientId: "your-client-id"
+      clientSecret: "your-client-secret"
+      # Alternative: Use Kubernetes secret instead of explicit credentials
+      # spSecretName: "azure-sp"
+      
+      # Azure DevOps configuration
+      devops:
+        organizationUrl: "https://dev.azure.com/your-organization"
+        
+        # Authentication Method 2: Personal Access Token (Recommended for Development)
+        # Option 2a: Use Kubernetes secret (Recommended for production PAT usage)
+        # patSecretName: "azure-devops-pat"
+        # Option 2b: Use explicit PAT in config (Not recommended for production)
+        # personalAccessToken: "your-personal-access-token"
+        
+        # Authentication Method 3: DefaultAzureCredential (Automatic Fallback)
+        # No additional configuration needed - uses Azure CLI login, managed identity, etc.
+        # This is automatically tried if neither PAT nor service principal work
+        
+        # Optional: Code collections for indexing specific repositories
+        codeCollections:
+          - repositoryUrl: "https://dev.azure.com/your-org/your-project/_git/your-repo"
+            branch: "main"
+  
+  # Custom variables for use in generation rules
+  custom:
+    azure_devops:
+      environment: "production"
+      organization: "your-organization"
+      critical_project: "your-main-project"
+      repository_size_threshold: "1000"
+      pipeline_type: "infrastructure"
+      monitoring_level: "detailed"
+      team: "platform-engineering"
+
+# Authentication Priority:
+# 1. Personal Access Token (if specified)
+# 2. Service Principal (if Azure credentials available)
+# 3. DefaultAzureCredential (Azure CLI, managed identity, etc.)
+
+# Environment Variables (alternative to config file):
+# AZURE_DEVOPS_PAT=your-personal-access-token
+# AZURE_TENANT_ID=your-tenant-id
+# AZURE_CLIENT_ID=your-client-id
+# AZURE_CLIENT_SECRET=your-client-secret
+
+# Kubernetes Secret for PAT (create with):
+# kubectl create secret generic azure-devops-pat \
+#   --from-literal=personalAccessToken=your-personal-access-token \
+#   --namespace=your-namespace
