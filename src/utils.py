@@ -152,6 +152,9 @@ def transform_client_cloud_config(base_directory: str, cloud_config: dict[str, d
     move it somewhere else.
     """
     for platform_name, platform_config in cloud_config.items():
+        # Skip if platform_config is None or not a dictionary
+        if platform_config is None or not isinstance(platform_config, dict):
+            continue
         for key, value in platform_config.items():
             if key.endswith("File") and isinstance(value, str):
                 try:

@@ -214,6 +214,10 @@ def init_cloudquery_table_info():
     global cloudquery_premium_table_info
     if cloudquery_premium_table_info:
         return
+    
+    # Initialize with empty dict - we'll only populate for platforms we can discover
+    cloudquery_premium_table_info = dict()
+    
     with tempfile.TemporaryDirectory(dir=tmpdir_value) as cq_temp_dir:
         cq_config_dir = os.path.join(cq_temp_dir, "config")
         cq_output_dir = os.path.join(cq_temp_dir, "docs")
@@ -226,27 +230,43 @@ def init_cloudquery_table_info():
         sqlite_config_text = render_template_file("sqlite-config.yaml", template_variables, template_loader_func)
         write_file(sqlite_config_path, sqlite_config_text)
 
-        template_variables = {
-            "tables": ["*"],
-            "destination_plugin_name": "sqlite",
-        }
+        # Skip table discovery for all platforms during init phase since they require credentials
+        # This will be handled later when we have the actual cloud config
+        platforms_to_discover = []
+        
         for platform_spec in platform_specs:
+            # Skip all platforms in init phase since they require credentials or have other issues
+            logger.debug(f"Skipping {platform_spec.name} table discovery in init phase - requires credentials or cloud config")
+            continue
+                
+            platforms_to_discover.append(platform_spec)
+            
+            template_variables = {
+                "tables": ["*"],
+                "destination_plugin_name": "sqlite",
+            }
             config_file_path = os.path.join(cq_config_dir, platform_spec.config_file_name)
             config_text = render_template_file(platform_spec.config_template_name, template_variables,
                                                template_loader_func)
             logger.debug(f"-------USING CQ CONFIG-------\n{config_text}")
             write_file(config_file_path, config_text)
 
-        cq_env_vars = dict()
-        invoke_cloudquery("tables", cq_config_dir, cq_env_vars, cq_output_dir)
+        if platforms_to_discover:
+            cq_env_vars = dict()
+            invoke_cloudquery("tables", cq_config_dir, cq_env_vars, cq_output_dir)
 
-        cloudquery_premium_table_info = dict()
-        for platform_spec in platform_specs:
-            table_doc_path = os.path.join(cq_output_dir, platform_spec.name, "__tables.json")
-            table_doc_text = read_file(table_doc_path)
-            table_doc_data = json.loads(table_doc_text)
-            premium_tables = get_premium_tables(table_doc_data)
-            cloudquery_premium_table_info[platform_spec.name] = premium_tables
+            for platform_spec in platforms_to_discover:
+                table_doc_path = os.path.join(cq_output_dir, platform_spec.name, "__tables.json")
+                if os.path.exists(table_doc_path):
+                    table_doc_text = read_file(table_doc_path)
+                    table_doc_data = json.loads(table_doc_text)
+                    premium_tables = get_premium_tables(table_doc_data)
+                    cloudquery_premium_table_info[platform_spec.name] = premium_tables
+                else:
+                    logger.warning(f"Table documentation not found for {platform_spec.name}")
+                    cloudquery_premium_table_info[platform_spec.name] = []
+        else:
+            logger.info("No platforms available for table discovery in init phase")
 
 def get_managed_identity_details():
     credential = DefaultAzureCredential()
