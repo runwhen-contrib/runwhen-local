@@ -1,0 +1,103 @@
+# Example workspaceInfo.yaml with ConfigProvided Overrides
+# This file demonstrates how to use the configProvided overrides feature
+
+workspaceName: "my-workspace"
+workspaceOwnerEmail: "admin@company.com"
+defaultLocation: "location-01"
+defaultLOD: "detailed"
+
+cloudConfig:
+  kubernetes:
+    kubeconfigFile: "/shared/kubeconfig"
+  azure:
+    subscriptionId: "your-subscription-id"
+    tenantId: "your-tenant-id"
+    clientId: "your-client-id"
+    clientSecret: "your-client-secret"
+
+codeCollections: []
+
+# ConfigProvided Overrides Section
+# This section allows you to override template variables in runbooks and SLIs
+# without modifying the original templates in the code collections.
+overrides:
+  codebundles:
+    
+    # Example 1: Azure AKS SLI Overrides
+    # Override default values for Azure AKS health monitoring
+    - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection.git"
+      codebundleDirectory: "azure-aks-triage"
+      type: "sli"
+      configProvided:
+        # Check health every 5 minutes instead of default 10
+        TIME_PERIOD_MINUTES: "5"
+        # Use custom subscription ID for this specific check
+        AZURE_RESOURCE_SUBSCRIPTION_ID: "prod-subscription-id"
+        # Add custom threshold
+        HEALTH_THRESHOLD: "0.95"
+    
+    # Example 2: Azure AKS Runbook Overrides  
+    # Override default values for Azure AKS troubleshooting runbooks
+    - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection.git"
+      codebundleDirectory: "azure-aks-triage"
+      type: "runbook"
+      configProvided:
+        # Extend troubleshooting window to 2 hours
+        TIME_PERIOD_MINUTES: "120"
+        # Use production subscription name
+        AZURE_SUBSCRIPTION_NAME: "Production Environment"
+        # Enable debug mode for detailed logging
+        DEBUG_MODE: "true"
+        # Increase retry attempts
+        MAX_RETRIES: "5"
+    
+    # Example 3: Kubernetes Deployment Overrides
+    # Override values for Kubernetes deployment monitoring
+    - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection.git"
+      codebundleDirectory: "k8s-deployment-healthcheck"
+      type: "sli"
+      configProvided:
+        # Check every minute for critical deployments
+        CHECK_INTERVAL_SECONDS: "60"
+        # Focus on production namespace
+        NAMESPACE: "production"
+        # Set custom replica threshold
+        MIN_REPLICAS: "3"
+    
+    # Example 4: Environment-Specific Webhook Configuration
+    # Override webhook URLs for different environments
+    - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection.git"
+      codebundleDirectory: "generic-webhook-notification"
+      type: "runbook"
+      configProvided:
+        # Production alert webhook
+        WEBHOOK_URL: "https://alerts.company.com/production"
+        # Custom message format
+        MESSAGE_TEMPLATE: "PROD ALERT: {issue} in {resource}"
+        # Increase timeout for external webhooks
+        TIMEOUT_SECONDS: "30"
+
+# Custom definitions for additional template variables
+custom:
+  # Environment identifier
+  environment: "production"
+  # Organization-specific settings
+  organization: "MyCompany"
+  # Custom binary paths
+  kubernetes_distribution_binary: "kubectl"
+
+# Override Matching Rules:
+# An override is applied when ALL of the following match:
+# 1. repoURL: Must exactly match the repository URL of the codebundle
+# 2. codebundleDirectory: Must exactly match the codebundle directory name  
+# 3. type: Must match the output type being generated ("sli" or "runbook")
+#
+# Variable Override Rules:
+# - The variable name in configProvided must match the 'name' field in the template
+# - All values are converted to strings in the final YAML
+# - Only existing variables in the template can be overridden
+#
+# Troubleshooting:
+# - Enable DEBUG_LOGGING=true to see detailed override processing
+# - Look for "MATCH FOUND" messages in the logs
+# - Verify exact spelling and case sensitivity of all fields 
