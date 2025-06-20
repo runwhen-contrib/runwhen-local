@@ -62,6 +62,89 @@ def deduplicate_secrets_provided(yaml_text: str) -> str:
         data['spec']['secretsProvided'] = list(unique_secrets)
     return yaml.dump(data, sort_keys=False)
 
+def apply_config_provided_overrides(context: Context, output_text: str, output_item: OutputItem) -> str:
+    """
+    Apply configProvided overrides to the rendered output by modifying the YAML content.
+    """
+    try:
+        overrides = context.get_property("overrides", {})
+        if not overrides or "codebundles" not in overrides:
+            return output_text
+            
+        # Parse the rendered YAML
+        import yaml
+        try:
+            parsed_yaml = yaml.safe_load(output_text)
+        except yaml.YAMLError:
+            logger.warning(f"Could not parse YAML for override processing: {output_item.path}")
+            return output_text
+            
+        # Check if this is a file that has configProvided section
+        if not parsed_yaml or not isinstance(parsed_yaml, dict):
+            return output_text
+            
+        spec = parsed_yaml.get('spec', {})
+        config_provided = spec.get('configProvided', [])
+        if not config_provided:
+            return output_text
+            
+        # Extract codebundle info from template variables
+        template_vars = output_item.template_variables
+        current_repo_url = template_vars.get('repo_url', '')
+        # Extract codebundle directory from the source generation rule path
+        generation_rule_path = template_vars.get('generation_rule_file_path', '')
+        if 'codebundles/' in generation_rule_path:
+            current_codebundle_dir = generation_rule_path.split('codebundles/')[1].split('/')[0]
+        else:
+            return output_text
+            
+        # Determine the type based on the file kind
+        file_kind = parsed_yaml.get('kind', '').lower()
+        if file_kind == 'runbook':
+            current_type = 'runbook'
+        elif file_kind == 'servicelevelindicator':
+            current_type = 'sli'
+        else:
+            return output_text
+            
+        logger.debug(f"Post-render override check for: repo_url='{current_repo_url}', codebundle_dir='{current_codebundle_dir}', type='{current_type}'")
+        
+        # Find matching override
+        codebundle_overrides = overrides["codebundles"]
+        for override in codebundle_overrides:
+            override_repo_url = override.get('repoURL', '')
+            override_codebundle_dir = override.get('codebundleDirectory', '')
+            override_type = override.get('type', '').lower()
+            
+            logger.debug(f"Post-render comparing with override: repo_url='{override_repo_url}', codebundle_dir='{override_codebundle_dir}', type='{override_type}'")
+            
+            # Check if this override matches the current codebundle
+            if (override_repo_url == current_repo_url and 
+                override_codebundle_dir == current_codebundle_dir and 
+                override_type == current_type):
+                
+                logger.info(f"POST-RENDER MATCH FOUND! Applying overrides for {current_codebundle_dir}/{current_type}")
+                
+                # Apply variable overrides to configProvided section
+                config_overrides = override.get('configProvided', {})
+                for var_name, var_value in config_overrides.items():
+                    # Find and update the configProvided entry
+                    for config_item in config_provided:
+                        if config_item.get('name') == var_name:
+                            old_value = config_item.get('value')
+                            config_item['value'] = str(var_value)
+                            logger.info(f"POST-RENDER Applied configProvided override: {var_name} = {var_value} (was: {old_value})")
+                            break
+                
+                # Re-serialize the YAML
+                return yaml.dump(parsed_yaml, default_flow_style=False, sort_keys=False)
+                
+        return output_text
+        
+    except Exception as e:
+        logger.warning(f"Error in post-render configProvided override processing: {e}")
+        return output_text
+
 def render(context: Context):
     output_items: dict[str, OutputItem] = context.get_property(OUTPUT_ITEMS_PROPERTY, {})
     skipped_templates: List[dict] = []
@@ -79,6 +162,9 @@ def render(context: Context):
 
             # Deduplicate 'secretsProvided'
             deduplicated_output = deduplicate_secrets_provided(output_text)
+
+            # Apply configProvided overrides
+            deduplicated_output = apply_config_provided_overrides(context, deduplicated_output, output_item)
 
             # Write the deduplicated output to the file
             context.write_file(output_item.path, deduplicated_output)

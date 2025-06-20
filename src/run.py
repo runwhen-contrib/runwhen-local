@@ -327,134 +327,6 @@ def main():
     code_collections = None
     cloud_config = None
 
-    # # Read the information from the uploadInfo.yaml file.
-    # # In theory, we should only need to do this if we're going to try to upload
-    # # to the platform (i.e. upload subcommand or --upload flag), but currently
-    # # there is other information in uploadInfo.yamll (e.g. workspaceName,
-    # # workspaceOwnerEmail, defaultLocation) that affect the workspace generation
-    # # process, so we need to parse the file even just for generation.
-    # # We currently give precedence to the settings in uploadInfo.yaml over
-    # # what's in workspaceInfo.yaml, so if a user has been operating in pure
-    # # RunWhen Local mode and then wants to upload to the platform and downloads
-    # # the uploadInfo.yaml the workspace name there will override whatever they
-    # # had been using in the workspaceInfo.yaml setting.
-    # upload_info_path = os.path.join(base_directory, args.upload_info)
-    # try:
-    #     upload_info_text = read_file(upload_info_path)
-    #     upload_info = yaml.safe_load(upload_info_text)
-    #     upload_token = upload_info.get('token')
-    #     if not papi_url:
-    #         papi_url = upload_info.get('papiURL')
-    #     if not workspace_name:
-    #         workspace_name = upload_info.get('workspaceName')
-    #     if not workspace_owner_email:
-    #         workspace_owner_email = upload_info.get('workspaceOwnerEmail')
-    #     if not location_id:
-    #         location_id = upload_info.get("locationId")
-    #         # This is backwards compatibility code to support the old name that can eventually go away
-    #         if not location_id:
-    #             location_id = upload_info.get("defaultLocation")
-    #     if not location_name:
-    #         location_name = upload_info.get("locationName")
-    #         # This is backwards compatibility code to support the old name that can eventually go away
-    #         if not location_name:
-    #             location_name = upload_info.get("defaultLocationName")
-    # except FileNotFoundError:
-    #     # Don't treat this as a fatal error, to handle untethered, pure
-    #     # RunWhen Local operation. In this case we assume that the workspace name
-    #     # and the other fields are specified in workspaceInfo.yaml (or specified
-    #     # as command line arguments, but I don't think that's a feature that
-    #     # anyone is really using at this point).
-    #     pass
-
-    # # Parse the settings info for calling the REST service
-    # if args.workspace_info:
-    #     workspace_info_path = os.path.join(base_directory, args.workspace_info)
-    #     if os.path.exists(workspace_info_path):
-    #         workspace_info_str = read_file(workspace_info_path)
-            
-    #         try:
-    #             workspace_info = yaml.safe_load(workspace_info_str)
-    #         except yaml.YAMLError as e:
-    #             raise ValueError(f"Unable to parse workspaceInfo YAML in {workspace_info_path}: {e}")
-
-    #         # FIXME: Should probably tweak the field in the workspace info from the GUI/PAPI
-    #         # to name this just "workspace"
-    #         if not workspace_name:
-    #             workspace_name = workspace_info.get('workspaceName')
-    #             if not isinstance(workspace_name, str):
-    #                 raise ValueError("Workspace name must be a string.")
-    #         # We've moved the upload token and PAPI URL settings to the uploadInfo.yaml file,
-    #         # but we'll keep support for the old way of putting it in the workspaceInfo.yaml file for
-    #         # a little while to avoid breaking existing setups.
-    #         # FIXME: Should remove this eventually after we think it's safe to assume everybody has
-    #         # switched over to using the uploadInfo.yaml file.
-    #         if not upload_token:
-    #             upload_token = workspace_info.get('token')
-    #         if not papi_url:
-    #             papi_url = workspace_info.get('papiURL')
-    #         if not workspace_owner_email:
-    #             workspace_owner_email = workspace_info.get('workspaceOwnerEmail')
-    #         if not location_id:
-    #             location_id = workspace_info.get("locationId")
-    #             if not location_id:
-    #                 location_id = workspace_info.get("defaultLocation")
-    #         if not location_name:
-    #             location_name = workspace_info.get("locationName")
-    #             # This is backwards compatibility code to support the old name that can eventually go away
-    #             if not location_name:
-    #                 location_name = workspace_info.get("defaultLocationName")
-    #         if default_lod is None:
-    #             default_lod = workspace_info.get("defaultLOD")
-    #         if not namespaces:
-    #             namespaces = workspace_info.get("namespaces")
-    #         if not resource_dump_path:
-    #             resource_dump_path = workspace_info.get("resourceDumpPath", "resource-dump.yaml")
-    #         if not resource_load_file:
-    #             resource_load_file = workspace_info.get("resourceLoadFile")
-    #         namespace_lods = workspace_info.get('namespaceLODs')
-    #         custom_definitions = workspace_info.get("custom", dict())
-    #         code_collections = workspace_info.get("codeCollections")
-    #         cloud_config = workspace_info.get('cloudConfig', None)
-    #         # Immediately error out if no discovery configuration is provided. We will deprecate any other
-    #         # assumed configurations. Discovery must be explicitly set. 
-    #         if not cloud_config:
-    #             print("Error: 'cloudConfig' configuration is missing in the workspace info. Exiting.")
-    #             sys.exit(1)
-
-    # # If a setting has still not been set, try an environment variable as a last resort
-    # # FIXME: With the switch to having default values for the command line args, these
-    # # will typically never be undefined, unless I guess the user explicitly specifies
-    # # the command line arg with an empty string. Need to think about this some more.
-    # # One possibility would be to detect if we're using the default values or an
-    # # explicitly specified command line arg. If it's the default value, then let
-    # # that be overridden by the environment variable, if specified. There's not a
-    # # completely straightforward way to detect if an argparse arg is the default
-    # # value vs. an explicitly specified value that's the same as the default value,
-    # # but there are some kludgy ways to do it described in some SO posts. For now,
-    # # though, I don't think anything is reliant on using env vars to specify the
-    # # settings, so I don't think getting this ironed out is a super high priority.
-    # if not workspace_name:
-    #     workspace_name = os.getenv('WB_WORKSPACE_NAME')
-    # if not workspace_owner_email:
-    #     workspace_owner_email = os.getenv('WB_WORKSPACE_OWNER_EMAIL')
-    # if not location_id:
-    #     location_id = os.getenv("WB_LOCATION_ID")
-    # if not location_name:
-    #     location_name = os.getenv("WB_LOCATION_NAME")
-    # if not papi_url:
-    #     papi_url = os.getenv('WB_PAPI_URL')
-    # if default_lod is None:
-    #     default_lod = os.getenv("WB_DEFAULT_LOD")
-    # if not namespace_lods:
-    #     namespace_lods = os.getenv("WB_NAMESPACE_LODS")
-    # if not namespaces:
-    #     namespaces_string = os.getenv("WB_NAMESPACES")
-    #     if namespaces_string:
-    #         namespaces = [ns.strip() for ns in namespaces_string.split(',')]
-    # if not cloud_config:
-    #     cloud_config = os.getenv("WB_CLOUD_CONFIG")
-
     # ------------------------------------------------------------------ 1. workspaceInfo
     workspace_info = {}
     if args.workspace_info:
@@ -558,6 +430,7 @@ def main():
 
     custom_definitions = workspace_info.get("custom", {})
     code_collections = workspace_info.get("codeCollections")
+    overrides = workspace_info.get("overrides", {})
 
     # ------------------------------------------------------------------ 4. validation guards
     missing = []
@@ -760,6 +633,8 @@ def main():
             request_data['codeCollections'] = code_collections
         if cloud_config:
             request_data['cloudConfig'] = cloud_config
+        if overrides:
+            request_data['overrides'] = overrides
         if resource_dump_path:
             request_data['resourceDumpPath'] = resource_dump_path
         if resource_load_file:

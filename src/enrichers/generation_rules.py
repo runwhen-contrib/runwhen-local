@@ -661,6 +661,46 @@ def get_template_variables(output_item: OutputItem,
 
         logger.debug(f"Resolved template variables: {template_variables}")
 
+        # Apply configProvidedOverrides if present
+        try:
+            overrides = context.get_property("overrides", {})
+            if overrides and "codebundles" in overrides:
+                codebundle_overrides = overrides["codebundles"]
+                
+                # Get current codebundle info
+                current_repo_url = template_variables.get('repo_url', '')
+                current_codebundle_dir = generation_rule_info.generation_rule_file_spec.code_bundle_name
+                current_type = output_item.type.lower()
+                
+                logger.debug(f"Checking overrides for: repo_url='{current_repo_url}', codebundle_dir='{current_codebundle_dir}', type='{current_type}'")
+                
+                # Find matching override
+                for override in codebundle_overrides:
+                    override_repo_url = override.get('repoURL', '')
+                    override_codebundle_dir = override.get('codebundleDirectory', '')
+                    override_type = override.get('type', '').lower()
+                    
+                    logger.debug(f"Comparing with override: repo_url='{override_repo_url}', codebundle_dir='{override_codebundle_dir}', type='{override_type}'")
+                    
+                    # Check if this override matches the current codebundle
+                    if (override_repo_url == current_repo_url and 
+                        override_codebundle_dir == current_codebundle_dir and 
+                        override_type == current_type):
+                        
+                        logger.info(f"MATCH FOUND! Applying overrides for {current_codebundle_dir}/{current_type}")
+                        
+                        # Apply variable overrides directly to template_variables
+                        config_overrides = override.get('configProvided', {})
+                        for var_name, var_value in config_overrides.items():
+                            # Set the variable directly in template_variables so templates can access it
+                            template_variables[var_name] = var_value
+                            logger.info(f"Applied configProvided override: {var_name} = {var_value}")
+                        break
+                else:
+                    logger.debug(f"No matching override found for {current_codebundle_dir}/{current_type}")
+        except Exception as e:
+            logger.warning(f"Error applying configProvided overrides: {e}")
+
         return template_variables
     except Exception as e:
         logger.error(f"Error in get_template_variables: {e}", exc_info=True)
@@ -691,6 +731,39 @@ def get_template_variables(output_item: OutputItem,
         minimal_vars['ref'] = 'undefined'
         minimal_vars['generation_rule_file_path'] = 'undefined'
         minimal_vars['qualifiers'] = {}
+        
+        # Apply configProvidedOverrides even in error case
+        try:
+            overrides = context.get_property("overrides", {})
+            if overrides and "codebundles" in overrides:
+                codebundle_overrides = overrides["codebundles"]
+                
+                # Get current codebundle info
+                current_repo_url = minimal_vars.get('repo_url', '')
+                current_codebundle_dir = generation_rule_info.generation_rule_file_spec.code_bundle_name
+                current_type = output_item.type.lower()
+                
+                # Find matching override
+                for override in codebundle_overrides:
+                    override_repo_url = override.get('repoURL', '')
+                    override_codebundle_dir = override.get('codebundleDirectory', '')
+                    override_type = override.get('type', '').lower()
+                    
+                    # Check if this override matches the current codebundle
+                    if (override_repo_url == current_repo_url and 
+                        override_codebundle_dir == current_codebundle_dir and 
+                        override_type == current_type):
+                        
+                        # Apply variable overrides directly to minimal_vars
+                        config_overrides = override.get('configProvided', {})
+                        for var_name, var_value in config_overrides.items():
+                            # Set the variable directly in minimal_vars so templates can access it
+                            minimal_vars[var_name] = var_value
+                            logger.debug(f"Applied configProvided override (error case): {var_name} = {var_value}")
+                        break
+        except Exception as e:
+            logger.warning(f"Error applying configProvided overrides in error case: {e}")
+        
         return minimal_vars
 
 
