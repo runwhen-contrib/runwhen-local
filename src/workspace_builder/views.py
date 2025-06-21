@@ -98,6 +98,12 @@ class RunView(APIView):
             outputter = TarFileOutputter()
             context = Context(setting_values, outputter)
             context.set_property(REGISTRY_PROPERTY_NAME, Registry())
+            
+            # Add configProvidedOverrides to context if present
+            overrides = request.data.get("overrides", {})
+            if overrides:
+                context.set_property("overrides", overrides)
+            
             run_components(context, components)
 
             outputter.close()

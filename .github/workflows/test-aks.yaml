@@ -170,6 +170,7 @@ jobs:
             - ci-test-3
             - ci-test-4
             - ci-test-5
+            - ci-test-tag-exclusion
       steps:
         - name: Install Task
           uses: arduino/setup-task@v2

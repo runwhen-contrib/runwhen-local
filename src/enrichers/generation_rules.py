@@ -1,9 +1,13 @@
-from dataclasses import dataclass
-import logging
-import os, sys
+import os
 import re
-from typing import Any, Union, Optional, Sequence
 import yaml
+import tempfile
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from enum import Enum
+from typing import Any, Optional, Union, Sequence
+from jinja2 import Environment, BaseLoader, meta
+from robot.api import TestSuite
 
 from component import (
     Context,
@@ -15,7 +19,7 @@ from component import (
     LOCATION_ID_SETTING,
     LOCATION_NAME_SETTING,
 )
-from exceptions import WorkspaceBuilderException
+from exceptions import WorkspaceBuilderException, WorkspaceBuilderUserException
 from indexers.kubetypes import KUBERNETES_PLATFORM
 from name_utils import shorten_name, make_qualified_slx_name, make_slx_name
 from .generation_rule_types import (
@@ -97,6 +101,11 @@ WB_VERSION_SETTING = Setting("WB_VERSION",
                         Setting.Type.STRING,
                         "WorkspaceBuilder/RunWhen Local Version")
 
+TASK_TAG_EXCLUSIONS_SETTING = Setting("TASK_TAG_EXCLUSIONS",
+                                     "taskTagExclusions",
+                                     Setting.Type.LIST,
+                                     "List of tags that will exclude a codebundle if found on any task")
+
 
 SETTINGS = (
     SettingDependency(WORKSPACE_NAME_SETTING, True),
@@ -109,7 +118,8 @@ SETTINGS = (
     SettingDependency(CUSTOM_DEFINITIONS_SETTING, False),
     SettingDependency(PERSONAS_SETTING, False),
     SettingDependency(CODE_COLLECTIONS_SETTING, False),
-    SettingDependency(WB_VERSION_SETTING, False)
+    SettingDependency(WB_VERSION_SETTING, False),
+    SettingDependency(TASK_TAG_EXCLUSIONS_SETTING, False)
 )
 
 GROUPS_PROPERTY = "groups"
@@ -661,6 +671,46 @@ def get_template_variables(output_item: OutputItem,
 
         logger.debug(f"Resolved template variables: {template_variables}")
 
+        # Apply configProvidedOverrides if present
+        try:
+            overrides = context.get_property("overrides", {})
+            if overrides and "codebundles" in overrides:
+                codebundle_overrides = overrides["codebundles"]
+                
+                # Get current codebundle info
+                current_repo_url = template_variables.get('repo_url', '')
+                current_codebundle_dir = generation_rule_info.generation_rule_file_spec.code_bundle_name
+                current_type = output_item.type.lower()
+                
+                logger.debug(f"Checking overrides for: repo_url='{current_repo_url}', codebundle_dir='{current_codebundle_dir}', type='{current_type}'")
+                
+                # Find matching override
+                for override in codebundle_overrides:
+                    override_repo_url = override.get('repoURL', '')
+                    override_codebundle_dir = override.get('codebundleDirectory', '')
+                    override_type = override.get('type', '').lower()
+                    
+                    logger.debug(f"Comparing with override: repo_url='{override_repo_url}', codebundle_dir='{override_codebundle_dir}', type='{override_type}'")
+                    
+                    # Check if this override matches the current codebundle
+                    if (override_repo_url == current_repo_url and 
+                        override_codebundle_dir == current_codebundle_dir and 
+                        override_type == current_type):
+                        
+                        logger.info(f"MATCH FOUND! Applying overrides for {current_codebundle_dir}/{current_type}")
+                        
+                        # Apply variable overrides directly to template_variables
+                        config_overrides = override.get('configProvided', {})
+                        for var_name, var_value in config_overrides.items():
+                            # Set the variable directly in template_variables so templates can access it
+                            template_variables[var_name] = var_value
+                            logger.info(f"Applied configProvided override: {var_name} = {var_value}")
+                        break
+                else:
+                    logger.debug(f"No matching override found for {current_codebundle_dir}/{current_type}")
+        except Exception as e:
+            logger.warning(f"Error applying configProvided overrides: {e}")
+
         return template_variables
     except Exception as e:
         logger.error(f"Error in get_template_variables: {e}", exc_info=True)
@@ -691,6 +741,39 @@ def get_template_variables(output_item: OutputItem,
         minimal_vars['ref'] = 'undefined'
         minimal_vars['generation_rule_file_path'] = 'undefined'
         minimal_vars['qualifiers'] = {}
+        
+        # Apply configProvidedOverrides even in error case
+        try:
+            overrides = context.get_property("overrides", {})
+            if overrides and "codebundles" in overrides:
+                codebundle_overrides = overrides["codebundles"]
+                
+                # Get current codebundle info
+                current_repo_url = minimal_vars.get('repo_url', '')
+                current_codebundle_dir = generation_rule_info.generation_rule_file_spec.code_bundle_name
+                current_type = output_item.type.lower()
+                
+                # Find matching override
+                for override in codebundle_overrides:
+                    override_repo_url = override.get('repoURL', '')
+                    override_codebundle_dir = override.get('codebundleDirectory', '')
+                    override_type = override.get('type', '').lower()
+                    
+                    # Check if this override matches the current codebundle
+                    if (override_repo_url == current_repo_url and 
+                        override_codebundle_dir == current_codebundle_dir and 
+                        override_type == current_type):
+                        
+                        # Apply variable overrides directly to minimal_vars
+                        config_overrides = override.get('configProvided', {})
+                        for var_name, var_value in config_overrides.items():
+                            # Set the variable directly in minimal_vars so templates can access it
+                            minimal_vars[var_name] = var_value
+                            logger.debug(f"Applied configProvided override (error case): {var_name} = {var_value}")
+                        break
+        except Exception as e:
+            logger.warning(f"Error applying configProvided overrides in error case: {e}")
+        
         return minimal_vars
 
 
@@ -1143,7 +1226,29 @@ def enrich(context: Context) -> None:
     }
 
     generation_rule_infos: list[GenerationRuleInfo] = context.get_property(GENERATION_RULES_PROPERTY)
+    
+    # Debug logging for tag exclusions
+    tag_exclusions = context.get_setting("TASK_TAG_EXCLUSIONS")
+    logger.info(f"Tag exclusions setting: {tag_exclusions}")
+    
+    # Debug: Show all available settings
+    try:
+        all_settings = {}
+        for setting_dep in SETTINGS:
+            setting_name = setting_dep.setting.config_key
+            setting_value = context.get_setting(setting_dep.setting.setting_name)
+            all_settings[setting_name] = setting_value
+        logger.info(f"All available settings: {all_settings}")
+    except Exception as e:
+        logger.warning(f"Could not retrieve all settings: {e}")
+    
     for generation_rule_info in generation_rule_infos:
+        # Check if this codebundle is allowed based on tag exclusion list
+        logger.info(f"Processing generation rule for codebundle: {generation_rule_info.generation_rule_file_spec.code_bundle_name}")
+        if not check_codebundle_access_allowed(generation_rule_info, context):
+            logger.info(f"Skipping codebundle {generation_rule_info.generation_rule_file_spec.code_bundle_name} due to excluded tags")
+            continue
+            
         generation_rule = generation_rule_info.generation_rule
         for resource_type_spec in generation_rule.resource_type_specs:
             resources = get_resources(context, resource_type_spec)
@@ -1213,3 +1318,108 @@ def enrich(context: Context) -> None:
     renderer_output_items[path] = output_item
 
     logger.debug("Ending generation_rules.enrich")
+
+
+def check_codebundle_access_allowed(generation_rule_info: "GenerationRuleInfo", context: Context) -> bool:
+    """
+    Check if a codebundle should be allowed based on robot file tags and workspace tag exclusion list.
+    
+    Returns True if the codebundle should be allowed, False otherwise.
+    """
+    tag_exclusion_list = context.get_setting("TASK_TAG_EXCLUSIONS")
+    
+    if not tag_exclusion_list:
+        # If no exclusion list is set, allow all codebundles
+        logger.info(f"No tag exclusion list configured, allowing all codebundles")
+        return True
+    
+    # Convert to lowercase for case-insensitive comparison
+    exclusion_tags = [tag.lower() for tag in tag_exclusion_list]
+    
+    code_collection = generation_rule_info.code_collection
+    code_bundle_name = generation_rule_info.generation_rule_file_spec.code_bundle_name
+    ref_name = generation_rule_info.generation_rule_file_spec.ref_name
+    
+    logger.info(f"Checking codebundle {code_bundle_name} for excluded tags: {exclusion_tags}")
+    logger.info(f"Code collection repo URL: {code_collection.repo_url}")
+    logger.info(f"Reference: {ref_name}")
+    
+    try:
+        # Get the codebundle tree to find robot files
+        code_bundles_tree = code_collection.get_code_bundles_tree(ref_name)
+        code_bundle_tree = code_collection.resolve_path(code_bundles_tree, code_bundle_name)
+        
+        # Look for robot files in the codebundle
+        robot_files = []
+        for item in code_bundle_tree:
+            if hasattr(item, 'name') and item.name.endswith('.robot'):
+                robot_files.append(item.name)
+        
+        logger.info(f"Found robot files in {code_bundle_name}: {robot_files}")
+        
+        # Check each robot file for excluded tags
+        for robot_file_name in robot_files:
+            try:
+                robot_blob = code_collection.resolve_path(code_bundle_tree, robot_file_name)
+                if hasattr(robot_blob, 'data_stream'):
+                    robot_content = robot_blob.data_stream.read().decode('utf-8')
+                    
+                    logger.info(f"Checking robot file {robot_file_name} for excluded tags")
+                    logger.info(f"Robot file content preview (first 500 chars): {robot_content[:500]}")
+                    
+                    # Parse the robot file to check for excluded tags
+                    if has_excluded_tags(robot_content, exclusion_tags):
+                        logger.info(f"Codebundle {code_bundle_name} contains excluded tags, filtering out")
+                        return False
+                        
+            except Exception as e:
+                logger.warning(f"Could not parse robot file {robot_file_name} in codebundle {code_bundle_name}: {e}")
+                continue
+                
+    except Exception as e:
+        logger.warning(f"Could not check tags for codebundle {code_bundle_name}: {e}")
+        # If we can't check tags, err on the side of caution and allow it
+        return True
+    
+    logger.info(f"Codebundle {code_bundle_name} allowed (no excluded tags found)")
+    return True
+
+
+def has_excluded_tags(robot_content: str, exclusion_tags: list[str]) -> bool:
+    """
+    Check if robot content contains any tasks with excluded tags.
+    
+    Returns True if any task has an excluded tag, False otherwise.
+    """
+    try:
+        # Create a temporary file to parse the robot content
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.robot', delete=False) as temp_file:
+            temp_file.write(robot_content)
+            temp_file.flush()
+            
+            try:
+                suite = TestSuite.from_file_system(temp_file.name)
+                
+                logger.info(f"Parsing robot file with {len(suite.tests)} tasks")
+                
+                # Check all tasks for excluded tags
+                for task in suite.tests:
+                    task_tags = [str(tag).lower() for tag in task.tags]
+                    logger.info(f"Task '{task.name}' has tags: {task_tags}")
+                    
+                    for tag in task.tags:
+                        tag_str = str(tag).lower()
+                        if tag_str in exclusion_tags:
+                            logger.info(f"Found excluded tag '{tag_str}' in task '{task.name}'")
+                            return True
+                            
+            finally:
+                os.unlink(temp_file.name)
+                
+    except Exception as e:
+        logger.warning(f"Could not parse robot content for excluded tags: {e}")
+        # If we can't parse, assume it's safe (no excluded tags)
+        return False
+    
+    logger.info(f"No excluded tags found in robot content")
+    return False

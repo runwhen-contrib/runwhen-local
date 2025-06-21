@@ -556,6 +556,112 @@ tasks:
             EXPECTED_SLX_COUNT: "{{.EXPECTED_SLXS}}"
       silent: true
 
+  ci-test-tag-exclusion:
+    desc: "Run CI Discovery Test - Tag Exclusion - Validate that codebundles with excluded tags are filtered out"
+    env:
+      ARM_SUBSCRIPTION_ID: "{{.TF_VAR_subscription_id}}"
+      AZ_TENANT_ID: "{{.AZ_TENANT_ID}}"
+      AZ_CLIENT_SECRET: "{{.AZ_CLIENT_SECRET}}"
+      AZ_CLIENT_ID: "{{.AZ_CLIENT_ID}}"
+      RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
+    vars:
+      EXPECTED_SLXS: "1"  # Expected count with tag exclusions applied
+    cmds:
+      - |
+        # Fetch individual cluster details from Terraform state
+        pushd terraform > /dev/null
+        cluster_name=$(terraform show -json | jq -r '
+          .values.outputs.cluster_name.value')
+        cluster_server=$(terraform show -json | jq -r '
+          .values.outputs.cluster_fqdn.value')
+        cluster_resource_group=$(terraform show -json | jq -r '
+          .values.outputs.cluster_rg.value')
+        cluster_sub=$(terraform show -json | jq -r '
+          .values.outputs.cluster_sub.value')
+        popd > /dev/null
+
+        # Check if any of the required cluster variables are empty
+        if [ -z "$cluster_name" ] || [ -z "$cluster_server" ] || [ -z "$cluster_resource_group" ]; then
+          echo "Error: Missing cluster details. Ensure Terraform plan has been applied."
+          exit 1
+        fi
+
+        # Generate workspaceInfo.yaml with tag exclusions and limited namespace scope
+        cat <<EOF > workspaceInfo.yaml
+        workspaceName: "$RW_WORKSPACE"
+        workspaceOwnerEmail: authors@runwhen.com
+        defaultLocation: location-01
+        defaultLOD: none
+        taskTagExclusions: 
+          - "access:read-write"
+        cloudConfig:
+          kubernetes:
+            kubeconfigFile: /shared/kubeconfig.secret
+            contexts:
+              sandbox-cluster-1: 
+                defaultNamespaceLOD: detailed
+            namespaces:
+              - ci-verify-basic
+          azure:
+            subscriptionId: "$ARM_SUBSCRIPTION_ID"
+            tenantId: "$AZ_TENANT_ID"
+            clientId: "$AZ_CLIENT_ID"
+            clientSecret: "$AZ_CLIENT_SECRET"
+            aksClusters: 
+              clusters: 
+                - name: $cluster_name
+                  server: https://$cluster_server:443
+                  resource_group: $cluster_resource_group
+                  subscriptionId: $cluster_sub
+                  defaultNamespaceLOD: none
+            resourceGroupLevelOfDetails:
+              $cluster_resource_group: none
+        codeCollections:
+          - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection.git"
+            ref: "main"
+            codeBundles: 
+              - "k8s-deployment-healthcheck"  # Should be allowed (read-only compatible)
+              - "k8s-deployment-ops"          # Should be filtered out (has read-write tags)
+        custom: 
+          kubernetes_distribution_binary: kubectl
+        EOF
+
+      - task: ci-run-rwl-discovery
+      - task: verify-slx-count
+        vars:
+          EXPECTED_SLX_COUNT: "{{.EXPECTED_SLXS}}"
+      - task: verify-tag-exclusion
+    silent: true
+
+  verify-tag-exclusion:
+    desc: "Validate that codebundles with excluded tags are properly filtered out"
+    cmds:
+      - |
+        echo "---Validating Tag Exclusion---"
+        
+        # Check if any runbook files were generated from k8s-deployment-ops (should be excluded)
+        excluded_files=$(find output/ -name "*.yaml" -exec grep -l "k8s-deployment-ops" {} \; 2>/dev/null || true)
+        
+        if [ -n "$excluded_files" ]; then
+          echo -e "\033[31m❌ Tag exclusion failed: Found files from excluded codebundle k8s-deployment-ops:\033[0m"
+          echo "$excluded_files"
+          exit 1
+        fi
+        
+        # Check if files were generated from k8s-deployment-healthcheck (should be allowed)
+        allowed_files=$(find output/ -name "*.yaml" -exec grep -l "k8s-deployment-healthcheck" {} \; 2>/dev/null || true)
+        
+        if [ -z "$allowed_files" ]; then
+          echo -e "\033[31m❌ Tag exclusion test incomplete: No files found from allowed codebundle k8s-deployment-healthcheck\033[0m"
+          exit 1
+        fi
+        
+        echo -e "\033[32m✔️ Tag Exclusion Validation Passed\033[0m"
+        echo "- Excluded codebundle (k8s-deployment-ops) was properly filtered out"
+        echo "- Allowed codebundle (k8s-deployment-healthcheck) generated expected files"
+        echo "- Found allowed files: $(echo "$allowed_files" | wc -l)"
+    silent: true
+
   install-deployment: 
     desc: "Install basic runwhen-local deployment"
     cmds: 
