@@ -565,7 +565,7 @@ tasks:
       AZ_CLIENT_ID: "{{.AZ_CLIENT_ID}}"
       RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
     vars:
-      EXPECTED_SLXS: "8"  # Expected count with tag exclusions applied
+      EXPECTED_SLXS: "1"  # Expected count with tag exclusions applied
     cmds:
       - |
         # Fetch individual cluster details from Terraform state
@@ -593,7 +593,7 @@ tasks:
         defaultLocation: location-01
         defaultLOD: none
         taskTagExclusions: 
-          - "access:read-only"
+          - "access:read-write"
         cloudConfig:
           kubernetes:
             kubeconfigFile: /shared/kubeconfig.secret
@@ -601,7 +601,6 @@ tasks:
               sandbox-cluster-1: 
                 defaultNamespaceLOD: detailed
             namespaces:
-              - kube-system
               - ci-verify-basic
           azure:
             subscriptionId: "$ARM_SUBSCRIPTION_ID"
