@@ -431,6 +431,7 @@ def main():
     custom_definitions = workspace_info.get("custom", {})
     code_collections = workspace_info.get("codeCollections")
     overrides = workspace_info.get("overrides", {})
+    task_tag_exclusions = workspace_info.get("taskTagExclusions")
 
     # ------------------------------------------------------------------ 4. validation guards
     missing = []
@@ -635,6 +636,8 @@ def main():
             request_data['cloudConfig'] = cloud_config
         if overrides:
             request_data['overrides'] = overrides
+        if task_tag_exclusions:
+            request_data['taskTagExclusions'] = task_tag_exclusions
         if resource_dump_path:
             request_data['resourceDumpPath'] = resource_dump_path
         if resource_load_file:
