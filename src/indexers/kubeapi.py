@@ -708,7 +708,7 @@ def index(component_context: Context):
                         for namespace in namespaces.values():
                             namespace_qualified_name = namespace.qualified_name
                             namespace_name = namespace.name
-                            logger.info(f'Scanning for Kubernetes resources in namespace "{namespace_name} with LOD:{namespace_lod}')
+                            logger.info(f'Scanning for Kubernetes resources in namespace "{namespace_name}" with LOD:{namespace.lod}')
             
                             #
                             # Index Deployments, DaemonSets and StatefulSets (the common app Kinds)
