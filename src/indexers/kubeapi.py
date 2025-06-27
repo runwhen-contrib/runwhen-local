@@ -924,7 +924,7 @@ def index(component_context: Context):
                                                                                                       plural_name)
                                             custom_attributes["namespace"] = namespace
                                             if owner_name:
-                                                pod_attributes['namespace'] = owner_name
+                                                custom_attributes['owner'] = owner_name
                                             custom_resource = registry.add_resource(KUBERNETES_PLATFORM,
                                                                                     KubernetesResourceType.CUSTOM.value,
                                                                                     custom_name,
