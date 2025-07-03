@@ -8,8 +8,20 @@
 {% endif %}
     - name: resource_type
       value: {{ match_resource.resource_type.name }}
+{% if qualifiers and qualifiers.resource is defined %}
+    - name: resource_name
+      value: {{ qualifiers.resource }}
+{% elif qualifiers and qualifiers.resource_group is defined %}
+    - name: resource_name
+      value: {{ qualifiers.resource_group }}
+{% else %}
     - name: resource_name
       value: {{ match_resource.resource.name }}
+{% endif %}
+{% for cr in child_resource_names | default([]) %}
+    - name: child_resource
+      value: '{{ cr | string | replace(":", "_") | replace("/", "_") }}'
+{% endfor %}
 {% set labels = match_resource.resource.labels %}
 {% if labels %}
 {% for k, v in match_resource.resource.labels.items() %}

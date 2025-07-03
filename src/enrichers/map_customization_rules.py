@@ -49,6 +49,11 @@ class SLXInfo:
     base_name: str
     qualifiers: dict[str, str]
     qualifier_values: list[str]
+    # Names of all child resources (e.g., individual database resources) that contributed
+    # to this SLX. When the SLX qualifier list does not include "resource" we aggregate
+    # the names of *all* matching resources so that templates can reference them (for
+    # example, to publish them as SLX tags).
+    child_resource_names: list[str]
     full_name: str
     qualified_name: str
     resource: Resource
@@ -70,6 +75,8 @@ class SLXInfo:
         self.qualifier_values = [self.qualifiers[q] for q in slx.qualifiers]
         self.full_name = make_qualified_slx_name(slx.base_name, self.qualifier_values, None)
         self.resource = resource
+        # Track the initial resource; additional names may be aggregated later.
+        self.child_resource_names = [resource.name]
         self.level_of_detail = level_of_detail
         # FIXME: It's a little kludgy to have this in the the SLX info, since it's
         # not really related to map customization rules and the evaluation of match
@@ -90,10 +97,20 @@ class SLXInfo:
         try:
             return (f"SLXInfo(base_name={self.base_name!r}, "
                     f"qualifiers={self.qualifiers!r}, qualifier_values={self.qualifier_values!r}, "
+                    f"child_resource_names={self.child_resource_names!r}, "
                     f"full_name={self.full_name!r}, resource={self.resource!r}, "
                     f"level_of_detail={self.level_of_detail!r}, generation_rule_info={self.generation_rule_info!r})")
         except Exception as e:
             return f"SLXInfo(repr error: {e})"
+
+    # ---------------------------------------------------------------------
+    # Helper API
+    # ---------------------------------------------------------------------
+
+    def add_child_resource_name(self, name: str):
+        """Add an additional child resource name, ensuring we don't introduce duplicates."""
+        if name not in self.child_resource_names:
+            self.child_resource_names.append(name)
 
 
 class SLXPropertyMatchPredicate(MatchPredicate):
