@@ -15,6 +15,10 @@
       value: {{ match_resource.name }}
     - name: resource_type
       value: {{ match_resource.resource_type.name }}
+{% for cr in child_resource_names | default([]) %}
+    - name: child_resource
+      value: '{{ cr | string | replace(":", "_") | replace("/", "_") }}'
+{% endfor %}
 {% else %}
       {# Azure ARM resources #}
       value: azure
@@ -24,8 +28,17 @@
       value: {{ subscription_name | default(match_resource.subscription_name, match_resource.subscription_id) }}
     - name: resource_group
       value: {{ resource_group.name | default(match_resource.resource_group.name) }}
+    {% if qualifiers and qualifiers.resource is defined %}
     - name: resource_name
-      value: {{match_resource.resource.name}} 
+      value: {{ qualifiers.resource }}
+    {% else %}
+    - name: resource_name
+      value: {{ qualifiers.resource_group | default(match_resource.resource_group.name) }}
+    {% endif %}
+{% for cr in child_resource_names | default([]) %}
+    - name: child_resource
+      value: '{{ cr | string | replace(":", "_") | replace("/", "_") }}'
+{% endfor %}
 {% set tags = match_resource.resource.tags %}
 {% if tags %}
 {% for k, v in tags.items() %}

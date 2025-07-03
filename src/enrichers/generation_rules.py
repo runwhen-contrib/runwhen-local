@@ -669,6 +669,15 @@ def get_template_variables(output_item: OutputItem,
             logger.warning(f"Error processing qualifiers: {e}")
             template_variables['qualifiers'] = {}
 
+        # Propagate child_resource_names from the base template variables (set upstream in
+        # generate_slx_output_items) so that includes nested inside output-item templates can
+        # still access it.
+        try:
+            template_variables['child_resource_names'] = base_template_variables.get('child_resource_names', [])
+        except Exception as e:
+            logger.warning(f"Error setting child_resource_names in get_template_variables: {e}")
+            template_variables['child_resource_names'] = []
+
         logger.debug(f"Resolved template variables: {template_variables}")
 
         # Apply configProvidedOverrides if present
@@ -871,8 +880,23 @@ def collect_emitted_slxs(generation_rule_info: GenerationRuleInfo,
         if emit_slx:
             try:
                 slx_info = SLXInfo(slx, resource, level_of_detail, generation_rule_info, context)
-                logger.debug(f"DEBUG: Collect Emitted SLXs: emit {slx_info}")
-                slxs[slx_info.full_name] = slx_info
+                existing_slx_info = slxs.get(slx_info.full_name)
+
+                if existing_slx_info:
+                    # When the qualifier list does not include "resource", we aggregate
+                    # all resource names that contributed to this SLX so that they can be
+                    # surfaced to templates (e.g., as tags).
+                    if 'resource' not in slx.qualifiers:
+                        existing_slx_info.add_child_resource_name(resource.name)
+                    # Nothing else to do – keep the originally stored SLXInfo so we don't
+                    # overwrite fields like level_of_detail that might have been resolved
+                    # on the first encounter.
+                    logger.debug(
+                        f"DEBUG: Collect Emitted SLXs: aggregated child resource '{resource.name}' into existing SLX {existing_slx_info.full_name}"
+                    )
+                else:
+                    logger.debug(f"DEBUG: Collect Emitted SLXs: emit {slx_info}")
+                    slxs[slx_info.full_name] = slx_info
             except WorkspaceBuilderException as e:
                 logger.warning(f"Skipping SLX due to error in processing resource '{resource.name}': {e}")
                 # Skip this SLX if there's an error in SLXInfo initialization
@@ -964,7 +988,21 @@ def generate_slx_output_items(slx_info: SLXInfo,
         except Exception as e:
             logger.warning(f"Error setting qualifiers: {e}")
             slx_base_template_variables['qualifiers'] = {}
-        
+
+        # Expose child resource names to templates
+        try:
+            if 'resource' not in slx_info.slx.qualifiers:
+                slx_base_template_variables['child_resource_names'] = slx_info.child_resource_names
+            else:
+                slx_base_template_variables['child_resource_names'] = []
+            logger.debug(
+                f"DEBUG: child_resource_names for {slx_info.full_name}: {slx_base_template_variables['child_resource_names']}")
+        except Exception as e:
+            logger.warning(f"Error setting child_resource_names: {e}")
+            slx_base_template_variables['child_resource_names'] = []
+
+        logger.debug(f"Resolved template variables: {slx_base_template_variables}")
+
         for output_item in slx_info.slx.output_items:
             try:
                 if should_emit_output_item(output_item, slx_info.level_of_detail):
