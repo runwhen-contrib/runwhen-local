@@ -991,8 +991,12 @@ def generate_slx_output_items(slx_info: SLXInfo,
 
         # Expose child resource names to templates
         try:
-            slx_base_template_variables['child_resource_names'] = slx_info.child_resource_names
-            logger.debug(f"DEBUG: Setting child_resource_names for SLX {slx_info.full_name}: {slx_info.child_resource_names}")
+            if 'resource' not in slx_info.slx.qualifiers:
+                slx_base_template_variables['child_resource_names'] = slx_info.child_resource_names
+            else:
+                slx_base_template_variables['child_resource_names'] = []
+            logger.debug(
+                f"DEBUG: child_resource_names for {slx_info.full_name}: {slx_base_template_variables['child_resource_names']}")
         except Exception as e:
             logger.warning(f"Error setting child_resource_names: {e}")
             slx_base_template_variables['child_resource_names'] = []
