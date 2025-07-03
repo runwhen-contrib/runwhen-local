@@ -25,3 +25,22 @@ The following high-level flow is shown:
    * Combines the configuration parameters with the open source troubleshooting code
    * Creates markdown documentation with each applicable troubleshooting command
 7. Finally all markdown content is copied to a directory that MkDocs is actively watching, presenting this to the user.
+
+## Qualified Name vs. SLX Qualifiers
+
+Workspace-builder always injects `match_resource.qualified_name` into the SLX template variables.  This string comes directly from the *individual* resource that matched the rule (e.g. `sandbox-contoso-rg/listingsdb`).
+
+If your GenerationRule's `qualifiers` list omits `"resource"` (so the SLX is scoped to an entire `resource_group`/`subscription_id`), the generated SLX will still carry the *child* resource's qualified-name in the `additionalContext.qualified_name` field.  This is expected: the value is useful for deep-linking back to the original object, and template authors can override or suppress it if a group-level string is preferred.
+
+To display a group-level name instead, adjust your template:
+
+```jinja
+{# Replace the default value with one that reflects the qualifier scope #}
+{% if qualifiers.resource is defined %}
+qualified_name: "{{ qualifiers.resource_group }}/{{ qualifiers.resource }}"
+{% else %}
+qualified_name: "{{ qualifiers.resource_group }}"
+{% endif %}
+```
+
+No changes to the qualifier engine are required — it is purely a template-level decision.
