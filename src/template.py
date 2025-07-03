@@ -75,7 +75,7 @@ def render_template_file(template_file_name: str,
         # but put it in the try block just to be safe...
         loaders = [FileSystemLoader("templates")]
         if template_loader_func:
-            loaders.append(CustomTemplateLoader(template_loader_func))
+            loaders.insert(0, CustomTemplateLoader(template_loader_func))
         env = SandboxedEnvironment(loader=ChoiceLoader(loaders), trim_blocks=True, lstrip_blocks=True, undefined=CustomUndefined)
         template = env.get_template(template_file_name)
         return template.render(**template_variables)

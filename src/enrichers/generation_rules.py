@@ -1001,11 +1001,6 @@ def generate_slx_output_items(slx_info: SLXInfo,
             logger.warning(f"Error setting child_resource_names: {e}")
             slx_base_template_variables['child_resource_names'] = []
 
-        # Debug: Log all template variables for SLX templates
-        if slx_info.full_name and 'az-db-health' in slx_info.full_name:
-            logger.warning(f"DEBUG: All template variables for {slx_info.full_name}: {list(slx_base_template_variables.keys())}")
-            logger.warning(f"DEBUG: child_resource_names value: {slx_base_template_variables.get('child_resource_names', 'NOT_FOUND')}")
-
         logger.debug(f"Resolved template variables: {slx_base_template_variables}")
 
         for output_item in slx_info.slx.output_items:
