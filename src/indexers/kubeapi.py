@@ -344,6 +344,8 @@ def index(component_context: Context):
 
 
             for context in contexts:
+                cluster_name = None
+                context_name = None
                 try:
                     context_name = context.get('name')
                     context_info = context.get('context')
@@ -399,7 +401,15 @@ def index(component_context: Context):
 
                     logger.info(f"Scanning Kubernetes cluster {cluster_name} from context {context_name}")
 
-                    with (kubernetes_config.new_client_from_config(config_file=kubeconfig_path, context=context_name) as api_client):
+                    # Try to create API client - if this fails, skip this cluster but continue with others
+                    try:
+                        api_client = kubernetes_config.new_client_from_config(config_file=kubeconfig_path, context=context_name)
+                    except Exception as e:
+                        logger.error(f"Failed to create API client for cluster '{cluster_name}' from context '{context_name}': {e}")
+                        logger.info(f"Skipping cluster '{cluster_name}' due to API client creation failure and continuing with next cluster")
+                        continue
+
+                    with api_client:
                         # Pre-validate cluster connection and authentication
                         try:
                             logger.info(f"Testing connection and authentication for cluster '{cluster_name}'...")
@@ -429,16 +439,24 @@ def index(component_context: Context):
                             logger.info(f"Skipping cluster '{cluster_name}' due to connection error and continuing with next cluster")
                             continue
 
+                        # Connection validation successful, proceed with cluster indexing
                         core_api_client = client.CoreV1Api(api_client=api_client)
                         custom_objects_api_client = client.CustomObjectsApi(api_client=api_client)
 
                         # Get the group info for all the available groups.
                         # This contains the preferred version and all available version, which
                         # we use below when we access custom resources.
-
+                        group_version_infos = dict()
                         apis_api_client = client.ApisApi(api_client=api_client)
                         try:
                             ret = apis_api_client.get_api_versions()
+                            for group in ret.groups:
+                                if group.name in group_version_infos:
+                                    logger.warning(f"Duplicate group information in results from ApisApi.get_api_versions; "
+                                                   f"group={group.name}")
+                                versions = [group_version.version for group_version in group.versions]
+                                group_version_info = GroupVersionInfo(group.preferred_version, versions)
+                                group_version_infos[group.name] = group_version_info
                         except ApiException as e:
                             if e.status == 401:
                                 logger.error(f"Authentication failed while getting API versions for cluster '{cluster_name}': Invalid or expired credentials. Error: {e}")
@@ -450,21 +468,12 @@ def index(component_context: Context):
                                 continue
                             else:
                                 logger.error(f"API error while getting API versions for cluster '{cluster_name}': {e}")
-                                logger.info(f"Skipping cluster '{cluster_name}' due to API error and continuing with next cluster")
-                                continue
+                                logger.info(f"Will continue with cluster '{cluster_name}' using limited API group information")
+                                # Don't continue here - we can still try to process basic resources
                         except Exception as e:
                             logger.error(f"Unexpected error while getting API versions for cluster '{cluster_name}': {e}")
-                            logger.info(f"Skipping cluster '{cluster_name}' due to error and continuing with next cluster")
-                            continue
-                            
-                        group_version_infos = dict()
-                        for group in ret.groups:
-                            if group.name in group_version_infos:
-                                logger.warning(f"Duplicate group information in results from ApisApi.get_api_versions; "
-                                               f"group={group.name}")
-                            versions = [group_version.version for group_version in group.versions]
-                            group_version_info = GroupVersionInfo(group.preferred_version, versions)
-                            group_version_infos[group.name] = group_version_info
+                            logger.info(f"Will continue with cluster '{cluster_name}' using limited API group information")
+                            # Don't continue here - we can still try to process basic resources
 
                         namespace_names = set()
                         try:
@@ -937,8 +946,8 @@ def index(component_context: Context):
 
                 except Exception as e:
                     # Handle cases where cluster_name or context_name might not be defined yet
-                    cluster_name_safe = locals().get('cluster_name', 'unknown')
-                    context_name_safe = locals().get('context_name', 'unknown') 
+                    cluster_name_safe = cluster_name if cluster_name else 'unknown'
+                    context_name_safe = context_name if context_name else 'unknown'
                     logger.error(f"Error processing cluster '{cluster_name_safe}' from context '{context_name_safe}': {e}")
                     logger.info(f"Skipping cluster '{cluster_name_safe}' and continuing with next cluster")
                     continue
