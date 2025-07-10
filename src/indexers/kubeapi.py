@@ -411,7 +411,6 @@ def index(component_context: Context):
 
                     with api_client:
                         # Pre-validate cluster connection and authentication
-                        connection_valid = False
                         try:
                             logger.info(f"Testing connection and authentication for cluster '{cluster_name}'...")
                             
@@ -421,7 +420,6 @@ def index(component_context: Context):
                             version_api = client.VersionApi(api_client=api_client)
                             version_info = version_api.get_code()
                             logger.info(f"Successfully connected to cluster '{cluster_name}' (Kubernetes {version_info.git_version})")
-                            connection_valid = True
                             
                         except ApiException as e:
                             if e.status == 401:
@@ -441,11 +439,7 @@ def index(component_context: Context):
                             logger.info(f"Skipping cluster '{cluster_name}' due to connection error and continuing with next cluster")
                             continue
 
-                        # Only continue if connection is valid
-                        if not connection_valid:
-                            logger.info(f"Skipping cluster '{cluster_name}' due to invalid connection and continuing with next cluster")
-                            continue
-
+                        # Connection validation successful, proceed with cluster indexing
                         core_api_client = client.CoreV1Api(api_client=api_client)
                         custom_objects_api_client = client.CustomObjectsApi(api_client=api_client)
 
