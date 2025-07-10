@@ -16,6 +16,8 @@ import subprocess
 import yaml
 import base64
 import boto3
+import time
+import random
 
 from component import SettingDependency, Context
 from enrichers.generation_rule_types import (
@@ -129,10 +131,60 @@ def has_excluded_tags(resource_data: dict, exclude_tags: dict[str, str]) -> bool
             return True
     return False
 
+def is_rate_limited(stdout_text: str, stderr_text: str) -> bool:
+    """
+    Detect if CloudQuery output indicates rate limiting.
+    
+    Args:
+        stdout_text: CloudQuery stdout output
+        stderr_text: CloudQuery stderr output
+        
+    Returns:
+        True if rate limiting is detected, False otherwise
+    """
+    rate_limit_indicators = [
+        "429",  # HTTP 429 Too Many Requests
+        "rate limit",
+        "rate-limit", 
+        "ratelimit",
+        "throttle",
+        "throttled",
+        "throttling",
+        "too many requests",
+        "quota exceeded",
+        "request limit exceeded",
+        "api rate limit",
+        "calls per second"
+    ]
+    
+    combined_output = (stdout_text + " " + stderr_text).lower()
+    
+    for indicator in rate_limit_indicators:
+        if indicator in combined_output:
+            return True
+    
+    return False
+
 def invoke_cloudquery(cq_command: str,
                       cq_config_dir: str,
                       cq_env_vars: dict[str, str],
                       cq_output_dir: Optional[str] = None) -> None:
+    """
+    Invoke CloudQuery with rate limiting detection and retry logic.
+    
+    Args:
+        cq_command: CloudQuery command to run (e.g., 'sync', 'tables')
+        cq_config_dir: Directory containing CloudQuery configuration files
+        cq_env_vars: Environment variables to pass to CloudQuery
+        cq_output_dir: Optional output directory for CloudQuery results
+        
+    Raises:
+        WorkspaceBuilderException: If CloudQuery fails after all retries
+    """
+    max_retries = 3
+    base_delay = 5  # Base delay in seconds
+    max_delay = 60  # Maximum delay in seconds
+    
     path = os.getenv("PATH")
     cq_env_vars["PATH"] = path
 
@@ -166,34 +218,80 @@ def invoke_cloudquery(cq_command: str,
     if cq_output_dir:
         cq_args += ["--output-dir", cq_output_dir]
 
-    try:
-        # 3) Run CloudQuery in a writable working directory
-        process_info = subprocess.run(
-            cq_args,
-            capture_output=True,
-            env=cq_env_vars,
-            cwd=os.path.dirname(cq_config_dir)  # set to the parent (the temp dir) so "cq" isn't read-only
-        )
-
-        stdout_text = process_info.stdout.decode("utf-8", errors="replace")
-        stderr_text = process_info.stderr.decode("utf-8", errors="replace")
-        logger.debug("Results for subprocess run of CloudQuery:")
-        logger.debug(f"args={process_info.args}")
-        logger.debug(f"return-code={process_info.returncode}")
-        logger.debug(f"stderr: {stderr_text}")
-        logger.debug(f"stdout: {stdout_text}")
-
-        if process_info.returncode != 0:
-            error_message = (
-                f"Error running CloudQuery to discover resources: "
-                f"return-code={process_info.returncode}; "
-                f"stderr={stderr_text}; "
-                f"stdout={stdout_text}"
+    # Retry loop with exponential backoff
+    for attempt in range(max_retries + 1):
+        try:
+            # 3) Run CloudQuery in a writable working directory
+            process_info = subprocess.run(
+                cq_args,
+                capture_output=True,
+                env=cq_env_vars,
+                cwd=os.path.dirname(cq_config_dir)  # set to the parent (the temp dir) so "cq" isn't read-only
             )
-            raise WorkspaceBuilderException(error_message)
-    except Exception as e:
-        error_message = f"Error launching CloudQuery; {e}"
-        raise WorkspaceBuilderException(error_message) from e
+
+            stdout_text = process_info.stdout.decode("utf-8", errors="replace")
+            stderr_text = process_info.stderr.decode("utf-8", errors="replace")
+            logger.debug("Results for subprocess run of CloudQuery:")
+            logger.debug(f"args={process_info.args}")
+            logger.debug(f"return-code={process_info.returncode}")
+            logger.debug(f"stderr: {stderr_text}")
+            logger.debug(f"stdout: {stdout_text}")
+
+            if process_info.returncode != 0:
+                # Check if this is a rate limiting error
+                if is_rate_limited(stdout_text, stderr_text):
+                    if attempt < max_retries:
+                        # Calculate delay with exponential backoff and jitter
+                        delay = min(base_delay * (2 ** attempt) + random.uniform(0, 1), max_delay)
+                        
+                        logger.warning(
+                            f"CloudQuery rate limiting detected (attempt {attempt + 1}/{max_retries + 1}). "
+                            f"Retrying in {delay:.1f} seconds. "
+                            f"Error output: {stderr_text[:200]}..."
+                        )
+                        
+                        time.sleep(delay)
+                        continue
+                    else:
+                        # Final attempt failed due to rate limiting
+                        error_message = (
+                            f"CloudQuery failed due to rate limiting after {max_retries + 1} attempts. "
+                            f"Final error: return-code={process_info.returncode}; "
+                            f"stderr={stderr_text}; "
+                            f"stdout={stdout_text}"
+                        )
+                        logger.error(error_message)
+                        raise WorkspaceBuilderException(error_message)
+                else:
+                    # Non-rate-limiting error - fail immediately
+                    error_message = (
+                        f"Error running CloudQuery to discover resources: "
+                        f"return-code={process_info.returncode}; "
+                        f"stderr={stderr_text}; "
+                        f"stdout={stdout_text}"
+                    )
+                    raise WorkspaceBuilderException(error_message)
+            else:
+                # Success - break out of retry loop
+                if attempt > 0:
+                    logger.info(f"CloudQuery succeeded after {attempt + 1} attempts")
+                break
+                
+        except subprocess.SubprocessError as e:
+            if attempt < max_retries:
+                delay = min(base_delay * (2 ** attempt) + random.uniform(0, 1), max_delay)
+                logger.warning(
+                    f"CloudQuery subprocess error (attempt {attempt + 1}/{max_retries + 1}). "
+                    f"Retrying in {delay:.1f} seconds. Error: {e}"
+                )
+                time.sleep(delay)
+                continue
+            else:
+                error_message = f"Error launching CloudQuery after {max_retries + 1} attempts; {e}"
+                raise WorkspaceBuilderException(error_message) from e
+        except Exception as e:
+            error_message = f"Error launching CloudQuery; {e}"
+            raise WorkspaceBuilderException(error_message) from e
 
 cloudquery_premium_table_info: Optional[dict[str, list[str]]] = None
 
