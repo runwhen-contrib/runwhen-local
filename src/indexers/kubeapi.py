@@ -583,7 +583,7 @@ def index(component_context: Context):
 
                         if len(namespace_names) == 0:
                             logger.warning("Unable to determine any namespace names, so can't index any Kubernetes resources")
-                            return
+                            continue
 
                         namespaces = dict()
                         # Update namespace_names with custom_namespace_names only if custom_namespace_names is defined
@@ -670,12 +670,6 @@ def index(component_context: Context):
                                 if annotation_lod is not None:
                                     logger.info(f"Overriding LOD for namespace '{namespace_name}' based on annotation: {annotation_lod}")
                                     namespace_lod = annotation_lod  # **Annotations override any config-based LOD**
-                                else:
-                                    # If no annotation exists, use cluster-specific or default LOD
-                                    if is_aks_cluster:
-                                        namespace_lod = LevelOfDetail.construct_from_config(aks_cluster_lod_settings.get(cluster_name, default_lod))
-                                    else:
-                                        namespace_lod = LevelOfDetail.construct_from_config(kube_context_lod_settings.get(context_name, default_lod))
 
                                 # **Final Fallback** (if no valid LOD is set, use BASIC)
                                 if namespace_lod is None:
