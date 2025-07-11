@@ -45,15 +45,30 @@ tasks:
         cluster_sub=$(terraform show -json terraform.tfstate | jq -r '
           .values.outputs.cluster_sub.value')
 
+        # Fetch cluster 2 details (mixed auth cluster with no service account access)
+        cluster_2_name=$(terraform show -json terraform.tfstate | jq -r '
+          .values.outputs.cluster_2_name.value')
+        cluster_2_server=$(terraform show -json terraform.tfstate | jq -r '
+          .values.outputs.cluster_2_fqdn.value')
+        cluster_2_resource_group=$(terraform show -json terraform.tfstate | jq -r '
+          .values.outputs.cluster_2_rg.value')
+        cluster_2_sub=$(terraform show -json terraform.tfstate | jq -r '
+          .values.outputs.cluster_2_sub.value')
+
         popd > /dev/null
 
         # Check if any of the required cluster variables are empty
         if [ -z "$cluster_name" ] || [ -z "$cluster_server" ] || [ -z "$cluster_resource_group" ]; then
-          echo "Error: Missing cluster details. Ensure Terraform plan has been applied."
+          echo "Error: Missing cluster 1 details. Ensure Terraform plan has been applied."
           exit 1
         fi
 
-        # Generate workspaceInfo.yaml with fetched cluster details
+        if [ -z "$cluster_2_name" ] || [ -z "$cluster_2_server" ] || [ -z "$cluster_2_resource_group" ]; then
+          echo "Error: Missing cluster 2 details. Ensure Terraform plan has been applied."
+          exit 1
+        fi
+
+        # Generate workspaceInfo.yaml with fetched cluster details for both clusters
         cat <<EOF > workspaceInfo.yaml
         workspaceName: "$RW_WORKSPACE"
         workspaceOwnerEmail: authors@runwhen.com
@@ -72,13 +87,24 @@ tasks:
             clientSecret: "$AZ_CLIENT_SECRET"
             aksClusters: 
               clusters: 
+                - name: fake-cluster-no-access
+                  server: https://fake-cluster-no-access.hcp.eastus.azmk8s.io:443
+                  resource_group: fake-resource-group
+                  subscriptionId: 00000000-0000-0000-0000-000000000000
+                  defaultNamespaceLOD: detailed
                 - name: $cluster_name
                   server: https://$cluster_server:443
                   resource_group: $cluster_resource_group
                   subscriptionId: $cluster_sub
                   defaultNamespaceLOD: detailed
+                - name: $cluster_2_name
+                  server: https://$cluster_2_server:443
+                  resource_group: $cluster_2_resource_group
+                  subscriptionId: $cluster_2_sub
+                  defaultNamespaceLOD: detailed
             resourceGroupLevelOfDetails:
               $cluster_resource_group: detailed
+              $cluster_2_resource_group: detailed
         codeCollections: []
         custom: 
           kubernetes_distribution_binary: kubectl
@@ -660,6 +686,23 @@ tasks:
         echo "- Excluded codebundle (k8s-deployment-ops) was properly filtered out"
         echo "- Allowed codebundle (k8s-deployment-healthcheck) generated expected files"
         echo "- Found allowed files: $(echo "$allowed_files" | wc -l)"
+    silent: true
+
+  verify-permission-denied-test:
+    desc: "Verify that permission denied scenarios are working correctly"
+    cmds:
+      - |
+        echo "Running permission denied scenario verification..."
+        python3 test_permission_denied.py
+    silent: true
+
+  test-permission-denied-scenario:
+    desc: "Complete test workflow for permission denied scenarios"
+    cmds:
+      - task: generate-rwl-config
+      - task: build-rwl
+      - task: ci-run-rwl-discovery
+      - task: verify-permission-denied-test
     silent: true
 
   install-deployment: 

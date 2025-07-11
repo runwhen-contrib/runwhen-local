@@ -360,7 +360,7 @@ class OutputItem:
 
     @staticmethod
     def construct_from_config(output_item_config: dict[str, Any],
-                              default_level_of_detail=LevelOfDetail.DETAILED):
+                              default_level_of_detail=LevelOfDetail.BASIC):
         type_ = output_item_config.get('type')
         path = output_item_config.get("path")
         template_name = output_item_config.get("templateName")
@@ -422,7 +422,7 @@ class SLX:
         # Is this full_name value ever actually used?
         # It looks like it's not, but need to double-check.
         self.full_name = make_qualified_slx_name(self.base_name, self.qualifiers, None)
-        level_of_detail_value = slx_config.get("levelOfDetail", LevelOfDetail.DETAILED.name)
+        level_of_detail_value = slx_config.get("levelOfDetail", LevelOfDetail.BASIC.name)
         self.level_of_detail = LevelOfDetail[level_of_detail_value.upper()]
         output_items_config: list[dict[str, Any]] = slx_config.get("outputItems", list())
         self.output_items = [self.parse_output_item(oic) for oic in output_items_config]

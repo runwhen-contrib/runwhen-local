@@ -59,6 +59,8 @@ jobs:
         uses: arduino/setup-task@v2
         with:
           version: 3.x
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/checkout@v2
         name: Checkout
@@ -118,6 +120,8 @@ jobs:
         uses: arduino/setup-task@v2
         with:
           version: 3.x
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -177,6 +181,8 @@ jobs:
           uses: arduino/setup-task@v2
           with:
             version: 3.x
+          env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
         - uses: actions/checkout@v2
           name: Checkout
