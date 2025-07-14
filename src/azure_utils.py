@@ -32,6 +32,41 @@ def get_subscription_id(credential):
         print(f"Unexpected error occurred while retrieving subscription ID: {e}")
         sys.exit(1)
 
+
+def get_subscription_name(credential, subscription_id):
+    """
+    Get the display name of a subscription by ID.
+    """
+    if not subscription_id:
+        return "Unknown Subscription"
+        
+    try:
+        logger.info(f"Attempting to retrieve display name for subscription ID: {mask_string(subscription_id)}")
+        
+        subscription_client = SubscriptionClient(credential)
+        
+        # List all subscriptions and find the matching one
+        subscriptions = list(subscription_client.subscriptions.list())
+        logger.info(f"Found {len(subscriptions)} subscriptions with current credentials")
+        
+        for subscription in subscriptions:
+            logger.debug(f"Checking subscription: {subscription.subscription_id} - {subscription.display_name}")
+            if subscription.subscription_id == subscription_id:
+                logger.info(f"Found matching subscription: {mask_string(subscription_id)} -> {subscription.display_name}")
+                return subscription.display_name
+        
+        # If we got here, we couldn't find the subscription
+        logger.warning(f"Could not find display name for subscription ID: {mask_string(subscription_id)}")
+        subscription_ids = [s.subscription_id for s in subscriptions]
+        logger.warning(f"Available subscription IDs: {[mask_string(sid) for sid in subscription_ids]}")
+        
+        # Use just the ID as fallback
+        return subscription_id
+    except Exception as e:
+        logger.warning(f"Error fetching subscription display name for {mask_string(subscription_id)}: {e}")
+        # Use just the ID as fallback
+        return subscription_id
+
 ## TODO harmonize these functions with duplicate azure auth code in ../azure_utils.py
 
 def get_azure_credential(workspace_info):
@@ -151,6 +186,7 @@ def generate_kubeconfig_for_aks(clusters, workspace_info):
                     if 'extensions' not in cluster_entry['cluster']:
                         cluster_entry['cluster']['extensions'] = []
 
+                    subscription_name = get_subscription_name(credential, sub_id)
                     cluster_entry['cluster']['extensions'].append({
                         'name': 'workspace-builder',
                         'extension': {
@@ -159,7 +195,8 @@ def generate_kubeconfig_for_aks(clusters, workspace_info):
                             'cluster_name': cluster_name,
                             'auth_type': auth_type,
                             'auth_secret': auth_secret,
-                            'subscription_id': sub_id
+                            'subscription_id': sub_id,
+                            'subscription_name': subscription_name
                         }
                     })
 

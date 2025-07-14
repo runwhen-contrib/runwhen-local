@@ -4,6 +4,22 @@
     - name: cluster
       value: {{ cluster.name }}
 {% endif %}
+{% if cluster.cluster_type | default('') == "aks" %}
+    - name: cluster_type
+      value: aks
+{% if subscription_id %}
+    - name: subscription_id
+      value: {{ subscription_id }}
+{% endif %}
+{% if subscription_name %}
+    - name: subscription_name
+      value: {{ subscription_name }}
+{% endif %}
+{% if cluster.resource_group %}
+    - name: resource_group
+      value: {{ cluster.resource_group }}
+{% endif %}
+{% endif %}
 {% if match_resource.namespace_name %}
     - name: namespace
       value: {{ match_resource.namespace_name }}
