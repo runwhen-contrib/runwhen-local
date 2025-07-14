@@ -1,0 +1,229 @@
+# Example workspaceInfo.yaml configurations for AKS auto-discovery
+# This file demonstrates different ways to configure AKS cluster auto-discovery
+# with defaultNamespaceLOD support
+
+---
+# Example 1: Auto-discover all AKS clusters in all accessible subscriptions
+workspaceName: "example-workspace-all-clusters"
+workspaceOwnerEmail: authors@runwhen.com
+defaultLocation: location-01
+defaultLOD: none
+cloudConfig:
+  kubernetes:             
+    kubeconfigFile: /shared/kubeconfig.secret
+    contexts: 
+      sandbox-cluster-1: 
+        defaultNamespaceLOD: basic
+  azure:
+    subscriptionId: "your-subscription-id"
+    tenantId: "your-tenant-id"
+    clientId: "your-client-id"
+    clientSecret: "your-client-secret"
+    aksClusters: 
+      autoDiscover: true
+      # No discoveryConfig = discover all clusters in all accessible subscriptions
+      # All discovered clusters will use the global defaultLOD setting
+
+---
+# Example 2: Auto-discover AKS clusters in specific subscription/resource group pairs
+workspaceName: "example-workspace-specific-discovery"
+workspaceOwnerEmail: authors@runwhen.com
+defaultLocation: location-01
+defaultLOD: none
+cloudConfig:
+  kubernetes:             
+    kubeconfigFile: /shared/kubeconfig.secret
+    contexts: 
+      sandbox-cluster-1: 
+        defaultNamespaceLOD: basic
+  azure:
+    subscriptionId: "your-subscription-id"
+    tenantId: "your-tenant-id"
+    clientId: "your-client-id"
+    clientSecret: "your-client-secret"
+    aksClusters: 
+      autoDiscover: true
+      discoveryConfig:
+        subscriptions:
+          - subscriptionId: "prod-subscription-id"
+            resourceGroups:
+              - "prod-resource-group"
+              - "prod-backup-resource-group"
+          - subscriptionId: "staging-subscription-id"
+            resourceGroups:
+              - "staging-resource-group"
+          - subscriptionId: "test-subscription-id"
+            resourceGroups:
+              - "test-resource-group"
+
+---
+# Example 3: Global default LOD for all discovered clusters
+workspaceName: "example-workspace-global-lod"
+workspaceOwnerEmail: authors@runwhen.com
+defaultLocation: location-01
+defaultLOD: none
+cloudConfig:
+  kubernetes:             
+    kubeconfigFile: /shared/kubeconfig.secret
+    contexts: 
+      sandbox-cluster-1: 
+        defaultNamespaceLOD: basic
+  azure:
+    subscriptionId: "your-subscription-id"
+    tenantId: "your-tenant-id"
+    clientId: "your-client-id"
+    clientSecret: "your-client-secret"
+    aksClusters: 
+      autoDiscover: true
+      discoveryConfig:
+        discoveredClustersDefaultLOD: detailed  # All discovered clusters get 'detailed' LOD
+        subscriptions:
+          - subscriptionId: "subscription-1-id"
+            resourceGroups:
+              - "prod-resource-group"
+              - "staging-resource-group"
+          - subscriptionId: "subscription-2-id"
+            resourceGroups:
+              - "test-resource-group"
+
+---
+# Example 4: Per-subscription LOD configuration
+workspaceName: "example-workspace-per-sub-lod"
+workspaceOwnerEmail: authors@runwhen.com
+defaultLocation: location-01
+defaultLOD: none
+cloudConfig:
+  kubernetes:             
+    kubeconfigFile: /shared/kubeconfig.secret
+    contexts: 
+      sandbox-cluster-1: 
+        defaultNamespaceLOD: basic
+  azure:
+    subscriptionId: "your-subscription-id"
+    tenantId: "your-tenant-id"
+    clientId: "your-client-id"
+    clientSecret: "your-client-secret"
+    aksClusters: 
+      autoDiscover: true
+      discoveryConfig:
+        discoveredClustersDefaultLOD: basic  # Global default
+        subscriptions:
+          - subscriptionId: "prod-subscription-id"
+            defaultNamespaceLOD: detailed  # Override for production subscription
+            resourceGroups:
+              - "prod-resource-group"
+              - "prod-backup-resource-group"
+          - subscriptionId: "staging-subscription-id"
+            defaultNamespaceLOD: basic  # Use global default
+            resourceGroups:
+              - "staging-resource-group"
+          - subscriptionId: "test-subscription-id"
+            defaultNamespaceLOD: none  # Override for test subscription
+            resourceGroups:
+              - "test-resource-group"
+
+---
+# Example 5: Per-resource-group LOD configuration
+workspaceName: "example-workspace-per-rg-lod"
+workspaceOwnerEmail: authors@runwhen.com
+defaultLocation: location-01
+defaultLOD: none
+cloudConfig:
+  kubernetes:             
+    kubeconfigFile: /shared/kubeconfig.secret
+    contexts: 
+      sandbox-cluster-1: 
+        defaultNamespaceLOD: basic
+  azure:
+    subscriptionId: "your-subscription-id"
+    tenantId: "your-tenant-id"
+    clientId: "your-client-id"
+    clientSecret: "your-client-secret"
+    aksClusters: 
+      autoDiscover: true
+      discoveryConfig:
+        discoveredClustersDefaultLOD: basic  # Global default
+        subscriptions:
+          - subscriptionId: "prod-subscription-id"
+            defaultNamespaceLOD: detailed  # Subscription default
+            resourceGroups:
+              - name: "critical-prod-rg"
+                defaultNamespaceLOD: detailed  # Override for critical production
+              - name: "regular-prod-rg"
+                defaultNamespaceLOD: basic  # Use subscription default
+              - name: "staging-rg"
+                defaultNamespaceLOD: none  # Override for staging
+          - subscriptionId: "test-subscription-id"
+            defaultNamespaceLOD: basic  # Use global default
+            resourceGroups:
+              - name: "test-rg"
+                defaultNamespaceLOD: basic  # Use subscription default
+              - "simple-rg"  # String format - uses global default
+
+---
+# Example 6: Mixed explicit and auto-discovered clusters
+workspaceName: "example-workspace-mixed-clusters"
+workspaceOwnerEmail: authors@runwhen.com
+defaultLocation: location-01
+defaultLOD: none
+cloudConfig:
+  kubernetes:             
+    kubeconfigFile: /shared/kubeconfig.secret
+    contexts: 
+      sandbox-cluster-1: 
+        defaultNamespaceLOD: basic
+  azure:
+    subscriptionId: "your-subscription-id"
+    tenantId: "your-tenant-id"
+    clientId: "your-client-id"
+    clientSecret: "your-client-secret"
+    aksClusters: 
+      autoDiscover: true
+      discoveryConfig:
+        discoveredClustersDefaultLOD: detailed  # Global default for discovered clusters
+        subscriptions:
+          - subscriptionId: "prod-subscription-id"
+            resourceGroups:
+              - "prod-resource-group"
+      
+      # Explicit clusters (will be merged with discovered clusters)
+      clusters: 
+        - name: explicit-cluster
+          server: https://explicit-cluster.hcp.eastus.azmk8s.io:443
+          resource_group: explicit-resource-group
+          subscriptionId: explicit-subscription-id
+          defaultNamespaceLOD: detailed  # Explicit cluster LOD setting
+
+---
+# Example 7: Auto-discovery disabled (explicit clusters only)
+workspaceName: "example-workspace-explicit-only"
+workspaceOwnerEmail: authors@runwhen.com
+defaultLocation: location-01
+defaultLOD: none
+cloudConfig:
+  kubernetes:             
+    kubeconfigFile: /shared/kubeconfig.secret
+    contexts: 
+      sandbox-cluster-1: 
+        defaultNamespaceLOD: basic
+  azure:
+    subscriptionId: "your-subscription-id"
+    tenantId: "your-tenant-id"
+    clientId: "your-client-id"
+    clientSecret: "your-client-secret"
+    aksClusters: 
+      autoDiscover: false  # or omit this line entirely
+      # No discoveryConfig needed when autoDiscover is false
+      
+      # Only explicit clusters (no auto-discovery)
+      clusters: 
+        - name: cluster-1
+          server: https://cluster-1.hcp.eastus.azmk8s.io:443
+          resource_group: resource-group-1
+          subscriptionId: subscription-1-id
+          defaultNamespaceLOD: detailed
+        - name: cluster-2
+          server: https://cluster-2.hcp.eastus.azmk8s.io:443
+          resource_group: resource-group-2
+          subscriptionId: subscription-2-id
+          defaultNamespaceLOD: basic 
