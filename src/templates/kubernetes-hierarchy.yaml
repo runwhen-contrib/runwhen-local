@@ -1,5 +1,15 @@
     hierarchy: 
     - platform
+{% if cluster.cluster_type | default('') == "aks" %}
+{% if subscription_name is defined %}
+    - subscription_name
+{% else %}
+    - subscription_id
+{% endif %}
+{% if cluster.resource_group %}
+    - resource_group
+{% endif %}
+{% endif %}
 {% if cluster.name %}
     - cluster
 {% endif %}

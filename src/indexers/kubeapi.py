@@ -342,6 +342,23 @@ def index(component_context: Context):
                 cluster_name = cluster["name"]
                 aks_cluster_lod_settings[cluster_name] = cluster.get("defaultNamespaceLOD", default_lod)
 
+            # Also extract LOD settings from workspace-builder extensions for auto-discovered clusters
+            for cluster in clusters:
+                cluster_name = cluster.get('name')
+                cluster_details = cluster.get('cluster', {})
+                extensions = cluster_details.get('extensions', [])
+                
+                for ext in extensions:
+                    if ext.get('name') == 'workspace-builder':
+                        extension_details = ext.get('extension', {})
+                        # Check if this is an AKS cluster (has cluster_type: 'aks')
+                        if extension_details.get('cluster_type') == 'aks':
+                            # Use the defaultNamespaceLOD from the extension if available
+                            if 'defaultNamespaceLOD' in extension_details:
+                                aks_cluster_lod_settings[cluster_name] = extension_details['defaultNamespaceLOD']
+                                logger.info(f"Found defaultNamespaceLOD for auto-discovered AKS cluster '{cluster_name}': {extension_details['defaultNamespaceLOD']}")
+                            break
+
 
             for context in contexts:
                 cluster_name = None

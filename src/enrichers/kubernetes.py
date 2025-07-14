@@ -72,6 +72,16 @@ class KubernetesPlatformHandler(PlatformHandler):
             return get_context(resource)
         elif qualifier_name == "namespace":
             return get_namespace(resource).name
+        elif qualifier_name == "subscription_id":
+            cluster = get_cluster(resource)
+            if cluster:
+                return getattr(cluster, 'subscription_id', None)
+            return None
+        elif qualifier_name == "subscription_name":
+            cluster = get_cluster(resource)
+            if cluster:
+                return getattr(cluster, 'subscription_name', None)
+            return None
         else:
             # FIXME: Should we treat this as an error, i.e. raise Exception?
             return None
@@ -104,6 +114,16 @@ class KubernetesPlatformHandler(PlatformHandler):
             context = cluster.context
             if context:
                 template_variables['context'] = context
+            
+            # Add subscription information as top-level template variables if available
+            subscription_id = getattr(cluster, 'subscription_id', None)
+            if subscription_id:
+                template_variables['subscription_id'] = subscription_id
+                
+            subscription_name = getattr(cluster, 'subscription_name', None)
+            if subscription_name:
+                template_variables['subscription_name'] = subscription_name
+                
         namespace = get_namespace(resource)
         if namespace:
             template_variables['namespace'] = namespace

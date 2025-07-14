@@ -455,13 +455,17 @@ def main():
     azure_config = None
     aks_clusters = None
     azure_kubeconfig_path = None  # Initialize the variable here
+    auto_discover = False  # Initialize auto_discover at top level
 
     if cloud_config:
         azure_config = workspace_info.get("cloudConfig", {}).get("azure")
         if azure_config:
-            aks_clusters = azure_config.get('aksClusters', {}).get('clusters', [])  # Directly get the 'clusters' list if it exists
+            aks_clusters_config = azure_config.get('aksClusters', {})
+            aks_clusters = aks_clusters_config.get('clusters', [])  # Directly get the 'clusters' list if it exists
+            auto_discover = aks_clusters_config.get('autoDiscover', False)
 
-            if aks_clusters and isinstance(aks_clusters, list):  # Check if aks_clusters is a list of cluster dictionaries
+            # Generate kubeconfig if there are explicit clusters OR if auto-discovery is enabled
+            if (isinstance(aks_clusters, list) and len(aks_clusters) > 0) or auto_discover:
                 # Generate kubeconfig for each cluster with optional server override
                 try:
                     generate_kubeconfig_for_aks(aks_clusters, workspace_info)
@@ -471,7 +475,7 @@ def main():
                     print(f"Error generating kubeconfig for AKS clusters: {e}")
                     azure_kubeconfig_path = None  # Ensure path is None if generation fails
             else:
-                print("AKS clusters not found or improperly formatted. Skipping Kubernetes discovery for AKS.")
+                print("AKS clusters not found or improperly formatted, and auto-discovery is disabled. Skipping Kubernetes discovery for AKS.")
 
     if not azure_config:
         print("Azure configuration not found in workspace_info.")
@@ -511,11 +515,11 @@ def main():
             final_kubeconfig_path = None
 
     # Continue only if valid kubeconfig paths are found
-    if aks_clusters or kubeconfig_path:
+    if (isinstance(aks_clusters, list) and len(aks_clusters) > 0) or auto_discover or kubeconfig_path:
         final_kubeconfig_path = os.path.expanduser("~/.kube/config")
         kubeconfigs_to_merge = []
 
-        if aks_clusters and azure_kubeconfig_path: 
+        if ((isinstance(aks_clusters, list) and len(aks_clusters) > 0) or auto_discover) and azure_kubeconfig_path: 
             if os.path.exists(azure_kubeconfig_path):
                 kubeconfigs_to_merge.append(azure_kubeconfig_path)
                 print(f"Merging azure kubeconfig into {final_kubeconfig_path}...")
