@@ -1,0 +1,71 @@
+version: "3"
+
+vars:
+  TF_VAR_repository_prefix: '{{.TF_VAR_repository_prefix | default "test-rwl-"}}'
+  TF_VAR_region: '{{.TF_VAR_region | default "us-west-2"}}'
+
+tasks:
+  init:
+    desc: "Initialize Terraform"
+    cmds:
+      - terraform init
+    silent: false
+
+  validate:
+    desc: "Validate Terraform configuration"
+    deps: [init]
+    cmds:
+      - terraform validate
+    silent: false
+
+  plan:
+    desc: "Plan Terraform changes"
+    deps: [validate]
+    cmds:
+      - terraform plan -out=tfplan
+    silent: false
+
+  apply:
+    desc: "Apply Terraform changes"
+    deps: [plan]
+    cmds:
+      - terraform apply tfplan
+    silent: false
+
+  destroy:
+    desc: "Destroy Terraform infrastructure"
+    cmds:
+      - terraform destroy -auto-approve
+    silent: false
+
+  output:
+    desc: "Show Terraform outputs"
+    cmds:
+      - terraform output -json
+    silent: false
+
+  clean:
+    desc: "Clean Terraform files"
+    cmds:
+      - rm -f tfplan
+      - rm -f terraform.tfstate.backup
+      - rm -rf .terraform.tfstate.lock.info
+    silent: false
+
+  refresh:
+    desc: "Refresh Terraform state"
+    cmds:
+      - terraform refresh
+    silent: false
+
+  show:
+    desc: "Show Terraform state"
+    cmds:
+      - terraform show
+    silent: false
+
+  fmt:
+    desc: "Format Terraform files"
+    cmds:
+      - terraform fmt -recursive
+    silent: false 
