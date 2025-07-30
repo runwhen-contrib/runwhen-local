@@ -71,38 +71,7 @@
       "reviewersFromCodeOwners": true
     }
   ],
-  "customManagers": [
-    {
-      "description": "Update tool versions in Dockerfile - ENV format",
-      "customType": "regex",
-      "fileMatch": ["\\.dockerfile$", "Dockerfile$"],
-      "matchStrings": [
-        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+ENV (?<currentValue>.*?)\\s"
-      ],
-      "datasourceTemplate": "{{datasource}}",
-      "depNameTemplate": "{{depName}}"
-    },
-    {
-      "description": "Update tool versions in Dockerfile - FROM format",
-      "customType": "regex",
-      "fileMatch": ["\\.dockerfile$", "Dockerfile$"],
-      "matchStrings": [
-        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+FROM (?<currentValue>.*?)\\s"
-      ],
-      "datasourceTemplate": "{{datasource}}",
-      "depNameTemplate": "{{depName}}"
-    },
-    {
-      "description": "Update tool versions in Dockerfile - direct assignment format",
-      "customType": "regex",
-      "fileMatch": ["\\.dockerfile$", "Dockerfile$"],
-      "matchStrings": [
-        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+(?<currentValue>.*?=.*?)\\s"
-      ],
-      "datasourceTemplate": "{{datasource}}",
-      "depNameTemplate": "{{depName}}"
-    }
-  ],
+
   "dockerfile": {
     "enabled": true
   },
@@ -136,6 +105,36 @@
       ],
       "datasourceTemplate": "github-releases",
       "depNameTemplate": "google-cloud-sdk",
+      "extractVersionTemplate": "^(?<version>.*)$"
+    },
+    {
+      "description": "Update Node.js version in Dockerfile FROM statement",
+      "fileMatch": ["\\.dockerfile$", "Dockerfile$"],
+      "matchStrings": [
+        "FROM node:(?<currentValue>.*?)(?:-alpine|-slim|-buster)?\\s"
+      ],
+      "datasourceTemplate": "docker",
+      "depNameTemplate": "node",
+      "extractVersionTemplate": "^(?<version>.*)$"
+    },
+    {
+      "description": "Update Python version in Dockerfile FROM statement",
+      "fileMatch": ["\\.dockerfile$", "Dockerfile$"],
+      "matchStrings": [
+        "FROM python:(?<currentValue>.*?)(?:-alpine|-slim|-buster)?\\s"
+      ],
+      "datasourceTemplate": "docker",
+      "depNameTemplate": "python",
+      "extractVersionTemplate": "^(?<version>.*)$"
+    },
+    {
+      "description": "Update Poetry version in Dockerfile",
+      "fileMatch": ["\\.dockerfile$", "Dockerfile$"],
+      "matchStrings": [
+        "POETRY_VERSION=(?<currentValue>.*?)\\s"
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "python-poetry/poetry",
       "extractVersionTemplate": "^(?<version>.*)$"
     }
   ],
