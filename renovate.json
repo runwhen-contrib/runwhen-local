@@ -1,0 +1,131 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Renovate configuration for runwhen-local",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":semanticCommits",
+    ":automergeDigests",
+    ":automergeBranch"
+  ],
+  "timezone": "America/New_York",
+  "schedule": ["before 10am on monday"],
+  "labels": ["dependencies"],
+  "assignees": ["@runwhen-contrib/maintainers"],
+  "reviewers": ["@runwhen-contrib/maintainers"],
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+  "packageRules": [
+    {
+      "description": "Group Python dependencies",
+      "matchManagers": ["poetry"],
+      "groupName": "Python dependencies",
+      "schedule": ["before 10am on monday"],
+      "automerge": false,
+      "reviewersFromCodeOwners": true
+    },
+    {
+      "description": "Group Docker base images",
+      "matchManagers": ["dockerfile"],
+      "matchPackageNames": ["python"],
+      "groupName": "Docker base images",
+      "automerge": true,
+      "minimumReleaseAge": "3 days"
+    },
+    {
+      "description": "Group Kubernetes container images",
+      "matchManagers": ["kubernetes"],
+      "groupName": "Kubernetes images",
+      "automerge": false,
+      "excludePaths": [
+        "deploy/k8s/**",
+        "deploy/kubernetes/**"
+      ]
+    },
+    {
+      "description": "Auto-merge patch updates for stable tools",
+      "matchManagers": ["dockerfile"],
+      "matchPackageNames": [
+        "terraform",
+        "kubectl",
+        "yq",
+        "trivy"
+      ],
+      "matchUpdateTypes": ["patch"],
+      "automerge": true,
+      "minimumReleaseAge": "3 days"
+    },
+    {
+      "description": "Group GitHub Actions",
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions",
+      "automerge": true,
+      "matchUpdateTypes": ["patch", "pin", "digest"]
+    },
+    {
+      "description": "Separate major updates",
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "schedule": ["before 10am on monday"],
+      "labels": ["dependencies", "major-update"],
+      "reviewersFromCodeOwners": true
+    }
+  ],
+  "customManagers": [
+    {
+      "description": "Update tool versions in Dockerfile",
+      "customType": "regex",
+      "fileMatch": ["\\.dockerfile$", "Dockerfile$"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+ENV (?<currentValue>.*?)\\s"
+      ],
+      "datasourceTemplate": "{{datasource}}",
+      "depNameTemplate": "{{depName}}"
+    }
+  ],
+  "dockerfile": {
+    "enabled": true
+  },
+  "kubernetes": {
+    "enabled": true,
+    "fileMatch": [
+      "**/*.yaml",
+      "**/*.yml"
+    ]
+  },
+  "poetry": {
+    "enabled": true,
+    "fileMatch": ["(^|/)pyproject\\.toml$"]
+  },
+  "regexManagers": [
+    {
+      "description": "Update Terraform version in Dockerfile",
+      "fileMatch": ["\\.dockerfile$", "Dockerfile$"],
+      "matchStrings": [
+        "ENV TERRAFORM_VERSION=(?<currentValue>.*?)\\s"
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "hashicorp/terraform",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    },
+    {
+      "description": "Update Google Cloud CLI version in Dockerfile",
+      "fileMatch": ["\\.dockerfile$", "Dockerfile$"],
+      "matchStrings": [
+        "ENV GCLOUD_CLI_VERSION=\"(?<currentValue>.*?)\"\\s"
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "google-cloud-sdk",
+      "extractVersionTemplate": "^(?<version>.*)$"
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "schedule": ["at any time"]
+  },
+  "osvVulnerabilityAlerts": true,
+  "dependencyDashboard": true,
+  "dependencyDashboardTitle": "Dependency Dashboard",
+  "dependencyDashboardHeader": "This issue lists Renovate updates and detected dependencies. Read the [Dependency Dashboard](https://docs.renovatebot.com/key-concepts/dashboard/) docs to learn more.",
+  "dependencyDashboardFooter": "- [ ] <!-- rebase-check -->If you want to rebase/retry any failed PRs, check this box"
+}
