@@ -1,8 +1,0 @@
-{
-  "extends": "..",
-  "include": ["."],
-  "compilerOptions": {
-    "types": ["node", "jest"],
-    "resolveJsonModule": true
-  }
-}
