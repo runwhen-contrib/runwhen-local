@@ -1,0 +1,1898 @@
+<!doctype html>
+<html class="default no-js">
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<title>Cvss2ScoringEngine | vuln-vects</title>
+	<meta name="description" content="Documentation for vuln-vects">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="stylesheet" href="../assets/css/main.css">
+	<script async src="../assets/js/search.js" id="search-script"></script>
+</head>
+<body>
+<header>
+	<div class="tsd-page-toolbar">
+		<div class="container">
+			<div class="table-wrap">
+				<div class="table-cell" id="tsd-search" data-index="../assets/js/search.json" data-base="..">
+					<div class="field">
+						<label for="tsd-search-field" class="tsd-widget search no-caption">Search</label>
+						<input id="tsd-search-field" type="text" />
+					</div>
+					<ul class="results">
+						<li class="state loading">Preparing search index...</li>
+						<li class="state failure">The search index is not available</li>
+					</ul>
+					<a href="../index.html" class="title">vuln-vects</a>
+				</div>
+				<div class="table-cell" id="tsd-widgets">
+					<div id="tsd-filter">
+						<a href="#" class="tsd-widget options no-caption" data-toggle="options">Options</a>
+						<div class="tsd-filter-group">
+							<div class="tsd-select" id="tsd-filter-visibility">
+								<span class="tsd-select-label">All</span>
+								<ul class="tsd-select-list">
+									<li data-value="public">Public</li>
+									<li data-value="protected">Public/Protected</li>
+									<li data-value="private" class="selected">All</li>
+								</ul>
+							</div>
+							<input type="checkbox" id="tsd-filter-inherited" checked />
+							<label class="tsd-widget" for="tsd-filter-inherited">Inherited</label>
+							<input type="checkbox" id="tsd-filter-externals" checked />
+							<label class="tsd-widget" for="tsd-filter-externals">Externals</label>
+						</div>
+					</div>
+					<a href="#" class="tsd-widget menu no-caption" data-toggle="menu">Menu</a>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="tsd-page-title">
+		<div class="container">
+			<ul class="tsd-breadcrumb">
+				<li>
+					<a href="../modules.html">vuln-vects</a>
+				</li>
+				<li>
+					<a href="../modules/index.html">index</a>
+				</li>
+				<li>
+					<a href="index.Cvss2ScoringEngine.html">Cvss2ScoringEngine</a>
+				</li>
+			</ul>
+			<h1>Class Cvss2ScoringEngine</h1>
+		</div>
+	</div>
+</header>
+<div class="container container-main">
+	<div class="row">
+		<div class="col-8 col-content">
+			<section class="tsd-panel tsd-comment">
+				<div class="tsd-comment tsd-typography">
+					<div class="lead">
+						<p>Implements a service offering CVSS v2 vulnerability scoring.</p>
+					</div>
+					<dl class="tsd-comment-tags">
+						<dt>remarks</dt>
+						<dd><p>Consumers should ensure that they make sure of the validation features built in to this class in the form of the
+								<a href="index.Cvss2ScoringEngine.html#validate">validate</a> and <a href="index.Cvss2ScoringEngine.html#isValid">isValid</a> functions. Attempting to call <a href="index.Cvss2ScoringEngine.html#computeScore">computeScore</a> on an instance with an
+							invalid configuration will raise an exception.</p>
+						</dd>
+					</dl>
+				</div>
+			</section>
+			<section class="tsd-panel tsd-hierarchy">
+				<h3>Hierarchy</h3>
+				<ul class="tsd-hierarchy">
+					<li>
+						<span class="target">Cvss2ScoringEngine</span>
+					</li>
+				</ul>
+			</section>
+			<section class="tsd-panel">
+				<h3>Implements</h3>
+				<ul class="tsd-hierarchy">
+					<li><span class="tsd-signature-type">CvssScoringEngine</span></li>
+				</ul>
+			</section>
+			<section class="tsd-panel-group tsd-index-group">
+				<h2>Index</h2>
+				<section class="tsd-panel tsd-index-panel">
+					<div class="tsd-index-content">
+						<section class="tsd-index-section ">
+							<h3>Constructors</h3>
+							<ul class="tsd-index-list">
+								<li class="tsd-kind-constructor tsd-parent-kind-class"><a href="index.Cvss2ScoringEngine.html#constructor" class="tsd-kind-icon">constructor</a></li>
+							</ul>
+						</section>
+						<section class="tsd-index-section tsd-is-private tsd-is-private-protected">
+							<h3>Properties</h3>
+							<ul class="tsd-index-list">
+								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><a href="index.Cvss2ScoringEngine.html#_accessComplexity" class="tsd-kind-icon">_access<wbr>Complexity</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><a href="index.Cvss2ScoringEngine.html#_accessVector" class="tsd-kind-icon">_access<wbr>Vector</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><a href="index.Cvss2ScoringEngine.html#_authentication" class="tsd-kind-icon">_authentication</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><a href="index.Cvss2ScoringEngine.html#_availabilityImpact" class="tsd-kind-icon">_availability<wbr>Impact</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><a href="index.Cvss2ScoringEngine.html#_availabilityRequirement" class="tsd-kind-icon">_availability<wbr>Requirement</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><a href="index.Cvss2ScoringEngine.html#_collateralDamagePotential" class="tsd-kind-icon">_collateral<wbr>Damage<wbr>Potential</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><a href="index.Cvss2ScoringEngine.html#_confidentialityImpact" class="tsd-kind-icon">_confidentiality<wbr>Impact</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><a href="index.Cvss2ScoringEngine.html#_confidentialityRequirement" class="tsd-kind-icon">_confidentiality<wbr>Requirement</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><a href="index.Cvss2ScoringEngine.html#_exploitability" class="tsd-kind-icon">_exploitability</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><a href="index.Cvss2ScoringEngine.html#_integrityImpact" class="tsd-kind-icon">_integrity<wbr>Impact</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><a href="index.Cvss2ScoringEngine.html#_integrityRequirement" class="tsd-kind-icon">_integrity<wbr>Requirement</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><a href="index.Cvss2ScoringEngine.html#_remediationLevel" class="tsd-kind-icon">_remediation<wbr>Level</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><a href="index.Cvss2ScoringEngine.html#_reportConfidence" class="tsd-kind-icon">_report<wbr>Confidence</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><a href="index.Cvss2ScoringEngine.html#_targetDistribution" class="tsd-kind-icon">_target<wbr>Distribution</a></li>
+							</ul>
+						</section>
+						<section class="tsd-index-section ">
+							<h3>Accessors</h3>
+							<ul class="tsd-index-list">
+								<li class="tsd-kind-accessor tsd-parent-kind-class"><a href="index.Cvss2ScoringEngine.html#accessComplexity" class="tsd-kind-icon">access<wbr>Complexity</a></li>
+								<li class="tsd-kind-accessor tsd-parent-kind-class"><a href="index.Cvss2ScoringEngine.html#accessVector" class="tsd-kind-icon">access<wbr>Vector</a></li>
+								<li class="tsd-kind-accessor tsd-parent-kind-class"><a href="index.Cvss2ScoringEngine.html#authentication" class="tsd-kind-icon">authentication</a></li>
+								<li class="tsd-kind-accessor tsd-parent-kind-class"><a href="index.Cvss2ScoringEngine.html#availabilityImpact" class="tsd-kind-icon">availability<wbr>Impact</a></li>
+								<li class="tsd-kind-accessor tsd-parent-kind-class"><a href="index.Cvss2ScoringEngine.html#availabilityRequirement" class="tsd-kind-icon">availability<wbr>Requirement</a></li>
+								<li class="tsd-kind-accessor tsd-parent-kind-class"><a href="index.Cvss2ScoringEngine.html#collateralDamagePotential" class="tsd-kind-icon">collateral<wbr>Damage<wbr>Potential</a></li>
+								<li class="tsd-kind-accessor tsd-parent-kind-class"><a href="index.Cvss2ScoringEngine.html#confidentialityImpact" class="tsd-kind-icon">confidentiality<wbr>Impact</a></li>
+								<li class="tsd-kind-accessor tsd-parent-kind-class"><a href="index.Cvss2ScoringEngine.html#confidentialityRequirement" class="tsd-kind-icon">confidentiality<wbr>Requirement</a></li>
+								<li class="tsd-kind-accessor tsd-parent-kind-class"><a href="index.Cvss2ScoringEngine.html#exploitability" class="tsd-kind-icon">exploitability</a></li>
+								<li class="tsd-kind-accessor tsd-parent-kind-class"><a href="index.Cvss2ScoringEngine.html#integrityImpact" class="tsd-kind-icon">integrity<wbr>Impact</a></li>
+								<li class="tsd-kind-accessor tsd-parent-kind-class"><a href="index.Cvss2ScoringEngine.html#integrityRequirement" class="tsd-kind-icon">integrity<wbr>Requirement</a></li>
+								<li class="tsd-kind-accessor tsd-parent-kind-class"><a href="index.Cvss2ScoringEngine.html#remediationLevel" class="tsd-kind-icon">remediation<wbr>Level</a></li>
+								<li class="tsd-kind-accessor tsd-parent-kind-class"><a href="index.Cvss2ScoringEngine.html#reportConfidence" class="tsd-kind-icon">report<wbr>Confidence</a></li>
+								<li class="tsd-kind-accessor tsd-parent-kind-class"><a href="index.Cvss2ScoringEngine.html#targetDistribution" class="tsd-kind-icon">target<wbr>Distribution</a></li>
+							</ul>
+						</section>
+						<section class="tsd-index-section ">
+							<h3>Methods</h3>
+							<ul class="tsd-index-list">
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private"><a href="index.Cvss2ScoringEngine.html#computeAdjustedBaseScore" class="tsd-kind-icon">compute<wbr>Adjusted<wbr>Base<wbr>Score</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private"><a href="index.Cvss2ScoringEngine.html#computeAdjustedImpactScore" class="tsd-kind-icon">compute<wbr>Adjusted<wbr>Impact<wbr>Score</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private"><a href="index.Cvss2ScoringEngine.html#computeAdjustedTemporalScore" class="tsd-kind-icon">compute<wbr>Adjusted<wbr>Temporal<wbr>Score</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private"><a href="index.Cvss2ScoringEngine.html#computeBaseScore" class="tsd-kind-icon">compute<wbr>Base<wbr>Score</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private"><a href="index.Cvss2ScoringEngine.html#computeEnvironmentalScore" class="tsd-kind-icon">compute<wbr>Environmental<wbr>Score</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private"><a href="index.Cvss2ScoringEngine.html#computeExploitabilityScore" class="tsd-kind-icon">compute<wbr>Exploitability<wbr>Score</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private"><a href="index.Cvss2ScoringEngine.html#computeImpactScore" class="tsd-kind-icon">compute<wbr>Impact<wbr>Score</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private"><a href="index.Cvss2ScoringEngine.html#computeOverallScore" class="tsd-kind-icon">compute<wbr>Overall<wbr>Score</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class"><a href="index.Cvss2ScoringEngine.html#computeScore" class="tsd-kind-icon">compute<wbr>Score</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private"><a href="index.Cvss2ScoringEngine.html#computeTemporalScore" class="tsd-kind-icon">compute<wbr>Temporal<wbr>Score</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class"><a href="index.Cvss2ScoringEngine.html#isEnvironmentalScoreDefined" class="tsd-kind-icon">is<wbr>Environmental<wbr>Score<wbr>Defined</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class"><a href="index.Cvss2ScoringEngine.html#isTemporalScoreDefined" class="tsd-kind-icon">is<wbr>Temporal<wbr>Score<wbr>Defined</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class"><a href="index.Cvss2ScoringEngine.html#isValid" class="tsd-kind-icon">is<wbr>Valid</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class"><a href="index.Cvss2ScoringEngine.html#validate" class="tsd-kind-icon">validate</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static"><a href="index.Cvss2ScoringEngine.html#impactFactor" class="tsd-kind-icon">impact<wbr>Factor</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static"><a href="index.Cvss2ScoringEngine.html#renderAccessComplexity" class="tsd-kind-icon">render<wbr>Access<wbr>Complexity</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static"><a href="index.Cvss2ScoringEngine.html#renderAccessVector" class="tsd-kind-icon">render<wbr>Access<wbr>Vector</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static"><a href="index.Cvss2ScoringEngine.html#renderAuthentication" class="tsd-kind-icon">render<wbr>Authentication</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static"><a href="index.Cvss2ScoringEngine.html#renderCollateralDamagePotential" class="tsd-kind-icon">render<wbr>Collateral<wbr>Damage<wbr>Potential</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static"><a href="index.Cvss2ScoringEngine.html#renderExploitability" class="tsd-kind-icon">render<wbr>Exploitability</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static"><a href="index.Cvss2ScoringEngine.html#renderImpact" class="tsd-kind-icon">render<wbr>Impact</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static"><a href="index.Cvss2ScoringEngine.html#renderImpactSubscore" class="tsd-kind-icon">render<wbr>Impact<wbr>Subscore</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static"><a href="index.Cvss2ScoringEngine.html#renderRemediationLevel" class="tsd-kind-icon">render<wbr>Remediation<wbr>Level</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static"><a href="index.Cvss2ScoringEngine.html#renderReportConfidence" class="tsd-kind-icon">render<wbr>Report<wbr>Confidence</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static"><a href="index.Cvss2ScoringEngine.html#renderTargetDistribution" class="tsd-kind-icon">render<wbr>Target<wbr>Distribution</a></li>
+							</ul>
+						</section>
+					</div>
+				</section>
+			</section>
+			<section class="tsd-panel-group tsd-member-group ">
+				<h2>Constructors</h2>
+				<section class="tsd-panel tsd-member tsd-kind-constructor tsd-parent-kind-class">
+					<a name="constructor" class="tsd-anchor"></a>
+					<h3>constructor</h3>
+					<ul class="tsd-signatures tsd-kind-constructor tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon">new <wbr>Cvss2<wbr>Scoring<wbr>Engine<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.Cvss2ScoringEngine.html" class="tsd-signature-type" data-tsd-kind="Class">Cvss2ScoringEngine</a></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L61">cvss2-scoring-engine.ts:61</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Initializes a new instance of a service offering CVSS v2 vulnerability scoring.</p>
+								</div>
+							</div>
+							<h4 class="tsd-returns-title">Returns <a href="index.Cvss2ScoringEngine.html" class="tsd-signature-type" data-tsd-kind="Class">Cvss2ScoringEngine</a></h4>
+						</li>
+					</ul>
+				</section>
+			</section>
+			<section class="tsd-panel-group tsd-member-group tsd-is-private tsd-is-private-protected">
+				<h2>Properties</h2>
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-private">
+					<a name="_accessComplexity" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagPrivate">Private</span> _access<wbr>Complexity</h3>
+					<div class="tsd-signature tsd-kind-icon">_access<wbr>Complexity<span class="tsd-signature-symbol">:</span> <a href="../enums/cvss2_enums.AccessComplexity.html" class="tsd-signature-type" data-tsd-kind="Enumeration">AccessComplexity</a></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L32">cvss2-scoring-engine.ts:32</a></li>
+						</ul>
+					</aside>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-private">
+					<a name="_accessVector" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagPrivate">Private</span> _access<wbr>Vector</h3>
+					<div class="tsd-signature tsd-kind-icon">_access<wbr>Vector<span class="tsd-signature-symbol">:</span> <a href="../enums/cvss2_enums.AccessVector.html" class="tsd-signature-type" data-tsd-kind="Enumeration">AccessVector</a></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L30">cvss2-scoring-engine.ts:30</a></li>
+						</ul>
+					</aside>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-private">
+					<a name="_authentication" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagPrivate">Private</span> _authentication</h3>
+					<div class="tsd-signature tsd-kind-icon">_authentication<span class="tsd-signature-symbol">:</span> <a href="../enums/cvss2_enums.Authentication.html" class="tsd-signature-type" data-tsd-kind="Enumeration">Authentication</a></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L34">cvss2-scoring-engine.ts:34</a></li>
+						</ul>
+					</aside>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-private">
+					<a name="_availabilityImpact" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagPrivate">Private</span> _availability<wbr>Impact</h3>
+					<div class="tsd-signature tsd-kind-icon">_availability<wbr>Impact<span class="tsd-signature-symbol">:</span> <a href="../enums/cvss2_enums.Impact.html" class="tsd-signature-type" data-tsd-kind="Enumeration">Impact</a></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L40">cvss2-scoring-engine.ts:40</a></li>
+						</ul>
+					</aside>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-private">
+					<a name="_availabilityRequirement" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagPrivate">Private</span> _availability<wbr>Requirement</h3>
+					<div class="tsd-signature tsd-kind-icon">_availability<wbr>Requirement<span class="tsd-signature-symbol">:</span> <a href="../enums/cvss2_enums.ImpactSubscore.html" class="tsd-signature-type" data-tsd-kind="Enumeration">ImpactSubscore</a></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L56">cvss2-scoring-engine.ts:56</a></li>
+						</ul>
+					</aside>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-private">
+					<a name="_collateralDamagePotential" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagPrivate">Private</span> _collateral<wbr>Damage<wbr>Potential</h3>
+					<div class="tsd-signature tsd-kind-icon">_collateral<wbr>Damage<wbr>Potential<span class="tsd-signature-symbol">:</span> <a href="../enums/cvss2_enums.CollateralDamagePotential.html" class="tsd-signature-type" data-tsd-kind="Enumeration">CollateralDamagePotential</a></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L48">cvss2-scoring-engine.ts:48</a></li>
+						</ul>
+					</aside>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-private">
+					<a name="_confidentialityImpact" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagPrivate">Private</span> _confidentiality<wbr>Impact</h3>
+					<div class="tsd-signature tsd-kind-icon">_confidentiality<wbr>Impact<span class="tsd-signature-symbol">:</span> <a href="../enums/cvss2_enums.Impact.html" class="tsd-signature-type" data-tsd-kind="Enumeration">Impact</a></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L36">cvss2-scoring-engine.ts:36</a></li>
+						</ul>
+					</aside>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-private">
+					<a name="_confidentialityRequirement" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagPrivate">Private</span> _confidentiality<wbr>Requirement</h3>
+					<div class="tsd-signature tsd-kind-icon">_confidentiality<wbr>Requirement<span class="tsd-signature-symbol">:</span> <a href="../enums/cvss2_enums.ImpactSubscore.html" class="tsd-signature-type" data-tsd-kind="Enumeration">ImpactSubscore</a></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L52">cvss2-scoring-engine.ts:52</a></li>
+						</ul>
+					</aside>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-private">
+					<a name="_exploitability" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagPrivate">Private</span> _exploitability</h3>
+					<div class="tsd-signature tsd-kind-icon">_exploitability<span class="tsd-signature-symbol">:</span> <a href="../enums/cvss2_enums.Exploitability.html" class="tsd-signature-type" data-tsd-kind="Enumeration">Exploitability</a></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L42">cvss2-scoring-engine.ts:42</a></li>
+						</ul>
+					</aside>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-private">
+					<a name="_integrityImpact" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagPrivate">Private</span> _integrity<wbr>Impact</h3>
+					<div class="tsd-signature tsd-kind-icon">_integrity<wbr>Impact<span class="tsd-signature-symbol">:</span> <a href="../enums/cvss2_enums.Impact.html" class="tsd-signature-type" data-tsd-kind="Enumeration">Impact</a></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L38">cvss2-scoring-engine.ts:38</a></li>
+						</ul>
+					</aside>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-private">
+					<a name="_integrityRequirement" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagPrivate">Private</span> _integrity<wbr>Requirement</h3>
+					<div class="tsd-signature tsd-kind-icon">_integrity<wbr>Requirement<span class="tsd-signature-symbol">:</span> <a href="../enums/cvss2_enums.ImpactSubscore.html" class="tsd-signature-type" data-tsd-kind="Enumeration">ImpactSubscore</a></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L54">cvss2-scoring-engine.ts:54</a></li>
+						</ul>
+					</aside>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-private">
+					<a name="_remediationLevel" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagPrivate">Private</span> _remediation<wbr>Level</h3>
+					<div class="tsd-signature tsd-kind-icon">_remediation<wbr>Level<span class="tsd-signature-symbol">:</span> <a href="../enums/cvss2_enums.RemediationLevel.html" class="tsd-signature-type" data-tsd-kind="Enumeration">RemediationLevel</a></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L44">cvss2-scoring-engine.ts:44</a></li>
+						</ul>
+					</aside>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-private">
+					<a name="_reportConfidence" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagPrivate">Private</span> _report<wbr>Confidence</h3>
+					<div class="tsd-signature tsd-kind-icon">_report<wbr>Confidence<span class="tsd-signature-symbol">:</span> <a href="../enums/cvss2_enums.ReportConfidence.html" class="tsd-signature-type" data-tsd-kind="Enumeration">ReportConfidence</a></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L46">cvss2-scoring-engine.ts:46</a></li>
+						</ul>
+					</aside>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-private">
+					<a name="_targetDistribution" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagPrivate">Private</span> _target<wbr>Distribution</h3>
+					<div class="tsd-signature tsd-kind-icon">_target<wbr>Distribution<span class="tsd-signature-symbol">:</span> <a href="../enums/cvss2_enums.TargetDistribution.html" class="tsd-signature-type" data-tsd-kind="Enumeration">TargetDistribution</a></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L50">cvss2-scoring-engine.ts:50</a></li>
+						</ul>
+					</aside>
+				</section>
+			</section>
+			<section class="tsd-panel-group tsd-member-group ">
+				<h2>Accessors</h2>
+				<section class="tsd-panel tsd-member tsd-kind-accessor tsd-parent-kind-class">
+					<a name="accessComplexity" class="tsd-anchor"></a>
+					<h3>access<wbr>Complexity</h3>
+					<ul class="tsd-signatures tsd-kind-accessor tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">get</span> accessComplexity<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.AccessComplexity.html" class="tsd-signature-type" data-tsd-kind="Enumeration">AccessComplexity</a></li>
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">set</span> accessComplexity<span class="tsd-signature-symbol">(</span>accessComplexity<span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.AccessComplexity.html" class="tsd-signature-type" data-tsd-kind="Enumeration">AccessComplexity</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L97">cvss2-scoring-engine.ts:97</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Gets or sets the access complexity.</p>
+								</div>
+							</div>
+							<h4 class="tsd-returns-title">Returns <a href="../enums/cvss2_enums.AccessComplexity.html" class="tsd-signature-type" data-tsd-kind="Enumeration">AccessComplexity</a></h4>
+						</li>
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L100">cvss2-scoring-engine.ts:100</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Gets or sets the access complexity.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>accessComplexity: <a href="../enums/cvss2_enums.AccessComplexity.html" class="tsd-signature-type" data-tsd-kind="Enumeration">AccessComplexity</a></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-accessor tsd-parent-kind-class">
+					<a name="accessVector" class="tsd-anchor"></a>
+					<h3>access<wbr>Vector</h3>
+					<ul class="tsd-signatures tsd-kind-accessor tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">get</span> accessVector<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.AccessVector.html" class="tsd-signature-type" data-tsd-kind="Enumeration">AccessVector</a></li>
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">set</span> accessVector<span class="tsd-signature-symbol">(</span>accessVector<span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.AccessVector.html" class="tsd-signature-type" data-tsd-kind="Enumeration">AccessVector</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L87">cvss2-scoring-engine.ts:87</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Gets or sets the access vector.</p>
+								</div>
+							</div>
+							<h4 class="tsd-returns-title">Returns <a href="../enums/cvss2_enums.AccessVector.html" class="tsd-signature-type" data-tsd-kind="Enumeration">AccessVector</a></h4>
+						</li>
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L90">cvss2-scoring-engine.ts:90</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Gets or sets the access vector.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>accessVector: <a href="../enums/cvss2_enums.AccessVector.html" class="tsd-signature-type" data-tsd-kind="Enumeration">AccessVector</a></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-accessor tsd-parent-kind-class">
+					<a name="authentication" class="tsd-anchor"></a>
+					<h3>authentication</h3>
+					<ul class="tsd-signatures tsd-kind-accessor tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">get</span> authentication<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.Authentication.html" class="tsd-signature-type" data-tsd-kind="Enumeration">Authentication</a></li>
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">set</span> authentication<span class="tsd-signature-symbol">(</span>authentication<span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.Authentication.html" class="tsd-signature-type" data-tsd-kind="Enumeration">Authentication</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L107">cvss2-scoring-engine.ts:107</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Gets or sets the authentication.</p>
+								</div>
+							</div>
+							<h4 class="tsd-returns-title">Returns <a href="../enums/cvss2_enums.Authentication.html" class="tsd-signature-type" data-tsd-kind="Enumeration">Authentication</a></h4>
+						</li>
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L110">cvss2-scoring-engine.ts:110</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Gets or sets the authentication.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>authentication: <a href="../enums/cvss2_enums.Authentication.html" class="tsd-signature-type" data-tsd-kind="Enumeration">Authentication</a></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-accessor tsd-parent-kind-class">
+					<a name="availabilityImpact" class="tsd-anchor"></a>
+					<h3>availability<wbr>Impact</h3>
+					<ul class="tsd-signatures tsd-kind-accessor tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">get</span> availabilityImpact<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.Impact.html" class="tsd-signature-type" data-tsd-kind="Enumeration">Impact</a></li>
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">set</span> availabilityImpact<span class="tsd-signature-symbol">(</span>availabilityImpact<span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.Impact.html" class="tsd-signature-type" data-tsd-kind="Enumeration">Impact</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L137">cvss2-scoring-engine.ts:137</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Gets or sets the availability impact.</p>
+								</div>
+							</div>
+							<h4 class="tsd-returns-title">Returns <a href="../enums/cvss2_enums.Impact.html" class="tsd-signature-type" data-tsd-kind="Enumeration">Impact</a></h4>
+						</li>
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L140">cvss2-scoring-engine.ts:140</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Gets or sets the availability impact.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>availabilityImpact: <a href="../enums/cvss2_enums.Impact.html" class="tsd-signature-type" data-tsd-kind="Enumeration">Impact</a></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-accessor tsd-parent-kind-class">
+					<a name="availabilityRequirement" class="tsd-anchor"></a>
+					<h3>availability<wbr>Requirement</h3>
+					<ul class="tsd-signatures tsd-kind-accessor tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">get</span> availabilityRequirement<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.ImpactSubscore.html" class="tsd-signature-type" data-tsd-kind="Enumeration">ImpactSubscore</a></li>
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">set</span> availabilityRequirement<span class="tsd-signature-symbol">(</span>availabilityRequirement<span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.ImpactSubscore.html" class="tsd-signature-type" data-tsd-kind="Enumeration">ImpactSubscore</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L217">cvss2-scoring-engine.ts:217</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Gets or sets the availability requirement.</p>
+								</div>
+							</div>
+							<h4 class="tsd-returns-title">Returns <a href="../enums/cvss2_enums.ImpactSubscore.html" class="tsd-signature-type" data-tsd-kind="Enumeration">ImpactSubscore</a></h4>
+						</li>
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L220">cvss2-scoring-engine.ts:220</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Gets or sets the availability requirement.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>availabilityRequirement: <a href="../enums/cvss2_enums.ImpactSubscore.html" class="tsd-signature-type" data-tsd-kind="Enumeration">ImpactSubscore</a></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-accessor tsd-parent-kind-class">
+					<a name="collateralDamagePotential" class="tsd-anchor"></a>
+					<h3>collateral<wbr>Damage<wbr>Potential</h3>
+					<ul class="tsd-signatures tsd-kind-accessor tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">get</span> collateralDamagePotential<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.CollateralDamagePotential.html" class="tsd-signature-type" data-tsd-kind="Enumeration">CollateralDamagePotential</a></li>
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">set</span> collateralDamagePotential<span class="tsd-signature-symbol">(</span>collateralDamagePotential<span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.CollateralDamagePotential.html" class="tsd-signature-type" data-tsd-kind="Enumeration">CollateralDamagePotential</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L177">cvss2-scoring-engine.ts:177</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Gets or sets the collateral damage potential.</p>
+								</div>
+							</div>
+							<h4 class="tsd-returns-title">Returns <a href="../enums/cvss2_enums.CollateralDamagePotential.html" class="tsd-signature-type" data-tsd-kind="Enumeration">CollateralDamagePotential</a></h4>
+						</li>
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L180">cvss2-scoring-engine.ts:180</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Gets or sets the collateral damage potential.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>collateralDamagePotential: <a href="../enums/cvss2_enums.CollateralDamagePotential.html" class="tsd-signature-type" data-tsd-kind="Enumeration">CollateralDamagePotential</a></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-accessor tsd-parent-kind-class">
+					<a name="confidentialityImpact" class="tsd-anchor"></a>
+					<h3>confidentiality<wbr>Impact</h3>
+					<ul class="tsd-signatures tsd-kind-accessor tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">get</span> confidentialityImpact<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.Impact.html" class="tsd-signature-type" data-tsd-kind="Enumeration">Impact</a></li>
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">set</span> confidentialityImpact<span class="tsd-signature-symbol">(</span>confidentialityImpact<span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.Impact.html" class="tsd-signature-type" data-tsd-kind="Enumeration">Impact</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L117">cvss2-scoring-engine.ts:117</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Gets or sets the confidentiality impact.</p>
+								</div>
+							</div>
+							<h4 class="tsd-returns-title">Returns <a href="../enums/cvss2_enums.Impact.html" class="tsd-signature-type" data-tsd-kind="Enumeration">Impact</a></h4>
+						</li>
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L120">cvss2-scoring-engine.ts:120</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Gets or sets the confidentiality impact.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>confidentialityImpact: <a href="../enums/cvss2_enums.Impact.html" class="tsd-signature-type" data-tsd-kind="Enumeration">Impact</a></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-accessor tsd-parent-kind-class">
+					<a name="confidentialityRequirement" class="tsd-anchor"></a>
+					<h3>confidentiality<wbr>Requirement</h3>
+					<ul class="tsd-signatures tsd-kind-accessor tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">get</span> confidentialityRequirement<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.ImpactSubscore.html" class="tsd-signature-type" data-tsd-kind="Enumeration">ImpactSubscore</a></li>
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">set</span> confidentialityRequirement<span class="tsd-signature-symbol">(</span>confidentialityRequirement<span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.ImpactSubscore.html" class="tsd-signature-type" data-tsd-kind="Enumeration">ImpactSubscore</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L197">cvss2-scoring-engine.ts:197</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Gets or sets the confidentiality requirement.</p>
+								</div>
+							</div>
+							<h4 class="tsd-returns-title">Returns <a href="../enums/cvss2_enums.ImpactSubscore.html" class="tsd-signature-type" data-tsd-kind="Enumeration">ImpactSubscore</a></h4>
+						</li>
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L200">cvss2-scoring-engine.ts:200</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Gets or sets the confidentiality requirement.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>confidentialityRequirement: <a href="../enums/cvss2_enums.ImpactSubscore.html" class="tsd-signature-type" data-tsd-kind="Enumeration">ImpactSubscore</a></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-accessor tsd-parent-kind-class">
+					<a name="exploitability" class="tsd-anchor"></a>
+					<h3>exploitability</h3>
+					<ul class="tsd-signatures tsd-kind-accessor tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">get</span> exploitability<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.Exploitability.html" class="tsd-signature-type" data-tsd-kind="Enumeration">Exploitability</a></li>
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">set</span> exploitability<span class="tsd-signature-symbol">(</span>exploitability<span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.Exploitability.html" class="tsd-signature-type" data-tsd-kind="Enumeration">Exploitability</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L147">cvss2-scoring-engine.ts:147</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Gets or sets the exploitability.</p>
+								</div>
+							</div>
+							<h4 class="tsd-returns-title">Returns <a href="../enums/cvss2_enums.Exploitability.html" class="tsd-signature-type" data-tsd-kind="Enumeration">Exploitability</a></h4>
+						</li>
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L150">cvss2-scoring-engine.ts:150</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Gets or sets the exploitability.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>exploitability: <a href="../enums/cvss2_enums.Exploitability.html" class="tsd-signature-type" data-tsd-kind="Enumeration">Exploitability</a></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-accessor tsd-parent-kind-class">
+					<a name="integrityImpact" class="tsd-anchor"></a>
+					<h3>integrity<wbr>Impact</h3>
+					<ul class="tsd-signatures tsd-kind-accessor tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">get</span> integrityImpact<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.Impact.html" class="tsd-signature-type" data-tsd-kind="Enumeration">Impact</a></li>
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">set</span> integrityImpact<span class="tsd-signature-symbol">(</span>integrityImpact<span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.Impact.html" class="tsd-signature-type" data-tsd-kind="Enumeration">Impact</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L127">cvss2-scoring-engine.ts:127</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Gets or sets the integrity impact.</p>
+								</div>
+							</div>
+							<h4 class="tsd-returns-title">Returns <a href="../enums/cvss2_enums.Impact.html" class="tsd-signature-type" data-tsd-kind="Enumeration">Impact</a></h4>
+						</li>
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L130">cvss2-scoring-engine.ts:130</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Gets or sets the integrity impact.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>integrityImpact: <a href="../enums/cvss2_enums.Impact.html" class="tsd-signature-type" data-tsd-kind="Enumeration">Impact</a></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-accessor tsd-parent-kind-class">
+					<a name="integrityRequirement" class="tsd-anchor"></a>
+					<h3>integrity<wbr>Requirement</h3>
+					<ul class="tsd-signatures tsd-kind-accessor tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">get</span> integrityRequirement<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.ImpactSubscore.html" class="tsd-signature-type" data-tsd-kind="Enumeration">ImpactSubscore</a></li>
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">set</span> integrityRequirement<span class="tsd-signature-symbol">(</span>integrityRequirement<span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.ImpactSubscore.html" class="tsd-signature-type" data-tsd-kind="Enumeration">ImpactSubscore</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L207">cvss2-scoring-engine.ts:207</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Gets or sets the integrity requirement.</p>
+								</div>
+							</div>
+							<h4 class="tsd-returns-title">Returns <a href="../enums/cvss2_enums.ImpactSubscore.html" class="tsd-signature-type" data-tsd-kind="Enumeration">ImpactSubscore</a></h4>
+						</li>
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L210">cvss2-scoring-engine.ts:210</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Gets or sets the integrity requirement.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>integrityRequirement: <a href="../enums/cvss2_enums.ImpactSubscore.html" class="tsd-signature-type" data-tsd-kind="Enumeration">ImpactSubscore</a></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-accessor tsd-parent-kind-class">
+					<a name="remediationLevel" class="tsd-anchor"></a>
+					<h3>remediation<wbr>Level</h3>
+					<ul class="tsd-signatures tsd-kind-accessor tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">get</span> remediationLevel<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.RemediationLevel.html" class="tsd-signature-type" data-tsd-kind="Enumeration">RemediationLevel</a></li>
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">set</span> remediationLevel<span class="tsd-signature-symbol">(</span>remediationLevel<span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.RemediationLevel.html" class="tsd-signature-type" data-tsd-kind="Enumeration">RemediationLevel</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L157">cvss2-scoring-engine.ts:157</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Gets or sets the remediation level.</p>
+								</div>
+							</div>
+							<h4 class="tsd-returns-title">Returns <a href="../enums/cvss2_enums.RemediationLevel.html" class="tsd-signature-type" data-tsd-kind="Enumeration">RemediationLevel</a></h4>
+						</li>
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L160">cvss2-scoring-engine.ts:160</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Gets or sets the remediation level.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>remediationLevel: <a href="../enums/cvss2_enums.RemediationLevel.html" class="tsd-signature-type" data-tsd-kind="Enumeration">RemediationLevel</a></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-accessor tsd-parent-kind-class">
+					<a name="reportConfidence" class="tsd-anchor"></a>
+					<h3>report<wbr>Confidence</h3>
+					<ul class="tsd-signatures tsd-kind-accessor tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">get</span> reportConfidence<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.ReportConfidence.html" class="tsd-signature-type" data-tsd-kind="Enumeration">ReportConfidence</a></li>
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">set</span> reportConfidence<span class="tsd-signature-symbol">(</span>reportConfidence<span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.ReportConfidence.html" class="tsd-signature-type" data-tsd-kind="Enumeration">ReportConfidence</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L167">cvss2-scoring-engine.ts:167</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Gets or sets the report confidence.</p>
+								</div>
+							</div>
+							<h4 class="tsd-returns-title">Returns <a href="../enums/cvss2_enums.ReportConfidence.html" class="tsd-signature-type" data-tsd-kind="Enumeration">ReportConfidence</a></h4>
+						</li>
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L170">cvss2-scoring-engine.ts:170</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Gets or sets the report confidence.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>reportConfidence: <a href="../enums/cvss2_enums.ReportConfidence.html" class="tsd-signature-type" data-tsd-kind="Enumeration">ReportConfidence</a></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-accessor tsd-parent-kind-class">
+					<a name="targetDistribution" class="tsd-anchor"></a>
+					<h3>target<wbr>Distribution</h3>
+					<ul class="tsd-signatures tsd-kind-accessor tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">get</span> targetDistribution<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.TargetDistribution.html" class="tsd-signature-type" data-tsd-kind="Enumeration">TargetDistribution</a></li>
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">set</span> targetDistribution<span class="tsd-signature-symbol">(</span>targetDistribution<span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.TargetDistribution.html" class="tsd-signature-type" data-tsd-kind="Enumeration">TargetDistribution</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L187">cvss2-scoring-engine.ts:187</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Gets or sets the target distribution.</p>
+								</div>
+							</div>
+							<h4 class="tsd-returns-title">Returns <a href="../enums/cvss2_enums.TargetDistribution.html" class="tsd-signature-type" data-tsd-kind="Enumeration">TargetDistribution</a></h4>
+						</li>
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L190">cvss2-scoring-engine.ts:190</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Gets or sets the target distribution.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>targetDistribution: <a href="../enums/cvss2_enums.TargetDistribution.html" class="tsd-signature-type" data-tsd-kind="Enumeration">TargetDistribution</a></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
+						</li>
+					</ul>
+				</section>
+			</section>
+			<section class="tsd-panel-group tsd-member-group ">
+				<h2>Methods</h2>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-private">
+					<a name="computeAdjustedBaseScore" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagPrivate">Private</span> compute<wbr>Adjusted<wbr>Base<wbr>Score</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private">
+						<li class="tsd-signature tsd-kind-icon">compute<wbr>Adjusted<wbr>Base<wbr>Score<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L521">cvss2-scoring-engine.ts:521</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Computes the adjusted base score.</p>
+								</div>
+							</div>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4>
+							<p>the adjusted base score</p>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-private">
+					<a name="computeAdjustedImpactScore" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagPrivate">Private</span> compute<wbr>Adjusted<wbr>Impact<wbr>Score</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private">
+						<li class="tsd-signature tsd-kind-icon">compute<wbr>Adjusted<wbr>Impact<wbr>Score<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L496">cvss2-scoring-engine.ts:496</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Computes the adjusted impact score.</p>
+								</div>
+							</div>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4>
+							<p>the adjusted impact score</p>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-private">
+					<a name="computeAdjustedTemporalScore" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagPrivate">Private</span> compute<wbr>Adjusted<wbr>Temporal<wbr>Score</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private">
+						<li class="tsd-signature tsd-kind-icon">compute<wbr>Adjusted<wbr>Temporal<wbr>Score<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L537">cvss2-scoring-engine.ts:537</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Computes the adjusted temporal score.</p>
+								</div>
+							</div>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4>
+							<p>the adjusted temporal score</p>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-private">
+					<a name="computeBaseScore" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagPrivate">Private</span> compute<wbr>Base<wbr>Score</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private">
+						<li class="tsd-signature tsd-kind-icon">compute<wbr>Base<wbr>Score<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L388">cvss2-scoring-engine.ts:388</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Computes the base score.</p>
+								</div>
+							</div>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4>
+							<p>the base score</p>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-private">
+					<a name="computeEnvironmentalScore" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagPrivate">Private</span> compute<wbr>Environmental<wbr>Score</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private">
+						<li class="tsd-signature tsd-kind-icon">compute<wbr>Environmental<wbr>Score<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L597">cvss2-scoring-engine.ts:597</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Computes the environmental score.</p>
+								</div>
+							</div>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4>
+							<p>the environmental score</p>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-private">
+					<a name="computeExploitabilityScore" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagPrivate">Private</span> compute<wbr>Exploitability<wbr>Score</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private">
+						<li class="tsd-signature tsd-kind-icon">compute<wbr>Exploitability<wbr>Score<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L361">cvss2-scoring-engine.ts:361</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Computes the exploitability score.</p>
+								</div>
+							</div>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4>
+							<p>the exploitability score</p>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-private">
+					<a name="computeImpactScore" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagPrivate">Private</span> compute<wbr>Impact<wbr>Score</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private">
+						<li class="tsd-signature tsd-kind-icon">compute<wbr>Impact<wbr>Score<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L293">cvss2-scoring-engine.ts:293</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Computes the impact score.</p>
+								</div>
+							</div>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4>
+							<p>the impact score</p>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-private">
+					<a name="computeOverallScore" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagPrivate">Private</span> compute<wbr>Overall<wbr>Score</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private">
+						<li class="tsd-signature tsd-kind-icon">compute<wbr>Overall<wbr>Score<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L640">cvss2-scoring-engine.ts:640</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Computes the overall score.</p>
+								</div>
+							</div>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4>
+							<p>the overall score</p>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
+					<a name="computeScore" class="tsd-anchor"></a>
+					<h3>compute<wbr>Score</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon">compute<wbr>Score<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.CvssScore.html" class="tsd-signature-type" data-tsd-kind="Class">CvssScore</a></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<p>Implementation of CvssScoringEngine.computeScore</p>
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L654">cvss2-scoring-engine.ts:654</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<dl class="tsd-comment-tags">
+									<dt>inheritdoc</dt>
+									<dd></dd>
+								</dl>
+							</div>
+							<h4 class="tsd-returns-title">Returns <a href="index.CvssScore.html" class="tsd-signature-type" data-tsd-kind="Class">CvssScore</a></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-private">
+					<a name="computeTemporalScore" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagPrivate">Private</span> compute<wbr>Temporal<wbr>Score</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private">
+						<li class="tsd-signature tsd-kind-icon">compute<wbr>Temporal<wbr>Score<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L459">cvss2-scoring-engine.ts:459</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Computes the temporal score.</p>
+								</div>
+							</div>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4>
+							<p>the temporal score</p>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
+					<a name="isEnvironmentalScoreDefined" class="tsd-anchor"></a>
+					<h3>is<wbr>Environmental<wbr>Score<wbr>Defined</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon">is<wbr>Environmental<wbr>Score<wbr>Defined<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">boolean</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L627">cvss2-scoring-engine.ts:627</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Gets whether or not an environmental score is defined.</p>
+								</div>
+							</div>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">boolean</span></h4>
+							<p>true if an environmental score is defined, otherwise false</p>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
+					<a name="isTemporalScoreDefined" class="tsd-anchor"></a>
+					<h3>is<wbr>Temporal<wbr>Score<wbr>Defined</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon">is<wbr>Temporal<wbr>Score<wbr>Defined<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">boolean</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L616">cvss2-scoring-engine.ts:616</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Gets whether or not a temporal score is defined.</p>
+								</div>
+							</div>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">boolean</span></h4>
+							<p>true if a temporal score is defined, otherwise false</p>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
+					<a name="isValid" class="tsd-anchor"></a>
+					<h3>is<wbr>Valid</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon">is<wbr>Valid<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">boolean</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<p>Implementation of CvssScoringEngine.isValid</p>
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L267">cvss2-scoring-engine.ts:267</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<dl class="tsd-comment-tags">
+									<dt>inheritdoc</dt>
+									<dd></dd>
+								</dl>
+							</div>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">boolean</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
+					<a name="validate" class="tsd-anchor"></a>
+					<h3>validate</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon">validate<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">ScoreValidationError</span><span class="tsd-signature-symbol">[]</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<p>Implementation of CvssScoringEngine.validate</p>
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L227">cvss2-scoring-engine.ts:227</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<dl class="tsd-comment-tags">
+									<dt>inheritdoc</dt>
+									<dd></dd>
+								</dl>
+							</div>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">ScoreValidationError</span><span class="tsd-signature-symbol">[]</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+					<a name="impactFactor" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagStatic">Static</span> <span class="tsd-flag ts-flagPrivate">Private</span> impact<wbr>Factor</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+						<li class="tsd-signature tsd-kind-icon">impact<wbr>Factor<span class="tsd-signature-symbol">(</span>impact<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L379">cvss2-scoring-engine.ts:379</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Converts an impact score to an impact factor.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>impact: <span class="tsd-signature-type">number</span></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>the impact score to convert</p>
+									</div>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4>
+							<p>the converted impact factor</p>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+					<a name="renderAccessComplexity" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagStatic">Static</span> <span class="tsd-flag ts-flagPrivate">Private</span> render<wbr>Access<wbr>Complexity</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+						<li class="tsd-signature tsd-kind-icon">render<wbr>Access<wbr>Complexity<span class="tsd-signature-symbol">(</span>accessComplexity<span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.AccessComplexity.html" class="tsd-signature-type" data-tsd-kind="Enumeration">AccessComplexity</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L310">cvss2-scoring-engine.ts:310</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Converts an <a href="../enums/cvss2_enums.AccessComplexity.html">AccessComplexity</a> enum value to a number for use in calculations.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>accessComplexity: <a href="../enums/cvss2_enums.AccessComplexity.html" class="tsd-signature-type" data-tsd-kind="Enumeration">AccessComplexity</a></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>the enum value to convert</p>
+									</div>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+					<a name="renderAccessVector" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagStatic">Static</span> <span class="tsd-flag ts-flagPrivate">Private</span> render<wbr>Access<wbr>Vector</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+						<li class="tsd-signature tsd-kind-icon">render<wbr>Access<wbr>Vector<span class="tsd-signature-symbol">(</span>accessVector<span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.AccessVector.html" class="tsd-signature-type" data-tsd-kind="Enumeration">AccessVector</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L344">cvss2-scoring-engine.ts:344</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Converts an <a href="../enums/cvss2_enums.AccessVector.html">AccessVector</a> enum value to a number for use in calculations.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>accessVector: <a href="../enums/cvss2_enums.AccessVector.html" class="tsd-signature-type" data-tsd-kind="Enumeration">AccessVector</a></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>the enum value to convert</p>
+									</div>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+					<a name="renderAuthentication" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagStatic">Static</span> <span class="tsd-flag ts-flagPrivate">Private</span> render<wbr>Authentication</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+						<li class="tsd-signature tsd-kind-icon">render<wbr>Authentication<span class="tsd-signature-symbol">(</span>authentication<span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.Authentication.html" class="tsd-signature-type" data-tsd-kind="Enumeration">Authentication</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L327">cvss2-scoring-engine.ts:327</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Converts an <a href="../enums/cvss2_enums.Authentication.html">Authentication</a> enum value to a number for use in calculations.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>authentication: <a href="../enums/cvss2_enums.Authentication.html" class="tsd-signature-type" data-tsd-kind="Enumeration">Authentication</a></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>the enum value to convert</p>
+									</div>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+					<a name="renderCollateralDamagePotential" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagStatic">Static</span> <span class="tsd-flag ts-flagPrivate">Private</span> render<wbr>Collateral<wbr>Damage<wbr>Potential</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+						<li class="tsd-signature tsd-kind-icon">render<wbr>Collateral<wbr>Damage<wbr>Potential<span class="tsd-signature-symbol">(</span>collateralDamagePotential<span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.CollateralDamagePotential.html" class="tsd-signature-type" data-tsd-kind="Enumeration">CollateralDamagePotential</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L557">cvss2-scoring-engine.ts:557</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Converts an <a href="../enums/cvss2_enums.CollateralDamagePotential.html">CollateralDamagePotential</a> enum value to a number for use in calculations.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>collateralDamagePotential: <a href="../enums/cvss2_enums.CollateralDamagePotential.html" class="tsd-signature-type" data-tsd-kind="Enumeration">CollateralDamagePotential</a></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>the enum value to convert</p>
+									</div>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+					<a name="renderExploitability" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagStatic">Static</span> <span class="tsd-flag ts-flagPrivate">Private</span> render<wbr>Exploitability</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+						<li class="tsd-signature tsd-kind-icon">render<wbr>Exploitability<span class="tsd-signature-symbol">(</span>exploitability<span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.Exploitability.html" class="tsd-signature-type" data-tsd-kind="Enumeration">Exploitability</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L404">cvss2-scoring-engine.ts:404</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Converts an <a href="../enums/cvss2_enums.Exploitability.html">Exploitability</a> enum value to a number for use in calculations.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>exploitability: <a href="../enums/cvss2_enums.Exploitability.html" class="tsd-signature-type" data-tsd-kind="Enumeration">Exploitability</a></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>the enum value to convert</p>
+									</div>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+					<a name="renderImpact" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagStatic">Static</span> <span class="tsd-flag ts-flagPrivate">Private</span> render<wbr>Impact</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+						<li class="tsd-signature tsd-kind-icon">render<wbr>Impact<span class="tsd-signature-symbol">(</span>impact<span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.Impact.html" class="tsd-signature-type" data-tsd-kind="Enumeration">Impact</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L276">cvss2-scoring-engine.ts:276</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Converts an <a href="../enums/cvss2_enums.Impact.html">Impact</a> enum value to a number for use in calculations.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>impact: <a href="../enums/cvss2_enums.Impact.html" class="tsd-signature-type" data-tsd-kind="Enumeration">Impact</a></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>the enum value to convert</p>
+									</div>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+					<a name="renderImpactSubscore" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagStatic">Static</span> <span class="tsd-flag ts-flagPrivate">Private</span> render<wbr>Impact<wbr>Subscore</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+						<li class="tsd-signature tsd-kind-icon">render<wbr>Impact<wbr>Subscore<span class="tsd-signature-symbol">(</span>impactSubscore<span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.ImpactSubscore.html" class="tsd-signature-type" data-tsd-kind="Enumeration">ImpactSubscore</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L479">cvss2-scoring-engine.ts:479</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Converts an <a href="../enums/cvss2_enums.ImpactSubscore.html">ImpactSubscore</a> enum value to a number for use in calculations.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>impactSubscore: <a href="../enums/cvss2_enums.ImpactSubscore.html" class="tsd-signature-type" data-tsd-kind="Enumeration">ImpactSubscore</a></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>the enum value to convert</p>
+									</div>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+					<a name="renderRemediationLevel" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagStatic">Static</span> <span class="tsd-flag ts-flagPrivate">Private</span> render<wbr>Remediation<wbr>Level</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+						<li class="tsd-signature tsd-kind-icon">render<wbr>Remediation<wbr>Level<span class="tsd-signature-symbol">(</span>remediationLevel<span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.RemediationLevel.html" class="tsd-signature-type" data-tsd-kind="Enumeration">RemediationLevel</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L423">cvss2-scoring-engine.ts:423</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Converts an <a href="../enums/cvss2_enums.RemediationLevel.html">RemediationLevel</a> enum value to a number for use in calculations.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>remediationLevel: <a href="../enums/cvss2_enums.RemediationLevel.html" class="tsd-signature-type" data-tsd-kind="Enumeration">RemediationLevel</a></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>the enum value to convert</p>
+									</div>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+					<a name="renderReportConfidence" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagStatic">Static</span> <span class="tsd-flag ts-flagPrivate">Private</span> render<wbr>Report<wbr>Confidence</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+						<li class="tsd-signature tsd-kind-icon">render<wbr>Report<wbr>Confidence<span class="tsd-signature-symbol">(</span>reportConfidence<span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.ReportConfidence.html" class="tsd-signature-type" data-tsd-kind="Enumeration">ReportConfidence</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L442">cvss2-scoring-engine.ts:442</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Converts an <a href="../enums/cvss2_enums.ReportConfidence.html">ReportConfidence</a> enum value to a number for use in calculations.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>reportConfidence: <a href="../enums/cvss2_enums.ReportConfidence.html" class="tsd-signature-type" data-tsd-kind="Enumeration">ReportConfidence</a></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>the enum value to convert</p>
+									</div>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+					<a name="renderTargetDistribution" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagStatic">Static</span> <span class="tsd-flag ts-flagPrivate">Private</span> render<wbr>Target<wbr>Distribution</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+						<li class="tsd-signature tsd-kind-icon">render<wbr>Target<wbr>Distribution<span class="tsd-signature-symbol">(</span>targetDistribution<span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.TargetDistribution.html" class="tsd-signature-type" data-tsd-kind="Enumeration">TargetDistribution</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-scoring-engine.ts#L578">cvss2-scoring-engine.ts:578</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Converts an <a href="../enums/cvss2_enums.TargetDistribution.html">TargetDistribution</a> enum value to a number for use in calculations.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>targetDistribution: <a href="../enums/cvss2_enums.TargetDistribution.html" class="tsd-signature-type" data-tsd-kind="Enumeration">TargetDistribution</a></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>the enum value to convert</p>
+									</div>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4>
+						</li>
+					</ul>
+				</section>
+			</section>
+		</div>
+		<div class="col-4 col-menu menu-sticky-wrap menu-highlight">
+			<nav class="tsd-navigation primary">
+				<ul>
+					<li class=" ">
+						<a href="../modules.html">Modules</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="../modules/cvss2_enums.html">cvss2-<wbr>enums</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="../modules/cvss3_enums.html">cvss3-<wbr>enums</a>
+					</li>
+					<li class="current tsd-kind-module">
+						<a href="../modules/index.html">index</a>
+					</li>
+				</ul>
+			</nav>
+			<nav class="tsd-navigation secondary menu-sticky">
+				<ul class="before-current">
+					<li class=" tsd-kind-reference tsd-parent-kind-module">
+						<a href="../modules/index.html#cvss2" class="tsd-kind-icon">cvss2</a>
+					</li>
+					<li class=" tsd-kind-reference tsd-parent-kind-module">
+						<a href="../modules/index.html#cvss3" class="tsd-kind-icon">cvss3</a>
+					</li>
+					<li class=" tsd-kind-enum tsd-parent-kind-module">
+						<a href="../enums/index.Cvss2VectorPrefixOption.html" class="tsd-kind-icon">Cvss2<wbr>Vector<wbr>Prefix<wbr>Option</a>
+					</li>
+					<li class=" tsd-kind-enum tsd-parent-kind-module">
+						<a href="../enums/index.Cvss3VectorPrefixOption.html" class="tsd-kind-icon">Cvss3<wbr>Vector<wbr>Prefix<wbr>Option</a>
+					</li>
+				</ul>
+				<ul class="current">
+					<li class="current tsd-kind-class tsd-parent-kind-module">
+						<a href="index.Cvss2ScoringEngine.html" class="tsd-kind-icon">Cvss2<wbr>Scoring<wbr>Engine</a>
+						<ul>
+							<li class=" tsd-kind-constructor tsd-parent-kind-class">
+								<a href="index.Cvss2ScoringEngine.html#constructor" class="tsd-kind-icon">constructor</a>
+							</li>
+							<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-private">
+								<a href="index.Cvss2ScoringEngine.html#_accessComplexity" class="tsd-kind-icon">_access<wbr>Complexity</a>
+							</li>
+							<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-private">
+								<a href="index.Cvss2ScoringEngine.html#_accessVector" class="tsd-kind-icon">_access<wbr>Vector</a>
+							</li>
+							<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-private">
+								<a href="index.Cvss2ScoringEngine.html#_authentication" class="tsd-kind-icon">_authentication</a>
+							</li>
+							<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-private">
+								<a href="index.Cvss2ScoringEngine.html#_availabilityImpact" class="tsd-kind-icon">_availability<wbr>Impact</a>
+							</li>
+							<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-private">
+								<a href="index.Cvss2ScoringEngine.html#_availabilityRequirement" class="tsd-kind-icon">_availability<wbr>Requirement</a>
+							</li>
+							<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-private">
+								<a href="index.Cvss2ScoringEngine.html#_collateralDamagePotential" class="tsd-kind-icon">_collateral<wbr>Damage<wbr>Potential</a>
+							</li>
+							<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-private">
+								<a href="index.Cvss2ScoringEngine.html#_confidentialityImpact" class="tsd-kind-icon">_confidentiality<wbr>Impact</a>
+							</li>
+							<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-private">
+								<a href="index.Cvss2ScoringEngine.html#_confidentialityRequirement" class="tsd-kind-icon">_confidentiality<wbr>Requirement</a>
+							</li>
+							<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-private">
+								<a href="index.Cvss2ScoringEngine.html#_exploitability" class="tsd-kind-icon">_exploitability</a>
+							</li>
+							<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-private">
+								<a href="index.Cvss2ScoringEngine.html#_integrityImpact" class="tsd-kind-icon">_integrity<wbr>Impact</a>
+							</li>
+							<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-private">
+								<a href="index.Cvss2ScoringEngine.html#_integrityRequirement" class="tsd-kind-icon">_integrity<wbr>Requirement</a>
+							</li>
+							<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-private">
+								<a href="index.Cvss2ScoringEngine.html#_remediationLevel" class="tsd-kind-icon">_remediation<wbr>Level</a>
+							</li>
+							<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-private">
+								<a href="index.Cvss2ScoringEngine.html#_reportConfidence" class="tsd-kind-icon">_report<wbr>Confidence</a>
+							</li>
+							<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-private">
+								<a href="index.Cvss2ScoringEngine.html#_targetDistribution" class="tsd-kind-icon">_target<wbr>Distribution</a>
+							</li>
+							<li class=" tsd-kind-accessor tsd-parent-kind-class">
+								<a href="index.Cvss2ScoringEngine.html#accessComplexity" class="tsd-kind-icon">access<wbr>Complexity</a>
+							</li>
+							<li class=" tsd-kind-accessor tsd-parent-kind-class">
+								<a href="index.Cvss2ScoringEngine.html#accessVector" class="tsd-kind-icon">access<wbr>Vector</a>
+							</li>
+							<li class=" tsd-kind-accessor tsd-parent-kind-class">
+								<a href="index.Cvss2ScoringEngine.html#authentication" class="tsd-kind-icon">authentication</a>
+							</li>
+							<li class=" tsd-kind-accessor tsd-parent-kind-class">
+								<a href="index.Cvss2ScoringEngine.html#availabilityImpact" class="tsd-kind-icon">availability<wbr>Impact</a>
+							</li>
+							<li class=" tsd-kind-accessor tsd-parent-kind-class">
+								<a href="index.Cvss2ScoringEngine.html#availabilityRequirement" class="tsd-kind-icon">availability<wbr>Requirement</a>
+							</li>
+							<li class=" tsd-kind-accessor tsd-parent-kind-class">
+								<a href="index.Cvss2ScoringEngine.html#collateralDamagePotential" class="tsd-kind-icon">collateral<wbr>Damage<wbr>Potential</a>
+							</li>
+							<li class=" tsd-kind-accessor tsd-parent-kind-class">
+								<a href="index.Cvss2ScoringEngine.html#confidentialityImpact" class="tsd-kind-icon">confidentiality<wbr>Impact</a>
+							</li>
+							<li class=" tsd-kind-accessor tsd-parent-kind-class">
+								<a href="index.Cvss2ScoringEngine.html#confidentialityRequirement" class="tsd-kind-icon">confidentiality<wbr>Requirement</a>
+							</li>
+							<li class=" tsd-kind-accessor tsd-parent-kind-class">
+								<a href="index.Cvss2ScoringEngine.html#exploitability" class="tsd-kind-icon">exploitability</a>
+							</li>
+							<li class=" tsd-kind-accessor tsd-parent-kind-class">
+								<a href="index.Cvss2ScoringEngine.html#integrityImpact" class="tsd-kind-icon">integrity<wbr>Impact</a>
+							</li>
+							<li class=" tsd-kind-accessor tsd-parent-kind-class">
+								<a href="index.Cvss2ScoringEngine.html#integrityRequirement" class="tsd-kind-icon">integrity<wbr>Requirement</a>
+							</li>
+							<li class=" tsd-kind-accessor tsd-parent-kind-class">
+								<a href="index.Cvss2ScoringEngine.html#remediationLevel" class="tsd-kind-icon">remediation<wbr>Level</a>
+							</li>
+							<li class=" tsd-kind-accessor tsd-parent-kind-class">
+								<a href="index.Cvss2ScoringEngine.html#reportConfidence" class="tsd-kind-icon">report<wbr>Confidence</a>
+							</li>
+							<li class=" tsd-kind-accessor tsd-parent-kind-class">
+								<a href="index.Cvss2ScoringEngine.html#targetDistribution" class="tsd-kind-icon">target<wbr>Distribution</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-private">
+								<a href="index.Cvss2ScoringEngine.html#computeAdjustedBaseScore" class="tsd-kind-icon">compute<wbr>Adjusted<wbr>Base<wbr>Score</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-private">
+								<a href="index.Cvss2ScoringEngine.html#computeAdjustedImpactScore" class="tsd-kind-icon">compute<wbr>Adjusted<wbr>Impact<wbr>Score</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-private">
+								<a href="index.Cvss2ScoringEngine.html#computeAdjustedTemporalScore" class="tsd-kind-icon">compute<wbr>Adjusted<wbr>Temporal<wbr>Score</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-private">
+								<a href="index.Cvss2ScoringEngine.html#computeBaseScore" class="tsd-kind-icon">compute<wbr>Base<wbr>Score</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-private">
+								<a href="index.Cvss2ScoringEngine.html#computeEnvironmentalScore" class="tsd-kind-icon">compute<wbr>Environmental<wbr>Score</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-private">
+								<a href="index.Cvss2ScoringEngine.html#computeExploitabilityScore" class="tsd-kind-icon">compute<wbr>Exploitability<wbr>Score</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-private">
+								<a href="index.Cvss2ScoringEngine.html#computeImpactScore" class="tsd-kind-icon">compute<wbr>Impact<wbr>Score</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-private">
+								<a href="index.Cvss2ScoringEngine.html#computeOverallScore" class="tsd-kind-icon">compute<wbr>Overall<wbr>Score</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class">
+								<a href="index.Cvss2ScoringEngine.html#computeScore" class="tsd-kind-icon">compute<wbr>Score</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-private">
+								<a href="index.Cvss2ScoringEngine.html#computeTemporalScore" class="tsd-kind-icon">compute<wbr>Temporal<wbr>Score</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class">
+								<a href="index.Cvss2ScoringEngine.html#isEnvironmentalScoreDefined" class="tsd-kind-icon">is<wbr>Environmental<wbr>Score<wbr>Defined</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class">
+								<a href="index.Cvss2ScoringEngine.html#isTemporalScoreDefined" class="tsd-kind-icon">is<wbr>Temporal<wbr>Score<wbr>Defined</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class">
+								<a href="index.Cvss2ScoringEngine.html#isValid" class="tsd-kind-icon">is<wbr>Valid</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class">
+								<a href="index.Cvss2ScoringEngine.html#validate" class="tsd-kind-icon">validate</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+								<a href="index.Cvss2ScoringEngine.html#impactFactor" class="tsd-kind-icon">impact<wbr>Factor</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+								<a href="index.Cvss2ScoringEngine.html#renderAccessComplexity" class="tsd-kind-icon">render<wbr>Access<wbr>Complexity</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+								<a href="index.Cvss2ScoringEngine.html#renderAccessVector" class="tsd-kind-icon">render<wbr>Access<wbr>Vector</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+								<a href="index.Cvss2ScoringEngine.html#renderAuthentication" class="tsd-kind-icon">render<wbr>Authentication</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+								<a href="index.Cvss2ScoringEngine.html#renderCollateralDamagePotential" class="tsd-kind-icon">render<wbr>Collateral<wbr>Damage<wbr>Potential</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+								<a href="index.Cvss2ScoringEngine.html#renderExploitability" class="tsd-kind-icon">render<wbr>Exploitability</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+								<a href="index.Cvss2ScoringEngine.html#renderImpact" class="tsd-kind-icon">render<wbr>Impact</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+								<a href="index.Cvss2ScoringEngine.html#renderImpactSubscore" class="tsd-kind-icon">render<wbr>Impact<wbr>Subscore</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+								<a href="index.Cvss2ScoringEngine.html#renderRemediationLevel" class="tsd-kind-icon">render<wbr>Remediation<wbr>Level</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+								<a href="index.Cvss2ScoringEngine.html#renderReportConfidence" class="tsd-kind-icon">render<wbr>Report<wbr>Confidence</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+								<a href="index.Cvss2ScoringEngine.html#renderTargetDistribution" class="tsd-kind-icon">render<wbr>Target<wbr>Distribution</a>
+							</li>
+						</ul>
+					</li>
+				</ul>
+				<ul class="after-current">
+					<li class=" tsd-kind-class tsd-parent-kind-module">
+						<a href="index.Cvss2VectorMocker.html" class="tsd-kind-icon">Cvss2<wbr>Vector<wbr>Mocker</a>
+					</li>
+					<li class=" tsd-kind-class tsd-parent-kind-module">
+						<a href="index.Cvss2VectorParser.html" class="tsd-kind-icon">Cvss2<wbr>Vector<wbr>Parser</a>
+					</li>
+					<li class=" tsd-kind-class tsd-parent-kind-module">
+						<a href="index.Cvss2VectorRenderer.html" class="tsd-kind-icon">Cvss2<wbr>Vector<wbr>Renderer</a>
+					</li>
+					<li class=" tsd-kind-class tsd-parent-kind-module">
+						<a href="index.Cvss3ScoringEngine.html" class="tsd-kind-icon">Cvss3<wbr>Scoring<wbr>Engine</a>
+					</li>
+					<li class=" tsd-kind-class tsd-parent-kind-module">
+						<a href="index.Cvss3VectorMocker.html" class="tsd-kind-icon">Cvss3<wbr>Vector<wbr>Mocker</a>
+					</li>
+					<li class=" tsd-kind-class tsd-parent-kind-module">
+						<a href="index.Cvss3VectorParser.html" class="tsd-kind-icon">Cvss3<wbr>Vector<wbr>Parser</a>
+					</li>
+					<li class=" tsd-kind-class tsd-parent-kind-module">
+						<a href="index.Cvss3VectorRenderer.html" class="tsd-kind-icon">Cvss3<wbr>Vector<wbr>Renderer</a>
+					</li>
+					<li class=" tsd-kind-class tsd-parent-kind-module">
+						<a href="index.CvssScore.html" class="tsd-kind-icon">Cvss<wbr>Score</a>
+					</li>
+					<li class=" tsd-kind-class tsd-parent-kind-module">
+						<a href="index.MultiCvssVectorParser.html" class="tsd-kind-icon">Multi<wbr>Cvss<wbr>Vector<wbr>Parser</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-module">
+						<a href="../modules/index.html#parseCvss2Vector" class="tsd-kind-icon">parse<wbr>Cvss2<wbr>Vector</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-module">
+						<a href="../modules/index.html#parseCvss3Vector" class="tsd-kind-icon">parse<wbr>Cvss3<wbr>Vector</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-module">
+						<a href="../modules/index.html#parseCvssVector" class="tsd-kind-icon">parse<wbr>Cvss<wbr>Vector</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-module">
+						<a href="../modules/index.html#randomCvss2Vector" class="tsd-kind-icon">random<wbr>Cvss2<wbr>Vector</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-module">
+						<a href="../modules/index.html#randomCvss3Vector" class="tsd-kind-icon">random<wbr>Cvss3<wbr>Vector</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-module">
+						<a href="../modules/index.html#validateCvss2Vector" class="tsd-kind-icon">validate<wbr>Cvss2<wbr>Vector</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-module">
+						<a href="../modules/index.html#validateCvss3Vector" class="tsd-kind-icon">validate<wbr>Cvss3<wbr>Vector</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-module">
+						<a href="../modules/index.html#validateCvssVector" class="tsd-kind-icon">validate<wbr>Cvss<wbr>Vector</a>
+					</li>
+				</ul>
+			</nav>
+		</div>
+	</div>
+</div>
+<footer class="with-border-bottom">
+	<div class="container">
+		<h2>Legend</h2>
+		<div class="tsd-legend-group">
+			<ul class="tsd-legend">
+				<li class="tsd-kind-class"><span class="tsd-kind-icon">Class</span></li>
+				<li class="tsd-kind-constructor tsd-parent-kind-class"><span class="tsd-kind-icon">Constructor</span></li>
+				<li class="tsd-kind-method tsd-parent-kind-class"><span class="tsd-kind-icon">Method</span></li>
+				<li class="tsd-kind-accessor tsd-parent-kind-class"><span class="tsd-kind-icon">Accessor</span></li>
+			</ul>
+			<ul class="tsd-legend">
+				<li class="tsd-kind-variable"><span class="tsd-kind-icon">Variable</span></li>
+				<li class="tsd-kind-function"><span class="tsd-kind-icon">Function</span></li>
+			</ul>
+			<ul class="tsd-legend">
+				<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><span class="tsd-kind-icon">Private property</span></li>
+				<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private"><span class="tsd-kind-icon">Private method</span></li>
+			</ul>
+			<ul class="tsd-legend">
+				<li class="tsd-kind-enum"><span class="tsd-kind-icon">Enumeration</span></li>
+			</ul>
+		</div>
+	</div>
+</footer>
+<div class="container tsd-generator">
+	<p>Generated using <a href="https://typedoc.org/" target="_blank">TypeDoc</a></p>
+</div>
+<div class="overlay"></div>
+<script src="../assets/js/main.js"></script>
+</body>
+</html>

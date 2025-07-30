@@ -1,0 +1,19 @@
+---
+labels: ['comparator', 'lexicographical', 'string', 'utility']
+description: 'Implements a string comparator that sorts in lexicographical order'
+---
+
+Use this comparator when you want deterministic string sorting.
+When you use `localCompare` to compare strings, the results may vary on different cultures.
+
+This comparator compares strings with `<` and `>` which will produce the same result on each machine.
+An alternative solution could be to use a specific culture for compare, using `Intl.Collator`.
+
+Usage example:
+
+```ts
+import { lexCompare } from '@pnpm/util.lex-comparator'
+
+const persons = [{ name: 'Ben' }, { name: 'Adam' }]
+const sortedPersons = persons.sort((person1, person2) => lexCompare(person1.name, person2.name))
+```

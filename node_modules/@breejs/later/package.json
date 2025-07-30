@@ -1,0 +1,216 @@
+{
+  "name": "@breejs/later",
+  "description": "Maintained fork of later. Determine later (or previous) occurrences of recurring schedules",
+  "version": "4.2.0",
+  "author": "BunKat <bill@levelstory.com>",
+  "bugs": {
+    "url": "https://github.com/breejs/later/issues",
+    "email": "niftylettuce@gmail.com"
+  },
+  "contributors": [
+    "BunKat <bill@levelstory.com>",
+    "Nick Baugh <niftylettuce@gmail.com> (http://niftylettuce.com/)",
+    "yrambler2001 <yrambler2001@gmail.com> (https://yrambler2001.me/)"
+  ],
+  "devDependencies": {
+    "@babel/cli": "^7.10.5",
+    "@babel/core": "^7.11.1",
+    "@babel/plugin-transform-runtime": "^7.11.0",
+    "@babel/preset-env": "^7.11.0",
+    "@commitlint/cli": "^18.4.3",
+    "@commitlint/config-conventional": "^18.4.3",
+    "babelify": "^10.0.0",
+    "benchmark": "^2.1.4",
+    "browserify": "^16.5.2",
+    "cross-env": "^7.0.3",
+    "eslint": "^7.7.0",
+    "eslint-config-xo-lass": "^2.0.1",
+    "eslint-plugin-compat": "^3.8.0",
+    "eslint-plugin-node": "^11.1.0",
+    "fixpack": "^4.0.0",
+    "husky": "^8.0.3",
+    "lint-staged": "^15.1.0",
+    "mocha": "^10.2.0",
+    "nyc": "^15.1.0",
+    "remark-cli": "11",
+    "remark-preset-github": "^4.0.4",
+    "rimraf": "^5.0.5",
+    "semver": "^7.3.2",
+    "should": "^13.2.3",
+    "sinon": "^11.1.2",
+    "tinyify": "^3.0.0",
+    "xo": "^0.33.0"
+  },
+  "engines": {
+    "node": ">= 10"
+  },
+  "files": [
+    "lib",
+    "dist"
+  ],
+  "homepage": "https://github.com/breejs/later",
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged",
+      "commit-msg": "commitlint -E HUSKY_GIT_PARAMS"
+    }
+  },
+  "jsdelivr": "dist/later.min.js",
+  "keywords": [
+    "agenda",
+    "async",
+    "await",
+    "bee",
+    "bee",
+    "bree",
+    "bull",
+    "bull",
+    "callback",
+    "cancel",
+    "cancelable",
+    "child",
+    "clear",
+    "cron",
+    "cronjob",
+    "crontab",
+    "date",
+    "dates",
+    "day",
+    "dayjs",
+    "delay",
+    "english",
+    "express",
+    "expression",
+    "frequencies",
+    "frequency",
+    "frequent",
+    "friendly",
+    "graceful",
+    "human",
+    "humans",
+    "interval",
+    "job",
+    "jobs",
+    "js",
+    "koa",
+    "koatiming",
+    "lad",
+    "lass",
+    "later",
+    "moment",
+    "momentjs",
+    "mongo",
+    "mongodb",
+    "mongoose",
+    "p-cancel",
+    "p-cancelable",
+    "p-retry",
+    "parse",
+    "parser",
+    "pretty",
+    "process",
+    "processors",
+    "promise",
+    "promises",
+    "queue",
+    "queues",
+    "readable",
+    "recur",
+    "recurring",
+    "redis",
+    "redis",
+    "reload",
+    "restart",
+    "run",
+    "runner",
+    "schedule",
+    "scheduler",
+    "setup",
+    "spawn",
+    "tab",
+    "task",
+    "tasker",
+    "time",
+    "timeout",
+    "timer",
+    "timers",
+    "translated",
+    "universalify",
+    "worker",
+    "workers"
+  ],
+  "license": "MIT",
+  "main": "lib/index.js",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/breejs/later"
+  },
+  "scripts": {
+    "benchmark": "benchmark/constraint/next-bench.js && benchmark/core/schedule-bench.js",
+    "browserify": "browserify src/index.js -o dist/later.js -s later -g [ babelify --configFile ./.dist.babelrc ]",
+    "build": "npm run build:clean && npm run build:lib && npm run build:dist",
+    "build:clean": "rimraf lib dist",
+    "build:dist": "npm run browserify && npm run minify",
+    "build:lib": "babel --config-file ./.lib.babelrc src --out-dir lib",
+    "coverage": "nyc report --reporter=text-lcov > coverage.lcov",
+    "lint": "npm run lint:js && npm run lint:md && npm run lint:lib && npm run lint:dist",
+    "lint:dist": "eslint --no-inline-config -c .dist.eslintrc dist",
+    "lint:js": "xo",
+    "lint:lib": "eslint -c .lib.eslintrc lib",
+    "lint:md": "remark . -qfo",
+    "minify": "cross-env NODE_ENV=production browserify src/index.js -o dist/later.min.js -s later -g [ babelify --configFile ./.dist.babelrc ] -p tinyify",
+    "nyc": "cross-env NODE_ENV=test nyc mocha test/**/*-test.js --reporter dot",
+    "pretest": "npm run build && npm run lint",
+    "test": "cross-env NODE_ENV=test mocha test/**/*-test.js --reporter dot --exit",
+    "test-coverage": "cross-env NODE_ENV=test nyc npm run test"
+  },
+  "unpkg": "dist/later.min.js",
+  "xo": {
+    "prettier": true,
+    "space": true,
+    "extends": [
+      "xo-lass"
+    ],
+    "rules": {
+      "complexity": "warn",
+      "default-case": "warn",
+      "eqeqeq": "warn",
+      "guard-for-in": "warn",
+      "max-params": "warn",
+      "new-cap": "warn",
+      "no-case-declarations": "warn",
+      "no-multi-assign": "warn",
+      "no-negated-condition": "warn",
+      "no-return-assign": "warn",
+      "no-unused-vars": "warn",
+      "no-var": "warn",
+      "prefer-const": "warn",
+      "prefer-rest-params": "warn",
+      "unicorn/no-fn-reference-in-iterator": "warn",
+      "unicorn/prefer-number-properties": "warn",
+      "unicorn/prevent-abbreviations": "warn"
+    },
+    "overrides": [
+      {
+        "files": "example/**/*.js",
+        "rules": {
+          "no-unused-vars": "warn"
+        }
+      },
+      {
+        "files": "test/**/*.js",
+        "env": [
+          "mocha"
+        ],
+        "rules": {
+          "new-cap": "warn",
+          "no-unused-vars": "warn",
+          "unicorn/prevent-abbreviations": "warn"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,10 @@
+declare const EQUAL = "=";
+declare const NOT_EQUAL = "!=";
+declare const GT = ">";
+declare const LT = "<";
+declare const GTE = ">=";
+declare const LTE = "<=";
+declare const PGTE = "~>";
+declare const isValidOperator: (operator: string) => boolean;
+declare const isSingleOperator: (operator: string) => boolean;
+export { EQUAL, NOT_EQUAL, GT, LT, GTE, LTE, PGTE, isValidOperator, isSingleOperator, };

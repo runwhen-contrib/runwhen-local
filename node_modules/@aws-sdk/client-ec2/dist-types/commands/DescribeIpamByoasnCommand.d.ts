@@ -1,0 +1,82 @@
+import { Command as $Command } from "@smithy/smithy-client";
+import { MetadataBearer as __MetadataBearer } from "@smithy/types";
+import { EC2ClientResolvedConfig, ServiceInputTypes, ServiceOutputTypes } from "../EC2Client";
+import { DescribeIpamByoasnRequest, DescribeIpamByoasnResult } from "../models/models_4";
+/**
+ * @public
+ */
+export type { __MetadataBearer };
+export { $Command };
+/**
+ * @public
+ *
+ * The input for {@link DescribeIpamByoasnCommand}.
+ */
+export interface DescribeIpamByoasnCommandInput extends DescribeIpamByoasnRequest {
+}
+/**
+ * @public
+ *
+ * The output of {@link DescribeIpamByoasnCommand}.
+ */
+export interface DescribeIpamByoasnCommandOutput extends DescribeIpamByoasnResult, __MetadataBearer {
+}
+declare const DescribeIpamByoasnCommand_base: {
+    new (input: DescribeIpamByoasnCommandInput): import("@smithy/smithy-client").CommandImpl<DescribeIpamByoasnCommandInput, DescribeIpamByoasnCommandOutput, EC2ClientResolvedConfig, ServiceInputTypes, ServiceOutputTypes>;
+    new (...[input]: [] | [DescribeIpamByoasnCommandInput]): import("@smithy/smithy-client").CommandImpl<DescribeIpamByoasnCommandInput, DescribeIpamByoasnCommandOutput, EC2ClientResolvedConfig, ServiceInputTypes, ServiceOutputTypes>;
+    getEndpointParameterInstructions(): import("@smithy/middleware-endpoint").EndpointParameterInstructions;
+};
+/**
+ * <p>Describes your Autonomous System Numbers (ASNs), their provisioning statuses, and the BYOIP CIDRs with which they are associated. For more information, see <a href="https://docs.aws.amazon.com/vpc/latest/ipam/tutorials-byoasn.html">Tutorial: Bring your ASN to IPAM</a> in the <i>Amazon VPC IPAM guide</i>.</p>
+ * @example
+ * Use a bare-bones client and the command you need to make an API call.
+ * ```javascript
+ * import { EC2Client, DescribeIpamByoasnCommand } from "@aws-sdk/client-ec2"; // ES Modules import
+ * // const { EC2Client, DescribeIpamByoasnCommand } = require("@aws-sdk/client-ec2"); // CommonJS import
+ * const client = new EC2Client(config);
+ * const input = { // DescribeIpamByoasnRequest
+ *   DryRun: true || false,
+ *   MaxResults: Number("int"),
+ *   NextToken: "STRING_VALUE",
+ * };
+ * const command = new DescribeIpamByoasnCommand(input);
+ * const response = await client.send(command);
+ * // { // DescribeIpamByoasnResult
+ * //   Byoasns: [ // ByoasnSet
+ * //     { // Byoasn
+ * //       Asn: "STRING_VALUE",
+ * //       IpamId: "STRING_VALUE",
+ * //       StatusMessage: "STRING_VALUE",
+ * //       State: "deprovisioned" || "failed-deprovision" || "failed-provision" || "pending-deprovision" || "pending-provision" || "provisioned",
+ * //     },
+ * //   ],
+ * //   NextToken: "STRING_VALUE",
+ * // };
+ *
+ * ```
+ *
+ * @param DescribeIpamByoasnCommandInput - {@link DescribeIpamByoasnCommandInput}
+ * @returns {@link DescribeIpamByoasnCommandOutput}
+ * @see {@link DescribeIpamByoasnCommandInput} for command's `input` shape.
+ * @see {@link DescribeIpamByoasnCommandOutput} for command's `response` shape.
+ * @see {@link EC2ClientResolvedConfig | config} for EC2Client's `config` shape.
+ *
+ * @throws {@link EC2ServiceException}
+ * <p>Base exception class for all service exceptions from EC2 service.</p>
+ *
+ *
+ * @public
+ */
+export declare class DescribeIpamByoasnCommand extends DescribeIpamByoasnCommand_base {
+    /** @internal type navigation helper, not in runtime. */
+    protected static __types: {
+        api: {
+            input: DescribeIpamByoasnRequest;
+            output: DescribeIpamByoasnResult;
+        };
+        sdk: {
+            input: DescribeIpamByoasnCommandInput;
+            output: DescribeIpamByoasnCommandOutput;
+        };
+    };
+}

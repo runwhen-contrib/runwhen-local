@@ -1,0 +1,40 @@
+{
+  "$id": "my-schema",
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "definitions": {
+    "str": {
+      "$id": "#str",
+      "type": "string"
+    },
+    "num": {
+      "$id": "another-schema#num",
+      "type": "string"
+    }
+  },
+  "properties": {
+    "exclusiveLimits": {
+      "exclusiveMinimum": 1,
+      "exclusiveMaximum": 3
+    },
+    "nonExclusiveLimits": {
+      "minimum": 1,
+      "maximum": 3
+    },
+    "singleValue": {"const": "foo"},
+    "singleValueConstant": {"const": "foo"},
+    "multipleValues": {"enum": ["foo", "bar"]},
+    "alwaysValid": true,
+    "alsoAlwaysValid": true,
+    "alwaysInvalid": false,
+    "alsoAlwaysInvalid": false
+  },
+  "dependencies": {
+    "foo": ["bar"],
+    "bar": {
+      "required": ["baz"],
+      "properties": {
+        "baz": {"type": "string"}
+      }
+    }
+  }
+}

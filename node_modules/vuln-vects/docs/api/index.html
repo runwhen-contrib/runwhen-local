@@ -1,0 +1,279 @@
+<!doctype html>
+<html class="default no-js">
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<title>vuln-vects</title>
+	<meta name="description" content="Documentation for vuln-vects">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="stylesheet" href="assets/css/main.css">
+	<script async src="assets/js/search.js" id="search-script"></script>
+</head>
+<body>
+<header>
+	<div class="tsd-page-toolbar">
+		<div class="container">
+			<div class="table-wrap">
+				<div class="table-cell" id="tsd-search" data-index="assets/js/search.json" data-base=".">
+					<div class="field">
+						<label for="tsd-search-field" class="tsd-widget search no-caption">Search</label>
+						<input id="tsd-search-field" type="text" />
+					</div>
+					<ul class="results">
+						<li class="state loading">Preparing search index...</li>
+						<li class="state failure">The search index is not available</li>
+					</ul>
+					<a href="index.html" class="title">vuln-vects</a>
+				</div>
+				<div class="table-cell" id="tsd-widgets">
+					<div id="tsd-filter">
+						<a href="#" class="tsd-widget options no-caption" data-toggle="options">Options</a>
+						<div class="tsd-filter-group">
+							<div class="tsd-select" id="tsd-filter-visibility">
+								<span class="tsd-select-label">All</span>
+								<ul class="tsd-select-list">
+									<li data-value="public">Public</li>
+									<li data-value="protected">Public/Protected</li>
+									<li data-value="private" class="selected">All</li>
+								</ul>
+							</div>
+							<input type="checkbox" id="tsd-filter-inherited" checked />
+							<label class="tsd-widget" for="tsd-filter-inherited">Inherited</label>
+							<input type="checkbox" id="tsd-filter-externals" checked />
+							<label class="tsd-widget" for="tsd-filter-externals">Externals</label>
+						</div>
+					</div>
+					<a href="#" class="tsd-widget menu no-caption" data-toggle="menu">Menu</a>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="tsd-page-title">
+		<div class="container">
+			<h1>vuln-vects</h1>
+		</div>
+	</div>
+</header>
+<div class="container container-main">
+	<div class="row">
+		<div class="col-8 col-content">
+			<div class="tsd-panel tsd-typography">
+				<a href="#vulnvects" id="vulnvects" style="color: inherit; text-decoration: none;">
+					<h1>Vuln/Vects</h1>
+				</a>
+				<p>A powerful, flexible CVSS parser, calculator and validator written for JavaScript/TypeScript.</p>
+				<p><img src="logo-readme.svg" alt="Logo"></p>
+				<a href="#overview" id="overview" style="color: inherit; text-decoration: none;">
+					<h2>Overview</h2>
+				</a>
+				<p>Vuln/Vects is a library written in TypeScript, targeting JavaScript (server-side <a href="https://nodejs.org/en/">Node.js</a> or
+					browser) that aims to provide all the generation, validation, scoring and manipulation functionality you could ever need
+					when working with CVSS (common vulnerability scoring system) vectors of any version. CVSS v2, v3.0 and v3.1 are
+				currently supported.</p>
+				<a href="#installing" id="installing" style="color: inherit; text-decoration: none;">
+					<h2>Installing</h2>
+				</a>
+				<p>Installing the project is very straightforward via <a href="https://www.npmjs.com/">npm</a>:</p>
+				<pre><code class="language-bash"><span style="color: #000000">npm install --save vuln-vects</span>
+</code></pre>
+				<p>If you&#39;re working in TypeScript and need type annotations etc. you might also want to run:</p>
+				<pre><code class="language-bash"><span style="color: #000000">npm install --save @types/vuln-vects</span>
+</code></pre>
+				<a href="#building" id="building" style="color: inherit; text-decoration: none;">
+					<h2>Building</h2>
+				</a>
+				<p>It&#39;s only necessary to build the project if you&#39;re doing development work on it. There&#39;s no need to do so if you&#39;re just installing it to use as a library. Ensure that <a href="https://nodejs.org/en/">Node.js v14.x</a> and npm is installed and run:</p>
+				<pre><code class="language-bash"><span style="color: #000000">npm run build</span>
+</code></pre>
+				<p>Build output is to <code>/dist</code>. To build accompanying documentation, you need the following command:</p>
+				<pre><code class="language-bash"><span style="color: #000000">npm run docs</span>
+</code></pre>
+				<p>Documentation is generated using <a href="https://typedoc.org/">TypeDoc</a> and rendered as HTML to <code>/docs</code>.</p>
+				<a href="#bundling" id="bundling" style="color: inherit; text-decoration: none;">
+					<h2>Bundling</h2>
+				</a>
+				<p>You&#39;ll need to bundle the library if you want to use it in-browser (remember to build it first):</p>
+				<pre><code class="language-bash"><span style="color: #000000">npm run build &amp;&amp; npm run bundle</span>
+</code></pre>
+				<p>This will give you a single file in <code>/bundle</code> that you can import into your webpages (see <a href="#usage">Usage</a> section).</p>
+				<a href="#running-tests" id="running-tests" style="color: inherit; text-decoration: none;">
+					<h2>Running tests</h2>
+				</a>
+				<p>Tests are on <a href="https://mochajs.org/">Mocha</a> and <a href="https://www.chaijs.com/">Chai</a>. You can run them like so:</p>
+				<pre><code class="language-bash"><span style="color: #000000">npm run </span><span style="color: #795E26">test</span>
+</code></pre>
+				<a href="#usage" id="usage" style="color: inherit; text-decoration: none;">
+					<h2>Usage</h2>
+				</a>
+				<p>Usage of the library will vary, depending on whether you want to run in-browser or as part of a server-side Node.js project. In any case, you&#39;ll need to begin by installing the library:</p>
+				<pre><code class="language-bash"><span style="color: #000000">npm install --save vuln-vects</span>
+</code></pre>
+				<a href="#in-the-browser" id="in-the-browser" style="color: inherit; text-decoration: none;">
+					<h3>In the browser</h3>
+				</a>
+				<p>Usage in the browser is super straightforward. After installation, simply import the bundled library into your webpage like so:</p>
+				<pre><code class="language-html"><span style="color: #800000">&lt;script</span><span style="color: #000000FF"> </span><span style="color: #FF0000">src</span><span style="color: #000000FF">=</span><span style="color: #0000FF">&quot;node_modules/vuln-vects/bundle/vuln-vects.js&quot;</span><span style="color: #800000">&gt;&lt;/script&gt;</span>
+</code></pre>
+				<p>You&#39;ll then get a <code>VulnVects</code> object in the global namespace through which you can use the library:</p>
+				<pre><code class="language-html"><span style="color: #800000">&lt;script&gt;</span>
+<span style="color: #000000FF">    </span><span style="color: #795E26">alert</span><span style="color: #000000FF">(</span><span style="color: #001080">VulnVects</span><span style="color: #000000FF">.</span><span style="color: #795E26">parseCvss2Vector</span><span style="color: #000000FF">(</span><span style="color: #A31515">&#039;CVSS2#AV:N/AC:L/Au:N/C:P/I:N/A:N&#039;</span><span style="color: #000000FF">).</span><span style="color: #001080">baseScore</span><span style="color: #000000FF">); </span><span style="color: #008000">// Shows &#039;5.0&#039;.</span>
+<span style="color: #800000">&lt;/script&gt;</span>
+</code></pre>
+				<a href="#on-the-server" id="on-the-server" style="color: inherit; text-decoration: none;">
+					<h3>On the server</h3>
+				</a>
+				<p>Importing and invoking the library is slightly different on the server side.</p>
+				<pre><code class="language-js"><span style="color: #AF00DB">import</span><span style="color: #000000"> { </span><span style="color: #001080">parseCvss2Vector</span><span style="color: #000000"> } </span><span style="color: #AF00DB">from</span><span style="color: #000000"> </span><span style="color: #A31515">&#039;vuln-vects&#039;</span><span style="color: #000000">;</span>
+
+<span style="color: #001080">console</span><span style="color: #000000">.</span><span style="color: #795E26">log</span><span style="color: #000000">(</span><span style="color: #795E26">parseCvss2Vector</span><span style="color: #000000">(</span><span style="color: #A31515">&#039;CVSS2#AV:N/AC:L/Au:N/C:P/I:N/A:N&#039;</span><span style="color: #000000">).</span><span style="color: #001080">baseScore</span><span style="color: #000000">); </span><span style="color: #008000">// Prints &#039;5.0&#039;.</span>
+</code></pre>
+				<p>Aside from this, the API is identical. There is a lot more you can do with the library aside from just the above. See <a href="#features">Features</a> for more details.</p>
+				<a href="#features" id="features" style="color: inherit; text-decoration: none;">
+					<h2>Features</h2>
+				</a>
+				<p>The library provides 4 main features: validation, scoring, rendering and mocking. If there&#39;s anything else you&#39;d like to see, please consider opening an issue.</p>
+				<a href="#validating" id="validating" style="color: inherit; text-decoration: none;">
+					<h3>Validating</h3>
+				</a>
+				<p>Validation of CVSS vectors of any currently supported version is possible. Convenience methods offer the simplest API for this:</p>
+				<pre><code class="language-js"><span style="color: #AF00DB">import</span><span style="color: #000000"> {</span>
+<span style="color: #000000">    </span><span style="color: #001080">validateCvss2Vector</span><span style="color: #000000">,</span>
+<span style="color: #000000">    </span><span style="color: #001080">validateCvss3Vector</span><span style="color: #000000">,</span>
+<span style="color: #000000">    </span><span style="color: #001080">validateCvssVector</span>
+<span style="color: #000000">} </span><span style="color: #AF00DB">from</span><span style="color: #000000"> </span><span style="color: #A31515">&#039;vuln-vects&#039;</span><span style="color: #000000">;</span>
+
+<span style="color: #008000">// Will be true on validation success, false on failure.</span>
+<span style="color: #0000FF">const</span><span style="color: #000000"> </span><span style="color: #0070C1">isValidCvss2Vector</span><span style="color: #000000"> = </span><span style="color: #795E26">validateCvss2Vector</span><span style="color: #000000">(</span><span style="color: #A31515">&#039;(AV:N/AC:L/Au:N/C:P/I:N/A:N)&#039;</span><span style="color: #000000">); </span><span style="color: #008000">// For CVSS v2.</span>
+<span style="color: #0000FF">const</span><span style="color: #000000"> </span><span style="color: #0070C1">isValidCvss3Vector</span><span style="color: #000000"> = </span><span style="color: #795E26">validateCvss3Vector</span><span style="color: #000000">(</span><span style="color: #A31515">&#039;AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:N&#039;</span><span style="color: #000000">); </span><span style="color: #008000">// For CVSS v3.x.</span>
+<span style="color: #0000FF">const</span><span style="color: #000000"> </span><span style="color: #0070C1">isValidCvssVector</span><span style="color: #000000"> = </span><span style="color: #795E26">validateCvssVector</span><span style="color: #000000">(</span><span style="color: #A31515">&#039;AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:N&#039;</span><span style="color: #000000">); </span><span style="color: #008000">// Version-agnostic.</span>
+</code></pre>
+				<p>Validation, in this context, means that CVSS vectors must be both well-formed and contain all required fields. If a CVSS vector is not well-formed (e.g. is missing separators as in <code>AV:NAC:LPR:NUI:NS:UC:NI:LA:N</code>) or does not contain all required fields to compute a score (e.g. does not contain a confidentiality impact as in <code>AV:N/AC:L/PR:N/UI:N/S:U/I:L/A:N</code>) validation will fail.</p>
+				<p>To get more detail about exactly why a vector failed validation, you can use the scoring API. For CVSS v2 vectors for example:</p>
+				<pre><code class="language-js"><span style="color: #AF00DB">import</span><span style="color: #000000"> {</span>
+<span style="color: #000000">    </span><span style="color: #001080">Cvss2VectorParser</span>
+<span style="color: #000000">} </span><span style="color: #AF00DB">from</span><span style="color: #000000"> </span><span style="color: #A31515">&#039;vuln-vects&#039;</span><span style="color: #000000">;</span>
+
+<span style="color: #0000FF">const</span><span style="color: #000000"> </span><span style="color: #0070C1">parser</span><span style="color: #000000"> = </span><span style="color: #0000FF">new</span><span style="color: #000000"> </span><span style="color: #795E26">Cvss2VectorParser</span><span style="color: #000000">();</span>
+<span style="color: #0000FF">const</span><span style="color: #000000"> </span><span style="color: #0070C1">scoringEngine</span><span style="color: #000000"> = </span><span style="color: #001080">parser</span><span style="color: #000000">.</span><span style="color: #795E26">generateScoringEngine</span><span style="color: #000000">(</span><span style="color: #A31515">&#039;AV:N/AC:L/Au:N/C:P/I:N&#039;</span><span style="color: #000000">); </span><span style="color: #008000">// Missing availability impact.</span>
+
+<span style="color: #0000FF">const</span><span style="color: #000000"> </span><span style="color: #0070C1">isValid</span><span style="color: #000000"> = </span><span style="color: #001080">scoringEngine</span><span style="color: #000000">.</span><span style="color: #795E26">isValid</span><span style="color: #000000">(); </span><span style="color: #008000">// Will be true on validation success, false on failure.</span>
+<span style="color: #0000FF">const</span><span style="color: #000000"> </span><span style="color: #0070C1">errors</span><span style="color: #000000"> = </span><span style="color: #001080">scoringEngine</span><span style="color: #000000">.</span><span style="color: #795E26">validate</span><span style="color: #000000">(); </span><span style="color: #008000">// Will return a list of human-readable validation errors.</span>
+</code></pre>
+				<a href="#scoring" id="scoring" style="color: inherit; text-decoration: none;">
+					<h3>Scoring</h3>
+				</a>
+				<p>Scoring CVSS vectors (i.e. converting them into a CVSS score from 1-10) is the most common use-case for the library, and as such has been designed to be very convenient to use via helper methods:</p>
+				<pre><code class="language-js"><span style="color: #AF00DB">import</span><span style="color: #000000"> {</span>
+<span style="color: #000000">    </span><span style="color: #001080">parseCvss2Vector</span><span style="color: #000000">,</span>
+<span style="color: #000000">    </span><span style="color: #001080">parseCvss3Vector</span><span style="color: #000000">,</span>
+<span style="color: #000000">    </span><span style="color: #001080">parseCvssVector</span>
+<span style="color: #000000">} </span><span style="color: #AF00DB">from</span><span style="color: #000000"> </span><span style="color: #A31515">&#039;vuln-vects&#039;</span><span style="color: #000000">;</span>
+
+<span style="color: #008000">// Will yield score objects.</span>
+<span style="color: #0000FF">const</span><span style="color: #000000"> </span><span style="color: #0070C1">cvss2VectorScore</span><span style="color: #000000"> = </span><span style="color: #795E26">parseCvss2Vector</span><span style="color: #000000">(</span><span style="color: #A31515">&#039;(AV:N/AC:L/Au:N/C:P/I:N/A:N)&#039;</span><span style="color: #000000">); </span><span style="color: #008000">// For CVSS v2.</span>
+<span style="color: #0000FF">const</span><span style="color: #000000"> </span><span style="color: #0070C1">cvss3VectorScore</span><span style="color: #000000"> = </span><span style="color: #795E26">parseCvss3Vector</span><span style="color: #000000">(</span><span style="color: #A31515">&#039;AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:N&#039;</span><span style="color: #000000">); </span><span style="color: #008000">// For CVSS v3.x.</span>
+<span style="color: #0000FF">const</span><span style="color: #000000"> </span><span style="color: #0070C1">cvssVectorScore</span><span style="color: #000000"> = </span><span style="color: #795E26">parseCvssVector</span><span style="color: #000000">(</span><span style="color: #A31515">&#039;AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:N&#039;</span><span style="color: #000000">); </span><span style="color: #008000">// Version-agnostic.</span>
+
+<span style="color: #008000">// The resulting score objects contain several subscores, but you probably want base score or overall score.</span>
+<span style="color: #001080">console</span><span style="color: #000000">.</span><span style="color: #795E26">log</span><span style="color: #000000">(</span><span style="color: #001080">cvss2VectorScore</span><span style="color: #000000">.</span><span style="color: #001080">baseScore</span><span style="color: #000000">);</span>
+<span style="color: #001080">console</span><span style="color: #000000">.</span><span style="color: #795E26">log</span><span style="color: #000000">(</span><span style="color: #001080">cvss2VectorScore</span><span style="color: #000000">.</span><span style="color: #001080">overallScore</span><span style="color: #000000">);</span>
+</code></pre>
+				<a href="#rendering" id="rendering" style="color: inherit; text-decoration: none;">
+					<h3>Rendering</h3>
+				</a>
+				<p>Rendering CVSS vectors refers to the process of generating CVSS vector strings from a set of metrics. This is a bit more involved, but still not especially complex:</p>
+				<pre><code class="language-js"><span style="color: #AF00DB">import</span><span style="color: #000000"> {</span>
+<span style="color: #000000">    </span><span style="color: #001080">Cvss2ScoringEngine</span><span style="color: #000000">,</span>
+<span style="color: #000000">    </span><span style="color: #001080">Cvss2VectorRenderer</span><span style="color: #000000">,</span>
+<span style="color: #000000">    </span><span style="color: #001080">Cvss2VectorPrefixOption</span><span style="color: #000000">,</span>
+<span style="color: #000000">    </span><span style="color: #001080">cvss2</span><span style="color: #000000">, </span><span style="color: #008000">// Enums specific to CVSS v2.</span>
+<span style="color: #000000">} </span><span style="color: #AF00DB">from</span><span style="color: #000000"> </span><span style="color: #A31515">&#039;vuln-vects&#039;</span><span style="color: #000000">;</span>
+
+<span style="color: #008000">// Set up and configure a scoring engine.</span>
+<span style="color: #0000FF">const</span><span style="color: #000000"> </span><span style="color: #0070C1">scoringEngine</span><span style="color: #000000"> = </span><span style="color: #0000FF">new</span><span style="color: #000000"> </span><span style="color: #795E26">Cvss2ScoringEngine</span><span style="color: #000000">();</span>
+<span style="color: #001080">scoringEngine</span><span style="color: #000000">.</span><span style="color: #001080">accessVector</span><span style="color: #000000"> = </span><span style="color: #001080">cvss2</span><span style="color: #000000">.</span><span style="color: #001080">AccessVector</span><span style="color: #000000">.</span><span style="color: #0070C1">NETWORK</span><span style="color: #000000">;</span>
+<span style="color: #001080">scoringEngine</span><span style="color: #000000">.</span><span style="color: #001080">accessComplexity</span><span style="color: #000000"> = </span><span style="color: #001080">cvss2</span><span style="color: #000000">.</span><span style="color: #001080">AccessComplexity</span><span style="color: #000000">.</span><span style="color: #0070C1">MEDIUM</span><span style="color: #000000">;</span>
+<span style="color: #001080">scoringEngine</span><span style="color: #000000">.</span><span style="color: #001080">authentication</span><span style="color: #000000"> = </span><span style="color: #001080">cvss2</span><span style="color: #000000">.</span><span style="color: #001080">Authentication</span><span style="color: #000000">.</span><span style="color: #0070C1">NONE</span><span style="color: #000000">;</span>
+<span style="color: #001080">scoringEngine</span><span style="color: #000000">.</span><span style="color: #001080">confidentialityImpact</span><span style="color: #000000"> = </span><span style="color: #001080">cvss2</span><span style="color: #000000">.</span><span style="color: #001080">Impact</span><span style="color: #000000">.</span><span style="color: #0070C1">NONE</span><span style="color: #000000">;</span>
+<span style="color: #001080">scoringEngine</span><span style="color: #000000">.</span><span style="color: #001080">integrityImpact</span><span style="color: #000000"> = </span><span style="color: #001080">cvss2</span><span style="color: #000000">.</span><span style="color: #001080">AccessVector</span><span style="color: #000000">.</span><span style="color: #0070C1">COMPLETE</span><span style="color: #000000">;</span>
+<span style="color: #001080">scoringEngine</span><span style="color: #000000">.</span><span style="color: #001080">availabilityImpact</span><span style="color: #000000"> = </span><span style="color: #001080">cvss2</span><span style="color: #000000">.</span><span style="color: #001080">AccessVector</span><span style="color: #000000">.</span><span style="color: #0070C1">NONE</span><span style="color: #000000">;</span>
+
+<span style="color: #008000">// Feed this to an appropriate vector renderer.</span>
+<span style="color: #0000FF">const</span><span style="color: #000000"> </span><span style="color: #0070C1">vectorRenderer</span><span style="color: #000000"> = </span><span style="color: #0000FF">new</span><span style="color: #000000"> </span><span style="color: #795E26">Cvss2VectorRenderer</span><span style="color: #000000">(</span><span style="color: #001080">Cvss2VectorPrefixOption</span><span style="color: #000000">.</span><span style="color: #0070C1">BRACKETED</span><span style="color: #000000">);</span>
+<span style="color: #001080">console</span><span style="color: #000000">.</span><span style="color: #795E26">log</span><span style="color: #000000">(</span><span style="color: #001080">vectorRenderer</span><span style="color: #000000">.</span><span style="color: #795E26">render</span><span style="color: #000000">(</span><span style="color: #001080">scoringEngine</span><span style="color: #000000">));</span>
+</code></pre>
+				<a href="#mocking" id="mocking" style="color: inherit; text-decoration: none;">
+					<h3>Mocking</h3>
+				</a>
+				<p>The ability to randomly generate (i.e. mock) CVSS vectors for use in unit testing application that consume them can be very useful. Convenience methods are provided for this purpose:</p>
+				<pre><code class="language-js"><span style="color: #AF00DB">import</span><span style="color: #000000"> {</span>
+<span style="color: #000000">    </span><span style="color: #001080">randomCvss2Vector</span><span style="color: #000000">,</span>
+<span style="color: #000000">    </span><span style="color: #001080">randomCvss3Vector</span><span style="color: #000000">,</span>
+<span style="color: #000000">    </span><span style="color: #001080">Cvss2VectorPrefixOption</span>
+<span style="color: #000000">} </span><span style="color: #AF00DB">from</span><span style="color: #000000"> </span><span style="color: #A31515">&#039;vuln-vects&#039;</span><span style="color: #000000">;</span>
+
+<span style="color: #008000">// Shows a random CVSS v2 and v3.x vector.</span>
+<span style="color: #001080">console</span><span style="color: #000000">.</span><span style="color: #795E26">log</span><span style="color: #000000">(</span><span style="color: #795E26">randomCvss2Vector</span><span style="color: #000000">());</span>
+<span style="color: #001080">console</span><span style="color: #000000">.</span><span style="color: #795E26">log</span><span style="color: #000000">(</span><span style="color: #795E26">randomCvss3Vector</span><span style="color: #000000">());</span>
+
+<span style="color: #008000">// Temporal/environmental scores and any valid prefixing scheme are supported:</span>
+<span style="color: #001080">console</span><span style="color: #000000">.</span><span style="color: #795E26">log</span><span style="color: #000000">(</span><span style="color: #795E26">randomCvss2Vector</span><span style="color: #000000">(</span><span style="color: #0000FF">true</span><span style="color: #000000">, </span><span style="color: #0000FF">true</span><span style="color: #000000">, </span><span style="color: #001080">Cvss2VectorPrefixOption</span><span style="color: #000000">.</span><span style="color: #0070C1">BRACKETED</span><span style="color: #000000">));</span>
+</code></pre>
+				<a href="#acknowledgements" id="acknowledgements" style="color: inherit; text-decoration: none;">
+					<h2>Acknowledgements</h2>
+				</a>
+				<p>The main contributors to this project so far are as follows:</p>
+				<ul>
+					<li>Saul Johnson (<a href="https://github.com/lambdacasserole">@lambdacasserole</a>)</li>
+					<li>Sai Srinivas (<a href="https://github.com/saikop99">@saikop99</a>)</li>
+				</ul>
+			</div>
+		</div>
+		<div class="col-4 col-menu menu-sticky-wrap menu-highlight">
+			<nav class="tsd-navigation primary">
+				<ul>
+					<li class=" ">
+						<a href="modules.html">Modules</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/cvss2_enums.html">cvss2-<wbr>enums</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/cvss3_enums.html">cvss3-<wbr>enums</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="modules/index.html">index</a>
+					</li>
+				</ul>
+			</nav>
+			<nav class="tsd-navigation secondary menu-sticky">
+				<ul class="before-current">
+				</ul>
+			</nav>
+		</div>
+	</div>
+</div>
+<footer class="with-border-bottom">
+	<div class="container">
+		<h2>Legend</h2>
+		<div class="tsd-legend-group">
+			<ul class="tsd-legend">
+				<li class="tsd-kind-variable"><span class="tsd-kind-icon">Variable</span></li>
+				<li class="tsd-kind-function"><span class="tsd-kind-icon">Function</span></li>
+			</ul>
+			<ul class="tsd-legend">
+				<li class="tsd-kind-enum"><span class="tsd-kind-icon">Enumeration</span></li>
+			</ul>
+			<ul class="tsd-legend">
+				<li class="tsd-kind-class"><span class="tsd-kind-icon">Class</span></li>
+			</ul>
+		</div>
+	</div>
+</footer>
+<div class="container tsd-generator">
+	<p>Generated using <a href="https://typedoc.org/" target="_blank">TypeDoc</a></p>
+</div>
+<div class="overlay"></div>
+<script src="assets/js/main.js"></script>
+</body>
+</html>

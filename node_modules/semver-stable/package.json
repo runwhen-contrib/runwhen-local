@@ -1,0 +1,36 @@
+{
+  "name": "semver-stable",
+  "version": "3.0.0",
+  "description": "semver-stable",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/kaelzhang/node-semver-stable.git"
+  },
+  "keywords": [
+    "semver",
+    "satisfies",
+    "satisfy",
+    "match",
+    "stable",
+    "is"
+  ],
+  "engines": {
+    "node": ">=0.10.0"
+  },
+  "author": "kael",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/kaelzhang/node-semver-stable/issues"
+  },
+  "devDependencies": {
+    "mocha": "*",
+    "chai": "*"
+  },
+  "dependencies": {
+    "semver": "^6.3.0"
+  }
+}

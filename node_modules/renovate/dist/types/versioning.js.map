@@ -1,0 +1,1 @@
+{"version":3,"file":"versioning.js","sourceRoot":"","sources":["../../lib/types/versioning.ts"],"names":[],"mappings":"","sourcesContent":["export type RangeStrategy =\n  | 'auto'\n  | 'bump'\n  | 'future'\n  | 'pin'\n  | 'replace'\n  | 'update-lockfile'\n  | 'in-range-only'\n  | 'widen';\n"]}

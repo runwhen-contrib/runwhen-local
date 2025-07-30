@@ -1,0 +1,1 @@
+{"version":3,"file":"index.js","sourceRoot":"","sources":["../../../../lib/types/platform/bitbucket-server/index.ts"],"names":[],"mappings":"","sourcesContent":["/**\n * https://docs.atlassian.com/bitbucket-server/rest/5.16.0/bitbucket-rest.html#idm8297065392\n */\nexport interface FileData {\n  isLastPage: boolean;\n\n  lines: { text: string }[];\n\n  size: number;\n}\n"]}

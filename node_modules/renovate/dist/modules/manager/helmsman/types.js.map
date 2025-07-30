@@ -1,0 +1,1 @@
+{"version":3,"file":"types.js","sourceRoot":"","sources":["../../../../lib/modules/manager/helmsman/types.ts"],"names":[],"mappings":"","sourcesContent":["export interface HelmsmanDocument {\n  helmRepos: Record<string, string>;\n  apps: Record<string, HelmsmanApp>;\n}\n\nexport interface HelmsmanApp {\n  version?: string;\n  chart?: string;\n}\n"]}

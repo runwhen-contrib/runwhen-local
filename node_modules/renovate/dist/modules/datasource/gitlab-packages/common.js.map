@@ -1,0 +1,1 @@
+{"version":3,"file":"common.js","sourceRoot":"","sources":["../../../../lib/modules/datasource/gitlab-packages/common.ts"],"names":[],"mappings":";;;AAAa,QAAA,UAAU,GAAG,iBAAiB,CAAC","sourcesContent":["export const datasource = 'gitlab-packages';\n"]}

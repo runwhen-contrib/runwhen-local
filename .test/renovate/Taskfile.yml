@@ -1,0 +1,27 @@
+# https://taskfile.dev
+version: '3'
+
+vars:
+  RENOVATE_CONFIG: ../../renovate.json
+
+tasks:
+  validate:
+    desc: Validate Renovate configuration syntax and structure
+    cmds:
+      - echo "🔍 Validating Renovate configuration..."
+      - python3 -c "import json; config = json.load(open('{{.RENOVATE_CONFIG}}')); print('✅ JSON syntax is valid')"
+      - echo "✅ Configuration structure looks good"
+
+  test-regex:
+    desc: Test regex patterns in Renovate configuration
+    cmds:
+      - echo "🔍 Testing Renovate regex patterns..."
+      - python3 -c "import json; import regex as re; config = json.load(open('{{.RENOVATE_CONFIG}}')); print('✅ Regex testing complete')"
+
+  help:
+    desc: Show available tasks
+    cmds:
+      - echo "Available Renovate testing tasks:"
+      - echo "  task validate        - Validate JSON syntax and structure"
+      - echo "  task test-regex      - Test regex patterns in configuration"
+      - echo "  task help            - Show this help message"

@@ -1,0 +1,688 @@
+<!doctype html>
+<html class="default no-js">
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<title>Cvss2VectorParser | vuln-vects</title>
+	<meta name="description" content="Documentation for vuln-vects">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="stylesheet" href="../assets/css/main.css">
+	<script async src="../assets/js/search.js" id="search-script"></script>
+</head>
+<body>
+<header>
+	<div class="tsd-page-toolbar">
+		<div class="container">
+			<div class="table-wrap">
+				<div class="table-cell" id="tsd-search" data-index="../assets/js/search.json" data-base="..">
+					<div class="field">
+						<label for="tsd-search-field" class="tsd-widget search no-caption">Search</label>
+						<input id="tsd-search-field" type="text" />
+					</div>
+					<ul class="results">
+						<li class="state loading">Preparing search index...</li>
+						<li class="state failure">The search index is not available</li>
+					</ul>
+					<a href="../index.html" class="title">vuln-vects</a>
+				</div>
+				<div class="table-cell" id="tsd-widgets">
+					<div id="tsd-filter">
+						<a href="#" class="tsd-widget options no-caption" data-toggle="options">Options</a>
+						<div class="tsd-filter-group">
+							<div class="tsd-select" id="tsd-filter-visibility">
+								<span class="tsd-select-label">All</span>
+								<ul class="tsd-select-list">
+									<li data-value="public">Public</li>
+									<li data-value="protected">Public/Protected</li>
+									<li data-value="private" class="selected">All</li>
+								</ul>
+							</div>
+							<input type="checkbox" id="tsd-filter-inherited" checked />
+							<label class="tsd-widget" for="tsd-filter-inherited">Inherited</label>
+							<input type="checkbox" id="tsd-filter-externals" checked />
+							<label class="tsd-widget" for="tsd-filter-externals">Externals</label>
+						</div>
+					</div>
+					<a href="#" class="tsd-widget menu no-caption" data-toggle="menu">Menu</a>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="tsd-page-title">
+		<div class="container">
+			<ul class="tsd-breadcrumb">
+				<li>
+					<a href="../modules.html">vuln-vects</a>
+				</li>
+				<li>
+					<a href="../modules/index.html">index</a>
+				</li>
+				<li>
+					<a href="index.Cvss2VectorParser.html">Cvss2VectorParser</a>
+				</li>
+			</ul>
+			<h1>Class Cvss2VectorParser</h1>
+		</div>
+	</div>
+</header>
+<div class="container container-main">
+	<div class="row">
+		<div class="col-8 col-content">
+			<section class="tsd-panel tsd-comment">
+				<div class="tsd-comment tsd-typography">
+					<div class="lead">
+						<p>Implements a service offering CVSS v2 vector parsing.</p>
+					</div>
+					<dl class="tsd-comment-tags">
+						<dt>remarks</dt>
+						<dd><p>Consumers should be aware that <a href="index.Cvss2VectorParser.html#parse">parse</a> will raise an exception if an invalid CVSS v2 vector string is passed.
+							This includes strings containing incorrect keys/values and those that are missing required entries.</p>
+						</dd>
+					</dl>
+				</div>
+			</section>
+			<section class="tsd-panel tsd-hierarchy">
+				<h3>Hierarchy</h3>
+				<ul class="tsd-hierarchy">
+					<li>
+						<span class="target">Cvss2VectorParser</span>
+					</li>
+				</ul>
+			</section>
+			<section class="tsd-panel">
+				<h3>Implements</h3>
+				<ul class="tsd-hierarchy">
+					<li><span class="tsd-signature-type">CvssVectorParser</span></li>
+				</ul>
+			</section>
+			<section class="tsd-panel-group tsd-index-group">
+				<h2>Index</h2>
+				<section class="tsd-panel tsd-index-panel">
+					<div class="tsd-index-content">
+						<section class="tsd-index-section ">
+							<h3>Constructors</h3>
+							<ul class="tsd-index-list">
+								<li class="tsd-kind-constructor tsd-parent-kind-class"><a href="index.Cvss2VectorParser.html#constructor" class="tsd-kind-icon">constructor</a></li>
+							</ul>
+						</section>
+						<section class="tsd-index-section ">
+							<h3>Methods</h3>
+							<ul class="tsd-index-list">
+								<li class="tsd-kind-method tsd-parent-kind-class"><a href="index.Cvss2VectorParser.html#generateScoringEngine" class="tsd-kind-icon">generate<wbr>Scoring<wbr>Engine</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class"><a href="index.Cvss2VectorParser.html#parse" class="tsd-kind-icon">parse</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static"><a href="index.Cvss2VectorParser.html#parseAccessComplexity" class="tsd-kind-icon">parse<wbr>Access<wbr>Complexity</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static"><a href="index.Cvss2VectorParser.html#parseAccessVector" class="tsd-kind-icon">parse<wbr>Access<wbr>Vector</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static"><a href="index.Cvss2VectorParser.html#parseAuthentication" class="tsd-kind-icon">parse<wbr>Authentication</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static"><a href="index.Cvss2VectorParser.html#parseCollateralDamagePotential" class="tsd-kind-icon">parse<wbr>Collateral<wbr>Damage<wbr>Potential</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static"><a href="index.Cvss2VectorParser.html#parseExploitability" class="tsd-kind-icon">parse<wbr>Exploitability</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static"><a href="index.Cvss2VectorParser.html#parseImpact" class="tsd-kind-icon">parse<wbr>Impact</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static"><a href="index.Cvss2VectorParser.html#parseImpactSubscore" class="tsd-kind-icon">parse<wbr>Impact<wbr>Subscore</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static"><a href="index.Cvss2VectorParser.html#parseRemediationLevel" class="tsd-kind-icon">parse<wbr>Remediation<wbr>Level</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static"><a href="index.Cvss2VectorParser.html#parseReportConfidence" class="tsd-kind-icon">parse<wbr>Report<wbr>Confidence</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static"><a href="index.Cvss2VectorParser.html#parseTargetDistribution" class="tsd-kind-icon">parse<wbr>Target<wbr>Distribution</a></li>
+							</ul>
+						</section>
+					</div>
+				</section>
+			</section>
+			<section class="tsd-panel-group tsd-member-group ">
+				<h2>Constructors</h2>
+				<section class="tsd-panel tsd-member tsd-kind-constructor tsd-parent-kind-class">
+					<a name="constructor" class="tsd-anchor"></a>
+					<h3>constructor</h3>
+					<ul class="tsd-signatures tsd-kind-constructor tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon">new <wbr>Cvss2<wbr>Vector<wbr>Parser<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.Cvss2VectorParser.html" class="tsd-signature-type" data-tsd-kind="Class">Cvss2VectorParser</a></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+							</aside>
+							<h4 class="tsd-returns-title">Returns <a href="index.Cvss2VectorParser.html" class="tsd-signature-type" data-tsd-kind="Class">Cvss2VectorParser</a></h4>
+						</li>
+					</ul>
+				</section>
+			</section>
+			<section class="tsd-panel-group tsd-member-group ">
+				<h2>Methods</h2>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
+					<a name="generateScoringEngine" class="tsd-anchor"></a>
+					<h3>generate<wbr>Scoring<wbr>Engine</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon">generate<wbr>Scoring<wbr>Engine<span class="tsd-signature-symbol">(</span>vector<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.Cvss2ScoringEngine.html" class="tsd-signature-type" data-tsd-kind="Class">Cvss2ScoringEngine</a></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-vector-parser.ts#L238">cvss2-vector-parser.ts:238</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Generates and returns a version-specific (CVSS v2) scoring engine loaded with a vector.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>vector: <span class="tsd-signature-type">string</span></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>the vector to load in to the scoring engine</p>
+									</div>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <a href="index.Cvss2ScoringEngine.html" class="tsd-signature-type" data-tsd-kind="Class">Cvss2ScoringEngine</a></h4>
+							<p>the loaded scoring engine</p>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
+					<a name="parse" class="tsd-anchor"></a>
+					<h3>parse</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon">parse<span class="tsd-signature-symbol">(</span>vector<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="index.CvssScore.html" class="tsd-signature-type" data-tsd-kind="Class">CvssScore</a></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<p>Implementation of CvssVectorParser.parse</p>
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-vector-parser.ts#L326">cvss2-vector-parser.ts:326</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<dl class="tsd-comment-tags">
+									<dt>inheritdoc</dt>
+									<dd></dd>
+								</dl>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>vector: <span class="tsd-signature-type">string</span></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <a href="index.CvssScore.html" class="tsd-signature-type" data-tsd-kind="Class">CvssScore</a></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+					<a name="parseAccessComplexity" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagStatic">Static</span> <span class="tsd-flag ts-flagPrivate">Private</span> parse<wbr>Access<wbr>Complexity</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+						<li class="tsd-signature tsd-kind-icon">parse<wbr>Access<wbr>Complexity<span class="tsd-signature-symbol">(</span>accessComplexityString<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.AccessComplexity.html" class="tsd-signature-type" data-tsd-kind="Enumeration">AccessComplexity</a></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-vector-parser.ts#L53">cvss2-vector-parser.ts:53</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Converts an access complexity, represented as a string, into an enum value.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>accessComplexityString: <span class="tsd-signature-type">string</span></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>the string to convert</p>
+									</div>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <a href="../enums/cvss2_enums.AccessComplexity.html" class="tsd-signature-type" data-tsd-kind="Enumeration">AccessComplexity</a></h4>
+							<p>the converted enum value</p>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+					<a name="parseAccessVector" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagStatic">Static</span> <span class="tsd-flag ts-flagPrivate">Private</span> parse<wbr>Access<wbr>Vector</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+						<li class="tsd-signature tsd-kind-icon">parse<wbr>Access<wbr>Vector<span class="tsd-signature-symbol">(</span>accessVectorString<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.AccessVector.html" class="tsd-signature-type" data-tsd-kind="Enumeration">AccessVector</a></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-vector-parser.ts#L35">cvss2-vector-parser.ts:35</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Converts an access vector, represented as a string, into an enum value.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>accessVectorString: <span class="tsd-signature-type">string</span></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>the string to convert</p>
+									</div>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <a href="../enums/cvss2_enums.AccessVector.html" class="tsd-signature-type" data-tsd-kind="Enumeration">AccessVector</a></h4>
+							<p>the converted enum value</p>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+					<a name="parseAuthentication" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagStatic">Static</span> <span class="tsd-flag ts-flagPrivate">Private</span> parse<wbr>Authentication</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+						<li class="tsd-signature tsd-kind-icon">parse<wbr>Authentication<span class="tsd-signature-symbol">(</span>authenticationString<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.Authentication.html" class="tsd-signature-type" data-tsd-kind="Enumeration">Authentication</a></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-vector-parser.ts#L71">cvss2-vector-parser.ts:71</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Converts an authentication level, represented as a string, into an enum value.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>authenticationString: <span class="tsd-signature-type">string</span></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>the string to convert</p>
+									</div>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <a href="../enums/cvss2_enums.Authentication.html" class="tsd-signature-type" data-tsd-kind="Enumeration">Authentication</a></h4>
+							<p>the converted enum value</p>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+					<a name="parseCollateralDamagePotential" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagStatic">Static</span> <span class="tsd-flag ts-flagPrivate">Private</span> parse<wbr>Collateral<wbr>Damage<wbr>Potential</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+						<li class="tsd-signature tsd-kind-icon">parse<wbr>Collateral<wbr>Damage<wbr>Potential<span class="tsd-signature-symbol">(</span>collateralDamagePotentialString<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.CollateralDamagePotential.html" class="tsd-signature-type" data-tsd-kind="Enumeration">CollateralDamagePotential</a></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-vector-parser.ts#L171">cvss2-vector-parser.ts:171</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Converts a collateral damage potential, represented as a string, into an enum value.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>collateralDamagePotentialString: <span class="tsd-signature-type">string</span></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>the string to convert</p>
+									</div>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <a href="../enums/cvss2_enums.CollateralDamagePotential.html" class="tsd-signature-type" data-tsd-kind="Enumeration">CollateralDamagePotential</a></h4>
+							<p>the converted enum value</p>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+					<a name="parseExploitability" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagStatic">Static</span> <span class="tsd-flag ts-flagPrivate">Private</span> parse<wbr>Exploitability</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+						<li class="tsd-signature tsd-kind-icon">parse<wbr>Exploitability<span class="tsd-signature-symbol">(</span>exploitabilityString<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.Exploitability.html" class="tsd-signature-type" data-tsd-kind="Enumeration">Exploitability</a></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-vector-parser.ts#L107">cvss2-vector-parser.ts:107</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Converts an impact magnitude, represented as a string, into an enum value.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>exploitabilityString: <span class="tsd-signature-type">string</span></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <a href="../enums/cvss2_enums.Exploitability.html" class="tsd-signature-type" data-tsd-kind="Enumeration">Exploitability</a></h4>
+							<p>the converted enum value</p>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+					<a name="parseImpact" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagStatic">Static</span> <span class="tsd-flag ts-flagPrivate">Private</span> parse<wbr>Impact</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+						<li class="tsd-signature tsd-kind-icon">parse<wbr>Impact<span class="tsd-signature-symbol">(</span>impactString<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.Impact.html" class="tsd-signature-type" data-tsd-kind="Enumeration">Impact</a></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-vector-parser.ts#L89">cvss2-vector-parser.ts:89</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Converts an impact magnitude, represented as a string, into an enum value.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>impactString: <span class="tsd-signature-type">string</span></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>the string to convert</p>
+									</div>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <a href="../enums/cvss2_enums.Impact.html" class="tsd-signature-type" data-tsd-kind="Enumeration">Impact</a></h4>
+							<p>the converted enum value</p>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+					<a name="parseImpactSubscore" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagStatic">Static</span> <span class="tsd-flag ts-flagPrivate">Private</span> parse<wbr>Impact<wbr>Subscore</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+						<li class="tsd-signature tsd-kind-icon">parse<wbr>Impact<wbr>Subscore<span class="tsd-signature-symbol">(</span>impactSubscoreString<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.ImpactSubscore.html" class="tsd-signature-type" data-tsd-kind="Enumeration">ImpactSubscore</a></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-vector-parser.ts#L218">cvss2-vector-parser.ts:218</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Converts an impact subscore value, represented as a string, into an enum value.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>impactSubscoreString: <span class="tsd-signature-type">string</span></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>the string to convert</p>
+									</div>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <a href="../enums/cvss2_enums.ImpactSubscore.html" class="tsd-signature-type" data-tsd-kind="Enumeration">ImpactSubscore</a></h4>
+							<p>the converted enum value</p>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+					<a name="parseRemediationLevel" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagStatic">Static</span> <span class="tsd-flag ts-flagPrivate">Private</span> parse<wbr>Remediation<wbr>Level</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+						<li class="tsd-signature tsd-kind-icon">parse<wbr>Remediation<wbr>Level<span class="tsd-signature-symbol">(</span>remediationLevelString<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.RemediationLevel.html" class="tsd-signature-type" data-tsd-kind="Enumeration">RemediationLevel</a></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-vector-parser.ts#L129">cvss2-vector-parser.ts:129</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Converts a remediation level, represented as a string, into an enum value.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>remediationLevelString: <span class="tsd-signature-type">string</span></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>the string to convert</p>
+									</div>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <a href="../enums/cvss2_enums.RemediationLevel.html" class="tsd-signature-type" data-tsd-kind="Enumeration">RemediationLevel</a></h4>
+							<p>the converted enum value</p>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+					<a name="parseReportConfidence" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagStatic">Static</span> <span class="tsd-flag ts-flagPrivate">Private</span> parse<wbr>Report<wbr>Confidence</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+						<li class="tsd-signature tsd-kind-icon">parse<wbr>Report<wbr>Confidence<span class="tsd-signature-symbol">(</span>reportConfidenceString<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.ReportConfidence.html" class="tsd-signature-type" data-tsd-kind="Enumeration">ReportConfidence</a></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-vector-parser.ts#L151">cvss2-vector-parser.ts:151</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Converts a report confidence level, represented as a string, into an enum value.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>reportConfidenceString: <span class="tsd-signature-type">string</span></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>the string to convert</p>
+									</div>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <a href="../enums/cvss2_enums.ReportConfidence.html" class="tsd-signature-type" data-tsd-kind="Enumeration">ReportConfidence</a></h4>
+							<p>the converted enum value</p>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+					<a name="parseTargetDistribution" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagStatic">Static</span> <span class="tsd-flag ts-flagPrivate">Private</span> parse<wbr>Target<wbr>Distribution</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+						<li class="tsd-signature tsd-kind-icon">parse<wbr>Target<wbr>Distribution<span class="tsd-signature-symbol">(</span>targetDistributionString<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="../enums/cvss2_enums.TargetDistribution.html" class="tsd-signature-type" data-tsd-kind="Enumeration">TargetDistribution</a></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/security-breachlock/vuln-vects/blob/de3d0a4/src/cvss2-vector-parser.ts#L196">cvss2-vector-parser.ts:196</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Converts a target distribution, represented as a string, into an enum value.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>targetDistributionString: <span class="tsd-signature-type">string</span></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>the string to convert</p>
+									</div>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <a href="../enums/cvss2_enums.TargetDistribution.html" class="tsd-signature-type" data-tsd-kind="Enumeration">TargetDistribution</a></h4>
+							<p>the converted enum value</p>
+						</li>
+					</ul>
+				</section>
+			</section>
+		</div>
+		<div class="col-4 col-menu menu-sticky-wrap menu-highlight">
+			<nav class="tsd-navigation primary">
+				<ul>
+					<li class=" ">
+						<a href="../modules.html">Modules</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="../modules/cvss2_enums.html">cvss2-<wbr>enums</a>
+					</li>
+					<li class=" tsd-kind-module">
+						<a href="../modules/cvss3_enums.html">cvss3-<wbr>enums</a>
+					</li>
+					<li class="current tsd-kind-module">
+						<a href="../modules/index.html">index</a>
+					</li>
+				</ul>
+			</nav>
+			<nav class="tsd-navigation secondary menu-sticky">
+				<ul class="before-current">
+					<li class=" tsd-kind-reference tsd-parent-kind-module">
+						<a href="../modules/index.html#cvss2" class="tsd-kind-icon">cvss2</a>
+					</li>
+					<li class=" tsd-kind-reference tsd-parent-kind-module">
+						<a href="../modules/index.html#cvss3" class="tsd-kind-icon">cvss3</a>
+					</li>
+					<li class=" tsd-kind-enum tsd-parent-kind-module">
+						<a href="../enums/index.Cvss2VectorPrefixOption.html" class="tsd-kind-icon">Cvss2<wbr>Vector<wbr>Prefix<wbr>Option</a>
+					</li>
+					<li class=" tsd-kind-enum tsd-parent-kind-module">
+						<a href="../enums/index.Cvss3VectorPrefixOption.html" class="tsd-kind-icon">Cvss3<wbr>Vector<wbr>Prefix<wbr>Option</a>
+					</li>
+					<li class=" tsd-kind-class tsd-parent-kind-module">
+						<a href="index.Cvss2ScoringEngine.html" class="tsd-kind-icon">Cvss2<wbr>Scoring<wbr>Engine</a>
+					</li>
+					<li class=" tsd-kind-class tsd-parent-kind-module">
+						<a href="index.Cvss2VectorMocker.html" class="tsd-kind-icon">Cvss2<wbr>Vector<wbr>Mocker</a>
+					</li>
+				</ul>
+				<ul class="current">
+					<li class="current tsd-kind-class tsd-parent-kind-module">
+						<a href="index.Cvss2VectorParser.html" class="tsd-kind-icon">Cvss2<wbr>Vector<wbr>Parser</a>
+						<ul>
+							<li class=" tsd-kind-constructor tsd-parent-kind-class">
+								<a href="index.Cvss2VectorParser.html#constructor" class="tsd-kind-icon">constructor</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class">
+								<a href="index.Cvss2VectorParser.html#generateScoringEngine" class="tsd-kind-icon">generate<wbr>Scoring<wbr>Engine</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class">
+								<a href="index.Cvss2VectorParser.html#parse" class="tsd-kind-icon">parse</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+								<a href="index.Cvss2VectorParser.html#parseAccessComplexity" class="tsd-kind-icon">parse<wbr>Access<wbr>Complexity</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+								<a href="index.Cvss2VectorParser.html#parseAccessVector" class="tsd-kind-icon">parse<wbr>Access<wbr>Vector</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+								<a href="index.Cvss2VectorParser.html#parseAuthentication" class="tsd-kind-icon">parse<wbr>Authentication</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+								<a href="index.Cvss2VectorParser.html#parseCollateralDamagePotential" class="tsd-kind-icon">parse<wbr>Collateral<wbr>Damage<wbr>Potential</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+								<a href="index.Cvss2VectorParser.html#parseExploitability" class="tsd-kind-icon">parse<wbr>Exploitability</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+								<a href="index.Cvss2VectorParser.html#parseImpact" class="tsd-kind-icon">parse<wbr>Impact</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+								<a href="index.Cvss2VectorParser.html#parseImpactSubscore" class="tsd-kind-icon">parse<wbr>Impact<wbr>Subscore</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+								<a href="index.Cvss2VectorParser.html#parseRemediationLevel" class="tsd-kind-icon">parse<wbr>Remediation<wbr>Level</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+								<a href="index.Cvss2VectorParser.html#parseReportConfidence" class="tsd-kind-icon">parse<wbr>Report<wbr>Confidence</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-static">
+								<a href="index.Cvss2VectorParser.html#parseTargetDistribution" class="tsd-kind-icon">parse<wbr>Target<wbr>Distribution</a>
+							</li>
+						</ul>
+					</li>
+				</ul>
+				<ul class="after-current">
+					<li class=" tsd-kind-class tsd-parent-kind-module">
+						<a href="index.Cvss2VectorRenderer.html" class="tsd-kind-icon">Cvss2<wbr>Vector<wbr>Renderer</a>
+					</li>
+					<li class=" tsd-kind-class tsd-parent-kind-module">
+						<a href="index.Cvss3ScoringEngine.html" class="tsd-kind-icon">Cvss3<wbr>Scoring<wbr>Engine</a>
+					</li>
+					<li class=" tsd-kind-class tsd-parent-kind-module">
+						<a href="index.Cvss3VectorMocker.html" class="tsd-kind-icon">Cvss3<wbr>Vector<wbr>Mocker</a>
+					</li>
+					<li class=" tsd-kind-class tsd-parent-kind-module">
+						<a href="index.Cvss3VectorParser.html" class="tsd-kind-icon">Cvss3<wbr>Vector<wbr>Parser</a>
+					</li>
+					<li class=" tsd-kind-class tsd-parent-kind-module">
+						<a href="index.Cvss3VectorRenderer.html" class="tsd-kind-icon">Cvss3<wbr>Vector<wbr>Renderer</a>
+					</li>
+					<li class=" tsd-kind-class tsd-parent-kind-module">
+						<a href="index.CvssScore.html" class="tsd-kind-icon">Cvss<wbr>Score</a>
+					</li>
+					<li class=" tsd-kind-class tsd-parent-kind-module">
+						<a href="index.MultiCvssVectorParser.html" class="tsd-kind-icon">Multi<wbr>Cvss<wbr>Vector<wbr>Parser</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-module">
+						<a href="../modules/index.html#parseCvss2Vector" class="tsd-kind-icon">parse<wbr>Cvss2<wbr>Vector</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-module">
+						<a href="../modules/index.html#parseCvss3Vector" class="tsd-kind-icon">parse<wbr>Cvss3<wbr>Vector</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-module">
+						<a href="../modules/index.html#parseCvssVector" class="tsd-kind-icon">parse<wbr>Cvss<wbr>Vector</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-module">
+						<a href="../modules/index.html#randomCvss2Vector" class="tsd-kind-icon">random<wbr>Cvss2<wbr>Vector</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-module">
+						<a href="../modules/index.html#randomCvss3Vector" class="tsd-kind-icon">random<wbr>Cvss3<wbr>Vector</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-module">
+						<a href="../modules/index.html#validateCvss2Vector" class="tsd-kind-icon">validate<wbr>Cvss2<wbr>Vector</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-module">
+						<a href="../modules/index.html#validateCvss3Vector" class="tsd-kind-icon">validate<wbr>Cvss3<wbr>Vector</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-module">
+						<a href="../modules/index.html#validateCvssVector" class="tsd-kind-icon">validate<wbr>Cvss<wbr>Vector</a>
+					</li>
+				</ul>
+			</nav>
+		</div>
+	</div>
+</div>
+<footer class="with-border-bottom">
+	<div class="container">
+		<h2>Legend</h2>
+		<div class="tsd-legend-group">
+			<ul class="tsd-legend">
+				<li class="tsd-kind-class"><span class="tsd-kind-icon">Class</span></li>
+				<li class="tsd-kind-constructor tsd-parent-kind-class"><span class="tsd-kind-icon">Constructor</span></li>
+				<li class="tsd-kind-method tsd-parent-kind-class"><span class="tsd-kind-icon">Method</span></li>
+			</ul>
+			<ul class="tsd-legend">
+				<li class="tsd-kind-variable"><span class="tsd-kind-icon">Variable</span></li>
+				<li class="tsd-kind-function"><span class="tsd-kind-icon">Function</span></li>
+			</ul>
+			<ul class="tsd-legend">
+				<li class="tsd-kind-enum"><span class="tsd-kind-icon">Enumeration</span></li>
+			</ul>
+		</div>
+	</div>
+</footer>
+<div class="container tsd-generator">
+	<p>Generated using <a href="https://typedoc.org/" target="_blank">TypeDoc</a></p>
+</div>
+<div class="overlay"></div>
+<script src="../assets/js/main.js"></script>
+</body>
+</html>

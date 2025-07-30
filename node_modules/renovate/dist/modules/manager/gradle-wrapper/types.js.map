@@ -1,0 +1,1 @@
+{"version":3,"file":"types.js","sourceRoot":"","sources":["../../../../lib/modules/manager/gradle-wrapper/types.ts"],"names":[],"mappings":"","sourcesContent":["export interface GradleVersionExtract {\n  url: string;\n  version: string;\n}\n"]}

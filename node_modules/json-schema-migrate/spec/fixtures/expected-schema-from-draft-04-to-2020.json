@@ -1,0 +1,54 @@
+{
+  "$id": "my-schema",
+  "$schema": "https://json-schema.org/draft/2019-09/schema",
+  "definitions": {
+    "str": {
+      "$anchor": "str",
+      "type": "string"
+    },
+    "num": {
+      "$id": "another-schema",
+      "$anchor": "num",
+      "type": "string"
+    }
+  },
+  "properties": {
+    "exclusiveLimits": {
+      "exclusiveMinimum": 1,
+      "exclusiveMaximum": 3
+    },
+    "nonExclusiveLimits": {
+      "minimum": 1,
+      "maximum": 3
+    },
+    "singleValue": {"const": "foo"},
+    "singleValueConstant": {"const": "foo"},
+    "multipleValues": {"enum": ["foo", "bar"]},
+    "alwaysValid": true,
+    "alsoAlwaysValid": true,
+    "alwaysInvalid": false,
+    "alsoAlwaysInvalid": false,
+    "array": {
+      "items": {"type": "number"}
+    },
+    "tuple": {
+      "prefixItems": [{"type": "number"}, {"type": "string"}],
+      "items": false
+    },
+    "tupleExtras": {
+      "prefixItems": [{"type": "number"}, {"type": "string"}],
+      "items": {"type": "boolean"}
+    }
+  },
+  "dependentRequired": {
+    "foo": ["bar"]
+  },
+  "dependentSchemas": {
+    "bar": {
+      "required": ["baz"],
+      "properties": {
+        "baz": {"type": "string"}
+      }
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "name": "@pnpm/util.lex-comparator",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "componentId": {
+    "scope": "pnpm.util",
+    "name": "lex-comparator",
+    "version": "1.0.0"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@babel/runtime": "7.20.0",
+    "@types/node": "12.20.4",
+    "@types/jest": "26.0.20"
+  },
+  "peerDependencies": {},
+  "license": "MIT",
+  "private": false,
+  "engines": {
+    "node": ">=12.22.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pnpm/components"
+  },
+  "keywords": [],
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  }
+}

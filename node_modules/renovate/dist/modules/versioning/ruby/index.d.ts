@@ -1,0 +1,13 @@
+import type { RangeStrategy } from '../../../types/versioning';
+import type { VersioningApi } from '../types';
+export declare const id = "ruby";
+export declare const displayName = "Ruby";
+export declare const urls: string[];
+export declare const supportsRanges = true;
+export declare const supportedRangeStrategies: RangeStrategy[];
+export declare const isVersion: (version: string) => boolean;
+export declare const isValid: (input: string) => boolean;
+export declare const matches: (version: string, range: string) => boolean;
+export declare const sortVersions: (left: string, right: string) => number;
+export declare const api: VersioningApi;
+export default api;

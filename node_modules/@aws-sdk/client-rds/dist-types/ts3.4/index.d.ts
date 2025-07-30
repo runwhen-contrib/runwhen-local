@@ -1,0 +1,10 @@
+export * from "./RDSClient";
+export * from "./RDS";
+export { ClientInputEndpointParameters } from "./endpoint/EndpointParameters";
+export { RuntimeExtension } from "./runtimeExtensions";
+export { RDSExtensionConfiguration } from "./extensionConfiguration";
+export * from "./commands";
+export * from "./pagination";
+export * from "./waiters";
+export * from "./models";
+export { RDSServiceException } from "./models/RDSServiceException";

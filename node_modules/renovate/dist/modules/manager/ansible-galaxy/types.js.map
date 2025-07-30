@@ -1,0 +1,1 @@
+{"version":3,"file":"types.js","sourceRoot":"","sources":["../../../../lib/modules/manager/ansible-galaxy/types.ts"],"names":[],"mappings":"","sourcesContent":["import type { PackageDependency } from '../types';\n\nexport type AnsibleGalaxyPackageDependency = Omit<\n  PackageDependency,\n  'managerData'\n> &\n  Required<Pick<PackageDependency, 'managerData'>>;\n"]}

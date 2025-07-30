@@ -1,0 +1,11 @@
+{
+  "name": "bzip-deflate",
+  "version": "1.0.0",
+  "description": "A very simple bzip deflator, a wrapper around github.com/kirilloid/bzip2-js",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "@kirilloid at Github",
+  "license": "CC-SA 3.0"
+}

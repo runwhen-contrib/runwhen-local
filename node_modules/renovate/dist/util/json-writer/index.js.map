@@ -1,0 +1,1 @@
+{"version":3,"file":"index.js","sourceRoot":"","sources":["../../../lib/util/json-writer/index.ts"],"names":[],"mappings":";;;AAAA,wDAA8B;AAC9B,0DAAgC;AAChC,6DAAmC","sourcesContent":["export * from './json-writer';\nexport * from './editor-config';\nexport * from './indentation-type';\n"]}

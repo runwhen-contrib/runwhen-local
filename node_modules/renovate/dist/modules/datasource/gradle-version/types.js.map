@@ -1,0 +1,1 @@
+{"version":3,"file":"types.js","sourceRoot":"","sources":["../../../../lib/modules/datasource/gradle-version/types.ts"],"names":[],"mappings":"","sourcesContent":["export interface GradleRelease {\n  buildTime: string;\n  broken: boolean;\n  milestoneFor: string;\n  nightly: boolean;\n  rcFor: string;\n  snapshot: boolean;\n  version: string;\n}\n"]}

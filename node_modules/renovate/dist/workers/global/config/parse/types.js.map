@@ -1,0 +1,1 @@
+{"version":3,"file":"types.js","sourceRoot":"","sources":["../../../../../lib/workers/global/config/parse/types.ts"],"names":[],"mappings":"","sourcesContent":["import type { RenovateOptions } from '../../../../config/types';\n\nexport type ParseConfigOptions = Partial<RenovateOptions> &\n  Pick<RenovateOptions, 'name'>;\n"]}

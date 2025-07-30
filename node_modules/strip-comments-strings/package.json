@@ -1,0 +1,28 @@
+{
+  "name": "strip-comments-strings",
+  "version": "1.2.0",
+  "description": "Strip or extract comments, strings or both from source code.",
+  "main": "./index.cjs",
+  "module": "./index.mjs",
+  "type": "module",
+  "exports": {
+    ".": {
+      "require": "./index.cjs",
+      "import": "./index.mjs"
+    }
+  },
+  "scripts": {
+    "demo:cjs": "node examples/demo.cjs",
+    "build:esm": "to-esm --input=index.cjs --entrypoint=index.cjs --update-all"
+  },
+  "author": "Patrice Thimothee",
+  "license": "MIT",
+  "devDependencies": {
+    "@babel/core": "^7.17.5",
+    "@babel/eslint-parser": "^7.17.0",
+    "@babel/preset-env": "^7.16.11",
+    "babel-eslint": "^10.1.0",
+    "eslint": "^8.9.0",
+    "to-esm": "^2.15.0"
+  }
+}

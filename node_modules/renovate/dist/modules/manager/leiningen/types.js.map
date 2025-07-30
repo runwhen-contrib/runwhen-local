@@ -1,0 +1,1 @@
+{"version":3,"file":"types.js","sourceRoot":"","sources":["../../../../lib/modules/manager/leiningen/types.ts"],"names":[],"mappings":"","sourcesContent":["export type ExtractedVariables = Record<string, string>;\n\nexport interface ExtractContext {\n  depType?: string;\n  registryUrls?: string[];\n}\n"]}

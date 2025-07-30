@@ -1,0 +1,11 @@
+import type { RangeStrategy } from '../../../types/versioning';
+import type { VersioningApi } from '../types';
+export declare const id = "hex";
+export declare const displayName = "Hex";
+export declare const urls: string[];
+export declare const supportsRanges = true;
+export declare const supportedRangeStrategies: RangeStrategy[];
+declare const isValid: (input: string) => boolean;
+export { isValid };
+export declare const api: VersioningApi;
+export default api;

@@ -1,0 +1,1 @@
+{"version":3,"file":"pin.js","sourceRoot":"","sources":["../../../../../lib/modules/versioning/ruby/strategies/pin.ts"],"names":[],"mappings":";;AAAA,kBAAe,CAAC,EAAE,EAAE,EAAkB,EAAU,EAAE,CAAC,EAAE,CAAC","sourcesContent":["export default ({ to }: { to: string }): string => to;\n"]}

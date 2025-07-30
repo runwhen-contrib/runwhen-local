@@ -1,0 +1,24 @@
+{
+  "name": "uint64be",
+  "version": "1.0.1",
+  "description": "Encode / decode big endian unsigned 64 bit integers",
+  "main": "index.js",
+  "dependencies": {},
+  "devDependencies": {
+    "standard": "^5.0.0",
+    "tape": "^4.0.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mafintosh/uint64be.git"
+  },
+  "scripts": {
+    "test": "standard && tape test.js"
+  },
+  "author": "Mathias Buus (@mafintosh)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/mafintosh/uint64be/issues"
+  },
+  "homepage": "https://github.com/mafintosh/uint64be"
+}

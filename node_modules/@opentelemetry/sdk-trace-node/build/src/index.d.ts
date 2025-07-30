@@ -1,0 +1,4 @@
+export { NodeTracerConfig } from './config';
+export { NodeTracerProvider } from './NodeTracerProvider';
+export { AlwaysOffSampler, AlwaysOnSampler, BasicTracerProvider, BatchSpanProcessor, BatchSpanProcessorBrowserConfig, BufferConfig, ConsoleSpanExporter, GeneralLimits, IdGenerator, InMemorySpanExporter, NoopSpanProcessor, ParentBasedSampler, RandomIdGenerator, ReadableSpan, Sampler, SamplingDecision, SamplingResult, SDKRegistrationConfig, SimpleSpanProcessor, Span, SpanExporter, SpanLimits, SpanProcessor, TimedEvent, TraceIdRatioBasedSampler, TracerConfig, } from '@opentelemetry/sdk-trace-base';
+//# sourceMappingURL=index.d.ts.map

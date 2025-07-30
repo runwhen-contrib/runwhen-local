@@ -1,0 +1,48 @@
+{
+  "name": "auth-header",
+  "version": "1.0.0",
+  "description": "For HTTP `Authorization` and `WWW-Authenticate` headers.",
+  "author": "Izaak Schroeder <izaak.schroeder@gmail.com>",
+  "keywords": [
+    "http",
+    "express",
+    "basic",
+    "auth",
+    "authorization"
+  ],
+  "license": "CC0-1.0",
+  "homepage": "https://github.com/izaakschroeder/auth-header",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/izaakschroeder/auth-header.git"
+  },
+  "main": "dist/index.js",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "clean": "./node_modules/.bin/rimraf dist",
+    "test": "npm run lint && npm run spec && npm run flow",
+    "prepublish": "npm run clean && ./node_modules/.bin/babel -s -d dist src",
+    "spec": "NODE_ENV=test ./node_modules/.bin/jest --coverage --runInBand=${JEST_SERIAL:-$CI}",
+    "lint": "eslint .",
+    "flow": "./node_modules/.bin/flow check"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.0.0-beta.51",
+    "@babel/core": "^7.0.0-beta.51",
+    "@babel/preset-env": "^7.0.0-beta.51",
+    "@babel/preset-flow": "^7.0.0-beta.51",
+    "@babel/register": "^7.0.0-beta.51",
+    "babel-core": "^7.0.0-bridge.0",
+    "babel-jest": "^23.0.1",
+    "eslint": "^4.6.0",
+    "eslint-config-metalab": "^9.0.1",
+    "flow-bin": "^0.70.0",
+    "jest": "^23.1.0",
+    "ncp": "^2.0.0",
+    "prettier": "^1.13.5",
+    "rimraf": "^2.6.1"
+  }
+}

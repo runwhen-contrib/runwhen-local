@@ -1,0 +1,33 @@
+{
+  "name": "install-artifact-from-github",
+  "version": "1.4.0",
+  "type": "commonjs",
+  "description": "Create binary artifacts hosted by github and install them without compiling.",
+  "homepage": "https://github.com/uhop/install-artifact-from-github",
+  "bugs": "https://github.com/uhop/install-artifact-from-github/issues",
+  "github": "https://github.com/uhop/install-artifact-from-github",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/uhop/install-artifact-from-github.git"
+  },
+  "files": [
+    "/*.js",
+    "/bin",
+    "/src",
+    "/utils"
+  ],
+  "bin": {
+    "install-from-cache": "bin/install-from-cache.js",
+    "save-to-github-cache": "bin/save-to-github-cache.js"
+  },
+  "keywords": [
+    "helper",
+    "node addons"
+  ],
+  "author": "Eugene Lazutkin <eugene.lazutkin@gmail.com> (https://lazutkin.com/)",
+  "license": "BSD-3-Clause",
+  "scripts": {
+    "test": "node tests/test-env.js",
+    "save-to-github": "node bin/save-to-github-cache --artifact package.json --format br,gz,none"
+  }
+}

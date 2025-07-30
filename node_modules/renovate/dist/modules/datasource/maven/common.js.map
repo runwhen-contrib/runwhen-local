@@ -1,0 +1,1 @@
+{"version":3,"file":"common.js","sourceRoot":"","sources":["../../../../lib/modules/datasource/maven/common.ts"],"names":[],"mappings":";;;AAAa,QAAA,EAAE,GAAG,OAAO,CAAC;AAEb,QAAA,UAAU,GAAG,sCAAsC,CAAC","sourcesContent":["export const id = 'maven';\n\nexport const MAVEN_REPO = 'https://repo.maven.apache.org/maven2';\n"]}

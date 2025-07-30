@@ -1,0 +1,62 @@
+{
+  "name": "jsonata",
+  "version": "2.0.6",
+  "description": "JSON query and transformation language",
+  "module": "jsonata.js",
+  "main": "jsonata.js",
+  "typings": "jsonata.d.ts",
+  "homepage": "http://jsonata.org/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jsonata-js/jsonata.git"
+  },
+  "scripts": {
+    "pretest": "npm run lint",
+    "mocha": "nyc ./node_modules/mocha/bin/_mocha -- \"test/**/*.js\"",
+    "test": "npm run mocha",
+    "posttest": "npm run check-coverage && npm run browserify && npm run minify && npm run build-es5",
+    "build-es5": "npm run mkdir-dist && npm run regenerator && npm run browserify-es5 && npm run minify-es5",
+    "check-coverage": "nyc check-coverage --statements 100 --branches 100 --functions 100 --lines 100",
+    "browserify": "browserify src/jsonata.js --outfile jsonata.js --standalone jsonata",
+    "mkdir-dist": "mkdirp ./dist",
+    "regenerator": "babel src --out-dir dist --presets=@babel/env",
+    "browserify-es5": "regenerator --include-runtime polyfill.js > jsonata-es5.js; browserify dist/jsonata.js --standalone jsonata >> jsonata-es5.js",
+    "prepublishOnly": "npm run browserify && npm run minify && npm run build-es5",
+    "lint": "eslint src",
+    "doc": "jsdoc --configure jsdoc.json .",
+    "cover": "nyc _mocha",
+    "minify": "uglifyjs jsonata.js -o jsonata.min.js --compress --mangle",
+    "minify-es5": "uglifyjs jsonata-es5.js -o jsonata-es5.min.js --compress --mangle"
+  },
+  "license": "MIT",
+  "keywords": [
+    "JSON",
+    "query",
+    "transformation",
+    "transform",
+    "mapping",
+    "path"
+  ],
+  "devDependencies": {
+    "@babel/cli": "^7.8.4",
+    "@babel/core": "^7.8.4",
+    "@babel/preset-env": "^7.8.4",
+    "browserify": "^16.5.0",
+    "chai": "^4.2.0",
+    "chai-as-promised": "^7.1.1",
+    "eslint": "8.0.0",
+    "eslint-plugin-ideal": "^0.1.3",
+    "eslint-plugin-promise": "^6.0.0",
+    "jsdoc": "^3.6.3",
+    "mkdirp": "^1.0.3",
+    "mocha": "^7.0.1",
+    "mocha-lcov-reporter": "^1.3.0",
+    "nyc": "^15.1.0",
+    "regenerator": "^0.14.4",
+    "request": "^2.88.2",
+    "uglify-es": "^3.3.10"
+  },
+  "engines": {
+    "node": ">= 8"
+  }
+}

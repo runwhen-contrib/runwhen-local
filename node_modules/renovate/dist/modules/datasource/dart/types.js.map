@@ -1,0 +1,1 @@
+{"version":3,"file":"types.js","sourceRoot":"","sources":["../../../../lib/modules/datasource/dart/types.ts"],"names":[],"mappings":"","sourcesContent":["export interface DartResult {\n  versions?: {\n    version: string;\n    published?: string;\n    retracted?: boolean;\n  }[];\n  latest?: {\n    pubspec?: { homepage?: string; repository?: string };\n  };\n}\n"]}

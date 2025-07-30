@@ -105,4 +105,10 @@ RUN brew install \
     gh \ 
     helm
 
+# Install Renovate CLI and testing tools
+RUN npm install -g renovate ajv-cli
+
+# Install Python testing dependencies
+RUN pip install regex
+
 CMD ["bash"]

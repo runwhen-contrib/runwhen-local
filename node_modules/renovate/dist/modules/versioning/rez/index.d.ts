@@ -1,0 +1,10 @@
+import type { RangeStrategy } from '../../../types/versioning';
+import type { VersioningApi } from '../types';
+export declare const id = "rez";
+export declare const displayName = "rez";
+export declare const urls: string[];
+export declare const supportsRanges = true;
+export declare const supportedRangeStrategies: RangeStrategy[];
+export declare function isValid(input: string): boolean;
+export declare const api: VersioningApi;
+export default api;

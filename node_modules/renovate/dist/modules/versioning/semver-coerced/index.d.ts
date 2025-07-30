@@ -1,0 +1,10 @@
+import type { VersioningApi } from '../types';
+export declare const id = "semver-coerced";
+export declare const displayName = "Coerced Semantic Versioning";
+export declare const urls: string[];
+export declare const supportsRanges = false;
+declare function getSatisfyingVersion(versions: string[], range: string): string | null;
+export declare const isVersion: (input: string) => boolean;
+export { isVersion as isValid, getSatisfyingVersion };
+export declare const api: VersioningApi;
+export default api;

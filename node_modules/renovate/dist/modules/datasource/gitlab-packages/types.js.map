@@ -1,0 +1,1 @@
+{"version":3,"file":"types.js","sourceRoot":"","sources":["../../../../lib/modules/datasource/gitlab-packages/types.ts"],"names":[],"mappings":"","sourcesContent":["export interface GitlabPackage {\n  version: string;\n  created_at: string;\n  name: string;\n}\n"]}

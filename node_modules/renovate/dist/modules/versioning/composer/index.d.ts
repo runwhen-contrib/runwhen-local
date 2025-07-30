@@ -1,0 +1,11 @@
+import type { RangeStrategy } from '../../../types/versioning';
+import type { VersioningApi } from '../types';
+export declare const id = "composer";
+export declare const displayName = "Composer";
+export declare const urls: string[];
+export declare const supportsRanges = true;
+export declare const supportedRangeStrategies: RangeStrategy[];
+export declare function isValid(input: string): boolean;
+export declare function isVersion(input: string): boolean;
+export declare const api: VersioningApi;
+export default api;
