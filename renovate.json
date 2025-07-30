@@ -73,11 +73,31 @@
   ],
   "customManagers": [
     {
-      "description": "Update tool versions in Dockerfile",
+      "description": "Update tool versions in Dockerfile - ENV format",
       "customType": "regex",
       "fileMatch": ["\\.dockerfile$", "Dockerfile$"],
       "matchStrings": [
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+ENV (?<currentValue>.*?)\\s"
+      ],
+      "datasourceTemplate": "{{datasource}}",
+      "depNameTemplate": "{{depName}}"
+    },
+    {
+      "description": "Update tool versions in Dockerfile - FROM format",
+      "customType": "regex",
+      "fileMatch": ["\\.dockerfile$", "Dockerfile$"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+FROM (?<currentValue>.*?)\\s"
+      ],
+      "datasourceTemplate": "{{datasource}}",
+      "depNameTemplate": "{{depName}}"
+    },
+    {
+      "description": "Update tool versions in Dockerfile - direct assignment format",
+      "customType": "regex",
+      "fileMatch": ["\\.dockerfile$", "Dockerfile$"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+(?<currentValue>.*?=.*?)\\s"
       ],
       "datasourceTemplate": "{{datasource}}",
       "depNameTemplate": "{{depName}}"
