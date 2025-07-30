@@ -1,3 +1,4 @@
+# renovate: datasource=docker depName=node
 FROM node:current-slim AS node-base
 
 RUN apt-get update && apt-get install -y \
@@ -15,6 +16,7 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=on \
     PIP_DEFAULT_TIMEOUT=100 \
     POETRY_HOME="/opt/poetry" \
+    # renovate: datasource=github-releases depName=python-poetry/poetry
     POETRY_VERSION=2.1.1 \
     POETRY_VIRTUALENVS_IN_PROJECT=true \
     POETRY_NO_INTERACTION=1 \
@@ -107,6 +109,7 @@ RUN ARCH=$(uname -m) && \
     && curl -L "https://github.com/stewartshea/cloudquery/releases/latest/download/cloudquery-linux-${CQ_ARCH}" -o /usr/local/bin/cloudquery \
     && chmod a+x /usr/local/bin/cloudquery \
     # Install kubelogin for azure kubeconfig conversion
+    # renovate: datasource=github-releases depName=Azure/kubelogin
     && curl -Lo kubelogin.zip https://github.com/Azure/kubelogin/releases/latest/download/kubelogin-linux-amd64.zip \
     && unzip kubelogin.zip \
     && mv bin/linux_amd64/kubelogin /usr/local/bin/kubelogin \

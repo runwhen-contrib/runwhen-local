@@ -161,6 +161,63 @@ chmod +x sync_with_skopeo.sh
 
 ```
 
+## sync_with_aws_ecr.sh
+
+**Purpose**: Docker-free AWS ECR registry synchronization using `docker buildx imagetools create`
+
+**Requirements**:
+- `jq` - JSON processing
+- `yq` - YAML processing  
+- `aws` - AWS CLI
+- `docker` - Docker CLI with buildx plugin
+- `curl` - HTTP requests
+- AWS credentials configured
+
+**Configuration**:
+- `private_registry` - AWS ECR registry URL (e.g., `123456789012.dkr.ecr.us-west-2.amazonaws.com`)
+- `aws_region` - AWS region for ECR
+- `desired_architecture` - Target architecture (default: `amd64`)
+- `values_file` - Path to Helm values file
+- `new_values_file` - Path to output Helm values file
+- `tag_exclusion_list` - Comma-separated list of tags to exclude
+- `runwhen_local_images` - JSON array of RunWhen Local images
+- `codecollection_images` - JSON array of CodeCollection images
+
+**Included Images**:
+The script is pre-configured with all required RunWhen Local and CodeCollection images:
+
+**RunWhen Local Images**:
+- `ghcr.io/runwhen-contrib/runwhen-local` → `runwhen/runwhen-local`
+- `us-docker.pkg.dev/runwhen-nonprod-shared/public-images/runner` → `runwhen/runner`
+- `docker.io/otel/opentelemetry-collector` → `otel/opentelemetry-collector`
+- `docker.io/prom/pushgateway` → `prom/pushgateway`
+
+**CodeCollection Images**:
+- `us-west1-docker.pkg.dev/runwhen-nonprod-beta/public-images/runwhen-contrib-rw-cli-codecollection-main`
+- `us-west1-docker.pkg.dev/runwhen-nonprod-beta/public-images/runwhen-contrib-rw-public-codecollection-main`
+- `us-west1-docker.pkg.dev/runwhen-nonprod-beta/public-images/runwhen-contrib-rw-generic-codecollection-main`
+- `us-west1-docker.pkg.dev/runwhen-nonprod-beta/public-images/runwhen-contrib-rw-workspace-utils-main`
+
+**Image List Structure**:
+```json
+[
+  {
+    "repository_image": "ghcr.io/runwhen-contrib/runwhen-local",
+    "destination": "runwhen/runwhen-local", 
+    "helm_key": "runwhenLocal"
+  }
+]
+```
+
+**Helm Updates**: Updates `.images.{helm_key}.tag` in the values file
+
+**Usage**:
+```bash
+source aws_ecr_example_config.sh
+./sync_with_aws_ecr.sh
+```
+
+**Why No Docker Daemon?**: Uses `docker buildx imagetools create` for daemonless registry-to-registry copying, eliminating the need for a running Docker daemon while leveraging Docker's native tooling.
 
 ## TODO
 - allow repo override per image

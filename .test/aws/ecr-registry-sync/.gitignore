@@ -1,0 +1,45 @@
+# Test output and artifacts
+output/
+*.log
+*.txt
+test_values.yaml
+test_sync_script.sh
+
+# Terraform files
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/tfplan
+terraform/*.tfvars
+terraform/.terraform.tfstate.lock.info
+
+# AWS credentials and secrets
+*.secret
+aws_creds.json
+.aws/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak 
