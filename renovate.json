@@ -9,70 +9,106 @@
     ":automergeBranch"
   ],
   "timezone": "America/New_York",
-  "schedule": ["before 10am on monday"],
-  "labels": ["dependencies"],
-  "assignees": ["@runwhen-contrib/maintainers"],
-  "reviewers": ["@runwhen-contrib/maintainers"],
+  "schedule": [
+    "before 10am on monday"
+  ],
+  "labels": [
+    "dependencies"
+  ],
+  "assignees": [
+    "@runwhen-contrib/maintainers"
+  ],
+  "reviewers": [
+    "@runwhen-contrib/maintainers"
+  ],
   "prConcurrentLimit": 5,
   "prHourlyLimit": 2,
   "packageRules": [
     {
       "description": "Group Python dependencies",
-      "matchManagers": ["poetry"],
+      "matchManagers": [
+        "poetry"
+      ],
       "groupName": "Python dependencies",
-      "schedule": ["before 10am on monday"],
+      "schedule": [
+        "before 10am on monday"
+      ],
       "automerge": false,
       "reviewersFromCodeOwners": true
     },
     {
       "description": "Group Docker base images",
-      "matchManagers": ["dockerfile"],
-      "matchPackageNames": ["python"],
+      "matchManagers": [
+        "dockerfile"
+      ],
+      "matchPackageNames": [
+        "python"
+      ],
       "groupName": "Docker base images",
       "automerge": true,
       "minimumReleaseAge": "3 days"
     },
     {
       "description": "Group Kubernetes container images",
-      "matchManagers": ["kubernetes"],
+      "matchManagers": [
+        "kubernetes"
+      ],
       "groupName": "Kubernetes images",
       "automerge": false
     },
     {
       "description": "Exclude .test directory from all managers",
-      "matchPaths": [".test/**"],
+      "matchFileNames": [
+        ".test/**"
+      ],
       "enabled": false
     },
     {
       "description": "Auto-merge patch updates for stable tools",
-      "matchManagers": ["dockerfile"],
+      "matchManagers": [
+        "dockerfile"
+      ],
       "matchPackageNames": [
         "terraform",
         "kubectl",
         "yq",
         "trivy"
       ],
-      "matchUpdateTypes": ["patch"],
+      "matchUpdateTypes": [
+        "patch"
+      ],
       "automerge": true,
       "minimumReleaseAge": "3 days"
     },
     {
       "description": "Group GitHub Actions",
-      "matchManagers": ["github-actions"],
+      "matchManagers": [
+        "github-actions"
+      ],
       "groupName": "GitHub Actions",
       "automerge": true,
-      "matchUpdateTypes": ["patch", "pin", "digest"]
+      "matchUpdateTypes": [
+        "patch",
+        "pin",
+        "digest"
+      ]
     },
     {
       "description": "Separate major updates",
-      "matchUpdateTypes": ["major"],
+      "matchUpdateTypes": [
+        "major"
+      ],
       "automerge": false,
-      "schedule": ["before 10am on monday"],
-      "labels": ["dependencies", "major-update"],
+      "schedule": [
+        "before 10am on monday"
+      ],
+      "labels": [
+        "dependencies",
+        "major-update"
+      ],
       "reviewersFromCodeOwners": true
     }
   ],
-
   "dockerfile": {
     "enabled": true
   },
@@ -81,12 +117,18 @@
   },
   "poetry": {
     "enabled": true,
-    "fileMatch": ["(^|/)pyproject\\.toml$"]
+    "managerFilePatterns": [
+      "/(^|/)pyproject\\.toml$/"
+    ]
   },
-  "regexManagers": [
+  "customManagers": [
     {
+      "customType": "regex",
       "description": "Update Terraform version in Dockerfile",
-      "fileMatch": ["\\.dockerfile$", "Dockerfile$"],
+      "managerFilePatterns": [
+        "/\\.dockerfile$/",
+        "/Dockerfile$/"
+      ],
       "matchStrings": [
         "ENV TERRAFORM_VERSION=(?<currentValue>.*?)\\s"
       ],
@@ -95,8 +137,12 @@
       "extractVersionTemplate": "^v(?<version>.*)$"
     },
     {
+      "customType": "regex",
       "description": "Update Google Cloud CLI version in Dockerfile",
-      "fileMatch": ["\\.dockerfile$", "Dockerfile$"],
+      "managerFilePatterns": [
+        "/\\.dockerfile$/",
+        "/Dockerfile$/"
+      ],
       "matchStrings": [
         "ENV GCLOUD_CLI_VERSION=\"(?<currentValue>.*?)\"\\s"
       ],
@@ -105,8 +151,12 @@
       "extractVersionTemplate": "^(?<version>.*)$"
     },
     {
+      "customType": "regex",
       "description": "Update Node.js version in Dockerfile FROM statement",
-      "fileMatch": ["\\.dockerfile$", "Dockerfile$"],
+      "managerFilePatterns": [
+        "/\\.dockerfile$/",
+        "/Dockerfile$/"
+      ],
       "matchStrings": [
         "FROM node:(?<currentValue>.*?)(?:-alpine|-slim|-buster)?\\s"
       ],
@@ -115,8 +165,12 @@
       "extractVersionTemplate": "^(?<version>.*)$"
     },
     {
+      "customType": "regex",
       "description": "Update Python version in Dockerfile FROM statement",
-      "fileMatch": ["\\.dockerfile$", "Dockerfile$"],
+      "managerFilePatterns": [
+        "/\\.dockerfile$/",
+        "/Dockerfile$/"
+      ],
       "matchStrings": [
         "FROM python:(?<currentValue>.*?)(?:-alpine|-slim|-buster)?\\s"
       ],
@@ -125,8 +179,12 @@
       "extractVersionTemplate": "^(?<version>.*)$"
     },
     {
+      "customType": "regex",
       "description": "Update Poetry version in Dockerfile",
-      "fileMatch": ["\\.dockerfile$", "Dockerfile$"],
+      "managerFilePatterns": [
+        "/\\.dockerfile$/",
+        "/Dockerfile$/"
+      ],
       "matchStrings": [
         "POETRY_VERSION=(?<currentValue>.*?)\\s"
       ],
@@ -137,7 +195,9 @@
   ],
   "vulnerabilityAlerts": {
     "enabled": true,
-    "schedule": ["at any time"]
+    "schedule": [
+      "at any time"
+    ]
   },
   "osvVulnerabilityAlerts": true,
   "dependencyDashboard": true,
