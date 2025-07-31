@@ -36,11 +36,13 @@
       "description": "Group Kubernetes container images",
       "matchManagers": ["kubernetes"],
       "groupName": "Kubernetes images",
-      "automerge": false,
-      "excludePaths": [
-        "deploy/k8s/**",
-        "deploy/kubernetes/**"
-      ]
+      "automerge": false
+    },
+    {
+      "description": "Exclude deploy directories from kubernetes updates",
+      "matchManagers": ["kubernetes"],
+      "matchFiles": ["deploy/k8s/**", "deploy/kubernetes/**"],
+      "enabled": false
     },
     {
       "description": "Auto-merge patch updates for stable tools",
@@ -77,7 +79,7 @@
   },
   "kubernetes": {
     "enabled": true,
-    "fileMatch": [
+    "managerFilePatterns": [
       "**/*.yaml",
       "**/*.yml"
     ]
