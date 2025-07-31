@@ -39,12 +39,6 @@
       "automerge": false
     },
     {
-      "description": "Exclude deploy directories from kubernetes updates",
-      "matchManagers": ["kubernetes"],
-      "matchFiles": ["deploy/k8s/**", "deploy/kubernetes/**"],
-      "enabled": false
-    },
-    {
       "description": "Auto-merge patch updates for stable tools",
       "matchManagers": ["dockerfile"],
       "matchPackageNames": [
@@ -78,11 +72,7 @@
     "enabled": true
   },
   "kubernetes": {
-    "enabled": true,
-    "managerFilePatterns": [
-      "**/*.yaml",
-      "**/*.yml"
-    ]
+    "enabled": true
   },
   "poetry": {
     "enabled": true,
