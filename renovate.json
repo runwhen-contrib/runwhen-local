@@ -39,6 +39,11 @@
       "automerge": false
     },
     {
+      "description": "Exclude .test directory from all managers",
+      "matchPaths": [".test/**"],
+      "enabled": false
+    },
+    {
       "description": "Auto-merge patch updates for stable tools",
       "matchManagers": ["dockerfile"],
       "matchPackageNames": [
