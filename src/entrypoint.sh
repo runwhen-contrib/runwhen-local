@@ -17,6 +17,22 @@ function create_system_user_if_missing() {
 ## Handle permissions when UID is randomly assigned
 create_system_user_if_missing
 
+# Configure Git safe directories for local git cache
+# This prevents "dubious ownership" errors when useLocalGit: true
+CODE_COLLECTION_CACHE_ROOT="${CODE_COLLECTION_CACHE_ROOT:-/home/runwhen/codecollection-cache}"
+if [ -d "$CODE_COLLECTION_CACHE_ROOT" ]; then
+  echo "Configuring Git safe directories for local git cache..."
+  # Add the entire cache root as a safe directory
+  git config --global --add safe.directory "$CODE_COLLECTION_CACHE_ROOT"
+  # Add all .git directories in the cache as safe directories  
+  for repo_dir in "$CODE_COLLECTION_CACHE_ROOT"/*.git; do
+    if [ -d "$repo_dir" ]; then
+      git config --global --add safe.directory "$repo_dir"
+      echo "Added safe directory: $repo_dir"
+    fi
+  done
+fi
+
 OUTPUT="/shared/output"
 # Run mkdocs in the background
 # Check if the directory exists

@@ -55,7 +55,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        test: [ci-test-1, ci-test-2]  # Define multiple tests
+        test: [ci-test-1, ci-test-2, ci-test-local-git]  # Define multiple tests
     steps:
       - name: Install Task
         uses: arduino/setup-task@v2

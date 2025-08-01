@@ -292,6 +292,118 @@ tasks:
 
       silent: true
 
+  ci-test-local-git:
+      desc: "Run CI Discovery Test - Local Git Functionality Validation"
+      env:
+        RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace-local-git"}}'
+      vars: 
+        EXPECTED_SLXS: "5"
+      cmds:
+        - |
+          # Generate workspaceInfo.yaml with useLocalGit enabled and explicit code collections
+          cat <<EOF > workspaceInfo.yaml
+          workspaceName: "$RW_WORKSPACE"
+          workspaceOwnerEmail: authors@runwhen.com
+          defaultLocation: location-01
+          defaultLOD: none
+          useLocalGit: true
+          cloudConfig:
+            kubernetes:             
+              kubeconfigFile: /shared/kubeconfig.secret
+              contexts:
+                sandbox-cluster-1: 
+                  defaultNamespaceLOD: detailed
+          codeCollections: 
+            - repoURL: "https://github.com/runwhen-contrib/rw-public-codecollection.git"
+              branch: "main"
+              codeBundles: ["k8s-namespace-healthcheck"]
+          custom: 
+            kubernetes_distribution_binary: kubectl
+          EOF
+
+        - task: ci-run-rwl-discovery
+        - task: verify-local-git-logs
+        - task: verify-slx-count
+          vars:
+            EXPECTED_SLX_COUNT: "{{.EXPECTED_SLXS}}"
+
+      silent: true
+
+  verify-local-git-logs:
+    desc: "Verify that local git functionality worked correctly by checking logs"
+    cmds:
+      - |
+        echo "---Validating Local Git Functionality---"
+        
+        # Debug: Show early startup logs where git safe directory setup happens
+        echo "=== Early startup logs (first 100 lines) ==="
+        head -100 run_sh_output.log || echo "Log file not found or empty"
+        echo "=============================================="
+        
+        # Debug: Show recent logs to see final results
+        echo "=== Recent logs (last 20 lines) ==="
+        tail -20 run_sh_output.log || echo "Log file not found or empty"
+        echo "====================================="
+        
+        # Check if useLocalGit was detected
+        if grep -q "useLocalGit" run_sh_output.log; then
+          echo -e "\033[32m✔️ useLocalGit configuration detected in logs\033[0m"
+        else
+          echo -e "\033[33m⚠️ useLocalGit configuration not explicitly mentioned in logs (this may be normal)\033[0m"
+        fi
+        
+        # Check for git safe directory configuration (from entrypoint script)
+        if grep -q "Added safe directory:" run_sh_output.log; then
+          echo -e "\033[32m✔️ Git safe directories configured successfully\033[0m"
+          echo "Safe directory messages:"
+          grep -n "Added safe directory:" run_sh_output.log
+        else
+          echo -e "\033[31m❌ Git safe directory configuration not found in logs\033[0m"
+          echo "Looking for 'Configuring Git safe directories' message..."
+          grep -n "Configuring Git safe directories" run_sh_output.log || echo "Not found"
+          echo "Searching for any git config messages..."
+          grep -n -i "git config\|safe.directory" run_sh_output.log || echo "None found"
+          exit 1
+        fi
+        
+        # Check for local git cache usage (should happen when code collections are processed)
+        if grep -q "Using local git cache dir:" run_sh_output.log; then
+          echo -e "\033[32m✔️ Local git cache directory detected in logs\033[0m"
+          echo "Local git cache messages:"
+          grep -n "Using local git cache dir:" run_sh_output.log
+        else
+          echo -e "\033[33m⚠️ Local git cache directory message not found - checking if default code collections were processed...\033[0m"
+          # Look for alternative evidence that local git is working
+          if grep -q "CODE_COLLECTION_CACHE_ROOT" run_sh_output.log || grep -q "codecollection-cache" run_sh_output.log; then
+            echo -e "\033[32m✔️ Evidence of code collection cache found in logs\033[0m"
+          else
+            echo -e "\033[31m❌ No evidence of local git cache usage found\033[0m"
+            echo "Searching for any git-related messages..."
+            grep -n -i "git\|cache\|collection" run_sh_output.log || echo "None found"
+            exit 1
+          fi
+        fi
+        
+        # Most importantly: ensure no dubious ownership errors
+        if grep -q "SHA is empty, possible dubious ownership" run_sh_output.log; then
+          echo -e "\033[31m❌ Git dubious ownership error still occurring\033[0m"
+          grep -n "dubious ownership" run_sh_output.log
+          exit 1
+        else
+          echo -e "\033[32m✔️ No git dubious ownership errors detected\033[0m"
+        fi
+        
+        # Check if the workspace generation completed successfully
+        if grep -q "Error 500 from Workspace Builder" run_sh_output.log; then
+          echo -e "\033[31m❌ Workspace Builder error detected\033[0m"
+          exit 1
+        else
+          echo -e "\033[32m✔️ No Workspace Builder errors detected\033[0m"
+        fi
+        
+        echo -e "\033[32m✔️ Local Git Functionality Validation Passed\033[0m"
+    silent: true
+
   verify-slx-count: 
     desc: "Validate SLX Count in CI test"
     vars:
@@ -348,3 +460,4 @@ tasks:
         rm -rf output
         rm workspaceInfo.yaml
     silent: true
+
