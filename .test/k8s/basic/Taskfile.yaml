@@ -314,7 +314,7 @@ tasks:
                 sandbox-cluster-1: 
                   defaultNamespaceLOD: detailed
           codeCollections: 
-            - repoURL: "https://github.com/runwhen-contrib/rw-public-codecollection.git"
+            - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection.git"
               branch: "main"
               codeBundles: ["k8s-namespace-healthcheck"]
           custom: 
@@ -335,9 +335,20 @@ tasks:
       - |
         echo "---Validating Local Git Functionality---"
         
+        # Capture container logs to check for entrypoint.sh messages
+        CONTAINER_NAME="RunWhenLocal"
+        if docker ps -a -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Capturing container logs..."
+          docker logs "$CONTAINER_NAME" > container_logs.log 2>&1 || echo "Container not found"
+        fi
+        
         # Debug: Show early startup logs where git safe directory setup happens
         echo "=== Early startup logs (first 100 lines) ==="
-        head -100 run_sh_output.log || echo "Log file not found or empty"
+        if [ -f container_logs.log ]; then
+          head -200 container_logs.log
+        else
+          head -200 run_sh_output.log || echo "Log file not found or empty"
+        fi
         echo "=============================================="
         
         # Debug: Show recent logs to see final results
@@ -353,16 +364,27 @@ tasks:
         fi
         
         # Check for git safe directory configuration (from entrypoint script)
-        if grep -q "Added safe directory:" run_sh_output.log; then
+        # Look in container logs first (where entrypoint.sh runs), then fall back to run.sh logs
+        if [ -f container_logs.log ] && grep -q "Added safe directory:" container_logs.log; then
+          echo -e "\033[32m✔️ Git safe directories configured successfully\033[0m"
+          echo "Safe directory messages:"
+          grep -n "Added safe directory:" container_logs.log
+        elif grep -q "Added safe directory:" run_sh_output.log; then
           echo -e "\033[32m✔️ Git safe directories configured successfully\033[0m"
           echo "Safe directory messages:"
           grep -n "Added safe directory:" run_sh_output.log
         else
           echo -e "\033[31m❌ Git safe directory configuration not found in logs\033[0m"
           echo "Looking for 'Configuring Git safe directories' message..."
-          grep -n "Configuring Git safe directories" run_sh_output.log || echo "Not found"
+          if [ -f container_logs.log ]; then
+            grep -n "Configuring Git safe directories" container_logs.log || echo "Not found in container logs"
+          fi
+          grep -n "Configuring Git safe directories" run_sh_output.log || echo "Not found in run.sh logs"
           echo "Searching for any git config messages..."
-          grep -n -i "git config\|safe.directory" run_sh_output.log || echo "None found"
+          if [ -f container_logs.log ]; then
+            grep -n -i "git config\|safe.directory" container_logs.log || echo "None found in container logs"
+          fi
+          grep -n -i "git config\|safe.directory" run_sh_output.log || echo "None found in run.sh logs"
           exit 1
         fi
         
