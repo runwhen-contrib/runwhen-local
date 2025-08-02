@@ -132,7 +132,7 @@ RUN mkdir -p ${RUNWHEN_SHARED} \
 # ------------------------------------------------------------------
 # Args / env
 ARG INCLUDE_CODE_COLLECTION_CACHE=true
-ENV CODE_COLLECTION_CACHE_ROOT=/home/runwhen/codecollection-cache
+ENV CODE_COLLECTION_CACHE_ROOT=/opt/runwhen/codecollection-cache
 # ------------------------------------------------------------------
 
 # Copy defaults list so the build stage can read it

@@ -19,18 +19,38 @@ create_system_user_if_missing
 
 # Configure Git safe directories for local git cache
 # This prevents "dubious ownership" errors when useLocalGit: true
-CODE_COLLECTION_CACHE_ROOT="${CODE_COLLECTION_CACHE_ROOT:-/home/runwhen/codecollection-cache}"
-if [ -d "$CODE_COLLECTION_CACHE_ROOT" ]; then
-  echo "Configuring Git safe directories for local git cache..."
-  # Add the entire cache root as a safe directory
-  git config --global --add safe.directory "$CODE_COLLECTION_CACHE_ROOT"
-  # Add all .git directories in the cache as safe directories  
-  for repo_dir in "$CODE_COLLECTION_CACHE_ROOT"/*.git; do
-    if [ -d "$repo_dir" ]; then
-      git config --global --add safe.directory "$repo_dir"
-      echo "Added safe directory: $repo_dir"
-    fi
-  done
+CODE_COLLECTION_CACHE_ROOT="${CODE_COLLECTION_CACHE_ROOT:-/opt/runwhen/codecollection-cache}"
+
+echo "Configuring Git safe directories..."
+
+# Configure pre-built cache directories (both old and new paths for backward compatibility)
+for cache_root in "/opt/runwhen/codecollection-cache" "/home/runwhen/codecollection-cache"; do
+  if [ -d "$cache_root" ]; then
+    echo "Found cache directory: $cache_root"
+    # Add the entire cache root as a safe directory
+    git config --global --add safe.directory "$cache_root"
+    # Add all .git directories in the cache as safe directories  
+    for repo_dir in "$cache_root"/*.git; do
+      if [ -d "$repo_dir" ]; then
+        git config --global --add safe.directory "$repo_dir"
+        echo "Added safe directory: $repo_dir"
+      fi
+    done
+  fi
+done
+
+# Configure git safe directories for temporary directories that may be created at runtime
+# Python's TemporaryDirectory() typically creates directories under /tmp/tmp*
+# Also handle any custom WB_CODE_COLLECTION_CACHE_DIR that might be set
+echo "Configuring git safe directories for temporary locations..."
+git config --global --add safe.directory '/tmp/*'
+git config --global --add safe.directory '/tmp/tmp*'
+
+# Handle custom cache directory if WB_CODE_COLLECTION_CACHE_DIR is set
+if [ -n "$WB_CODE_COLLECTION_CACHE_DIR" ]; then
+  echo "Configuring git safe directory for custom cache: $WB_CODE_COLLECTION_CACHE_DIR"
+  git config --global --add safe.directory "$WB_CODE_COLLECTION_CACHE_DIR"
+  git config --global --add safe.directory "$WB_CODE_COLLECTION_CACHE_DIR/*"
 fi
 
 OUTPUT="/shared/output"
