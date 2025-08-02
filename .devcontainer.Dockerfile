@@ -1,4 +1,4 @@
-FROM python:3.12.6-slim
+FROM python:3.13.5-slim
 
 # Create a non-root user `runwhen` to run commands
 ENV RUNWHEN_HOME=/home/runwhen
