@@ -43,3 +43,6 @@ src/rw-cli-codecollection-cache
 **.kube
 **.bash_history**
 **/.azure-devops/
+.test/k8s/basic/container_logs.log
+.test/k8s/basic/run_sh_output.log
+

@@ -17,7 +17,7 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DEFAULT_TIMEOUT=100 \
     POETRY_HOME="/opt/poetry" \
     # renovate: datasource=github-releases depName=python-poetry/poetry
-    POETRY_VERSION=2.1.1 \
+    POETRY_VERSION=2.1.3 \
     POETRY_VIRTUALENVS_IN_PROJECT=true \
     POETRY_NO_INTERACTION=1 \
     PYSETUP_PATH="/opt/pysetup" \
@@ -132,7 +132,7 @@ RUN mkdir -p ${RUNWHEN_SHARED} \
 # ------------------------------------------------------------------
 # Args / env
 ARG INCLUDE_CODE_COLLECTION_CACHE=true
-ENV CODE_COLLECTION_CACHE_ROOT=/home/runwhen/codecollection-cache
+ENV CODE_COLLECTION_CACHE_ROOT=/opt/runwhen/codecollection-cache
 # ------------------------------------------------------------------
 
 # Copy defaults list so the build stage can read it
