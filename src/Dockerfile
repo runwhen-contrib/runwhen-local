@@ -1,11 +1,14 @@
-# renovate: datasource=docker depName=node
-FROM node:current-slim AS node-base
+# renovate: datasource=docker depName=python
+FROM python:3.13-slim AS node-base
 
+# Install Node.js from official NodeSource repository
 RUN apt-get update && apt-get install -y \
-    python3 \
-    pip \
-    entr \
     curl \
+    gnupg \
+    && curl -fsSL https://deb.nodesource.com/setup_current.x | bash - \
+    && apt-get install -y \
+    nodejs \
+    entr \
     && apt-get -y upgrade \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
