@@ -58,7 +58,7 @@ except Exception:
     pass
 
 LOCAL_CACHE_ROOT = os.getenv("CODE_COLLECTION_CACHE_ROOT",
-                             "/home/runwhen/codecollection-cache")
+                             "/opt/runwhen/codecollection-cache")
 
 def mirror_path(owner: str, repo: str) -> str:
     """Return the bare-mirror directory for owner/repo or '' if absent."""

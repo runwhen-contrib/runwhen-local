@@ -259,9 +259,24 @@ class CodeCollection:
             local_path = local_repo_path(self.repo_url)
             logger.info(f"Using local git cache dir: {local_path}")
             if os.path.isdir(local_path):
-                self.repo_directory_path = local_path
-                self.repo = Repo(local_path)
-                return  # nothing to fetch – offline
+                try:
+                    self.repo_directory_path = local_path
+                    self.repo = Repo(local_path)
+                    return  # nothing to fetch – offline
+                except Exception as e:
+                    error_msg = str(e)
+                    if "dubious ownership" in error_msg or "SHA is empty" in error_msg:
+                        logger.error(f"Git ownership error accessing {local_path}. "
+                                   f"This usually indicates the repository was created by a different user. "
+                                   f"To fix this, run: git config --global --add safe.directory {local_path}")
+                        raise WorkspaceBuilderUserException(
+                            f"Git repository access denied due to ownership issues at {local_path}. "
+                            f"The repository may have been created by a different user. "
+                            f"Please ensure the entrypoint script properly configures git safe directories."
+                        ) from e
+                    else:
+                        # Re-raise other git-related errors
+                        raise
 
         # fallback: online clone (mirror=True ensures tags)
         if not self.repo_directory_path:
