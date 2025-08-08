@@ -60,7 +60,6 @@ tasks:
               sandbox-cluster-1: 
                 defaultNamespaceLOD: basic
         codeCollections: []
-        useLocalGit: true
         # codeCollections: 
         #   - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection"
         #     branch: "main"
@@ -301,7 +300,7 @@ tasks:
       env:
         RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace-local-git"}}'
       vars: 
-        EXPECTED_SLXS: "5"
+        EXPECTED_SLXS: "1"
       cmds:
         - |
           # Generate workspaceInfo.yaml with useLocalGit enabled and explicit code collections
@@ -310,17 +309,25 @@ tasks:
           workspaceOwnerEmail: authors@runwhen.com
           defaultLocation: location-01
           defaultLOD: none
-          useLocalGit: true
           cloudConfig:
             kubernetes:             
               kubeconfigFile: /shared/kubeconfig.secret
               contexts:
                 sandbox-cluster-1: 
                   defaultNamespaceLOD: detailed
-          codeCollections: 
-            - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection.git"
-              branch: "main"
-              codeBundles: ["k8s-namespace-healthcheck"]
+          codeCollections:
+          - repoURL: https://github.com/runwhen-contrib/rw-public-codecollection.git
+            tag: v0.0.19
+          - repoURL: https://github.com/runwhen-contrib/rw-cli-codecollection.git
+            tag: v0.0.25
+            codeBundles: ["k8s-cluster-resource-health"]
+          - repoURL: https://github.com/runwhen-contrib/rw-workspace-utils.git
+            tag: v0.0.4
+          - repoURL: https://github.com/runwhen-contrib/rw-generic-codecollection.git
+            tag: v0.0.3
+          - repoURL: https://github.com/runwhen-contrib/azure-c7n-codecollection.git
+            tag: v0.0.1
+          useLocalGit: true
           custom: 
             kubernetes_distribution_binary: kubectl
           EOF

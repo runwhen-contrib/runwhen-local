@@ -47,3 +47,4 @@ src/rw-cli-codecollection-cache
 .test/k8s/basic/run_sh_output.log
 
 .test/k8s/basic/.gitconfig
+.test/k8s/basic/run_sh_output.log
