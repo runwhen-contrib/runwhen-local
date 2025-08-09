@@ -257,6 +257,7 @@ tasks:
           vars:
             EXPECTED_SLX_COUNT: "{{.EXPECTED_SLXS}}"
         - task: verify-rwl-output
+        - task: validate-k8s-yaml
       silent: true
 
 
@@ -292,6 +293,8 @@ tasks:
         - task: verify-slx-count
           vars:
             EXPECTED_SLX_COUNT: "{{.EXPECTED_SLXS}}"
+        - task: validate-k8s-yaml
+
 
       silent: true
 
@@ -337,6 +340,7 @@ tasks:
         - task: verify-slx-count
           vars:
             EXPECTED_SLX_COUNT: "{{.EXPECTED_SLXS}}"
+        - task: validate-k8s-yaml
 
       silent: true
 
@@ -497,4 +501,30 @@ tasks:
         rm -rf output
         rm workspaceInfo.yaml
     silent: true
+
+  validate-k8s-yaml:
+    desc: "Validate generated YAML files for K8s compatibility issues"
+    cmds:
+      - |
+        if [ ! -d "output" ]; then
+          echo "❌ Output directory does not exist. Run discovery first."
+          exit 1
+        fi
+        echo "🔍 Validating K8s YAML compatibility..."
+        python3 ../validate-yaml-compatibility.py output/workspaces/
+    silent: false
+
+  ci-test-with-validation:
+    desc: "Run CI test with K8s YAML validation"
+    cmds:
+      - task: generate-rwl-config-basic
+      - task: build-rwl
+      - task: run-rwl-discovery
+      - task: validate-k8s-yaml
+      - echo "✅ CI test with validation completed successfully!"
+
+  validate-only:
+    desc: "Run only YAML validation on existing output (for quick testing)"
+    cmds:
+      - task: validate-k8s-yaml
 
