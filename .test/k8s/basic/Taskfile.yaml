@@ -245,8 +245,8 @@ tasks:
                 sandbox-cluster-1: 
                   defaultNamespaceLOD: detailed
               
-              # namespaces:
-              #   - ci-verify-basic
+              namespaces:
+                - ci-verify-basic
           codeCollections: []
           custom: 
             kubernetes_distribution_binary: kubectl
