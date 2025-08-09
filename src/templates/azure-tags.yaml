@@ -44,7 +44,7 @@
 {% for k, v in tags.items() %}
     {% if v and v|string|trim != "" %}
     - name: "[azure]{{ k | string }}"
-      value: "{{ v | string }}"
+      value: '{{ v | string }}'
     {% endif %}
 {% endfor %}
 {% endif %}

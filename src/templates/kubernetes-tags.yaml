@@ -56,7 +56,7 @@
 {% for k, v in match_resource.resource.metadata.labels.items() %}
     {% if v and v|string|trim != "" %}
     - name: "[k8s]{{ k | string }}"
-      value: "{{ v | string }}"
+      value: '{{ v | string }}'
     {% endif %}
 {% endfor %}
 {% endif %}
