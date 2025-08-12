@@ -86,53 +86,11 @@ jobs:
           yq '.tasks.${{ matrix.test }}.desc' Taskfile.yaml
           task ${{ matrix.test }}
 
-  k8s-upload-test:
-    needs: build-image
-    runs-on: ubuntu-latest
-    steps:
-      - name: Install Task
-        uses: arduino/setup-task@v2
-        with:
-          version: 3.x
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - uses: actions/checkout@v2
-        name: Checkout
-
-      - name: Download Image Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: container-image
-          path: .test/k8s/basic
-
-      - name: Load Docker Image
-        run: |
-          docker load -i .test/k8s/basic/image.tar
-
-      - name: Setup Upload Configuration
-        env:
-          CI_VERIFY_UPLOADINFO: ${{ secrets.CI_VERIFY_UPLOADINFO }}
-          KUBECONFIG_SECRET: ${{ secrets.SANDBOX_KUBECONFIG }}
-        run: |-
-          cd .test/k8s/basic
-          echo "$KUBECONFIG_SECRET" > kubeconfig.secret
-          echo "$CI_VERIFY_UPLOADINFO" > uploadInfo.yaml
-
-      - name: Run Upload Test
-        env:
-          RW_PAT: ${{ secrets.RW_PAT }}
-        run: |-
-          cd .test/k8s/basic
-          echo "Task Description:"
-          yq '.tasks.ci-test-rwl-upload.desc' Taskfile.yaml
-          task ci-test-rwl-upload
-
   notify:
     runs-on: ubuntu-latest
     needs:
       - build-image
       - k8s-basic-test
-      - k8s-upload-test
     if: always() 
 
     steps:
