@@ -1037,6 +1037,8 @@ tasks:
                 else
                   # Commit and push changes
                   echo "Committing changes..."
+                  git config user.email "ci-test@runwhen.com"
+                  git config user.name "CI Test Bot"
                   git add .
                   git commit -m "CI test pre-cleanup - reset workspace for clean upload test"
                   echo "Pushing changes..."
@@ -1646,171 +1648,29 @@ tasks:
         echo "Cleaning up workspace content uploaded by RunWhen Local..."
         echo "This requires resetting the workspace git repository..."
         
-        # Get current workspace info to find the git repository with retries for 500s
-        WORKSPACE_INFO_URL="${papiURL}/api/v3/workspaces/${workspaceName}"
-        workspace_response=""
-        for retry_attempt in {1..5}; do
-          echo "Attempting to get workspace info (attempt $retry_attempt/5)..."
-          workspace_response=$(curl -s -X GET "$WORKSPACE_INFO_URL" \
+
+        echo "Fetching GitLab credentials for fallback reset..."
+        GITLAB_SAS_URL="${papiURL}/api/v3/workspaces/${workspaceName}/get-gitlab-sas"
+        
+        sas_response=""
+        for sas_retry in {1..3}; do
+          echo "GitLab SAS attempt $sas_retry/3..."
+          sas_response=$(curl -s -X GET "$GITLAB_SAS_URL" \
             -H "Authorization: Bearer $RW_PAT" \
             -H "Content-Type: application/json" \
             -w "%{http_code}" \
-            -o workspace_info.json)
+            -o gitlab_sas.json)
           
-          if [[ "$workspace_response" == "200" ]]; then
-            echo "✅ Successfully retrieved workspace info"
+          if [[ "$sas_response" == "200" ]]; then
+            echo "✅ Successfully retrieved GitLab SAS credentials"
             break
-          elif [[ "$workspace_response" == "500" ]]; then
-            echo "⚠️ Server 500 error (attempt $retry_attempt/5), retrying in 3 seconds..."
+          elif [[ "$sas_response" == "500" ]]; then
+            echo "⚠️ Server 500 error on GitLab SAS attempt $sas_retry/3, retrying in 3 seconds..."
             sleep 3
           else
-            echo "⚠️ Unexpected response: $workspace_response (attempt $retry_attempt/5)"
+            echo "⚠️ Unexpected GitLab SAS response: $sas_response (attempt $sas_retry/3)"
             sleep 2
-          fi
-        done
 
-        if [[ "$workspace_response" == "200" ]]; then
-          git_url=$(jq -r '.gitUrl // empty' workspace_info.json 2>/dev/null)
-          default_branch=$(jq -r '.defaultBranch // "main"' workspace_info.json 2>/dev/null)
-          
-          if [ -n "$git_url" ]; then
-            echo "Found workspace git repository: $git_url"
-            echo "Default branch: $default_branch"
-          else
-            echo "⚠️ Could not get workspace info via API (status: $workspace_response)"
-            echo "Falling back to GitLab SAS credentials method..."
-            
-            # Fallback: Use GitLab SAS credentials to reset workspace
-            echo "Fetching GitLab credentials for fallback reset..."
-            GITLAB_SAS_URL="${papiURL}/api/v3/workspaces/${workspaceName}/get-gitlab-sas"
-            
-            sas_response=""
-            for sas_retry in {1..3}; do
-              echo "GitLab SAS attempt $sas_retry/3..."
-              sas_response=$(curl -s -X GET "$GITLAB_SAS_URL" \
-                -H "Authorization: Bearer $RW_PAT" \
-                -H "Content-Type: application/json" \
-                -w "%{http_code}" \
-                -o gitlab_sas.json)
-              
-              if [[ "$sas_response" == "200" ]]; then
-                echo "✅ Successfully retrieved GitLab SAS credentials"
-                break
-              elif [[ "$sas_response" == "500" ]]; then
-                echo "⚠️ Server 500 error on GitLab SAS attempt $sas_retry/3, retrying in 3 seconds..."
-                sleep 3
-              else
-                echo "⚠️ Unexpected GitLab SAS response: $sas_response (attempt $sas_retry/3)"
-                sleep 2
-              fi
-            done
-            
-            if [[ "$sas_response" == "200" ]]; then
-              # Extract admin user credentials (non-readonly user)
-              admin_username=$(jq -r '.users[] | select(.is_readonly == false) | .username' gitlab_sas.json 2>/dev/null)
-              admin_password=$(jq -r '.users[] | select(.is_readonly == false) | .password' gitlab_sas.json 2>/dev/null)
-              
-              if [ -n "$admin_username" ] && [ -n "$admin_password" ]; then
-                echo "Retrieved GitLab admin credentials for user: $admin_username"
-                
-                # Construct GitLab URL by replacing papi. with git.
-                GITLAB_URL=$(echo "$papiURL" | sed 's/papi\./git./')
-                REPO_URL="${GITLAB_URL}/platform-cluster-01/${workspaceName}.git"
-                echo "Git repository URL: $REPO_URL"
-                
-                # Extract repo name and set up clone directory
-                REPO_NAME=$(basename -s .git "$REPO_URL")
-                CLONE_DIR=$REPO_NAME
-                rm -rf $CLONE_DIR || true 
-                TARGET_BRANCH="main"
-
-                # Clone the repo with GitLab SAS authentication
-                echo "Cloning repository with SAS credentials..."
-                git clone --depth 1 "https://${admin_username}:${admin_password}@${REPO_URL#https://}" "$CLONE_DIR"
-                if [ $? -ne 0 ]; then
-                  echo "❌ Failed to clone repository"
-                  exit 1
-                fi
-
-                cd "$CLONE_DIR" || exit 1
-
-                # Checkout the target branch
-                git checkout "$TARGET_BRANCH"
-
-                # Remove workspace-builder artifacts
-                echo "Removing content and workspace builder files"
-                rm -rf slxs 
-                rm -rf workflows 
-                rm -f .workspace-builder-manifest.yaml
-                yq eval 'del(.metadata.annotations) | .spec.slxGroups = []' -i workspace.yaml
-
-                # Check for changes
-                if git diff --quiet && git diff --cached --quiet; then
-                  echo "✅ Workspace is already clean - no changes needed"
-                  cd ..
-                  rm -rf "$CLONE_DIR"
-                else
-                  # Commit and push changes
-                  echo "Committing changes..."
-                  git add .
-                  git commit -m "CI test cleanup - reset workspace via fallback method"
-                  echo "Pushing changes..."
-                  git push origin "$TARGET_BRANCH"
-                  
-                  if [ $? -ne 0 ]; then
-                    echo "❌ Failed to push workspace reset"
-                    cd ..
-                    rm -rf "$CLONE_DIR"
-                    exit 1
-                  fi
-                  
-                  echo "✅ Workspace reset committed and pushed via fallback method"
-                  
-                  # Cleanup
-                  cd ..
-                  rm -rf "$CLONE_DIR"
-                fi
-                
-                echo "✅ Fallback workspace reset completed"
-                exit 0
-              else
-                echo "❌ Could not extract admin credentials from GitLab SAS response"
-                exit 1
-              fi
-            else
-              echo "❌ Failed to fetch GitLab SAS credentials (status: $sas_response)"
-              echo "⚠️ Workspace cleanup failed - manual cleanup may be required"
-              exit 1
-            fi
-          fi
-        else
-          echo "⚠️ Could not get workspace info via API (status: $workspace_response)"
-          echo "Falling back to GitLab SAS credentials method..."
-          
-          # Fallback: Use GitLab SAS credentials to reset workspace
-          echo "Fetching GitLab credentials for fallback reset..."
-          GITLAB_SAS_URL="${papiURL}/api/v3/workspaces/${workspaceName}/get-gitlab-sas"
-          
-          sas_response=""
-          for sas_retry in {1..3}; do
-            echo "GitLab SAS attempt $sas_retry/3..."
-            sas_response=$(curl -s -X GET "$GITLAB_SAS_URL" \
-              -H "Authorization: Bearer $RW_PAT" \
-              -H "Content-Type: application/json" \
-              -w "%{http_code}" \
-              -o gitlab_sas.json)
-            
-            if [[ "$sas_response" == "200" ]]; then
-              echo "✅ Successfully retrieved GitLab SAS credentials"
-              break
-            elif [[ "$sas_response" == "500" ]]; then
-              echo "⚠️ Server 500 error on GitLab SAS attempt $sas_retry/3, retrying in 3 seconds..."
-              sleep 3
-            else
-              echo "⚠️ Unexpected GitLab SAS response: $sas_response (attempt $sas_retry/3)"
-              sleep 2
-            fi
-          done
           
           if [[ "$sas_response" == "200" ]]; then
             # Extract admin user credentials (non-readonly user)
@@ -1859,6 +1719,8 @@ tasks:
               else
                 # Commit and push changes
                 echo "Committing changes..."
+                git config user.email "ci-test@runwhen.com"
+                git config user.name "CI Test Bot"
                 git add .
                 git commit -m "CI test cleanup - reset workspace via fallback method"
                 echo "Pushing changes..."
