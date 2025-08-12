@@ -44,7 +44,15 @@ src/rw-cli-codecollection-cache
 **.bash_history**
 **/.azure-devops/
 .test/k8s/basic/container_logs.log
-.test/k8s/basic/run_sh_output.log
 
 .test/k8s/basic/.gitconfig
+.test/k8s/basic/run_sh_upload_output.log
+.test/k8s/basic/pre_reset_sync_status.json
+.test/k8s/basic/existing_slxs.json
+.test/k8s/basic/final_slx_check.json
+.test/k8s/basic/gitlab_sas.json
 .test/k8s/basic/run_sh_output.log
+.test/k8s/basic/uploaded_slx_name.txt
+.test/k8s/basic/slx_list.json
+.test/k8s/basic/sync_status_rwl.json
+.test/k8s/basic/current_sync_status.json
