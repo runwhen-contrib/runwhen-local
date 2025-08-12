@@ -1891,107 +1891,101 @@ tasks:
           fi
         fi
             
-            # Try to reset the workspace by clearing the main branch
-            # This uses the workspace reset API if available
-            RESET_URL="${papiURL}/api/v3/workspaces/${workspaceName}/reset"
-            echo "Attempting to reset workspace via API..."
-            
-            reset_response=""
-            for reset_retry in {1..3}; do
-              echo "Reset attempt $reset_retry/3..."
-              reset_response=$(curl -s -X POST "$RESET_URL" \
-                -H "Authorization: Bearer $RW_PAT" \
-                -H "Content-Type: application/json" \
-                -d '{"resetToEmpty": true, "message": "CI test cleanup - reset workspace"}' \
-                -w "%{http_code}" \
-                -o reset_response.json)
-              
-              if [[ "$reset_response" == "200" || "$reset_response" == "202" ]]; then
-                echo "✅ Workspace reset API call successful"
-                break
-              elif [[ "$reset_response" == "500" ]]; then
-                echo "⚠️ Server 500 error on reset attempt $reset_retry/3, retrying in 5 seconds..."
-                sleep 5
-              else
-                echo "⚠️ Unexpected reset response: $reset_response (attempt $reset_retry/3)"
-                sleep 3
-              fi
-            done
+        # Try to reset the workspace by clearing the main branch
+        # This uses the workspace reset API if available
+        RESET_URL="${papiURL}/api/v3/workspaces/${workspaceName}/reset"
+        echo "Attempting to reset workspace via API..."
+        
+        reset_response=""
+        for reset_retry in {1..3}; do
+          echo "Reset attempt $reset_retry/3..."
+          reset_response=$(curl -s -X POST "$RESET_URL" \
+            -H "Authorization: Bearer $RW_PAT" \
+            -H "Content-Type: application/json" \
+            -d '{"resetToEmpty": true, "message": "CI test cleanup - reset workspace"}' \
+            -w "%{http_code}" \
+            -o reset_response.json)
+          
+          if [[ "$reset_response" == "200" || "$reset_response" == "202" ]]; then
+            echo "✅ Workspace reset API call successful"
+            break
+          elif [[ "$reset_response" == "500" ]]; then
+            echo "⚠️ Server 500 error on reset attempt $reset_retry/3, retrying in 5 seconds..."
+            sleep 5
+          else
+            echo "⚠️ Unexpected reset response: $reset_response (attempt $reset_retry/3)"
+            sleep 3
+          fi
+        done
 
-            if [[ "$reset_response" == "200" || "$reset_response" == "202" ]]; then
-              echo "✅ Workspace reset initiated successfully"
+        if [[ "$reset_response" == "200" || "$reset_response" == "202" ]]; then
+          echo "✅ Workspace reset initiated successfully"
+          
+          # Wait for reset to complete
+          echo "Waiting for workspace reset to complete..."
+          sleep 30
+          
+          # Verify reset completed
+          max_reset_attempts=12  # 2 minutes
+          reset_attempt=1
+          
+          while [ $reset_attempt -le $max_reset_attempts ]; do
+            echo "Checking reset status (attempt $reset_attempt/$max_reset_attempts)..."
+            
+            sync_response=$(curl -s -X GET "${papiURL}/api/v3/workspaces/${workspaceName}/sync-status" \
+              -H "Authorization: Bearer $RW_PAT" \
+              -H "Content-Type: application/json" \
+              -w "%{http_code}" \
+              -o reset_sync_status.json)
+
+            if [[ "$sync_response" == "200" ]]; then
+              ready_status=$(jq -r '.status.conditions[] | select(.type=="Ready") | .status' reset_sync_status.json 2>/dev/null)
+              ready_reason=$(jq -r '.status.conditions[] | select(.type=="Ready") | .reason' reset_sync_status.json 2>/dev/null)
               
-              # Wait for reset to complete
-              echo "Waiting for workspace reset to complete..."
-              sleep 30
-              
-              # Verify reset completed
-              max_reset_attempts=12  # 2 minutes
-              reset_attempt=1
-              
-              while [ $reset_attempt -le $max_reset_attempts ]; do
-                echo "Checking reset status (attempt $reset_attempt/$max_reset_attempts)..."
-                
-                sync_response=$(curl -s -X GET "${papiURL}/api/v3/workspaces/${workspaceName}/sync-status" \
+              if [[ "$ready_status" == "True" && "$ready_reason" == "ReconciliationSucceeded" ]]; then
+                # Check if workspace is now empty
+                SLX_LIST_URL="${papiURL}/api/v3/workspaces/${workspaceName}/slxs"
+                slx_check_response=$(curl -s -X GET "$SLX_LIST_URL" \
                   -H "Authorization: Bearer $RW_PAT" \
                   -H "Content-Type: application/json" \
                   -w "%{http_code}" \
-                  -o reset_sync_status.json)
+                  -o slx_check.json)
 
-                if [[ "$sync_response" == "200" ]]; then
-                  ready_status=$(jq -r '.status.conditions[] | select(.type=="Ready") | .status' reset_sync_status.json 2>/dev/null)
-                  ready_reason=$(jq -r '.status.conditions[] | select(.type=="Ready") | .reason' reset_sync_status.json 2>/dev/null)
+                if [[ "$slx_check_response" == "200" ]]; then
+                  remaining_slxs=$(jq '.count // (.results | length)' slx_check.json 2>/dev/null || echo "unknown")
+                  echo "Remaining SLXs after reset: $remaining_slxs"
                   
-                  if [[ "$ready_status" == "True" && "$ready_reason" == "ReconciliationSucceeded" ]]; then
-                    # Check if workspace is now empty
-                    SLX_LIST_URL="${papiURL}/api/v3/workspaces/${workspaceName}/slxs"
-                    slx_check_response=$(curl -s -X GET "$SLX_LIST_URL" \
-                      -H "Authorization: Bearer $RW_PAT" \
-                      -H "Content-Type: application/json" \
-                      -w "%{http_code}" \
-                      -o slx_check.json)
-
-                    if [[ "$slx_check_response" == "200" ]]; then
-                      remaining_slxs=$(jq '.count // (.results | length)' slx_check.json 2>/dev/null || echo "unknown")
-                      echo "Remaining SLXs after reset: $remaining_slxs"
-                      
-                      if [[ "$remaining_slxs" == "0" ]]; then
-                        echo "✅ Workspace successfully reset - no SLXs remaining"
-                        break
-                      else
-                        echo "⚠️ Workspace reset complete but $remaining_slxs SLXs still present"
-                        if [ $reset_attempt -eq $max_reset_attempts ]; then
-                          echo "⚠️ Workspace may not be fully clean but reset completed"
-                        fi
-                      fi
-                    else
-                      echo "⚠️ Could not verify SLX count after reset (status: $slx_check_response)"
-                    fi
+                  if [[ "$remaining_slxs" == "0" ]]; then
+                    echo "✅ Workspace successfully reset - no SLXs remaining"
                     break
                   else
-                    echo "⏳ Workspace still processing reset (status: $ready_status, reason: $ready_reason)..."
+                    echo "⚠️ Workspace reset complete but $remaining_slxs SLXs still present"
+                    if [ $reset_attempt -eq $max_reset_attempts ]; then
+                      echo "⚠️ Workspace may not be fully clean but reset completed"
+                    fi
                   fi
+                else
+                  echo "⚠️ Could not verify SLX count after reset (status: $slx_check_response)"
                 fi
-                
-                if [ $reset_attempt -lt $max_reset_attempts ]; then
-                  sleep 10
-                fi
-                reset_attempt=$((reset_attempt + 1))
-              done
-              
-            else
-              echo "⚠️ Workspace reset API not available or failed (status: $reset_response)"
-              echo "Manual cleanup may be required"
-              if [ -f reset_response.json ]; then
-                echo "Reset response:"
-                cat reset_response.json
+                break
+              else
+                echo "⏳ Workspace still processing reset (status: $ready_status, reason: $ready_reason)..."
               fi
             fi
-          else
-            echo "⚠️ Could not determine git repository URL for workspace"
-          fi
+            
+            if [ $reset_attempt -lt $max_reset_attempts ]; then
+              sleep 10
+            fi
+            reset_attempt=$((reset_attempt + 1))
+          done
+          
         else
-          echo "⚠️ Could not get workspace information (status: $workspace_response)"
+          echo "⚠️ Workspace reset API not available or failed (status: $reset_response)"
+          echo "Manual cleanup may be required"
+          if [ -f reset_response.json ]; then
+            echo "Reset response:"
+            cat reset_response.json
+          fi
         fi
         
         # Clean up temporary files
