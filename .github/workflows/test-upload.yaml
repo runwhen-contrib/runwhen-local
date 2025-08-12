@@ -38,7 +38,7 @@ jobs:
 
       - name: Build Image
         run: |-
-          cd .test/k8s/basic
+          cd .test/k8s/upload
           docker buildx create --use --name=mybuilder
           docker buildx inspect --bootstrap
           task build-rwl
@@ -48,7 +48,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: container-image
-          path: .test/k8s/basic/image.tar
+          path: .test/k8s/upload/image.tar
           retention-days: 1
 
   k8s-upload-test:
@@ -68,18 +68,18 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: container-image
-          path: .test/k8s/basic
+          path: .test/k8s/upload
 
       - name: Load Docker Image
         run: |
-          docker load -i .test/k8s/basic/image.tar
+          docker load -i .test/k8s/upload/image.tar
 
       - name: Setup Upload Configuration
         env:
           CI_VERIFY_UPLOADINFO: ${{ secrets.CI_VERIFY_UPLOADINFO }}
           KUBECONFIG_SECRET: ${{ secrets.SANDBOX_KUBECONFIG }}
         run: |-
-          cd .test/k8s/basic
+          cd .test/k8s/upload
           echo "$KUBECONFIG_SECRET" > kubeconfig.secret
           echo "$CI_VERIFY_UPLOADINFO" > uploadInfo.yaml
 
@@ -87,7 +87,7 @@ jobs:
         env:
           RW_PAT: ${{ secrets.RW_PAT }}
         run: |-
-          cd .test/k8s/basic
+          cd .test/k8s/upload
           echo "Task Description:"
           yq '.tasks.ci-test-rwl-upload.desc' Taskfile.yaml
           task ci-test-rwl-upload

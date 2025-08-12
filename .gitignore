@@ -56,3 +56,5 @@ src/rw-cli-codecollection-cache
 .test/k8s/basic/slx_list.json
 .test/k8s/basic/sync_status_rwl.json
 .test/k8s/basic/current_sync_status.json
+.test/k8s/upload/.gitconfig
+.test/k8s/upload/gitlab_sas.json
