@@ -1,13 +1,16 @@
-# Build source image and test against K8s
-name: Discovery K8s Tests
+# Dedicated Upload Test Workflow - Runs on Cron Schedule
+name: Upload Test
 
 on:
   workflow_dispatch:
   pull_request:
     paths:
       - "src/**"
-      - ".github/workflows/test-k8s.yaml"
+      - ".github/workflows/test-upload.yaml"
       - "!src/VERSION"
+  schedule:
+    # Run every day at 2 AM UTC (adjust as needed)
+    - cron: '0 2 * * *'
 
 permissions:
   contents: "read"
@@ -35,27 +38,22 @@ jobs:
 
       - name: Build Image
         run: |-
-          cd .test/k8s/basic
+          cd .test/k8s/upload
           docker buildx create --use --name=mybuilder
           docker buildx inspect --bootstrap
           task build-rwl
           docker save -o image.tar runwhen-local:test || (echo "Image not found!" && exit 1)
 
-
       - name: Upload Image as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: container-image
-          path: .test/k8s/basic/image.tar
+          path: .test/k8s/upload/image.tar
           retention-days: 1
 
-  k8s-basic-test:
+  k8s-upload-test:
     needs: build-image
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        test: [ci-test-1, ci-test-2, ci-test-local-git]  # Define multiple tests
     steps:
       - name: Install Task
         uses: arduino/setup-task@v2
@@ -70,27 +68,35 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: container-image
-          path: .test/k8s/basic
+          path: .test/k8s/upload
 
       - name: Load Docker Image
         run: |
-          docker load -i .test/k8s/basic/image.tar
+          docker load -i .test/k8s/upload/image.tar
 
-      - name: Run Test - ${{ matrix.test }}
+      - name: Setup Upload Configuration
         env:
+          CI_VERIFY_UPLOADINFO: ${{ secrets.CI_VERIFY_UPLOADINFO }}
           KUBECONFIG_SECRET: ${{ secrets.SANDBOX_KUBECONFIG }}
         run: |-
-          cd .test/k8s/basic
+          cd .test/k8s/upload
           echo "$KUBECONFIG_SECRET" > kubeconfig.secret
+          echo "$CI_VERIFY_UPLOADINFO" > uploadInfo.yaml
+
+      - name: Run Upload Test
+        env:
+          RW_PAT: ${{ secrets.RW_PAT }}
+        run: |-
+          cd .test/k8s/upload
           echo "Task Description:"
-          yq '.tasks.${{ matrix.test }}.desc' Taskfile.yaml
-          task ${{ matrix.test }}
+          yq '.tasks.ci-test-rwl-upload.desc' Taskfile.yaml
+          task ci-test-rwl-upload
 
   notify:
     runs-on: ubuntu-latest
     needs:
       - build-image
-      - k8s-basic-test
+      - k8s-upload-test
     if: always() 
 
     steps:
@@ -103,11 +109,10 @@ jobs:
             echo "status=✅ *Success*" >> $GITHUB_ENV
           fi
 
-
       - name: Send Slack Notification
         uses: slackapi/slack-github-action@v1
         with:
           channel-id: "#runwhen-local"
           slack-message: "${{ env.status }} - Workflow *${{ github.workflow }}* in repo *${{ github.repository }}* on branch *${{ github.ref_name }}*.\nSee the run: <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"
         env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }} 

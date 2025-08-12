@@ -527,4 +527,3 @@ tasks:
     desc: "Run only YAML validation on existing output (for quick testing)"
     cmds:
       - task: validate-k8s-yaml
-
