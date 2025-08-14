@@ -255,9 +255,9 @@ jobs:
       - name: Set Workflow Status
         id: status
         run: |
-          if [[ "${{ needs.publish-manifest.result == 'failure' || needs.deploy-to-sandbox.result == 'failure' || needs.scan-repo.result == 'failure' }}" == "true" ]]; then
+          if [[ "${{ needs.publish-manifest.result }}" == "failure" || "${{ needs.deploy-to-sandbox.result }}" == "failure" || "${{ needs.scan-repo.result }}" == "failure" ]]; then
             echo "status=❌ *Failure*" >> $GITHUB_ENV
-          elif [[ "${{ needs.publish-manifest.result == 'cancelled' || needs.deploy-to-sandbox.result == 'cancelled' || needs.scan-repo.result == 'cancelled' }}" == "true" ]]; then
+          elif [[ "${{ needs.publish-manifest.result }}" == "cancelled" || "${{ needs.deploy-to-sandbox.result }}" == "cancelled" || "${{ needs.scan-repo.result }}" == "cancelled" ]]; then
             echo "status=⚠️ *Cancelled*" >> $GITHUB_ENV
           else
             echo "status=✅ *Success*" >> $GITHUB_ENV
