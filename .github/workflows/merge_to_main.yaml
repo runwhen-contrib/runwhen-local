@@ -56,6 +56,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
     env:
       IMAGE: runwhen-local
       SHARED_ARTIFACT_REPOSITORY_PATH: us-docker.pkg.dev/runwhen-nonprod-shared/public-images
@@ -107,6 +108,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
     env:
       IMAGE: runwhen-local
       SHARED_ARTIFACT_REPOSITORY_PATH: us-docker.pkg.dev/runwhen-nonprod-shared/public-images
@@ -154,6 +156,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
     env:
       IMAGE: runwhen-local
       SHARED_ARTIFACT_REPOSITORY_PATH: us-docker.pkg.dev/runwhen-nonprod-shared/public-images
