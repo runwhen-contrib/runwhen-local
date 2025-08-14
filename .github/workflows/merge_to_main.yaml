@@ -26,7 +26,7 @@ env:
   SANDBOX_DEPLOYMENT_NAME: "runwhen-local"
   SANDBOX_DEPLOYMENT_NAMESPACE: "runwhen-local"
   APP_LABEL: "app=runwhen-local"
-  GHCR_ORG: "${{ github.repository_owner }}"
+  GHCR_ORG: "runwhen-contrib"
 
 
 jobs:
@@ -60,7 +60,7 @@ jobs:
       IMAGE: runwhen-local
       SHARED_ARTIFACT_REPOSITORY_PATH: us-docker.pkg.dev/runwhen-nonprod-shared/public-images
       RW_LOCAL_MKDOCS_CONFIG: src/cheat-sheet-docs/mkdocs.yml
-      GHCR_ORG: "${{ github.repository_owner }}"
+      GHCR_ORG: "runwhen-contrib"
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
@@ -78,7 +78,11 @@ jobs:
           service_account: ${{ secrets.RUNWHEN_NONPROD_SHARED_WI_SA }}
       - run: gcloud --quiet auth configure-docker us-docker.pkg.dev
       - name: Login to GHCR
-        run: echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build & push linux/amd64
         run: |
           cd src
@@ -107,7 +111,7 @@ jobs:
       IMAGE: runwhen-local
       SHARED_ARTIFACT_REPOSITORY_PATH: us-docker.pkg.dev/runwhen-nonprod-shared/public-images
       RW_LOCAL_MKDOCS_CONFIG: src/cheat-sheet-docs/mkdocs.yml
-      GHCR_ORG: "${{ github.repository_owner }}"
+      GHCR_ORG: "runwhen-contrib"
     steps:
       - uses: actions/checkout@v4
       - run: echo "VERSION=$(cat src/VERSION | jq -r .version)" | tee -a $GITHUB_ENV
@@ -120,7 +124,11 @@ jobs:
           service_account: ${{ secrets.RUNWHEN_NONPROD_SHARED_WI_SA }}
       - run: gcloud --quiet auth configure-docker us-docker.pkg.dev
       - name: Login to GHCR
-        run: echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build & push linux/arm64
         run: |
           cd src
@@ -149,7 +157,7 @@ jobs:
     env:
       IMAGE: runwhen-local
       SHARED_ARTIFACT_REPOSITORY_PATH: us-docker.pkg.dev/runwhen-nonprod-shared/public-images
-      GHCR_ORG: "${{ github.repository_owner }}"
+      GHCR_ORG: "runwhen-contrib"
     steps:
       - uses: actions/checkout@v4
       - run: echo "VERSION=$(cat src/VERSION | jq -r .version)" | tee -a $GITHUB_ENV
@@ -159,7 +167,11 @@ jobs:
           service_account: ${{ secrets.RUNWHEN_NONPROD_SHARED_WI_SA }}
       - run: gcloud --quiet auth configure-docker us-docker.pkg.dev
       - name: Login to GHCR
-        run: echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Create & push GCP manifest
         run: |
           FULL="${{ env.SHARED_ARTIFACT_REPOSITORY_PATH }}/${{ env.IMAGE }}"
@@ -224,7 +236,7 @@ jobs:
         uses: slackapi/slack-github-action@v1.19.0
         with:
           channel-id: "#runwhen-local" # Slack channel id or name to post message. https://api.slack.com/methods/chat.postMessage#channels
-          slack-message: "Just deployed latest version of RunWhen Local to https://github.com/orgs/${{ github.repository_owner }}/packages/container/package/runwhen-local"
+          slack-message: "Just deployed latest version of RunWhen Local to https://github.com/orgs/runwhen-contrib/packages/container/package/runwhen-local"
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
 
