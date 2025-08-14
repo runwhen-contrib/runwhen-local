@@ -26,7 +26,7 @@ env:
   SANDBOX_DEPLOYMENT_NAME: "runwhen-local"
   SANDBOX_DEPLOYMENT_NAMESPACE: "runwhen-local"
   APP_LABEL: "app=runwhen-local"
-  GHCR_ORG: "runwhen-contrib"
+  GHCR_ORG: "${{ github.repository_owner }}"
 
 
 jobs:
@@ -53,11 +53,14 @@ jobs:
   # Build amd64 natively on x86_64
   build-amd64:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     env:
       IMAGE: runwhen-local
       SHARED_ARTIFACT_REPOSITORY_PATH: us-docker.pkg.dev/runwhen-nonprod-shared/public-images
       RW_LOCAL_MKDOCS_CONFIG: src/cheat-sheet-docs/mkdocs.yml
-      GHCR_ORG: runwhen-contrib
+      GHCR_ORG: "${{ github.repository_owner }}"
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
@@ -97,11 +100,14 @@ jobs:
   # Build arm64 natively on GitHub-hosted ARM
   build-arm64:
     runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
     env:
       IMAGE: runwhen-local
       SHARED_ARTIFACT_REPOSITORY_PATH: us-docker.pkg.dev/runwhen-nonprod-shared/public-images
       RW_LOCAL_MKDOCS_CONFIG: src/cheat-sheet-docs/mkdocs.yml
-      GHCR_ORG: runwhen-contrib
+      GHCR_ORG: "${{ github.repository_owner }}"
     steps:
       - uses: actions/checkout@v4
       - run: echo "VERSION=$(cat src/VERSION | jq -r .version)" | tee -a $GITHUB_ENV
@@ -137,10 +143,13 @@ jobs:
   publish-manifest:
     runs-on: ubuntu-latest
     needs: [build-amd64, build-arm64]
+    permissions:
+      contents: read
+      packages: write
     env:
       IMAGE: runwhen-local
       SHARED_ARTIFACT_REPOSITORY_PATH: us-docker.pkg.dev/runwhen-nonprod-shared/public-images
-      GHCR_ORG: runwhen-contrib
+      GHCR_ORG: "${{ github.repository_owner }}"
     steps:
       - uses: actions/checkout@v4
       - run: echo "VERSION=$(cat src/VERSION | jq -r .version)" | tee -a $GITHUB_ENV
@@ -215,7 +224,7 @@ jobs:
         uses: slackapi/slack-github-action@v1.19.0
         with:
           channel-id: "#runwhen-local" # Slack channel id or name to post message. https://api.slack.com/methods/chat.postMessage#channels
-          slack-message: "Just deployed latest version of RunWhen Local to https://github.com/orgs/runwhen-contrib/packages/container/package/runwhen-local"
+          slack-message: "Just deployed latest version of RunWhen Local to https://github.com/orgs/${{ github.repository_owner }}/packages/container/package/runwhen-local"
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
 
@@ -231,8 +240,10 @@ jobs:
       - name: Set Workflow Status
         id: status
         run: |
-          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
+          if [[ "${{ needs.publish-manifest.result == 'failure' || needs.deploy-to-sandbox.result == 'failure' || needs.scan-repo.result == 'failure' }}" == "true" ]]; then
             echo "status=❌ *Failure*" >> $GITHUB_ENV
+          elif [[ "${{ needs.publish-manifest.result == 'cancelled' || needs.deploy-to-sandbox.result == 'cancelled' || needs.scan-repo.result == 'cancelled' }}" == "true" ]]; then
+            echo "status=⚠️ *Cancelled*" >> $GITHUB_ENV
           else
             echo "status=✅ *Success*" >> $GITHUB_ENV
           fi
