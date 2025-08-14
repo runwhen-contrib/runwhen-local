@@ -2,27 +2,27 @@
       value: kubernetes
 {% if cluster.name %}
     - name: cluster
-      value: {{ cluster.name }}
+      value: '{{ cluster.name | string }}'
 {% endif %}
 {% if cluster.cluster_type | default('') == "aks" %}
     - name: cluster_type
       value: aks
 {% if subscription_id %}
     - name: subscription_id
-      value: {{ subscription_id }}
+      value: '{{ subscription_id | string }}'
 {% endif %}
 {% if subscription_name %}
     - name: subscription_name
-      value: {{ subscription_name }}
+      value: '{{ subscription_name | string }}'
 {% endif %}
 {% if cluster.resource_group %}
     - name: resource_group
-      value: {{ cluster.resource_group }}
+      value: '{{ cluster.resource_group | string }}'
 {% endif %}
 {% endif %}
 {% if match_resource.namespace_name %}
     - name: namespace
-      value: {{ match_resource.namespace_name }}
+      value: '{{ match_resource.namespace_name | string }}'
 {% endif %}
 {% if match_resource.resource_type.name == "cluster" %}
     - name: kind
@@ -30,18 +30,18 @@
 {% endif %}
 {% if match_resource.kind %}
     - name: kind
-      value: {{ match_resource.kind }}
+      value: '{{ match_resource.kind | string }}'
 {% endif %}
 {% if match_resource.name %}
     {% if qualifiers and qualifiers.resource is defined %}
     - name: resource_name
-      value: {{ qualifiers.resource }}
+      value: '{{ qualifiers.resource | string }}'
     {% elif qualifiers and qualifiers.resource_group is defined %}
     - name: resource_name
-      value: {{ qualifiers.resource_group }}
+      value: '{{ qualifiers.resource_group | string }}'
     {% else %}
     - name: resource_name
-      value: {{ match_resource.name }}
+      value: '{{ match_resource.name | string }}'
     {% endif %}
     {% for cr in child_resource_names | default([]) %}
     - name: child_resource
@@ -56,7 +56,7 @@
 {% for k, v in match_resource.resource.metadata.labels.items() %}
     {% if v and v|string|trim != "" %}
     - name: "[k8s]{{ k | string }}"
-      value: '{{ v | string }}'
+      value: "{{ v | string }}"
     {% endif %}
 {% endfor %}
 {% endif %}

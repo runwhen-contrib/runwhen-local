@@ -519,6 +519,16 @@ tasks:
         rm -f run_sh_upload_output.log container_logs.log slx_count.txt
         rm -f uploaded_slx_name.txt sync_status_rwl.json slx_list.json
         
+        # Force clean any stuck git state from previous failures
+        echo "🧹 Cleaning any stuck git state from previous failures..."
+        rm -rf .git* || true
+        
+        # Remove any workspace clone directories that might be stuck
+        find . -maxdepth 1 -type d -name "*-ci-verify*" -exec rm -rf {} + 2>/dev/null || true
+        find . -maxdepth 1 -type d -name "*workspace*" -exec rm -rf {} + 2>/dev/null || true
+        
+        # Clean up any leftover GitLab credential files
+        rm -f gitlab_sas.json cleanup_sync_status.json cleanup_slx_check.json || true
         if [ ! -f ./uploadInfo.yaml ]; then 
           echo "⚠️ No uploadInfo.yaml found, skipping workspace cleanup"
           exit 0
@@ -558,15 +568,35 @@ tasks:
             # Extract repo name and set up clone directory
             REPO_NAME=$(basename -s .git "$REPO_URL")
             CLONE_DIR=$REPO_NAME
-            rm -rf $CLONE_DIR || true 
             TARGET_BRANCH="main"
+
+            # Force clean any existing repository state
+            echo "Cleaning any existing git state..."
+            rm -rf $CLONE_DIR || true
+            
+            # Also clean any git-related temp files that might interfere
+            rm -rf .git* || true
+            
+            # Reset git configuration to avoid conflicts
+            git config --global --unset-all safe.directory || true
+            git config --global --add safe.directory "$(pwd)/$CLONE_DIR"
 
             # Clone the repo with GitLab SAS authentication
             echo "Cloning repository with SAS credentials..."
             git clone --depth 1 "https://${admin_username}:${admin_password}@${REPO_URL#https://}" "$CLONE_DIR"
             if [ $? -ne 0 ]; then
-              echo "❌ Failed to clone repository"
-              exit 1
+              echo "❌ Failed to clone repository, attempting force cleanup..."
+              
+              # Try alternative cleanup approach - force remove and retry
+              rm -rf "$CLONE_DIR" .git* || true
+              sleep 5
+              
+              echo "Retrying clone after cleanup..."
+              git clone --depth 1 "https://${admin_username}:${admin_password}@${REPO_URL#https://}" "$CLONE_DIR"
+              if [ $? -ne 0 ]; then
+                echo "❌ Failed to clone repository after cleanup retry"
+                exit 1
+              fi
             fi
 
             cd "$CLONE_DIR" || exit 1
@@ -717,13 +747,63 @@ tasks:
             
           else
             echo "❌ Could not extract admin credentials from GitLab SAS response"
+            # Still clean up git artifacts even if credentials failed
+            rm -rf .git* || true
+            find . -maxdepth 1 -type d -name "*-ci-verify*" -exec rm -rf {} + 2>/dev/null || true
             exit 1
           fi
         else
           echo "❌ Failed to fetch GitLab SAS credentials (status: $sas_response)"
           echo "⚠️ Workspace cleanup failed - manual cleanup may be required"
+          # Clean up git artifacts even if API call failed
+          rm -rf .git* || true
+          find . -maxdepth 1 -type d -name "*-ci-verify*" -exec rm -rf {} + 2>/dev/null || true
           exit 1
         fi
         
+        # Final cleanup of any remaining git artifacts
+        echo "🧹 Final cleanup of git artifacts..."
+        rm -rf .git* || true
+        find . -maxdepth 1 -type d -name "*-ci-verify*" -exec rm -rf {} + 2>/dev/null || true
+        find . -maxdepth 1 -type d -name "*workspace*" -exec rm -rf {} + 2>/dev/null || true
+        rm -f gitlab_sas.json cleanup_sync_status.json cleanup_slx_check.json || true
+        
         echo "✅ Workspace cleanup completed and validated"
-    silent: true 
+    silent: true
+
+  force-clean-git-state:
+    desc: "Force clean all git state and artifacts (use when cleanup-rwl-upload fails)"
+    cmds:
+      - |
+        echo "🧹 Force cleaning all git state and artifacts..."
+        
+        # Remove all git-related files and directories
+        rm -rf .git* || true
+        
+        # Remove workspace clone directories
+        find . -maxdepth 1 -type d -name "*-ci-verify*" -exec rm -rf {} + 2>/dev/null || true
+        find . -maxdepth 1 -type d -name "*workspace*" -exec rm -rf {} + 2>/dev/null || true
+        
+        # Remove temporary files
+        rm -f run_sh_upload_output.log container_logs.log slx_count.txt || true
+        rm -f uploaded_slx_name.txt sync_status_rwl*.json slx_list*.json || true
+        rm -f gitlab_sas.json cleanup_sync_status.json cleanup_slx_check.json || true
+        
+        # Reset git global config
+        git config --global --unset-all safe.directory || true
+        
+        # Clear any Docker containers that might be stuck
+        CONTAINER_NAME="RunWhenLocal"
+        if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Stopping and removing existing container $CONTAINER_NAME..."
+          docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME || true
+        elif docker ps -a -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Removing existing stopped container $CONTAINER_NAME..."
+          docker rm $CONTAINER_NAME || true
+        fi
+        
+        # Clean output directory
+        rm -rf output || true
+        
+        echo "✅ Force cleanup completed - git state reset"
+    silent: false

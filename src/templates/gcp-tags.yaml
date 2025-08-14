@@ -1,22 +1,22 @@
     - name: platform
       value: gcp
     - name: project_id
-      value: {{ match_resource.resource.project_id }}
+      value: '{{ match_resource.resource.project_id | string }}'
 {% if match_resource.resource.location is defined %}
     - name: location
-      value: {{ match_resource.resource.location }}
+      value: '{{ match_resource.resource.location | string }}'
 {% endif %}
     - name: resource_type
-      value: {{ match_resource.resource_type.name }}
+      value: '{{ match_resource.resource_type.name | string }}'
 {% if qualifiers and qualifiers.resource is defined %}
     - name: resource_name
-      value: {{ qualifiers.resource }}
+      value: '{{ qualifiers.resource | string }}'
 {% elif qualifiers and qualifiers.resource_group is defined %}
     - name: resource_name
-      value: {{ qualifiers.resource_group }}
+      value: '{{ qualifiers.resource_group | string }}'
 {% else %}
     - name: resource_name
-      value: {{ match_resource.resource.name }}
+      value: '{{ match_resource.resource.name | string }}'
 {% endif %}
 {% for cr in child_resource_names | default([]) %}
     - name: child_resource

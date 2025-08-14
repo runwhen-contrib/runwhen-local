@@ -114,6 +114,18 @@ def kubernetes_resource_to_dict(resource: ResourceInstance, use_attribute_map: b
         obj = _apply_resource_attribute_map(resource, obj)
     json_str = json.dumps(obj, cls=DateTimeEncoder)
     obj = json.loads(json_str)
+    
+    # CRITICAL FIX: Convert all metadata label and annotation values to strings
+    # to prevent K8s CRD reconciliation errors with numeric values
+    if 'metadata' in obj:
+        metadata = obj['metadata']
+        if 'labels' in metadata and metadata['labels']:
+            for key, value in metadata['labels'].items():
+                metadata['labels'][key] = str(value)
+        if 'annotations' in metadata and metadata['annotations']:
+            for key, value in metadata['annotations'].items():
+                metadata['annotations'][key] = str(value)
+    
     return obj
 
 def read_file(file_path: AnyStr, mode="r", encoding=None) -> Union[str, bytes]:

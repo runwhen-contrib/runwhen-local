@@ -28,7 +28,7 @@ jobs:
     outputs:
       image_path: ${{ steps.publish-beta.outputs.image_path }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         name: Checkout
 
   build-and-push:
@@ -36,15 +36,13 @@ jobs:
     outputs:
       image_path: ${{ steps.publish-beta.outputs.image_path }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set tag 
         run: |-
           echo "TAG=$(echo $GITHUB_REF_NAME | sed 's/[^a-zA-Z0-9]/-/g')-${GITHUB_SHA::8}" >> $GITHUB_ENV
       - name: Login to GHCR
-        env:
-          GITHUB_TOKEN: ${{ secrets.PAT }}
         run: |-
-          echo $GITHUB_TOKEN | docker login ghcr.io -u stewartshea --password-stdin
+          echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
       - name: Configure Docker for multi-arch builds
         run: docker run --privileged --rm tonistiigi/binfmt --install all
 
