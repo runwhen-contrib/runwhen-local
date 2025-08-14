@@ -1,17 +1,17 @@
     - name: platform
       value: aws
     - name: account_id
-      value: "{{ match_resource.account_id }}"
+      value: '{{ match_resource.account_id | string }}'
 {% if match_resource.account_name is defined %}
     - name: account_name
-      value: {{ match_resource.account_name }}
+      value: '{{ match_resource.account_name | string }}'
 {% endif %}
     - name: region
-      value: {{ match_resource.region }}
+      value: '{{ match_resource.region | string }}'
     - name: service
-      value: {{ match_resource.service }}
+      value: '{{ match_resource.service | string }}'
     - name: resource_type
-      value: {{ match_resource.resource_type.name }}
+      value: '{{ match_resource.resource_type.name | string }}'
 {% if qualifiers and qualifiers.resource is defined %}
     - name: resource_name
       value: '{{ qualifiers.resource }}'
@@ -32,7 +32,7 @@
 {% endif %}
 {% if match_resource.arn is defined %}
     - name: arn
-      value: "{{ match_resource.arn | replace(":", "_") }}"
+      value: '{{ match_resource.arn | string | replace(":", "_") }}'
 {% endif %}
 {% set tags = match_resource.tags %}
 {% if tags %}

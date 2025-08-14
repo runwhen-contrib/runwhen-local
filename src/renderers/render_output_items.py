@@ -60,7 +60,15 @@ def deduplicate_secrets_provided(yaml_text: str) -> str:
         # Deduplicate based on the 'name' key
         unique_secrets = {secret['name']: secret for secret in secrets}.values()
         data['spec']['secretsProvided'] = list(unique_secrets)
-    return yaml.dump(data, sort_keys=False)
+    
+    # CRITICAL FIX: Ensure all tag values remain as quoted strings to prevent K8s reconciliation errors
+    if 'spec' in data and 'tags' in data['spec']:
+        for tag in data['spec']['tags']:
+            if 'value' in tag:
+                tag['value'] = str(tag['value'])  # Force all tag values to strings
+    
+    # Use PyYAML with explicit string representation to ensure all values are quoted
+    return yaml.dump(data, sort_keys=False, default_flow_style=False, allow_unicode=True, default_style='"')
 
 def apply_config_provided_overrides(context: Context, output_text: str, output_item: OutputItem) -> str:
     """
@@ -136,8 +144,14 @@ def apply_config_provided_overrides(context: Context, output_text: str, output_i
                             logger.info(f"POST-RENDER Applied configProvided override: {var_name} = {var_value} (was: {old_value})")
                             break
                 
-                # Re-serialize the YAML
-                return yaml.dump(parsed_yaml, default_flow_style=False, sort_keys=False)
+                # CRITICAL FIX: Ensure all tag values remain as quoted strings before re-serializing
+                if 'spec' in parsed_yaml and 'tags' in parsed_yaml['spec']:
+                    for tag in parsed_yaml['spec']['tags']:
+                        if 'value' in tag:
+                            tag['value'] = str(tag['value'])  # Force all tag values to strings
+                
+                # Re-serialize the YAML with explicit string representation
+                return yaml.dump(parsed_yaml, default_flow_style=False, sort_keys=False, allow_unicode=True, default_style='"')
                 
         return output_text
         
