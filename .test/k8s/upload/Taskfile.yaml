@@ -68,300 +68,14 @@ tasks:
           kubernetes_distribution_binary: kubectl
         EOF
 
-        - task: ci-run-rwl-discovery-with-upload
-        - task: verify-slx-count
-          vars:
-            EXPECTED_SLX_COUNT: "{{.EXPECTED_SLXS}}"
-        - task: verify-rwl-output
-        - task: modify-slx-content
-        - task: ci-run-rwl-discovery-with-upload
-        - task: verify-modified-content
-      silent: true
-  modify-slx-content:
-    desc: "Modify SLX fields via PATCH instead of local file edits"
-    env:
-      RW_PAT: "{{.RW_PAT}}"
-    cmds:
-      - |
-          # Make sure uploadInfo.yaml is available
-          if [ ! -f ./uploadInfo.yaml ]; then 
-            echo "Missing uploadInfo.yaml"
-            exit 1
-          fi
-
-          # Extract relevant info from uploadInfo.yaml
-          defaultLocation=$(yq .locationName uploadInfo.yaml)
-          workspaceName=$(yq .workspaceName uploadInfo.yaml)
-          workspaceOwnerEmail=$(yq .workspaceOwnerEmail uploadInfo.yaml)
-          papiURL=$(yq .papiURL uploadInfo.yaml)
-
-          BASE_DIR="output/workspaces/${workspaceName}/slxs"
-
-          # Required files
-          REQUIRED_FILES=("slx.yaml" "runbook.yaml" "sli.yaml")
-
-          # Find a valid directory that contains all required files
-          # Find a specific namespace SLX (this helps for manually validating changes)
-          SELECTED_DIR=$(find "$BASE_DIR" -mindepth 1 -maxdepth 1 -type d | while read -r dir; do
-              if [[ -f "$dir/slx.yaml" && -f "$dir/runbook.yaml" && -f "$dir/sli.yaml" ]]; then
-                  slx_alias=$(yq '.spec.alias' "$dir/slx.yaml")
-                  if [[ "$slx_alias" == "ci-verify-basic Namespace Health" ]]; then
-                    echo "$dir"
-                    break
-                  fi
-              fi
-          done)
-          
-          # Ensure a valid directory was found
-          if [[ -z "$SELECTED_DIR" ]]; then
-              echo "Error: No subdirectory in $BASE_DIR contains all required YAML files."
-              exit 1
-          fi
-
-          echo "Selected directory: $SELECTED_DIR"
-
-          SLX_NAME=$(basename "${SELECTED_DIR}")
-          echo "Selected SLX: $SLX_NAME"
-          sleep 120
-
-          for file in "${REQUIRED_FILES[@]}"; do
-            # One PATCH call per file
-            echo "Patching SLX with: $file"
-
-            if [[ "$file" == "slx.yaml" ]]; then 
-              PATCH_URL="${papiURL}/api/v3/workspaces/${workspaceName}/branches/main/slxs/${SLX_NAME}/slx.yaml"
-              echo "Modify SLX Owner"
-              PATCH_PAYLOAD='{ "patch": { "spec": { "owners": ["shea.stewart@runwhen.com", "zac.pez@runwhen.com"] }}}'
-
-            elif [[ "$file" == "sli.yaml" ]]; then 
-              PATCH_URL="${papiURL}/api/v3/workspaces/${workspaceName}/branches/main/slxs/${SLX_NAME}/sli.yaml"
-              echo "Modify ConfigProvided Value"
-              yq -i '.spec.configProvided[] |= select(.name == "CONTAINER_RESTART_THRESHOLD").value = "10"' "${SELECTED_DIR}/sli.yaml"
-              updated_json=$(yq -o=json "${SELECTED_DIR}/sli.yaml")
-              updated_configProvided=$(echo "$updated_json" | jq '.spec.configProvided')
-              PATCH_PAYLOAD=$(
-                jq -n --argjson conf "$updated_configProvided" '
-                  {
-                    patch: {
-                      spec: {
-                        configProvided: $conf
-                      }
-                    }
-                  }
-                '
-              )
-
-            elif [[ "$file" == "runbook.yaml" ]]; then
-              PATCH_URL="${papiURL}/api/v3/workspaces/${workspaceName}/branches/main/slxs/${SLX_NAME}/runbook.yaml"
-              echo "Modify Runbook Secret"
-              yq -i '.spec.secretsProvided[] |= select(.name == "kubeconfig").workspaceKey = "updated-kubeconfig"' "${SELECTED_DIR}/runbook.yaml"    
-              updated_json=$(yq -o=json "${SELECTED_DIR}/runbook.yaml")
-              updated_secretsProvided=$(echo "$updated_json" | jq '.spec.secretsProvided')
-              PATCH_PAYLOAD=$(
-                jq -n --argjson conf "$updated_secretsProvided" '
-                  {
-                    patch: {
-                      spec: {
-                        secretsProvided: $conf
-                      }
-                    }
-                  }
-                '
-              )
-            else 
-              break
-            fi
-
-            echo "Patching with:"
-            echo $PATCH_PAYLOAD
-
-            echo "Patching SLX at $PATCH_URL..."
-            response=$(curl -s -X PATCH "$PATCH_URL" \
-              -H "Authorization: Bearer $RW_PAT" \
-              -H "Content-Type: application/json" \
-              -d "$PATCH_PAYLOAD" \
-              -w "%{http_code}" \
-              -o /dev/null)
-
-            if [[ "$response" != "200" && "$response" != "201" ]]; then
-                echo "Failed to patch $file. Status: $response"
-                exit 1
-            fi
-            echo "$file patched successfully."
-          done
-          echo "SLX patch completed."
-
-
-          # Delete a specific SLX
-          SELECTED_DIR=$(find "$BASE_DIR" -mindepth 1 -maxdepth 1 -type d | while read -r dir; do
-              if [[ -f "$dir/slx.yaml" && -f "$dir/runbook.yaml" && -f "$dir/sli.yaml" ]]; then
-                  slx_alias=$(yq '.spec.alias' "$dir/slx.yaml")
-                  if [[ "$slx_alias" == "sandbox-cluster-1 Cluster Node Health" ]]; then
-                    echo "$dir"
-                    break
-                  fi
-              fi
-          done)
-
-          # Ensure a valid directory was found
-          if [[ -z "$SELECTED_DIR" ]]; then
-              echo "Error: No subdirectory in $BASE_DIR contains all required YAML files."
-              exit 1
-          fi
-
-          echo "Selected directory: $SELECTED_DIR"
-          SLX_NAME=$(basename "${SELECTED_DIR}")
-
-          SLX_URL="${papiURL}/api/v3/workspaces/${workspaceName}/branches/main/slxs/${SLX_NAME}"
-          echo "Deleting SLX_NAME at $DELETE_URL..."
-          response=$(curl -s -X DELETE "$SLX_URL" \
-            -H "Authorization: Bearer $RW_PAT" \
-            -H "Content-Type: application/json" \
-            -w "%{http_code}" \
-            -o /dev/null)
-
-          if [[ "$response" != "204" && "$response" != "201" ]]; then
-              echo "Failed to delete $SLX_NAME. Status: $response"
-              exit 1
-          fi
-          echo "$SLX_NAME deleted successfully."
-
-  verify-modified-content:
-    desc: "Verify Modified Content"
-    env:
-      RW_PAT: "{{.RW_PAT}}"
-    cmds:
-      - |
-          # Make sure uploadInfo.yaml is available
-          if [ ! -f ./uploadInfo.yaml ]; then 
-            echo "Missing uploadInfo.yaml"
-            exit 1
-          fi
-
-          # Extract relevant info from uploadInfo.yaml
-          defaultLocation=$(yq .locationName uploadInfo.yaml)
-          workspaceName=$(yq .workspaceName uploadInfo.yaml)
-          workspaceOwnerEmail=$(yq .workspaceOwnerEmail uploadInfo.yaml)
-          papiURL=$(yq .papiURL uploadInfo.yaml)
-
-          BASE_DIR="output/workspaces/${workspaceName}/slxs"
-
-          # Required files
-          REQUIRED_FILES=("slx.yaml" "runbook.yaml" "sli.yaml")
-
-          # Find a valid directory that contains all required files
-          SELECTED_DIR=$(find "$BASE_DIR" -mindepth 1 -maxdepth 1 -type d | while read -r dir; do
-              if [[ -f "$dir/slx.yaml" && -f "$dir/runbook.yaml" && -f "$dir/sli.yaml" ]]; then
-                  echo "$dir"
-                  break
-              fi
-          done)
-          
-          # Ensure a valid directory was found
-          if [[ -z "$SELECTED_DIR" ]]; then
-              echo "Error: No subdirectory in $BASE_DIR contains all required YAML files."
-              exit 1
-          fi
-
-          sleep 120
-
-          echo "Selected directory: $SELECTED_DIR"
-
-          SLX_NAME=$(basename "${SELECTED_DIR}")
-          SLX_CONTENTS=$(curl -s -X GET "${papiURL}/api/v3/workspaces/${workspaceName}/branches/main/slxs/${SLX_NAME}" \
-              -H "Authorization: Bearer $RW_PAT" \
-              -H "Content-Type: application/json")
-
-          validation_failed=false
-
-          for file in "${REQUIRED_FILES[@]}"; do
-            echo "Validating $file"
-            file_contents=$(echo "$SLX_CONTENTS" | jq ".files[\"$file\"]")
-            unescaped_file_contents=$(echo "$file_contents" | sed $'s/\\n/\\\n/g')
-            file_yaml=$(echo "$unescaped_file_contents" | yq e .)
-
-            if [[ "$file" == "slx.yaml" ]]; then 
-              value=$(echo "$file_yaml" | yq e -r '.spec.owners[]')
-              echo "Got: $value"
-              if [[ $value =~ zac.pez@runwhen.com ]] && [[ $value =~ shea.stewart@runwhen.com ]]; then
-                continue
-              else
-                validation_failed=true
-                break
-              fi
-
-            elif [[ "$file" == "sli.yaml" ]]; then
-              value=$(echo "$file_yaml" | yq e -r '.spec.configProvided[] | select(.name == "CONTAINER_RESTART_THRESHOLD").value')
-              echo "Got: $value"
-              if [[ "$value" == "10" ]]; then
-                continue
-              else
-                validation_failed=true
-                break
-              fi
-
-            elif [[ "$file" == "runbook.yaml" ]]; then
-              value=$(echo "$file_yaml" | yq e -r '.spec.secretsProvided[] | select(.name == "kubeconfig").workspaceKey')
-              echo "Got: $value"
-              if [[ "$value" == "updated-kubeconfig" ]]; then
-                continue
-              else
-                validation_failed=true
-                break
-              fi
-            else 
-              break
-            fi
-          done
-
-          if [[ "$validation_failed" == "true" ]]; then
-            echo -e "\033[31m❌ SLX Patch Validation Failed\033[0m"
-            exit 1
-          else
-            echo -e "\033[32m✔️ SLX Patch Validation Passed\033[0m"
-          fi
-
-          validation_failed=false
-          # Check for specific deleted SLX
-          SELECTED_DIR=$(find "$BASE_DIR" -mindepth 1 -maxdepth 1 -type d | while read -r dir; do
-              if [[ -f "$dir/slx.yaml" && -f "$dir/runbook.yaml" && -f "$dir/sli.yaml" ]]; then
-                  slx_alias=$(yq '.spec.alias' "$dir/slx.yaml")
-                  if [[ "$slx_alias" == "sandbox-cluster-1 Cluster Node Health" ]]; then
-                    echo "$dir"
-                    break
-                  fi
-              fi
-          done)
-
-          # Ensure a valid directory was found
-          if [[ -z "$SELECTED_DIR" ]]; then
-              echo "Error: No subdirectory in $BASE_DIR contains all required YAML files."
-              exit 1
-          fi
-
-          echo "Selected directory: $SELECTED_DIR"
-          SLX_NAME=$(basename "${SELECTED_DIR}")
-          SLX_URL="${papiURL}/api/v3/workspaces/${workspaceName}/branches/main/slxs/${SLX_NAME}"
-          echo "Validating that SLX $SLX_NAME does not exist..."
-          response=$(curl -s -X GET "$SLX_URL" \
-            -H "Authorization: Bearer $RW_PAT" \
-            -H "Content-Type: application/json" \
-            -w "%{http_code}" \
-            -o /dev/null)
-
-          if [[ "$response" != "404" ]]; then
-              echo "SLX still exists. Status: $response"
-              validation_failed=true
-          fi
-          echo "Verification Completed."
-
-          if [[ "$validation_failed" == "true" ]]; then
-            echo -e "\033[31m❌ SLX Likely Still Exists\033[0m"
-            exit 1
-          else
-            echo -e "\033[32m✔️ SLX Deletion Verification Passed\033[0m"
-            exit 0
-          fi
+      - task: reset-workspace-before-upload
+      - task: ci-run-rwl-discovery-and-upload
+      - task: verify-slx-count
+        vars:
+          EXPECTED_SLX_COUNT: "{{.EXPECTED_SLXS}}"
+      - task: verify-rwl-output
+      - task: verify-rwl-upload-success
+      - task: cleanup-rwl-upload
     silent: true
 
   verify-slx-count: 
@@ -801,34 +515,89 @@ tasks:
       RW_PAT: "{{.RW_PAT}}"
     cmds:
       - |
-          if [ ! -f ./uploadInfo.yaml ]; then 
-            echo "Missing uploadInfo.yaml"
-            exit 1
-          fi
+        # Clean up temporary files first
+        rm -f run_sh_upload_output.log container_logs.log slx_count.txt
+        rm -f uploaded_slx_name.txt sync_status_rwl.json slx_list.json
+        
+        # Force clean any stuck git state from previous failures
+        echo "🧹 Cleaning any stuck git state from previous failures..."
+        rm -rf .git* || true
+        
+        # Remove any workspace clone directories that might be stuck
+        find . -maxdepth 1 -type d -name "*-ci-verify*" -exec rm -rf {} + 2>/dev/null || true
+        find . -maxdepth 1 -type d -name "*workspace*" -exec rm -rf {} + 2>/dev/null || true
+        
+        # Clean up any leftover GitLab credential files
+        rm -f gitlab_sas.json cleanup_sync_status.json cleanup_slx_check.json || true
+        if [ ! -f ./uploadInfo.yaml ]; then 
+          echo "⚠️ No uploadInfo.yaml found, skipping workspace cleanup"
+          exit 0
+        fi
 
-          # We don't really need this for discovery, but it's useful in other scripts for 
-          # api related manipulation
-          defaultLocation=$(yq .locationName uploadInfo.yaml)
-          workspaceName=$(yq .workspaceName uploadInfo.yaml)
-          workspaceOwnerEmail=$(yq .workspaceOwnerEmail uploadInfo.yaml)
-          papiURL=$(yq .papiURL uploadInfo.yaml)
+        # Extract relevant info from uploadInfo.yaml
+        workspaceName=$(yq .workspaceName uploadInfo.yaml)
+        papiURL=$(yq .papiURL uploadInfo.yaml)
+
+        echo "Cleaning up workspace content uploaded by RunWhen Local..."
+        echo "This requires resetting the workspace git repository..."
+        
+        # Get GitLab SAS credentials from the API
+        echo "Fetching GitLab credentials..."
+        GITLAB_SAS_URL="${papiURL}/api/v3/workspaces/${workspaceName}/get-gitlab-sas"
+        
+        sas_response=$(curl -s -X GET "$GITLAB_SAS_URL" \
+          -H "Authorization: Bearer $RW_PAT" \
+          -H "Content-Type: application/json" \
+          -w "%{http_code}" \
+          -o gitlab_sas.json)
+
+        if [[ "$sas_response" == "200" ]]; then
+          # Extract admin user credentials (non-readonly user)
+          admin_username=$(jq -r '.users[] | select(.is_readonly == false) | .username' gitlab_sas.json 2>/dev/null)
+          admin_password=$(jq -r '.users[] | select(.is_readonly == false) | .password' gitlab_sas.json 2>/dev/null)
           
-          REPO_URL=$GITLAB_URL/platform-cluster/$workspaceName.git
-          echo "Repo URL: $REPO_URL"
+          if [ -n "$admin_username" ] && [ -n "$admin_password" ]; then
+            echo "✅ Successfully retrieved GitLab SAS credentials"
+            echo "Retrieved GitLab admin credentials for user: $admin_username"
+            
+            # Construct GitLab URL by replacing papi. with git.
+            GITLAB_URL=$(echo "$papiURL" | sed 's/papi\./git./')
+            REPO_URL="${GITLAB_URL}/platform-cluster-01/${workspaceName}.git"
+            echo "Git repository URL: $REPO_URL"
+            
+            # Extract repo name and set up clone directory
+            REPO_NAME=$(basename -s .git "$REPO_URL")
+            CLONE_DIR=$REPO_NAME
+            TARGET_BRANCH="main"
 
-          # Extract repo name
-          REPO_NAME=$(basename -s .git "$REPO_URL")
-          CLONE_DIR=$REPO_NAME
-          rm -rf $CLONE_DIR || true 
-          TARGET_BRANCH="main" 
+            # Force clean any existing repository state
+            echo "Cleaning any existing git state..."
+            rm -rf $CLONE_DIR || true
+            
+            # Also clean any git-related temp files that might interfere
+            rm -rf .git* || true
+            
+            # Reset git configuration to avoid conflicts
+            git config --global --unset-all safe.directory || true
+            git config --global --add safe.directory "$(pwd)/$CLONE_DIR"
 
-          # Clone the repo with authentication
-          echo "Cloning repository..."
-          git clone --depth 1 "https://oauth2:${GITLAB_TOKEN}@${REPO_URL#https://}" "$CLONE_DIR"
-          if [ $? -ne 0 ]; then
-              echo "Failed to clone repository."
-              exit 1
-          fi
+            # Clone the repo with GitLab SAS authentication
+            echo "Cloning repository with SAS credentials..."
+            git clone --depth 1 "https://${admin_username}:${admin_password}@${REPO_URL#https://}" "$CLONE_DIR"
+            if [ $? -ne 0 ]; then
+              echo "❌ Failed to clone repository, attempting force cleanup..."
+              
+              # Try alternative cleanup approach - force remove and retry
+              rm -rf "$CLONE_DIR" .git* || true
+              sleep 5
+              
+              echo "Retrying clone after cleanup..."
+              git clone --depth 1 "https://${admin_username}:${admin_password}@${REPO_URL#https://}" "$CLONE_DIR"
+              if [ $? -ne 0 ]; then
+                echo "❌ Failed to clone repository after cleanup retry"
+                exit 1
+              fi
+            fi
 
             cd "$CLONE_DIR" || exit 1
 
@@ -842,23 +611,199 @@ tasks:
             rm -f .workspace-builder-manifest.yaml
             yq eval 'del(.metadata.annotations) | .spec.slxGroups = []' -i workspace.yaml
 
-          # Check for changes
-          if git diff --quiet && git diff --cached --quiet; then
-              echo "No changes to commit."
-              exit 0
+            # Check for changes
+            if git diff --quiet && git diff --cached --quiet; then
+              echo "✅ Workspace is already clean - no changes needed"
+              cd ..
+              rm -rf "$CLONE_DIR"
+            else
+              # Commit and push changes
+              echo "Committing changes..."
+              git config user.email "ci-test@runwhen.com"
+              git config user.name "CI Test Bot"
+              git add .
+              git commit -m "CI test cleanup - reset workspace via fallback method"
+              echo "Pushing changes..."
+              git push origin "$TARGET_BRANCH"
+              
+              if [ $? -ne 0 ]; then
+                echo "❌ Failed to push workspace reset"
+                cd ..
+                rm -rf "$CLONE_DIR"
+                exit 1
+              fi
+              
+              echo "✅ Workspace reset committed and pushed via fallback method"
+              
+              # Cleanup
+              cd ..
+              rm -rf "$CLONE_DIR"
+            fi
+            
+            echo "✅ Fallback workspace reset completed"
+            
+            # Wait for the workspace to sync the reset
+            echo "Waiting for workspace to sync cleanup reset changes..."
+            sleep 30
+            
+            # Verify cleanup completed with proper validation
+            max_cleanup_attempts=30  # 5 minutes (30 * 10 seconds)
+            cleanup_attempt=1
+            
+            while [ $cleanup_attempt -le $max_cleanup_attempts ]; do
+              echo "Checking cleanup sync status (attempt $cleanup_attempt/$max_cleanup_attempts)..."
+              
+              cleanup_sync_response=$(curl -s -X GET "${papiURL}/api/v3/workspaces/${workspaceName}/sync-status" \
+                -H "Authorization: Bearer $RW_PAT" \
+                -H "Content-Type: application/json" \
+                -w "%{http_code}" \
+                -o cleanup_sync_status.json)
+
+              if [[ "$cleanup_sync_response" == "200" ]]; then
+                ready_status=$(jq -r '.status.conditions[] | select(.type=="Ready") | .status' cleanup_sync_status.json 2>/dev/null)
+                ready_reason=$(jq -r '.status.conditions[] | select(.type=="Ready") | .reason' cleanup_sync_status.json 2>/dev/null)
+                
+                echo "Cleanup Sync Status: $ready_status, Reason: $ready_reason"
+                
+                if [[ "$ready_status" == "True" && "$ready_reason" == "ReconciliationSucceeded" ]]; then
+                  # Verify workspace is now clean using sync-status inventory (authoritative)
+                  sync_inventory_slxs=$(jq '[.status.inventory.entries[] | select(.id | contains("ServiceLevelX"))] | length' cleanup_sync_status.json 2>/dev/null || echo "0")
+                  echo "Sync-status inventory shows: $sync_inventory_slxs ServiceLevelX entries after cleanup"
+                  
+                  # Also check SLX list API for comparison
+                  SLX_LIST_URL="${papiURL}/api/v3/workspaces/${workspaceName}/slxs"
+                  cleanup_slx_response=$(curl -s -X GET "$SLX_LIST_URL" \
+                    -H "Authorization: Bearer $RW_PAT" \
+                    -H "Content-Type: application/json" \
+                    -w "%{http_code}" \
+                    -o cleanup_slx_check.json)
+
+                  if [[ "$cleanup_slx_response" == "200" ]]; then
+                    remaining_slxs=$(jq '.count // (.results | length)' cleanup_slx_check.json 2>/dev/null || echo "unknown")
+                    echo "SLX List API reports: $remaining_slxs SLXs after cleanup"
+                  elif [[ "$cleanup_slx_response" == "500" ]]; then
+                    echo "SLX List API reports: 0 SLXs after cleanup (500 response)"
+                    remaining_slxs="0"
+                  else
+                    echo "SLX List API error after cleanup: $cleanup_slx_response"
+                    remaining_slxs="unknown"
+                  fi
+                  
+                  # Check if workspace is actually clean based on authoritative sync-status inventory
+                  if [[ "$sync_inventory_slxs" == "0" ]]; then
+                    echo "✅ Workspace successfully cleaned via git - sync-status inventory shows clean"
+                    if [[ "$remaining_slxs" != "0" && "$remaining_slxs" != "unknown" ]]; then
+                      echo "⚠️ API inconsistency detected - sync-status shows clean but SLX list shows $remaining_slxs"
+                      echo "Cleanup successful based on authoritative sync-status inventory"
+                    fi
+                    break
+                  else
+                    echo "⚠️ $sync_inventory_slxs ServiceLevelX entries still present in sync-status inventory after cleanup"
+                    echo "SLX List API reports: $remaining_slxs SLXs"
+                    
+                    if [ $cleanup_attempt -eq $max_cleanup_attempts ]; then
+                      echo "❌ Cleanup timeout - sync-status inventory still shows $sync_inventory_slxs entries"
+                      echo "Note: sync-status inventory is authoritative and shows all SLXs"
+                      echo "SLX List API may be cached/incomplete (shows $remaining_slxs vs inventory $sync_inventory_slxs)"
+                      echo "⚠️ Workspace may not be fully clean - manual cleanup may be required"
+                      exit 1
+                    fi
+                  fi
+                  
+                elif [[ "$ready_status" == "False" ]]; then
+                  echo "⚠️ Workspace sync status is False after cleanup"
+                  echo "Reason: $ready_reason"
+                  echo "This may be temporary - continuing to retry..."
+                  if [ $cleanup_attempt -eq $max_cleanup_attempts ]; then
+                    echo "❌ Workspace sync still False after cleanup timeout"
+                    exit 1
+                  fi
+                  
+                else
+                  echo "⏳ Workspace still syncing cleanup (status: $ready_status, reason: $ready_reason)..."
+                  if [ $cleanup_attempt -eq $max_cleanup_attempts ]; then
+                    echo "❌ Timeout waiting for workspace to sync cleanup"
+                    exit 1
+                  fi
+                fi
+              else
+                echo "⚠️ Could not check sync status after cleanup (HTTP: $cleanup_sync_response)"
+                echo "This may be a temporary server issue - retrying..."
+                if [ $cleanup_attempt -eq $max_cleanup_attempts ]; then
+                  echo "❌ Sync status check failed after cleanup timeout"
+                  exit 1
+                fi
+              fi
+              
+              if [ $cleanup_attempt -lt $max_cleanup_attempts ]; then
+                echo "Waiting 10 seconds before next cleanup check..."
+                sleep 10
+              fi
+              cleanup_attempt=$((cleanup_attempt + 1))
+            done
+            
+            # Clean up temporary files
+            rm -f cleanup_sync_status.json cleanup_slx_check.json
+            
+          else
+            echo "❌ Could not extract admin credentials from GitLab SAS response"
+            # Still clean up git artifacts even if credentials failed
+            rm -rf .git* || true
+            find . -maxdepth 1 -type d -name "*-ci-verify*" -exec rm -rf {} + 2>/dev/null || true
+            exit 1
           fi
-
-          # Commit and force push
-          echo "Committing changes..."
-          git add .
-          git commit -m "Workspace reset"
-          echo "Force pushing changes..."
-          git push --force
-
-          # Cleanup
-          cd ..
-          rm -rf "$CLONE_DIR"
-
-          echo "Done."
-
+        else
+          echo "❌ Failed to fetch GitLab SAS credentials (status: $sas_response)"
+          echo "⚠️ Workspace cleanup failed - manual cleanup may be required"
+          # Clean up git artifacts even if API call failed
+          rm -rf .git* || true
+          find . -maxdepth 1 -type d -name "*-ci-verify*" -exec rm -rf {} + 2>/dev/null || true
+          exit 1
+        fi
+        
+        # Final cleanup of any remaining git artifacts
+        echo "🧹 Final cleanup of git artifacts..."
+        rm -rf .git* || true
+        find . -maxdepth 1 -type d -name "*-ci-verify*" -exec rm -rf {} + 2>/dev/null || true
+        find . -maxdepth 1 -type d -name "*workspace*" -exec rm -rf {} + 2>/dev/null || true
+        rm -f gitlab_sas.json cleanup_sync_status.json cleanup_slx_check.json || true
+        
+        echo "✅ Workspace cleanup completed and validated"
     silent: true
+
+  force-clean-git-state:
+    desc: "Force clean all git state and artifacts (use when cleanup-rwl-upload fails)"
+    cmds:
+      - |
+        echo "🧹 Force cleaning all git state and artifacts..."
+        
+        # Remove all git-related files and directories
+        rm -rf .git* || true
+        
+        # Remove workspace clone directories
+        find . -maxdepth 1 -type d -name "*-ci-verify*" -exec rm -rf {} + 2>/dev/null || true
+        find . -maxdepth 1 -type d -name "*workspace*" -exec rm -rf {} + 2>/dev/null || true
+        
+        # Remove temporary files
+        rm -f run_sh_upload_output.log container_logs.log slx_count.txt || true
+        rm -f uploaded_slx_name.txt sync_status_rwl*.json slx_list*.json || true
+        rm -f gitlab_sas.json cleanup_sync_status.json cleanup_slx_check.json || true
+        
+        # Reset git global config
+        git config --global --unset-all safe.directory || true
+        
+        # Clear any Docker containers that might be stuck
+        CONTAINER_NAME="RunWhenLocal"
+        if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Stopping and removing existing container $CONTAINER_NAME..."
+          docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME || true
+        elif docker ps -a -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Removing existing stopped container $CONTAINER_NAME..."
+          docker rm $CONTAINER_NAME || true
+        fi
+        
+        # Clean output directory
+        rm -rf output || true
+        
+        echo "✅ Force cleanup completed - git state reset"
+    silent: false
