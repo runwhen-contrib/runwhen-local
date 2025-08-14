@@ -45,32 +45,6 @@ jobs:
       #   uses: github/codeql-action/upload-sarif@v3
       #   with:
       #     sarif_file: 'trivy-results-repo.sarif'
-  ## Build and Push to shared artifact registry
-  build-and-push-to-shared-artifact-repo:
-    runs-on: ubuntu-latest
-    outputs:
-      image_path: ${{ steps.publish-beta.outputs.image_path }}
-    steps:
-      - uses: actions/checkout@v2
-        name: Checkout
-      - id: "auth-runwhen"
-        name: "Authenticate to Google Cloud"
-        uses: "google-github-actions/auth@v0.4.0"
-        with:
-          workload_identity_provider: ${{ secrets.RUNWHEN_NONPROD_SHARED_WI_PROVIDER }}
-          service_account: ${{ secrets.RUNWHEN_NONPROD_SHARED_WI_SA }}
-
-      - name: Set tag to branch name
-        run: |-
-          echo "TAG=$(echo $GITHUB_REF_NAME | sed 's/[^a-zA-Z0-9]/-/g')-${GITHUB_SHA::8}" >> $GITHUB_ENV
-      - name: Set build and date details
-        run: |-
-          sed -i "s/date: today/date: $(date +'%Y-%m-%d %H:%M')/g" ${RW_LOCAL_MKDOCS_CONFIG}
-          sed -i "s/version: 0\.1/version: $TAG/g" ${RW_LOCAL_MKDOCS_CONFIG}
-      - name: Configure Docker for multi-arch builds
-        run: docker run --privileged --rm tonistiigi/binfmt --install all
-      - name: Configure Docker for GCP
-        run: gcloud --quiet auth configure-docker us-docker.pkg.dev
 
   # Build amd64 natively on x86_64
   build-amd64:
@@ -169,37 +143,6 @@ jobs:
           FULL="${{ env.SHARED_ARTIFACT_REPOSITORY_PATH }}/${{ env.IMAGE }}"
           docker buildx imagetools inspect "${FULL}:${TAG}"
 
-      # Build and Push Multi-Arch Images
-      # - name: Build and push multi-arch image
-      #   run: |-
-      #     cd ./src
-      #     docker buildx create --use --name=mybuilder
-      #     docker buildx inspect --bootstrap
-      #     docker buildx build \
-      #       --memory=6g \
-      #       --memory-swap=8g \
-      #       --sbom=true \
-      #       --push \
-      #       --platform linux/amd64,linux/arm64 \
-      #       --tag "${{ env.SHARED_ARTIFACT_REPOSITORY_PATH }}/$IMAGE:$TAG" \
-      #       --build-arg GITHUB_SHA="$GITHUB_SHA" \
-      #       --build-arg GITHUB_REF="$GITHUB_REF" \
-      #       -f Dockerfile .
-
-      # - name: Run Trivy vulnerability scanner
-      #   uses: aquasecurity/trivy-action@0.20.0
-      #   with:
-      #     image-ref: '${{ env.SHARED_ARTIFACT_REPOSITORY_PATH }}/${{ env.IMAGE }}:${{ env.TAG }}'
-      #     format: 'sarif'
-      #     output: 'trivy-results-image.sarif'
-      #     ignore-unfixed: true
-      #     severity: 'CRITICAL'
-
-      # - name: Upload Trivy scan results to GitHub Security tab
-      #   uses: github/codeql-action/upload-sarif@v3
-      #   with:
-      #     sarif_file: 'trivy-results-image.sarif'
-
       - name: Notify Slack of Container Build
         id: slack-publish-nonprod-shared-artifact-repo
         uses: slackapi/slack-github-action@v1.19.0
@@ -212,7 +155,7 @@ jobs:
   notify:
     runs-on: ubuntu-latest
     needs:
-      - build-and-push-to-shared-artifact-repo
+      - publish-manifest
       - scan-repo
     if: always()  # Ensure this runs even if previous jobs fail
 

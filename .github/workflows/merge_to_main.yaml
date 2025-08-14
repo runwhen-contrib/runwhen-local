@@ -49,71 +49,131 @@ jobs:
       #   uses: github/codeql-action/upload-sarif@v3
       #   with:
       #     sarif_file: 'trivy-results-repo.sarif'
-  ## Push to shared artifact registry
-  build-and-push-to-shared-artifact-repo:
+  # Build amd64 natively on x86_64
+  build-amd64:
     runs-on: ubuntu-latest
+    env:
+      IMAGE: runwhen-local
+      SHARED_ARTIFACT_REPOSITORY_PATH: us-docker.pkg.dev/runwhen-nonprod-shared/public-images
+      RW_LOCAL_MKDOCS_CONFIG: src/cheat-sheet-docs/mkdocs.yml
+      GHCR_ORG: runwhen-contrib
     outputs:
-      image_path: ${{ steps.publish-beta.outputs.image_path }}
+      version: ${{ steps.version.outputs.version }}
     steps:
-      - uses: actions/checkout@v2
-      - id: "auth-runwhen"
-        name: "Authenticate to Google Cloud"
-        uses: "google-github-actions/auth@v0.4.0"
+      - uses: actions/checkout@v4
+      - id: version
+        run: |
+          echo "VERSION=$(cat src/VERSION | jq -r .version)" | tee -a $GITHUB_ENV
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+      - run: |
+          sed -i "s/date: today/date: $(date +'%Y-%m-%d %H:%M')/g" ${RW_LOCAL_MKDOCS_CONFIG}
+          sed -i "s/version: 0\.1/version: ${VERSION}/g" ${RW_LOCAL_MKDOCS_CONFIG}
+      - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.RUNWHEN_NONPROD_SHARED_WI_PROVIDER }}
           service_account: ${{ secrets.RUNWHEN_NONPROD_SHARED_WI_SA }}
-      - name: Set tag and version
-        run: |-
-          echo "TAG=$(echo $GITHUB_REF_NAME | sed 's/[^a-zA-Z0-9]/-/g')-${GITHUB_SHA::8}" >> $GITHUB_ENV
-          echo "VERSION=$(cat src/VERSION | jq -r .version)" >> $GITHUB_ENV
-      - name: Set build and date details
-        run: |-
-          sed -i "s/date: today/date: $(date +'%Y-%m-%d %H:%M')/g" ${RW_LOCAL_MKDOCS_CONFIG}
-          sed -i "s/version: 0\.1/version: $VERSION/g" ${RW_LOCAL_MKDOCS_CONFIG}
+      - run: gcloud --quiet auth configure-docker us-docker.pkg.dev
       - name: Login to GHCR
-        env:
-          GITHUB_TOKEN: ${{ secrets.PAT }}
-        run: |-
-          echo $GITHUB_TOKEN | docker login ghcr.io -u stewartshea --password-stdin
-      - name: Configure Docker for multi-arch builds
-        run: docker run --privileged --rm tonistiigi/binfmt --install all
-      - name: Configure Docker for GCP
-        run: gcloud --quiet auth configure-docker us-docker.pkg.dev
-
-
-      # Build the Docker image
-      - name: Build and push multi-arch image
-        run: |-
-          cd ./src
-          docker buildx create --use --name=mybuilder
+        run: echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+      - name: Build & push linux/amd64
+        run: |
+          cd src
+          docker buildx create --use --name mybuilder || docker buildx use mybuilder
           docker buildx inspect --bootstrap
           docker buildx build \
-            --memory=6g \
-            --memory-swap=8g \
+            --platform linux/amd64 \
             --push \
-            --platform linux/amd64,linux/arm64 \
-            --tag "${{ env.SHARED_ARTIFACT_REPOSITORY_PATH }}/$IMAGE:$VERSION" \
-            --tag "${{ env.SHARED_ARTIFACT_REPOSITORY_PATH }}/$IMAGE:latest" \
-            --tag ghcr.io/$GHCR_ORG/$IMAGE:$VERSION \
-            --tag ghcr.io/$GHCR_ORG/$IMAGE:latest \
+            --tag "${{ env.SHARED_ARTIFACT_REPOSITORY_PATH }}/${{ env.IMAGE }}:${VERSION}-amd64" \
+            --tag "${{ env.SHARED_ARTIFACT_REPOSITORY_PATH }}/${{ env.IMAGE }}:latest-amd64" \
+            --tag "ghcr.io/${{ env.GHCR_ORG }}/${{ env.IMAGE }}:${VERSION}-amd64" \
+            --tag "ghcr.io/${{ env.GHCR_ORG }}/${{ env.IMAGE }}:latest-amd64" \
+            --cache-from type=gha \
+            --cache-to type=gha,mode=max \
             --build-arg GITHUB_SHA="$GITHUB_SHA" \
             --build-arg GITHUB_REF="$GITHUB_REF" \
             -f Dockerfile .
 
-      # - name: Run Trivy vulnerability scanner
-      #   uses: aquasecurity/trivy-action@0.20.0
-      #   with:
-      #     image-ref: '${{ env.SHARED_ARTIFACT_REPOSITORY_PATH }}/${{ env.IMAGE }}:${{ env.VERSION }}'
-      #     format: 'sarif'
-      #     output: 'trivy-results-image.sarif'
-      #     ignore-unfixed: true
-      #     severity: 'CRITICAL'
+  # Build arm64 natively on GitHub-hosted ARM
+  build-arm64:
+    runs-on: ubuntu-24.04-arm
+    env:
+      IMAGE: runwhen-local
+      SHARED_ARTIFACT_REPOSITORY_PATH: us-docker.pkg.dev/runwhen-nonprod-shared/public-images
+      RW_LOCAL_MKDOCS_CONFIG: src/cheat-sheet-docs/mkdocs.yml
+      GHCR_ORG: runwhen-contrib
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "VERSION=$(cat src/VERSION | jq -r .version)" | tee -a $GITHUB_ENV
+      - run: |
+          sed -i "s/date: today/date: $(date +'%Y-%m-%d %H:%M')/g" ${RW_LOCAL_MKDOCS_CONFIG}
+          sed -i "s/version: 0\.1/version: ${VERSION}/g" ${RW_LOCAL_MKDOCS_CONFIG}
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.RUNWHEN_NONPROD_SHARED_WI_PROVIDER }}
+          service_account: ${{ secrets.RUNWHEN_NONPROD_SHARED_WI_SA }}
+      - run: gcloud --quiet auth configure-docker us-docker.pkg.dev
+      - name: Login to GHCR
+        run: echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+      - name: Build & push linux/arm64
+        run: |
+          cd src
+          docker buildx create --use --name mybuilder || docker buildx use mybuilder
+          docker buildx inspect --bootstrap
+          docker buildx build \
+            --platform linux/arm64 \
+            --push \
+            --tag "${{ env.SHARED_ARTIFACT_REPOSITORY_PATH }}/${{ env.IMAGE }}:${VERSION}-arm64" \
+            --tag "${{ env.SHARED_ARTIFACT_REPOSITORY_PATH }}/${{ env.IMAGE }}:latest-arm64" \
+            --tag "ghcr.io/${{ env.GHCR_ORG }}/${{ env.IMAGE }}:${VERSION}-arm64" \
+            --tag "ghcr.io/${{ env.GHCR_ORG }}/${{ env.IMAGE }}:latest-arm64" \
+            --cache-from type=gha \
+            --cache-to type=gha,mode=max \
+            --build-arg GITHUB_SHA="$GITHUB_SHA" \
+            --build-arg GITHUB_REF="$GITHUB_REF" \
+            -f Dockerfile .
 
-      # - name: Upload Trivy scan results to GitHub Security tab
-      #   uses: github/codeql-action/upload-sarif@v3
-      #   with:
-      #     sarif_file: 'trivy-results-image.sarif'
-    
+  # Stitch the multi-arch tag when both are pushed
+  publish-manifest:
+    runs-on: ubuntu-latest
+    needs: [build-amd64, build-arm64]
+    env:
+      IMAGE: runwhen-local
+      SHARED_ARTIFACT_REPOSITORY_PATH: us-docker.pkg.dev/runwhen-nonprod-shared/public-images
+      GHCR_ORG: runwhen-contrib
+    steps:
+      - run: echo "VERSION=$(cat src/VERSION | jq -r .version)" | tee -a $GITHUB_ENV
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.RUNWHEN_NONPROD_SHARED_WI_PROVIDER }}
+          service_account: ${{ secrets.RUNWHEN_NONPROD_SHARED_WI_SA }}
+      - run: gcloud --quiet auth configure-docker us-docker.pkg.dev
+      - name: Login to GHCR
+        run: echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+      - name: Create & push GCP manifest
+        run: |
+          FULL="${{ env.SHARED_ARTIFACT_REPOSITORY_PATH }}/${{ env.IMAGE }}"
+          docker buildx imagetools create \
+            --tag "${FULL}:${VERSION}" \
+            --tag "${FULL}:latest" \
+            "${FULL}:${VERSION}-amd64" \
+            "${FULL}:${VERSION}-arm64"
+      - name: Create & push GHCR manifest
+        run: |
+          FULL="ghcr.io/${{ env.GHCR_ORG }}/${{ env.IMAGE }}"
+          docker buildx imagetools create \
+            --tag "${FULL}:${VERSION}" \
+            --tag "${FULL}:latest" \
+            "${FULL}:${VERSION}-amd64" \
+            "${FULL}:${VERSION}-arm64"
+      - name: Inspect GCP manifest
+        run: |
+          FULL="${{ env.SHARED_ARTIFACT_REPOSITORY_PATH }}/${{ env.IMAGE }}"
+          docker buildx imagetools inspect "${FULL}:${VERSION}"
+      - name: Inspect GHCR manifest
+        run: |
+          FULL="ghcr.io/${{ env.GHCR_ORG }}/${{ env.IMAGE }}"
+          docker buildx imagetools inspect "${FULL}:${VERSION}"
 
       - name: Notify Slack of Container Build
         id: slack-publish-nonprod-shared-artifact-repo
@@ -124,6 +184,14 @@ jobs:
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
 
+  # Deploy to sandbox after successful build
+  deploy-to-sandbox:
+    runs-on: ubuntu-latest
+    needs: [publish-manifest]
+    env:
+      SANDBOX_DEPLOYMENT_NAME: runwhen-local
+      SANDBOX_DEPLOYMENT_NAMESPACE: runwhen-local
+    steps:
       - name: Rollout new image in sandbox
         id: rollout-new-sandbox-image
         env:
@@ -141,8 +209,7 @@ jobs:
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
 
-
-      - name: Notify Slack of RunWhen Local Deployment tp GHCR
+      - name: Notify Slack of RunWhen Local Deployment to GHCR
         id: slack-deploy-to-ghcr
         uses: slackapi/slack-github-action@v1.19.0
         with:
@@ -154,7 +221,8 @@ jobs:
   notify:
     runs-on: ubuntu-latest
     needs:
-      - build-and-push-to-shared-artifact-repo
+      - publish-manifest
+      - deploy-to-sandbox
       - scan-repo
     if: always()  # Ensure this runs even if previous jobs fail
 
