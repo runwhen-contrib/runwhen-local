@@ -34,7 +34,7 @@ jobs:
     outputs:
       image_path: ${{ steps.publish-beta.outputs.image_path }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         name: Checkout
       # - name: Run Trivy vulnerability scanner in repo mode
       #   uses: aquasecurity/trivy-action@0.20.0
@@ -141,8 +141,8 @@ jobs:
       SHARED_ARTIFACT_REPOSITORY_PATH: us-docker.pkg.dev/runwhen-nonprod-shared/public-images
       GHCR_ORG: runwhen-contrib
     steps:
-      - run: echo "VERSION=$(cat src/VERSION | jq -r .version)" | tee -a $GITHUB_ENV
       - uses: actions/checkout@v4
+      - run: echo "VERSION=$(cat src/VERSION | jq -r .version)" | tee -a $GITHUB_ENV
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.RUNWHEN_NONPROD_SHARED_WI_PROVIDER }}
