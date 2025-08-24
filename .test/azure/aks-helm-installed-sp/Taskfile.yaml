@@ -68,8 +68,11 @@ tasks:
                   server: https://$cluster_server:443
                   resource_group: $cluster_resource_group
                   subscriptionId: $cluster_sub
-            resourceGroupLevelOfDetails:
-              $cluster_resource_group: detailed
+            subscriptions:
+              - subscriptionId: "$ARM_SUBSCRIPTION_ID"
+                defaultLOD: detailed
+                resourceGroupLevelOfDetails:
+                  $cluster_resource_group: detailed
         codeCollections: 
           - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection"
             branch: "main"

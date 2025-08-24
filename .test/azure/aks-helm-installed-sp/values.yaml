@@ -18,7 +18,7 @@
 ###############################################################################
 ######################## Global/Shared Settings ###############################
 ###############################################################################
-workspaceName: "t-ob-3"
+workspaceName: "wo-azure"
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
@@ -63,7 +63,7 @@ runwhenLocal:
     repository: "runwhen-nonprod-shared/public-images/runwhen-local"
     pullPolicy: Always
     # Overrides the image tag whose default is the chart appVersion.
-    tag: "675-merge-4bcf09fb"
+    tag: "latest"
     # registry: "ghcr.io"
     # repository: "runwhen-contrib/runwhen-local"
     # pullPolicy: Always
@@ -237,9 +237,9 @@ runner:
     registry: ""
     repository: ""
     tag: "latest"
-  controlAddr: "https://runner.test.runwhen.com"
+  controlAddr: "https://runner.wolf.dev.runwhen.com"
   metrics:
-    url: "https://runner-cortex-tenant.test.runwhen.com/push"
+    url: "https://runner-cortex-tenant.wolf.dev.runwhen.com/push"
   # securityContext (container) is used to set the security context for the runner container
   securityContext: {}
   # securityContext is used to set the security context for the runner pod
