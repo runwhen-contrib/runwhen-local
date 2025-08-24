@@ -1,34 +1,51 @@
-    - name: platform
-      value: gcp
-    - name: project_id
-      value: '{{ match_resource.resource.project_id | string }}'
-{% if match_resource.resource.location is defined %}
-    - name: location
-      value: '{{ match_resource.resource.location | string }}'
+{% if match_resource is defined and match_resource.project_id is defined %}
+    - name: gcp_project_id
+      value: "{{ match_resource.project_id }}"
 {% endif %}
-    - name: resource_type
-      value: '{{ match_resource.resource_type.name | string }}'
-{% if qualifiers and qualifiers.resource is defined %}
-    - name: resource_name
-      value: '{{ qualifiers.resource | string }}'
-{% elif qualifiers and qualifiers.resource_group is defined %}
-    - name: resource_name
-      value: '{{ qualifiers.resource_group | string }}'
-{% else %}
-    - name: resource_name
-      value: '{{ match_resource.resource.name | string }}'
+{% if match_resource is defined and match_resource.project_name is defined %}
+    - name: gcp_project_name
+      value: "{{ match_resource.project_name }}"
 {% endif %}
-{% for cr in child_resource_names | default([]) %}
-    - name: child_resource
-      value: '{{ cr | string | replace(":", "_") | replace("/", "_") }}'
+{% if match_resource is defined and match_resource.region is defined %}
+    - name: gcp_region
+      value: "{{ match_resource.region }}"
+{% endif %}
+{% if match_resource is defined and match_resource.zone is defined %}
+    - name: gcp_zone
+      value: "{{ match_resource.zone }}"
+{% endif %}
+{% if match_resource is defined and match_resource.location is defined %}
+    - name: gcp_location
+      value: "{{ match_resource.location }}"
+{% endif %}
+{% if project is defined and project.name is defined %}
+    - name: gcp_project_id
+      value: "{{ project.name }}"
+{% endif %}
+{% if project is defined and project.project_name is defined %}
+    - name: gcp_project_name
+      value: "{{ project.project_name }}"
+{% endif %}
+{% if match_resource is defined and match_resource.labels is defined %}
+{% for label_key, label_value in match_resource.labels.items() %}
+    - name: gcp_label_{{ label_key | replace('-', '_') | replace('.', '_') }}
+      value: "{{ label_value }}"
 {% endfor %}
-{% set labels = match_resource.resource.labels %}
-{% if labels %}
-{% for k, v in match_resource.resource.labels.items() %}
-    {% if v and v|string|trim != "" %}
-    - name: "[gcp]{{ k | string }}"
-      value: '{{ v | string }}'
-    {% endif %}
-{% endfor %}
+{% endif %}
+{% if cluster is defined and cluster.cluster_type | default('') == "gke" %}
+    - name: gcp_cluster_type
+      value: "gke"
+{% if cluster.project_id is defined %}
+    - name: gcp_project_id
+      value: "{{ cluster.project_id }}"
+{% endif %}
+{% if cluster.region is defined %}
+    - name: gcp_region
+      value: "{{ cluster.region }}"
+{% endif %}
+{% if cluster.zone is defined %}
+    - name: gcp_zone
+      value: "{{ cluster.zone }}"
+{% endif %}
 {% endif %}
 

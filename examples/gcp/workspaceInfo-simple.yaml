@@ -1,0 +1,26 @@
+workspaceName: "my-gcp-workspace"
+workspaceOwnerEmail: "team@example.com"
+defaultLocation: "location-01"
+defaultLOD: "detailed"
+
+cloudConfig:
+  gcp:
+    # Service Account from Kubernetes Secret (Recommended)
+    saSecretName: "gcp-service-account"
+    projects:
+      - "my-production-project"
+      - "my-staging-project"
+    projectLevelOfDetails:
+      "my-production-project": detailed
+      "my-staging-project": basic
+
+# Code collections (optional)
+codeCollections:
+  - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection"
+    branch: "main"
+    codeBundles: ["gcp-compute-healthcheck", "gke-cluster-healthcheck"]
+
+# Custom variables for generation rules
+custom:
+  gcp_service_account_secret_name: "gcp-service-account"
+  environment: "production" 

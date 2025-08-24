@@ -1,0 +1,24 @@
+{% if cluster is defined and cluster.cluster_type | default('') == "gke" and cluster.auth_type | default('') == "gcp_service_account" %}
+    - name: kubeconfig
+      workspaceKey: gcp:sa@kubeconfig:{{ cluster.name | default('undefined') }}/{{ cluster.zone | default(cluster.region | default('undefined')) }}
+    - name: gcp_projectId
+      workspaceKey: k8s:file@secret/{{ custom.gcp_service_account_secret_name | default('undefined') }}:projectId
+    - name: gcp_serviceAccountKey
+      workspaceKey: k8s:file@secret/{{ custom.gcp_service_account_secret_name | default('undefined') }}:serviceAccountKey
+{% elif cluster is defined and cluster.cluster_type | default('') == "gke" and cluster.auth_type | default('') == "gcp_service_account_secret" %}
+    - name: kubeconfig
+      workspaceKey: gcp:sa@kubeconfig:{{ cluster.name | default('undefined') }}/{{ cluster.zone | default(cluster.region | default('undefined')) }}
+    - name: gcp_projectId
+      workspaceKey: k8s:file@secret/{{ cluster.auth_secret | default('undefined') }}:projectId
+    - name: gcp_serviceAccountKey
+      workspaceKey: k8s:file@secret/{{ cluster.auth_secret | default('undefined') }}:serviceAccountKey
+{% elif cluster is defined and cluster.cluster_type | default('') == "gke" and cluster.auth_type | default('') == "gcp_adc" %}
+    - name: kubeconfig
+      workspaceKey: gcp:adc@kubeconfig:{{ cluster.name | default('undefined') }}/{{ cluster.zone | default(cluster.region | default('undefined')) }}
+{% elif custom is defined and custom.kubeconfig_secret_name | default('') != '' %}
+    - name: kubeconfig
+      workspaceKey: k8s:file@secret/{{ custom.kubeconfig_secret_name }}:kubeconfig
+{% else %}
+    - name: kubeconfig
+      workspaceKey: GKE AUTH DETAILS NOT FOUND
+{% endif %} 
