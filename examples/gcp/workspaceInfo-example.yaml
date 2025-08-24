@@ -1,0 +1,149 @@
+workspaceName: "gcp-example"
+workspaceOwnerEmail: "team@example.com"
+defaultLocation: "location-01"
+defaultLOD: "detailed"
+cloudConfig:
+  gcp:
+    # Multi-project configuration
+    projects:
+      - "production-project-123"
+      - "staging-project-456"
+      - "development-project-789"
+    
+    # Authentication Method 1: Service Account from Kubernetes Secret (Recommended for Production)
+    saSecretName: "gcp-service-account"
+    
+    # Authentication Method 2: Explicit Service Account (Not recommended for production)
+    # projectId: "my-project-id"
+    # serviceAccountKey: |
+    #   {
+    #     "type": "service_account",
+    #     "project_id": "my-project-id",
+    #     "private_key_id": "...",
+    #     "private_key": "...",
+    #     "client_email": "service-account@my-project.iam.gserviceaccount.com",
+    #     "client_id": "...",
+    #     "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+    #     "token_uri": "https://oauth2.googleapis.com/token"
+    #   }
+    
+    # Authentication Method 3: Application Default Credentials (Development/Cloud Shell)
+    # No explicit credentials needed - uses gcloud auth or other ADC sources
+    
+    # Authentication Method 4: Legacy Application Credentials File
+    # applicationCredentialsFile: /shared/GCPServiceAccountKeyWorkspaceBuilder.json
+    
+    # Project-level configuration
+    projectLevelOfDetails:
+      "production-project-123": detailed
+      "staging-project-456": basic
+      "development-project-789": basic
+
+# Custom variables for use in generation rules
+custom:
+  gcp:
+    environment: "production"
+    organization: "my-company"
+    critical_project: "production-project-123"
+    monitoring_level: "detailed"
+    team: "platform-engineering"
+    
+  # GCP Service Account Secret Configuration
+  gcp_service_account_secret_name: "gcp-service-account"
+  
+  # GKE Cluster Configuration
+  gke_clusters:
+    production:
+      name: "prod-gke-cluster"
+      project_id: "production-project-123"
+      zone: "us-central1-a"
+      region: "us-central1"
+    staging:
+      name: "staging-gke-cluster"
+      project_id: "staging-project-456"
+      region: "us-west1"
+
+# Code collections (optional)
+codeCollections: []
+# codeCollections: 
+#   - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection"
+#     branch: "main"
+#     codeBundles: ["gcp-compute-healthcheck", "gke-cluster-healthcheck"]
+
+---
+# Example Kubernetes Secret for GCP Service Account
+# Create this secret in your cluster:
+# kubectl create secret generic gcp-service-account \
+#   --from-literal=projectId="production-project-123" \
+#   --from-literal=serviceAccountKey='{"type":"service_account",...}'
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: gcp-service-account
+type: Opaque
+data:
+  # Base64 encoded project ID
+  projectId: cHJvZHVjdGlvbi1wcm9qZWN0LTEyMw==
+  # Base64 encoded service account JSON key
+  serviceAccountKey: ewogICJ0eXBlIjogInNlcnZpY2VfYWNjb3VudCIsCiAgInByb2plY3RfaWQiOiAicHJvZHVjdGlvbi1wcm9qZWN0LTEyMyIsCiAgInByaXZhdGVfa2V5X2lkIjogIi4uLiIsCiAgInByaXZhdGVfa2V5IjogIi0tLS0tQkVHSU4gUFJJVkFURSBLRVktLS0tLVxuLi4uXG4tLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tXG4iLAogICJjbGllbnRfZW1haWwiOiAicnVud2hlbi1sb2NhbEBwcm9kdWN0aW9uLXByb2plY3QtMTIzLmlhbS5nc2VydmljZWFjY291bnQuY29tIiwKICAiY2xpZW50X2lkIjogIi4uLiIsCiAgImF1dGhfdXJpIjogImh0dHBzOi8vYWNjb3VudHMuZ29vZ2xlLmNvbS9vL29hdXRoMi9hdXRoIiwKICAidG9rZW5fdXJpIjogImh0dHBzOi8vb2F1dGgyLmdvb2dsZWFwaXMuY29tL3Rva2VuIgp9
+
+---
+# Authentication Priority and Usage Examples:
+# 1. Service Account from Kubernetes Secret (Recommended for Production)
+#    - Secure credential storage
+#    - Easy rotation and management
+#    - Works across different environments
+#
+# 2. Explicit Service Account in Configuration
+#    - Direct configuration in workspaceInfo.yaml
+#    - Not recommended for production due to credential exposure
+#    - Useful for testing and development
+#
+# 3. Application Default Credentials
+#    - Uses gcloud auth login credentials
+#    - Works with Compute Engine service accounts
+#    - Ideal for development environments and Cloud Shell
+#    - No explicit configuration needed
+#
+# 4. Legacy Application Credentials File
+#    - Maintains backward compatibility
+#    - File-based credential storage
+#    - Being phased out in favor of secret-based approaches
+
+# Usage Scenarios:
+
+# Development Environment (ADC):
+# workspaceName: "dev-workspace"
+# workspaceOwnerEmail: "dev@example.com"
+# defaultLocation: "location-01"
+# defaultLOD: "basic"
+# cloudConfig:
+#   gcp:
+#     projects: ["dev-project"]
+#     # Uses gcloud auth login or other ADC sources
+
+# CI/CD Pipeline (Service Account Secret):
+# workspaceName: "ci-workspace"
+# workspaceOwnerEmail: "ci@example.com"
+# defaultLocation: "location-01"
+# defaultLOD: "detailed"
+# cloudConfig:
+#   gcp:
+#     saSecretName: "ci-gcp-service-account"
+#     projects: ["prod-project", "staging-project"]
+
+# Multi-Environment Management:
+# workspaceName: "multi-env-workspace"
+# workspaceOwnerEmail: "platform@example.com"
+# defaultLocation: "location-01"
+# defaultLOD: "detailed"
+# cloudConfig:
+#   gcp:
+#     projects:
+#       - "prod-project-123"
+#       - "staging-project-456"
+#     saSecretName: "cross-project-service-account"
+#     projectLevelOfDetails:
+#       "prod-project-123": detailed
+#       "staging-project-456": basic 
