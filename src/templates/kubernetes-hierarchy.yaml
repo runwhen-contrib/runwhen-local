@@ -16,3 +16,9 @@
 {% if match_resource.namespace %}
     - namespace
 {% endif %}
+{% if match_resource.name %}
+    - resource_name
+{% endif %}
+{% if resource_path %}
+    resourcePath: "{{ resource_path }}"
+{% endif %}

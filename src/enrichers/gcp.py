@@ -211,6 +211,21 @@ class GCPPlatformHandler(PlatformHandler):
         project = get_project(resource)
         if project:
             template_variables['project'] = project
+            
+        # Generate resourcePath for GCP resources
+        resource_path_parts = ["gcp"]
+        if project and project.name:
+            resource_path_parts.append(project.name)
+        
+        # Add location (region/zone) if available
+        location = getattr(resource, 'location', None) or getattr(resource, 'region', None) or getattr(resource, 'zone', None)
+        if location:
+            resource_path_parts.append(location)
+            
+        if resource.name:
+            resource_path_parts.append(resource.name)
+        template_variables['resource_path'] = "/".join(resource_path_parts)
+        
         return template_variables
 
     def resolve_template_variable_value(self, resource: Resource, variable_name: str) -> Optional[Any]:
