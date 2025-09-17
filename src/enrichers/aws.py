@@ -116,6 +116,22 @@ class AWSPlatformHandler(PlatformHandler):
             'is_public': str(self.get_resource_qualifier_value(resource, "is_public") or ""),
             'arn': str(self.get_resource_qualifier_value(resource, "arn") or ""),
         }
+        
+        # Generate resourcePath for AWS resources
+        resource_path_parts = ["aws"]
+        account_id = self.get_resource_qualifier_value(resource, "account_id")
+        if account_id:
+            resource_path_parts.append(account_id)
+        region = self.get_resource_qualifier_value(resource, "region")
+        if region:
+            resource_path_parts.append(region)
+        service = self.get_resource_qualifier_value(resource, "service")
+        if service:
+            resource_path_parts.append(service)
+        if resource.name:
+            resource_path_parts.append(resource.name)
+        template_variables['resource_path'] = "/".join(resource_path_parts)
+        
         logger.debug(f"Template variables before render: {template_variables}")
         return template_variables
 
