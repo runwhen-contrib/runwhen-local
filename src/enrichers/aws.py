@@ -132,13 +132,11 @@ class AWSPlatformHandler(PlatformHandler):
             resource_path_parts.append(resource.name)
         template_variables['resource_path'] = "/".join(resource_path_parts)
         
-        logger.debug(f"Template variables before render: {template_variables}")
-        return template_variables
-
-
         # Add tags as template variables
         tags = getattr(resource, "tags", {})
         template_variables.update({f"tag_{key}": value for key, value in tags.items()})
+        
+        logger.debug(f"Template variables before render: {template_variables}")
         return template_variables
 
 
