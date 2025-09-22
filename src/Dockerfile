@@ -20,7 +20,7 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DEFAULT_TIMEOUT=100 \
     POETRY_HOME="/opt/poetry" \
     # renovate: datasource=github-releases depName=python-poetry/poetry
-    POETRY_VERSION=2.1.4 \
+    POETRY_VERSION=2.2.1 \
     POETRY_VIRTUALENVS_IN_PROJECT=true \
     POETRY_NO_INTERACTION=1 \
     PYSETUP_PATH="/opt/pysetup" \
