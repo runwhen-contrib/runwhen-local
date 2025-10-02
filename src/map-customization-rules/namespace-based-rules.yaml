@@ -101,6 +101,12 @@ spec:
     - match:
         type: pattern
         matchType: base-name
+        pattern: "postgres-operations"
+        matchMode: exact
+      group: "{{namespace.name}} ({{cluster.name}})"
+    - match:
+        type: pattern
+        matchType: base-name
         pattern: "postgres-health"
         matchMode: exact
       group: "{{namespace.name}} ({{cluster.name}})"
