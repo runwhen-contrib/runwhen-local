@@ -6,5 +6,11 @@ spec:
         type: pattern
         matchType: base-name
         pattern: "flux-kstmz"
-        matchMode: substring
+        matchMode: exact
+      group: "{{namespace.name}} ({{cluster.name}})"
+    - match:
+        type: pattern
+        matchType: base-name
+        pattern: "fluxcd-reconciliation"
+        matchMode: exact
       group: "{{namespace.name}} ({{cluster.name}})"

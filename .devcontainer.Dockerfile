@@ -1,4 +1,4 @@
-FROM python:3.13.6-slim
+FROM python:3.13.7-slim
 
 # Create a non-root user `runwhen` to run commands
 ENV RUNWHEN_HOME=/home/runwhen
@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /usr/share/doc /usr/share/man /usr/share/info /var/cache/man
 
 # Install Terraform
-ENV TERRAFORM_VERSION=1.12.2
+ENV TERRAFORM_VERSION=1.13.3
 RUN wget https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip && \
     unzip terraform_${TERRAFORM_VERSION}_linux_amd64.zip terraform -d /usr/local/bin/ && \
     rm terraform_${TERRAFORM_VERSION}_linux_amd64.zip
