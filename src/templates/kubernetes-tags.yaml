@@ -48,6 +48,10 @@
       value: '{{ cr | string | replace(":", "_") | replace("/", "_") }}'
     {% endfor %}
 {% endif %}
+{% if match_resource.resource_type %}
+    - name: resource_type
+      value: '{{ match_resource.resource_type.name | string }}'
+{% endif %}
 {% set labels = match_resource.resource.metadata.labels if
                 match_resource.resource and
                 match_resource.resource.metadata is defined and

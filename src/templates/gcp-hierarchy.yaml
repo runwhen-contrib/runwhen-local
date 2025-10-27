@@ -4,4 +4,10 @@
     {% if match_resource.location is defined %}
     - location
     {% endif %}
+    {% if match_resource.name %}
+    - resource_name
+    {% endif %}
+    {% if resource_path %}
+    resourcePath: "{{ resource_path }}"
+    {% endif %}
 
