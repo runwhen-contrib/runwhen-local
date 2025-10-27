@@ -395,12 +395,16 @@ def get_managed_identity_details():
         "credential": credential
     }
 
-def gcp_get_credentials_and_project_ids(platform_config_data: dict[str, Any]) -> dict[str, Any]:
+def gcp_get_credentials_and_project_ids(platform_config_data: dict[str, Any], temp_dir: str = None) -> dict[str, Any]:
     """
     Resolve GCP authentication and return:
         project_ids            – list[str]   (final list for CloudQuery)
         GOOGLE_* keys          – env-var values for service account auth
         credentials_file       – path to service account key file
+    
+    Args:
+        platform_config_data: GCP platform configuration
+        temp_dir: Optional temporary directory for credentials file (for proper cleanup)
     """
     
     # ──────────────────────── 0. optional SA via K8s secret
@@ -449,9 +453,16 @@ def gcp_get_credentials_and_project_ids(platform_config_data: dict[str, Any]) ->
     
     if service_account_key:
         # Create temporary credentials file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-            f.write(service_account_key)
-            credentials_file = f.name
+        if temp_dir:
+            # Create credentials file in the managed temporary directory for proper cleanup
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False, dir=temp_dir) as f:
+                f.write(service_account_key)
+                credentials_file = f.name
+        else:
+            # Fallback to system temp directory (caller responsible for cleanup)
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                f.write(service_account_key)
+                credentials_file = f.name
         
         env_vars["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_file
         logger.info("Using GCP service account authentication")
@@ -554,6 +565,7 @@ def init_cloudquery_config(
     cloud_config_dir: str,
     db_file_path: str,
     accessed_resource_type_specs: dict[str, dict[ResourceTypeSpec, list[GenerationRuleInfo]]],
+    temp_dir: str = None,
 ) -> tuple[dict[str, str], list[tuple[CloudQueryPlatformSpec, list[CloudQueryResourceTypeSpec]]]]:
 
     # ───────────────────────────── shared CQ env vars
@@ -667,7 +679,7 @@ def init_cloudquery_config(
         elif platform_name == "gcp":
             logger.debug("Entering GCP configuration block")
             
-            gcp_result = gcp_get_credentials_and_project_ids(platform_cfg)
+            gcp_result = gcp_get_credentials_and_project_ids(platform_cfg, temp_dir)
             cq_process_environment_vars.update(gcp_result["env_vars"])
             project_ids = gcp_result["project_ids"]
             credentials_file = gcp_result["credentials_file"]
@@ -830,7 +842,8 @@ def index(context: Context):
                                                                  cloud_config,
                                                                  cq_config_dir,
                                                                  sqlite_database_file_path,
-                                                                 accessed_resource_type_specs)
+                                                                 accessed_resource_type_specs,
+                                                                 cq_temp_dir)
 
             if len(cq_platform_infos) > 0:
                 invoke_cloudquery("sync", cq_config_dir, env_vars)
