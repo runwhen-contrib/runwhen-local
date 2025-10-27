@@ -409,7 +409,7 @@ def gcp_get_credentials_and_project_ids(platform_config_data: dict[str, Any]) ->
     if sa_secret_name:
         secret = get_secret(sa_secret_name)
         project_id = base64.b64decode(secret.get("projectId")).decode() if secret.get("projectId") else None
-        service_account_key = base64.b64decode(secret.get("serviceAccountKey")).decode()
+        service_account_key = base64.b64decode(secret.get("serviceAccountKey")).decode() if secret.get("serviceAccountKey") else None
 
     # ──────────────────────── 1. inline SA or explicit config
     if not all([project_id, service_account_key]):

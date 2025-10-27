@@ -96,7 +96,12 @@ def get_gcp_credential(workspace_info):
         try:
             secret_data = get_secret(sa_secret_name)
             project_id = base64.b64decode(secret_data.get('projectId')).decode('utf-8') if secret_data.get('projectId') else project_id
-            service_account_key = base64.b64decode(secret_data.get('serviceAccountKey')).decode('utf-8')
+            service_account_key = base64.b64decode(secret_data.get('serviceAccountKey')).decode('utf-8') if secret_data.get('serviceAccountKey') else None
+            
+            if not service_account_key:
+                logger.error(f"Service account key not found in Kubernetes secret '{sa_secret_name}'")
+                sys.exit(1)
+                
             auth_type = "gcp_service_account_secret"
             auth_secret = sa_secret_name
             
