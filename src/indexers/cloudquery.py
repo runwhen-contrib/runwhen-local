@@ -32,6 +32,7 @@ from utils import read_file, write_file, mask_string
 from .common import CLOUD_CONFIG_SETTING
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from k8s_utils import get_secret
+from gcp_utils import get_gcp_credential, authenticate_gcloud, validate_gcp_credentials
 
 logger = logging.getLogger(__name__)
 tmpdir_value = os.getenv("TMPDIR", "/tmp")  # fallback to /tmp if TMPDIR not set
@@ -394,6 +395,105 @@ def get_managed_identity_details():
         "credential": credential
     }
 
+def gcp_get_credentials_and_project_ids(platform_config_data: dict[str, Any], temp_dir: str = None) -> dict[str, Any]:
+    """
+    Resolve GCP authentication and return:
+        project_ids            – list[str]   (final list for CloudQuery)
+        GOOGLE_* keys          – env-var values for service account auth
+        credentials_file       – path to service account key file
+    
+    Args:
+        platform_config_data: GCP platform configuration
+        temp_dir: Optional temporary directory for credentials file (for proper cleanup)
+    """
+    
+    # ──────────────────────── 0. optional SA via K8s secret
+    sa_secret_name = platform_config_data.get("saSecretName")
+    project_id = service_account_key = None
+    if sa_secret_name:
+        secret = get_secret(sa_secret_name)
+        project_id = base64.b64decode(secret.get("projectId")).decode() if secret.get("projectId") else None
+        service_account_key = base64.b64decode(secret.get("serviceAccountKey")).decode() if secret.get("serviceAccountKey") else None
+
+    # ──────────────────────── 1. inline SA or explicit config
+    if not all([project_id, service_account_key]):
+        project_id = platform_config_data.get("projectId")
+        service_account_key = platform_config_data.get("serviceAccountKey")
+
+    # ──────────────────────── 2. collect project IDs
+    explicit_project_ids = []
+    
+    # From projects list
+    projects_list = platform_config_data.get("projects", [])
+    if isinstance(projects_list, list):
+        explicit_project_ids.extend([str(p) for p in projects_list])
+    elif isinstance(projects_list, str):
+        # Handle comma-separated string
+        explicit_project_ids.extend([p.strip() for p in projects_list.split(",")])
+    
+    # From single projectId field (legacy)
+    if project_id and project_id not in explicit_project_ids:
+        explicit_project_ids.append(str(project_id))
+    
+    # From environment variable
+    env_project = os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("GCP_PROJECT")
+    if env_project and env_project not in explicit_project_ids:
+        explicit_project_ids.append(str(env_project))
+
+    if not explicit_project_ids:
+        raise WorkspaceBuilderException(
+            "No GCP projects configured. Please specify 'projects' or 'projectId' in GCP config."
+        )
+
+    project_ids = explicit_project_ids
+
+    # ──────────────────────── 3. authentication setup
+    env_vars = {}
+    credentials_file = None
+    
+    if service_account_key:
+        # Create temporary credentials file
+        if temp_dir:
+            # Create credentials file in the managed temporary directory for proper cleanup
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False, dir=temp_dir) as f:
+                f.write(service_account_key)
+                credentials_file = f.name
+        else:
+            # Fallback to system temp directory (caller responsible for cleanup)
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                f.write(service_account_key)
+                credentials_file = f.name
+        
+        env_vars["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_file
+        logger.info("Using GCP service account authentication")
+    else:
+        # Use Application Default Credentials
+        logger.info("Using GCP Application Default Credentials")
+        # Check if gcloud is authenticated
+        try:
+            result = subprocess.run(
+                ["gcloud", "auth", "list", "--filter=status:ACTIVE", "--format=value(account)"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                logger.info(f"Found active gcloud authentication: {result.stdout.strip()}")
+            else:
+                logger.warning("No active gcloud authentication found. CloudQuery may fail if no other credential sources are available.")
+        except Exception as e:
+            logger.warning(f"Could not check gcloud authentication status: {e}")
+
+    # Set project environment variable to first project
+    if project_ids:
+        env_vars["GOOGLE_CLOUD_PROJECT"] = project_ids[0]
+
+    return {
+        "project_ids": project_ids,
+        "credentials_file": credentials_file,
+        "env_vars": env_vars
+    }
+
 def az_get_credentials_and_subscription_id(platform_config_data: dict[str, Any]) -> dict[str, Any]:
     """
     Resolve Azure authentication and return:
@@ -465,6 +565,7 @@ def init_cloudquery_config(
     cloud_config_dir: str,
     db_file_path: str,
     accessed_resource_type_specs: dict[str, dict[ResourceTypeSpec, list[GenerationRuleInfo]]],
+    temp_dir: str = None,
 ) -> tuple[dict[str, str], list[tuple[CloudQueryPlatformSpec, list[CloudQueryResourceTypeSpec]]]]:
 
     # ───────────────────────────── shared CQ env vars
@@ -576,8 +677,32 @@ def init_cloudquery_config(
 
         # ──────────────────────────── GCP ────────────────────────────────
         elif platform_name == "gcp":
+            logger.debug("Entering GCP configuration block")
+            
+            gcp_result = gcp_get_credentials_and_project_ids(platform_cfg, temp_dir)
+            cq_process_environment_vars.update(gcp_result["env_vars"])
+            project_ids = gcp_result["project_ids"]
+            credentials_file = gcp_result["credentials_file"]
+            
+            # Update enrichers.gcp module with these credentials so it can use them
+            try:
+                from enrichers.gcp import set_gcp_credentials
+                logger.debug("Setting GCP credentials in enrichers.gcp module")
+                set_gcp_credentials(
+                    project_id=project_ids[0] if project_ids else None,
+                    service_account_key=platform_cfg.get("serviceAccountKey"),
+                    auth_type="gcp_service_account" if credentials_file else "gcp_adc",
+                    auth_secret=platform_cfg.get("saSecretName")
+                )
+            except Exception as e:
+                logger.warning(f"Could not update enrichers.gcp credentials: {e}")
+            
+            # Set projects list for CloudQuery template
+            platform_cfg["projects"] = project_ids
+            
+            # Legacy support for applicationCredentialsFile
             sa_file = platform_cfg.get("applicationCredentialsFile")
-            if sa_file:
+            if sa_file and not credentials_file:
                 cq_process_environment_vars["GOOGLE_APPLICATION_CREDENTIALS"] = sa_file
 
         # ──────────────────────────── AWS ────────────────────────────────
@@ -717,7 +842,8 @@ def index(context: Context):
                                                                  cloud_config,
                                                                  cq_config_dir,
                                                                  sqlite_database_file_path,
-                                                                 accessed_resource_type_specs)
+                                                                 accessed_resource_type_specs,
+                                                                 cq_temp_dir)
 
             if len(cq_platform_infos) > 0:
                 invoke_cloudquery("sync", cq_config_dir, env_vars)

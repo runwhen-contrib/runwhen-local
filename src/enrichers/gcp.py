@@ -1,11 +1,11 @@
 import base64
 import os
-from typing import Any, Optional
+from typing import Any, Optional, Dict
 
 from component import Context
 from resources import Resource, Registry, REGISTRY_PROPERTY_NAME
 from .generation_rule_types import LevelOfDetail, PlatformHandler
-from utils import write_file
+from utils import write_file, mask_string
 
 import logging
 logger = logging.getLogger(__name__)
@@ -13,6 +13,74 @@ logger = logging.getLogger(__name__)
 GCP_PLATFORM = "gcp"
 
 APPLICATION_CREDENTIALS_FILE_KEY = "applicationCredentialsFile"
+
+# Cache for GCP project names
+project_names_cache: Dict[str, str] = {}
+
+# Cache for GCP credentials
+_gcp_credentials = {
+    "project_id": None,
+    "service_account_key": None,
+    "auth_type": None,
+    "auth_secret": None
+}
+
+def set_gcp_credentials(project_id: str = None, service_account_key: str = None, 
+                       auth_type: str = None, auth_secret: str = None):
+    """
+    Explicitly set GCP credentials to use for all GCP operations in this module.
+    
+    Args:
+        project_id: The GCP project ID
+        service_account_key: Service account JSON key as string
+        auth_type: Type of authentication (gcp_service_account, gcp_adc, etc.)
+        auth_secret: Name of Kubernetes secret containing credentials
+    """
+    global _gcp_credentials
+    if project_id:
+        _gcp_credentials["project_id"] = project_id
+    if service_account_key:
+        _gcp_credentials["service_account_key"] = service_account_key
+    if auth_type:
+        _gcp_credentials["auth_type"] = auth_type
+    if auth_secret:
+        _gcp_credentials["auth_secret"] = auth_secret
+        
+    logger.info(f"Set GCP credentials with auth type: {auth_type}")
+
+def get_project_name(project_id: str) -> str:
+    """
+    Get the display name for a GCP project.
+    Falls back to project ID if name cannot be retrieved.
+    """
+    global project_names_cache
+    
+    if project_id in project_names_cache:
+        return project_names_cache[project_id]
+    
+    try:
+        import subprocess
+        # Try to get project display name using gcloud
+        result = subprocess.run(
+            ["gcloud", "projects", "describe", project_id, "--format=value(name)"],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        
+        if result.returncode == 0 and result.stdout.strip():
+            project_name = result.stdout.strip()
+            project_names_cache[project_id] = project_name
+            return project_name
+        else:
+            logger.warning(f"Could not retrieve project name for {mask_string(project_id)}: {result.stderr}")
+            project_names_cache[project_id] = project_id
+            return project_id
+            
+    except Exception as e:
+        logger.warning(f"Error retrieving project name for {mask_string(project_id)}: {e}")
+        project_names_cache[project_id] = project_id
+        return project_id
 
 def get_project(resource: Resource) -> Optional[Resource]:
     # FIXME: Shouldn't use hard-coded string here
@@ -56,6 +124,26 @@ class GCPPlatformHandler(PlatformHandler):
                             platform_config_data: dict[str,Any],
                             context: Context) -> tuple[str, str, dict[str, Any]]:
         resource_attributes = dict()
+        
+        # Get project_id - either from direct field or extract from resource name/id
+        project_id = resource_data.get("project_id") or resource_data.get("project")
+        if not project_id:
+            # Try to extract from resource name or ID if it contains project info
+            resource_name = resource_data.get("name", "")
+            if "/" in resource_name and "projects/" in resource_name:
+                parts = resource_name.split("/")
+                for i, part in enumerate(parts):
+                    if part == "projects" and i + 1 < len(parts):
+                        project_id = parts[i + 1]
+                        break
+        
+        if project_id:
+            resource_attributes["project_id"] = project_id
+            
+            # Add project name to the resource attributes
+            project_name = get_project_name(project_id)
+            resource_attributes["project_name"] = project_name
+        
         if resource_type_name == "project":
             name: str = resource_data['project_id']
             qualified_name = name
@@ -66,7 +154,6 @@ class GCPPlatformHandler(PlatformHandler):
         else:
             name: str = resource_data['name']
             qualified_name = name
-            project_id = resource_data.get("project_id")
             if project_id:
                 registry: Registry = context.get_property(REGISTRY_PROPERTY_NAME)
                 project_resource_type = registry.lookup_resource_type(GCP_PLATFORM, "project")
@@ -76,6 +163,25 @@ class GCPPlatformHandler(PlatformHandler):
                             resource_attributes['project'] = project
                             break
                 qualified_name = f"{project_id}/{name}"
+        
+        # Add zone and region information if available
+        zone = resource_data.get("zone")
+        region = resource_data.get("region")
+        location = resource_data.get("location")
+        
+        if zone:
+            resource_attributes["zone"] = zone
+            # Extract region from zone if region not explicitly provided
+            if not region and "-" in zone:
+                # Zone format is typically region-zone (e.g., us-central1-a)
+                region_parts = zone.split("-")
+                if len(region_parts) >= 2:
+                    region = "-".join(region_parts[:-1])
+                    
+        if region:
+            resource_attributes["region"] = region
+        elif location:
+            resource_attributes["location"] = location
 
         return name, qualified_name, resource_attributes
 
@@ -105,6 +211,21 @@ class GCPPlatformHandler(PlatformHandler):
         project = get_project(resource)
         if project:
             template_variables['project'] = project
+            
+        # Generate resourcePath for GCP resources
+        resource_path_parts = ["gcp"]
+        if project and project.name:
+            resource_path_parts.append(project.name)
+        
+        # Add location (region/zone) if available
+        location = getattr(resource, 'location', None) or getattr(resource, 'region', None) or getattr(resource, 'zone', None)
+        if location:
+            resource_path_parts.append(location)
+            
+        if resource.name:
+            resource_path_parts.append(resource.name)
+        template_variables['resource_path'] = "/".join(resource_path_parts)
+        
         return template_variables
 
     def resolve_template_variable_value(self, resource: Resource, variable_name: str) -> Optional[Any]:
