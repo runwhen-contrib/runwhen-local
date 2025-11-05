@@ -199,12 +199,22 @@ def invoke_cloudquery(cq_command: str,
     # Make sure all env var values are strings
     cq_env_vars = {k: str(v) for k, v in cq_env_vars.items()}
 
+    # Enhanced debugging: Log environment variables (mask sensitive values)
+    if debug_logging:
+        logger.debug("CloudQuery environment variables:")
+        for key, value in cq_env_vars.items():
+            if any(sensitive in key.upper() for sensitive in ['SECRET', 'PASSWORD', 'TOKEN', 'KEY']):
+                logger.debug(f"  {key}=***MASKED***")
+            else:
+                logger.debug(f"  {key}={value}")
+
     #
     # 1) Decide on a plugin directory under your writable temp dir
     #
     plugin_dir = os.path.join(os.path.dirname(cq_config_dir), "cloudquery_plugins")
     os.makedirs(plugin_dir, exist_ok=True)  # Make sure it exists
     cq_env_vars["CQ_PLUGIN_DIR"] = plugin_dir
+    logger.debug(f"CloudQuery plugin directory: {plugin_dir}")
 
     #
     # 2) Prepare CloudQuery arguments
@@ -218,29 +228,113 @@ def invoke_cloudquery(cq_command: str,
     cq_args += [cq_command, cq_config_dir]
     if cq_output_dir:
         cq_args += ["--output-dir", cq_output_dir]
+    
+    # Enhanced debugging: Log the full command
+    logger.info(f"Executing CloudQuery command: {' '.join(cq_args)}")
+    logger.debug(f"CloudQuery working directory: {os.path.dirname(cq_config_dir)}")
+    logger.debug(f"CloudQuery config directory: {cq_config_dir}")
 
     # Retry loop with exponential backoff
     for attempt in range(max_retries + 1):
         try:
-            # 3) Run CloudQuery in a writable working directory
-            process_info = subprocess.run(
+            # 3) Run CloudQuery with streaming output for real-time visibility
+            logger.info("Starting CloudQuery execution with streaming output...")
+            
+            process = subprocess.Popen(
                 cq_args,
-                capture_output=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,  # Combine stderr into stdout for unified streaming
                 env=cq_env_vars,
-                cwd=os.path.dirname(cq_config_dir)  # set to the parent (the temp dir) so "cq" isn't read-only
+                cwd=os.path.dirname(cq_config_dir),
+                universal_newlines=True,
+                bufsize=1  # Line buffered
             )
 
-            stdout_text = process_info.stdout.decode("utf-8", errors="replace")
-            stderr_text = process_info.stderr.decode("utf-8", errors="replace")
-            logger.debug("Results for subprocess run of CloudQuery:")
-            logger.debug(f"args={process_info.args}")
-            logger.debug(f"return-code={process_info.returncode}")
-            logger.debug(f"stderr: {stderr_text}")
-            logger.debug(f"stdout: {stdout_text}")
+            # Stream output in real-time
+            stdout_lines = []
+            start_time = time.time()
+            last_progress_time = time.time()
+            progress_interval = 30  # Log progress every 30 seconds if no output
+            timeout_minutes = int(os.getenv("CLOUDQUERY_TIMEOUT_MINUTES", "60"))  # Default 60 minutes
+            timeout_seconds = timeout_minutes * 60
+            
+            while True:
+                output = process.stdout.readline()
+                if output == '' and process.poll() is not None:
+                    break
+                if output:
+                    output_line = output.strip()
+                    stdout_lines.append(output_line)
+                    last_progress_time = time.time()  # Reset progress timer
+                    
+                    # Real-time logging with different levels based on content
+                    if any(keyword in output_line.lower() for keyword in ['error', 'failed', 'exception']):
+                        logger.error(f"CloudQuery: {output_line}")
+                    elif any(keyword in output_line.lower() for keyword in ['warning', 'warn']):
+                        logger.warning(f"CloudQuery: {output_line}")
+                    elif any(keyword in output_line.lower() for keyword in ['rate limit', 'throttle', 'retry', 'backoff']):
+                        logger.warning(f"CloudQuery RATE LIMIT: {output_line}")
+                    elif any(keyword in output_line.lower() for keyword in ['sync', 'table', 'resource', 'rows', 'syncing']):
+                        logger.info(f"CloudQuery: {output_line}")
+                    elif debug_logging:
+                        logger.debug(f"CloudQuery: {output_line}")
+                else:
+                    # No output received, check if we should log progress or timeout
+                    current_time = time.time()
+                    elapsed_time = current_time - start_time
+                    
+                    # Check for timeout
+                    if elapsed_time > timeout_seconds:
+                        logger.error(f"CloudQuery timeout after {timeout_minutes} minutes. Terminating process.")
+                        process.terminate()
+                        try:
+                            process.wait(timeout=10)  # Wait up to 10 seconds for graceful termination
+                        except subprocess.TimeoutExpired:
+                            logger.error("CloudQuery process did not terminate gracefully, killing it.")
+                            process.kill()
+                        raise WorkspaceBuilderException(f"CloudQuery timed out after {timeout_minutes} minutes")
+                    
+                    # Log progress if no output for a while
+                    if current_time - last_progress_time > progress_interval:
+                        elapsed_minutes = int(elapsed_time / 60)
+                        logger.info(f"CloudQuery is still running... ({elapsed_minutes}m elapsed, no output for 30s)")
+                        last_progress_time = current_time
+                        
+                    # Small sleep to prevent busy waiting
+                    time.sleep(0.1)
+
+            # Wait for process to complete
+            return_code = process.poll()
+            stdout_text = '\n'.join(stdout_lines)
+            stderr_text = ""  # Combined with stdout above
+            
+            # Enhanced logging: Always log basic info
+            logger.info(f"CloudQuery execution completed - Return code: {return_code}")
+            
+            if return_code == 0:
+                logger.info("CloudQuery sync completed successfully")
+            else:
+                logger.error(f"CloudQuery failed with return code: {return_code}")
+                # In case of failure, also log the last few lines for context
+                if stdout_lines:
+                    last_lines = stdout_lines[-10:]  # Last 10 lines
+                    logger.error("CloudQuery final output:")
+                    for line in last_lines:
+                        logger.error(f"  {line}")
+            
+            # Create a process_info-like object for compatibility with existing code
+            class ProcessInfo:
+                def __init__(self, args, returncode, stdout, stderr):
+                    self.args = args
+                    self.returncode = returncode
+                    self.stdout_text = stdout
+                    self.stderr_text = stderr
+            
+            process_info = ProcessInfo(cq_args, return_code, stdout_text, stderr_text)
 
             if process_info.returncode != 0:
                 # Check if this is a rate limiting error
-                if is_rate_limited(stdout_text, stderr_text):
+                if is_rate_limited(process_info.stdout_text, process_info.stderr_text):
                     if attempt < max_retries:
                         # Calculate delay with exponential backoff and jitter
                         delay = min(base_delay * (2 ** attempt) + random.uniform(0, 1), max_delay)
@@ -248,7 +342,7 @@ def invoke_cloudquery(cq_command: str,
                         logger.warning(
                             f"CloudQuery rate limiting detected (attempt {attempt + 1}/{max_retries + 1}). "
                             f"Retrying in {delay:.1f} seconds. "
-                            f"Error output: {stderr_text[:200]}..."
+                            f"Error output: {process_info.stderr_text[:200]}..."
                         )
                         
                         time.sleep(delay)
@@ -258,8 +352,8 @@ def invoke_cloudquery(cq_command: str,
                         error_message = (
                             f"CloudQuery failed due to rate limiting after {max_retries + 1} attempts. "
                             f"Final error: return-code={process_info.returncode}; "
-                            f"stderr={stderr_text}; "
-                            f"stdout={stdout_text}"
+                            f"stderr={process_info.stderr_text}; "
+                            f"stdout={process_info.stdout_text}"
                         )
                         logger.error(error_message)
                         raise WorkspaceBuilderException(error_message)
@@ -268,8 +362,8 @@ def invoke_cloudquery(cq_command: str,
                     error_message = (
                         f"Error running CloudQuery to discover resources: "
                         f"return-code={process_info.returncode}; "
-                        f"stderr={stderr_text}; "
-                        f"stdout={stdout_text}"
+                        f"stderr={process_info.stderr_text}; "
+                        f"stdout={process_info.stdout_text}"
                     )
                     raise WorkspaceBuilderException(error_message)
             else:
@@ -347,7 +441,12 @@ def init_cloudquery_table_info():
             config_file_path = os.path.join(cq_config_dir, platform_spec.config_file_name)
             config_text = render_template_file(platform_spec.config_template_name, template_variables,
                                                template_loader_func)
-            logger.debug(f"-------USING CQ CONFIG-------\n{config_text}")
+            logger.info(f"Generated CloudQuery config for {platform_spec.name}: {config_file_path}")
+            if debug_logging:
+                logger.debug(f"-------CloudQuery {platform_spec.name} CONFIG-------\n{config_text}")
+            else:
+                # In non-debug mode, just log key config details
+                logger.info(f"CloudQuery {platform_spec.name} config includes {len(template_variables.get('tables', []))} tables")
             write_file(config_file_path, config_text)
 
         if platforms_to_discover:
@@ -767,7 +866,19 @@ def init_cloudquery_config(
         cfg_path = os.path.join(cloud_config_dir, platform_spec.config_file_name)
         final_yaml = render(platform_spec.config_template_name, tmpl_vars)
         write_file(cfg_path, final_yaml)
-        logger.debug(f"-------FINAL CQ CONFIG ({platform_name})-------\n{final_yaml}")
+        
+        # Enhanced logging for main CloudQuery config
+        logger.info(f"Generated CloudQuery sync config for {platform_name}: {cfg_path}")
+        logger.info(f"CloudQuery {platform_name} will sync {len(tables)} tables: {tables}")
+        
+        if debug_logging:
+            logger.debug(f"-------FINAL CQ CONFIG ({platform_name})-------\n{final_yaml}")
+        else:
+            # In non-debug mode, log key configuration details
+            if platform_name == "azure" and "subscriptions" in tmpl_vars:
+                logger.info(f"Azure subscriptions to sync: {tmpl_vars['subscriptions']}")
+            if resource_groups_override:
+                logger.info(f"Resource groups override: {resource_groups_override}")
 
     return cq_process_environment_vars, platform_tables
 
@@ -860,19 +971,36 @@ def index(context: Context):
 
                     for cq_resource_type_spec in cq_resource_type_specs:
                         table_name = cq_resource_type_spec.cloudquery_table_name
-                        logger.info(f"Processing table: {table_name}")
+                        resource_type_name = cq_resource_type_spec.resource_type_name
+                        logger.info(f"Processing table: {table_name} (resource type: {resource_type_name})")
 
                         try:
+                            # Enhanced debugging: Check table structure first
+                            if debug_logging:
+                                schema_response = cursor.execute(f"PRAGMA table_info({table_name})")
+                                schema_info = schema_response.fetchall()
+                                logger.debug(f"Table {table_name} schema:")
+                                for col_info in schema_info:
+                                    logger.debug(f"  Column: {col_info[1]} ({col_info[2]})")
+                            
                             response = cursor.execute(f"SELECT * FROM {table_name}")
-                        except sqlite3.OperationalError:
-                            logger.warning(f"Table {table_name} not found or no resources discovered.")
+                        except sqlite3.OperationalError as e:
+                            logger.warning(f"Table {table_name} not found or query failed: {e}")
                             continue
 
                         table_rows = response.fetchall()
+                        row_count = len(table_rows)
+                        logger.info(f"Found {row_count} rows in table {table_name}")
+                        
                         if not table_rows:
-                            logger.info(f"No rows found in table {table_name}.")
+                            logger.info(f"No rows found in table {table_name} - skipping processing.")
                             continue
                         field_descriptions = response.description
+                        
+                        # Enhanced debugging: Log field names
+                        if debug_logging:
+                            field_names = [desc[0] for desc in field_descriptions]
+                            logger.debug(f"Table {table_name} fields: {field_names}")
 
                         for table_row in table_rows:
                             resource_data = {}
@@ -911,12 +1039,26 @@ def index(context: Context):
                             auth_type, auth_secret = get_auth_type(platform_name, platform_config_data)
                             resource_attributes['auth_type'] = auth_type
                             resource_attributes['auth_secret'] = auth_secret
+                            
+                            # Enhanced debugging: Log LOD assignment for resources
+                            if debug_logging:
+                                resource_lod = resource_attributes.get('lod', 'NOT_SET')
+                                subscription_id = resource_attributes.get('subscription_id', 'UNKNOWN')
+                                logger.debug(f"Resource {resource_name} (type: {cq_resource_type_spec.resource_type_name}):")
+                                logger.debug(f"  Subscription ID: {subscription_id}")
+                                logger.debug(f"  LOD: {resource_lod}")
+                                logger.debug(f"  Qualified name: {qualified_resource_name}")
+                                
+                                # Special logging for resource groups to help debug LOD issues
+                                if cq_resource_type_spec.resource_type_name == "resource_group":
+                                    logger.info(f"Resource Group processed: {resource_name} with LOD: {resource_lod} in subscription: {subscription_id}")
+                            
                             registry.add_resource(platform_name,
                                                   cq_resource_type_spec.resource_type_name,
                                                   resource_name,
                                                   qualified_resource_name,
                                                   resource_attributes)
-                            logger.info(f"Added resource: {resource_name} to registry.")
+                            logger.info(f"Added resource: {resource_name} (type: {cq_resource_type_spec.resource_type_name}) to registry.")
 
     logger.info("Finished CloudQuery indexing")
 
