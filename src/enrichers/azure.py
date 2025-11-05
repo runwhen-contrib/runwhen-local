@@ -172,14 +172,27 @@ class AzurePlatformHandler(PlatformHandler):
 
         # Get subscription_id - either from direct field or extract from resource ID
         subscription_id = resource_data.get("subscription_id")
-        if not subscription_id:
-            # Extract subscription_id from resource ID path
-            resource_id = resource_data.get("id", "")
-            if "/subscriptions/" in resource_id:
-                parts = resource_id.split("/subscriptions/")
-                if len(parts) > 1:
-                    subscription_part = parts[1].split("/")[0]
-                    subscription_id = subscription_part
+        resource_id = resource_data.get("id", "")
+        
+        # Extract subscription_id from resource ID path for comparison
+        extracted_subscription_id = None
+        if "/subscriptions/" in resource_id:
+            parts = resource_id.split("/subscriptions/")
+            if len(parts) > 1:
+                subscription_part = parts[1].split("/")[0]
+                extracted_subscription_id = subscription_part
+        
+        # BUG FIX: Always use the subscription ID from the resource ID if available
+        # The direct subscription_id field from CloudQuery might be incorrect
+        if extracted_subscription_id:
+            if subscription_id and subscription_id != extracted_subscription_id:
+                logger.warning(f"Subscription ID mismatch for resource {name}: "
+                             f"direct field='{subscription_id}' vs ID field='{extracted_subscription_id}'. "
+                             f"Using ID field value.")
+            subscription_id = extracted_subscription_id
+        elif not subscription_id:
+            logger.warning(f"Could not determine subscription_id for resource {name}")
+            subscription_id = None
         
         if subscription_id:
             resource_attributes["subscription_id"] = subscription_id
