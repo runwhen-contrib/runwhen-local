@@ -1,0 +1,24 @@
+apiVersion: runwhen.com/v1
+kind: GenerationRules
+spec:
+  platform: azure
+  generationRules:
+    - resourceTypes:
+        - azure_storage_accounts
+      matchRules:
+        - type: pattern
+          pattern: ".+"
+          properties: [name]
+          mode: substring
+      slxs:
+        - baseName: azure-storage-health
+          qualifiers: [resource, resource_group]  # This should generate 2 separate SLXs
+          baseTemplateName: azure-storage-health
+          levelOfDetail: basic
+          outputItems:
+            - type: slx
+            - type: sli
+            - type: runbook
+              templateName: azure-storage-health-taskset.yaml
+            - type: workflow
+
