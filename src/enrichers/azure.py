@@ -243,13 +243,30 @@ class AzurePlatformHandler(PlatformHandler):
                     # Try to find existing resource group in the same subscription
                     rg_resource = None
                     if rg_type:
-                        for rg in rg_type.instances.values():
+                        logger.debug(f"Looking for resource group '{rg_name}' in subscription '{subscription_id}' for resource '{name}'")
+                        logger.debug(f"Available resource groups: {list(rg_type.instances.keys())}")
+                        for rg_qualified_name, rg in rg_type.instances.items():
+                            rg_sub_id = getattr(rg, 'subscription_id', None)
+                            logger.debug(f"  Checking RG '{rg.name}' (qualified: '{rg_qualified_name}') in subscription '{rg_sub_id}'")
                             if (rg.name.upper() == rg_name.upper() and 
-                                getattr(rg, 'subscription_id', None) == subscription_id):
+                                rg_sub_id == subscription_id):
                                 rg_resource = rg
                                 resource_attributes["resource_group"] = rg
                                 qualified_name = f"{rg.name}/{name}"
+                                logger.info(f"SUCCESS: Linked resource '{name}' to resource group '{rg.name}' in subscription '{subscription_id}'")
                                 break
+                        
+                        if not rg_resource:
+                            logger.warning(f"FAILED: Could not find resource group '{rg_name}' in subscription '{subscription_id}' for resource '{name}'. Available RGs: {[(rg.name, getattr(rg, 'subscription_id', None)) for rg in rg_type.instances.values()]}")
+                            
+                            # DEFERRED RELATIONSHIP: Store info for later resolution
+                            # This handles cases where storage accounts are processed before their resource groups
+                            resource_attributes["_deferred_rg_lookup"] = {
+                                "rg_name": rg_name,
+                                "subscription_id": subscription_id,
+                                "resource_id": resource_id
+                            }
+                            logger.info(f"DEFERRED: Storing resource group lookup info for '{name}' - will resolve after all resources loaded")
                     
                     # If resource group not found in registry, look up LOD directly from config
                     if not rg_resource:
