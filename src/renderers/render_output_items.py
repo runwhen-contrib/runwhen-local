@@ -1,6 +1,7 @@
 import os
 import yaml
 import logging
+import time
 from typing import Any, Callable, Optional, List
 
 from component import Context, SettingDependency, WORKSPACE_NAME_SETTING, \
@@ -163,6 +164,15 @@ def render(context: Context):
     output_items: dict[str, OutputItem] = context.get_property(OUTPUT_ITEMS_PROPERTY, {})
     skipped_templates: List[dict] = []
     
+    # Initialize render statistics tracking
+    render_stats = {
+        'total_output_items': len(output_items),
+        'successfully_rendered': 0,
+        'skipped': 0,
+        'start_time': time.time()
+    }
+    context.set_property("RENDER_STATS", render_stats)
+    
     for output_item in output_items.values():
         logger.info(f"Rendering output item: {output_item.path}")
         if logger.isEnabledFor(logging.DEBUG):
@@ -182,6 +192,7 @@ def render(context: Context):
 
             # Write the deduplicated output to the file
             context.write_file(output_item.path, deduplicated_output)
+            render_stats['successfully_rendered'] += 1
         except WorkspaceBuilderException as e:
             # Log the error but don't fail
             logger.warning(f"Skipping template {output_item.template_name} for {output_item.path}: {str(e)}")
@@ -190,6 +201,7 @@ def render(context: Context):
                 "template": output_item.template_name,
                 "error": str(e)
             })
+            render_stats['skipped'] += 1
         except Exception as e:
             # Catch any other exceptions during rendering
             logger.warning(f"Unexpected error rendering {output_item.template_name} for {output_item.path}: {str(e)}")
@@ -198,6 +210,7 @@ def render(context: Context):
                 "template": output_item.template_name,
                 "error": str(e)
             })
+            render_stats['skipped'] += 1
     
     # Generate report of skipped templates if any
     if skipped_templates:
@@ -213,3 +226,14 @@ def render(context: Context):
         report_path = os.path.join(context.get_setting(WORKSPACE_OUTPUT_PATH_SETTING), "skipped_templates_report.md")
         context.write_file(report_path, report_content)
         logger.info(f"Generated skipped templates report at {report_path}")
+    
+    # Calculate and log render statistics
+    render_stats['end_time'] = time.time()
+    render_stats['duration'] = render_stats['end_time'] - render_stats['start_time']
+    
+    # Log summary statistics
+    logger.info(f"Render Summary:")
+    logger.info(f"  Total output items to render: {render_stats['total_output_items']}")
+    logger.info(f"  Successfully rendered: {render_stats['successfully_rendered']}")
+    logger.info(f"  Skipped due to errors: {render_stats['skipped']}")
+    logger.info(f"  Render duration: {render_stats['duration']:.2f} seconds")

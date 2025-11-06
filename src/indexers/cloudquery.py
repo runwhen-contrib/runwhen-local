@@ -30,6 +30,7 @@ from exceptions import WorkspaceBuilderException
 from resources import Registry, REGISTRY_PROPERTY_NAME, ResourceTypeSpec
 from utils import read_file, write_file, mask_string
 from .common import CLOUD_CONFIG_SETTING
+from .airgap_support import airgap_manager
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from k8s_utils import get_secret
 from gcp_utils import get_gcp_credential, authenticate_gcloud, validate_gcp_credentials
@@ -38,9 +39,13 @@ logger = logging.getLogger(__name__)
 tmpdir_value = os.getenv("TMPDIR", "/tmp")  # fallback to /tmp if TMPDIR not set
 
 debug_logging_str = os.environ.get('DEBUG_LOGGING')
-debug_logging = debug_logging_str and debug_logging_str.lower() == 'true'
+debug_logging = debug_logging_str is not None and debug_logging_str.lower() == 'true'
 
-# Set logging level for Azure SDKs based on DEBUG_LOGGING
+# Separate CloudQuery debug logging control
+cq_debug_logging_str = os.environ.get('CQ_DEBUG')
+cq_debug_logging = cq_debug_logging_str is not None and cq_debug_logging_str.lower() == 'true'
+
+# Set logging level for Azure SDKs based on DEBUG_LOGGING (not CQ_DEBUG)
 if debug_logging:
     logging.getLogger("azure").setLevel(logging.DEBUG)
     logging.getLogger("azure.identity").setLevel(logging.DEBUG)
@@ -200,7 +205,7 @@ def invoke_cloudquery(cq_command: str,
     cq_env_vars = {k: str(v) for k, v in cq_env_vars.items()}
 
     # Enhanced debugging: Log environment variables (mask sensitive values)
-    if debug_logging:
+    if cq_debug_logging:
         logger.debug("CloudQuery environment variables:")
         for key, value in cq_env_vars.items():
             if any(sensitive in key.upper() for sensitive in ['SECRET', 'PASSWORD', 'TOKEN', 'KEY']):
@@ -215,12 +220,20 @@ def invoke_cloudquery(cq_command: str,
     os.makedirs(plugin_dir, exist_ok=True)  # Make sure it exists
     cq_env_vars["CQ_PLUGIN_DIR"] = plugin_dir
     logger.debug(f"CloudQuery plugin directory: {plugin_dir}")
+    
+    # Setup airgap environment if enabled
+    if airgap_manager.is_enabled():
+        logger.info("CloudQuery airgap mode detected - using pre-installed plugins")
+        airgap_env_vars = airgap_manager.setup_airgap_environment(plugin_dir)
+        cq_env_vars.update(airgap_env_vars)
+    else:
+        logger.debug("CloudQuery online mode - plugins will be downloaded as needed")
 
     #
     # 2) Prepare CloudQuery arguments
     #
     cq_args = ["cloudquery"]
-    if debug_logging:
+    if cq_debug_logging:
         cq_args += ["--log-level", "debug"]
     # Optionally pass --plugin-dir here as well:
     # cq_args += [f"--plugin-dir={plugin_dir}"]
@@ -276,7 +289,7 @@ def invoke_cloudquery(cq_command: str,
                         logger.warning(f"CloudQuery RATE LIMIT: {output_line}")
                     elif any(keyword in output_line.lower() for keyword in ['sync', 'table', 'resource', 'rows', 'syncing']):
                         logger.info(f"CloudQuery: {output_line}")
-                    elif debug_logging:
+                    elif cq_debug_logging:
                         logger.debug(f"CloudQuery: {output_line}")
                 else:
                     # No output received, check if we should log progress or timeout
@@ -411,6 +424,24 @@ def init_cloudquery_table_info():
     # Initialize with empty dict - we'll only populate for platforms we can discover
     cloudquery_premium_table_info = dict()
     
+    # In airgap mode, try to load pre-packaged table information
+    if airgap_manager.is_enabled():
+        logger.info("Loading table information from airgap package")
+        for platform_name in ["azure", "aws", "gcp"]:
+            tables_info = airgap_manager.get_tables_info(platform_name)
+            if tables_info:
+                # Extract premium tables from airgap info
+                premium_tables = tables_info.get("premium_tables", [])
+                cloudquery_premium_table_info[platform_name] = premium_tables
+                logger.info(f"Loaded {len(premium_tables)} premium tables for {platform_name} from airgap package")
+            else:
+                # Default to empty list for airgap mode
+                cloudquery_premium_table_info[platform_name] = []
+                logger.debug(f"No airgap table info found for {platform_name}, assuming no premium tables")
+        
+        logger.info("Airgap table information loaded successfully")
+        return
+    
     with tempfile.TemporaryDirectory(dir=tmpdir_value) as cq_temp_dir:
         cq_config_dir = os.path.join(cq_temp_dir, "config")
         cq_output_dir = os.path.join(cq_temp_dir, "docs")
@@ -442,7 +473,7 @@ def init_cloudquery_table_info():
             config_text = render_template_file(platform_spec.config_template_name, template_variables,
                                                template_loader_func)
             logger.info(f"Generated CloudQuery config for {platform_spec.name}: {config_file_path}")
-            if debug_logging:
+            if cq_debug_logging:
                 logger.debug(f"-------CloudQuery {platform_spec.name} CONFIG-------\n{config_text}")
             else:
                 # In non-debug mode, just log key config details
@@ -865,13 +896,32 @@ def init_cloudquery_config(
 
         cfg_path = os.path.join(cloud_config_dir, platform_spec.config_file_name)
         final_yaml = render(platform_spec.config_template_name, tmpl_vars)
+        
+        # Apply airgap modifications if enabled
+        if airgap_manager.is_enabled():
+            platform_version = None
+            # Extract version from platform spec or use defaults
+            if platform_name == "azure":
+                platform_version = "v11.4.3"
+            elif platform_name == "aws":
+                platform_version = "v25.1.0"
+            elif platform_name == "gcp":
+                platform_version = "v13.1.0"
+            
+            if platform_version:
+                final_yaml = airgap_manager.generate_offline_config(platform_name, platform_version, final_yaml)
+                logger.info(f"Applied airgap configuration for {platform_name}")
+        
         write_file(cfg_path, final_yaml)
         
         # Enhanced logging for main CloudQuery config
         logger.info(f"Generated CloudQuery sync config for {platform_name}: {cfg_path}")
         logger.info(f"CloudQuery {platform_name} will sync {len(tables)} tables: {tables}")
         
-        if debug_logging:
+        if airgap_manager.is_enabled():
+            logger.info(f"CloudQuery {platform_name} configured for airgap/offline mode")
+        
+        if cq_debug_logging:
             logger.debug(f"-------FINAL CQ CONFIG ({platform_name})-------\n{final_yaml}")
         else:
             # In non-debug mode, log key configuration details
@@ -931,6 +981,16 @@ def az_validate_credential_access(credential, subscription_id):
 def index(context: Context):
     logger.info("Starting CloudQuery indexing")
 
+    # Initialize CloudQuery statistics tracking
+    cq_stats = {
+        'platforms': {},
+        'total_discovered': 0,
+        'total_added_to_registry': 0,
+        'total_skipped': 0,
+        'start_time': time.time()
+    }
+    context.set_property("CQ_STATS", cq_stats)
+
     init_cloudquery_table_info()
 
     cloud_config = context.get_setting("CLOUD_CONFIG")
@@ -976,7 +1036,7 @@ def index(context: Context):
 
                         try:
                             # Enhanced debugging: Check table structure first
-                            if debug_logging:
+                            if cq_debug_logging:
                                 schema_response = cursor.execute(f"PRAGMA table_info({table_name})")
                                 schema_info = schema_response.fetchall()
                                 logger.debug(f"Table {table_name} schema:")
@@ -998,9 +1058,23 @@ def index(context: Context):
                         field_descriptions = response.description
                         
                         # Enhanced debugging: Log field names
-                        if debug_logging:
+                        if cq_debug_logging:
                             field_names = [desc[0] for desc in field_descriptions]
                             logger.debug(f"Table {table_name} fields: {field_names}")
+
+                        # Track discovered resources per platform and table
+                        platform_stats = cq_stats['platforms'].setdefault(platform_name, {
+                            'tables': {},
+                            'discovered': 0,
+                            'added_to_registry': 0,
+                            'skipped': 0
+                        })
+                        
+                        table_stats = platform_stats['tables'].setdefault(table_name, {
+                            'discovered': 0,
+                            'added_to_registry': 0,
+                            'skipped': 0
+                        })
 
                         for table_row in table_rows:
                             resource_data = {}
@@ -1015,14 +1089,25 @@ def index(context: Context):
                                         pass
                                 resource_data[attribute_name] = attribute_value
 
+                            # Count discovered resource
+                            table_stats['discovered'] += 1
+                            platform_stats['discovered'] += 1
+                            cq_stats['total_discovered'] += 1
+
                             resource_data["tags"] = resource_data.get("tags", {})
                             logger.debug(f"Resource tags: {resource_data['tags']}")
 
                             if exclude_tags and has_excluded_tags(resource_data, exclude_tags):
                                 logger.info(f"Resource {resource_data.get('name', 'unknown')} excluded due to tags.")
+                                table_stats['skipped'] += 1
+                                platform_stats['skipped'] += 1
+                                cq_stats['total_skipped'] += 1
                                 continue
                             if include_tags and not has_included_tags(resource_data, include_tags):
                                 logger.info(f"Resource {resource_data.get('name', 'unknown')} does not meet inclusion tags, skipping.")
+                                table_stats['skipped'] += 1
+                                platform_stats['skipped'] += 1
+                                cq_stats['total_skipped'] += 1
                                 continue
 
                             try:
@@ -1033,6 +1118,9 @@ def index(context: Context):
                                                                          context)
                             except WorkspaceBuilderException as e:
                                 logger.warning(f"Resource group or required qualifier missing for resource: {resource_data.get('name', 'unknown')}. Skipping. Error: {e}")
+                                table_stats['skipped'] += 1
+                                platform_stats['skipped'] += 1
+                                cq_stats['total_skipped'] += 1
                                 continue
 
                             resource_attributes['resource'] = resource_data
@@ -1041,7 +1129,7 @@ def index(context: Context):
                             resource_attributes['auth_secret'] = auth_secret
                             
                             # Enhanced debugging: Log LOD assignment for resources
-                            if debug_logging:
+                            if cq_debug_logging:
                                 resource_lod = resource_attributes.get('lod', 'NOT_SET')
                                 subscription_id = resource_attributes.get('subscription_id', 'UNKNOWN')
                                 logger.debug(f"Resource {resource_name} (type: {cq_resource_type_spec.resource_type_name}):")
@@ -1058,9 +1146,35 @@ def index(context: Context):
                                                   resource_name,
                                                   qualified_resource_name,
                                                   resource_attributes)
+                            
+                            # Count successfully added resource
+                            table_stats['added_to_registry'] += 1
+                            platform_stats['added_to_registry'] += 1
+                            cq_stats['total_added_to_registry'] += 1
+                            
                             logger.info(f"Added resource: {resource_name} (type: {cq_resource_type_spec.resource_type_name}) to registry.")
 
+    # Calculate and log CloudQuery statistics
+    cq_stats['end_time'] = time.time()
+    cq_stats['duration'] = cq_stats['end_time'] - cq_stats['start_time']
+    
     logger.info("Finished CloudQuery indexing")
+    
+    # Log summary statistics
+    logger.info(f"CloudQuery Discovery Summary:")
+    logger.info(f"  Total resources discovered: {cq_stats['total_discovered']}")
+    logger.info(f"  Total resources added to registry: {cq_stats['total_added_to_registry']}")
+    logger.info(f"  Total resources skipped: {cq_stats['total_skipped']}")
+    logger.info(f"  Discovery duration: {cq_stats['duration']:.2f} seconds")
+    
+    # Log per-platform statistics
+    for platform_name, platform_stats in cq_stats['platforms'].items():
+        logger.info(f"  {platform_name.upper()}: discovered={platform_stats['discovered']}, added={platform_stats['added_to_registry']}, skipped={platform_stats['skipped']}")
+        
+        # Log per-table statistics if CQ_DEBUG is enabled
+        if cq_debug_logging:
+            for table_name, table_stats in platform_stats['tables'].items():
+                logger.debug(f"    Table {table_name}: discovered={table_stats['discovered']}, added={table_stats['added_to_registry']}, skipped={table_stats['skipped']}")
 
 
 def get_auth_type(platform_name, platform_config_data: dict[str,Any]): 

@@ -70,6 +70,7 @@ DOCUMENTATION = "Index assets from a Kubernetes configuration"
 SETTINGS = (
     SettingDependency(CLOUD_CONFIG_SETTING, False),
     SettingDependency(DEFAULT_LOD_SETTING, False),
+    SettingDependency("NAMESPACE_LODS", False),
 )
 
 
@@ -190,6 +191,9 @@ def index(component_context: Context):
     include_labels = {}
     lod_annotations = HARDCODED_LOD_ANNOTATIONS
     default_lod = component_context.get_setting("DEFAULT_LOD")
+    
+    # Load the traditional namespaceLODs setting for backward compatibility
+    namespace_lods = component_context.get_setting("NAMESPACE_LODS") or {}
 
     with TemporaryDirectory() as temp_dir:
         # Extract settings from the context
@@ -209,6 +213,12 @@ def index(component_context: Context):
                 if isinstance(contexts_config, dict):  # Ensure it's a dictionary
                         for context_name, context_data in contexts_config.items():
                             kube_context_lod_settings[context_name] = context_data.get("defaultNamespaceLOD", default_lod)
+                
+                # Load namespaceLODs from kubernetes settings (cloudConfig.kubernetes.namespaceLODs)
+                kubernetes_namespace_lods = kubernetes_settings.get("namespaceLODs", {})
+                if kubernetes_namespace_lods:
+                    namespace_lods.update(kubernetes_namespace_lods)
+                    logger.info(f"Loaded namespaceLODs from kubernetes settings: {kubernetes_namespace_lods}")
                 # FIXME: This kubeconfig file handling is pretty convoluted right now after the
                 # changes with merging/constructing the kubeconfig in the run.py script and then
                 # the subsequent changes to revert to using the encoded kubeconfig in the request
@@ -341,6 +351,15 @@ def index(component_context: Context):
             for cluster in aks_clusters_config:
                 cluster_name = cluster["name"]
                 aks_cluster_lod_settings[cluster_name] = cluster.get("defaultNamespaceLOD", default_lod)
+                
+                # Load namespaceLODs from AKS cluster configuration
+                cluster_namespace_lods = cluster.get("namespaceLODs", {})
+                if cluster_namespace_lods:
+                    # Store per-cluster namespaceLODs
+                    aks_cluster_namespace_lods[cluster_name] = cluster_namespace_lods
+                    # Also merge into global namespace_lods for backward compatibility
+                    namespace_lods.update(cluster_namespace_lods)
+                    logger.info(f"Loaded namespaceLODs from AKS cluster '{cluster_name}': {cluster_namespace_lods}")
 
             # Also extract LOD settings from workspace-builder extensions for auto-discovered clusters
             for cluster in clusters:
@@ -357,6 +376,13 @@ def index(component_context: Context):
                             if 'defaultNamespaceLOD' in extension_details:
                                 aks_cluster_lod_settings[cluster_name] = extension_details['defaultNamespaceLOD']
                                 logger.info(f"Found defaultNamespaceLOD for auto-discovered AKS cluster '{cluster_name}': {extension_details['defaultNamespaceLOD']}")
+                            
+                            # Also check for namespaceLODs in the extension (for auto-discovered clusters)
+                            if 'namespaceLODs' in extension_details:
+                                extension_namespace_lods = extension_details['namespaceLODs']
+                                aks_cluster_namespace_lods[cluster_name] = extension_namespace_lods
+                                namespace_lods.update(extension_namespace_lods)
+                                logger.info(f"Found namespaceLODs for auto-discovered AKS cluster '{cluster_name}': {extension_namespace_lods}")
                             break
 
 
@@ -667,14 +693,49 @@ def index(component_context: Context):
                                 if aks_explicit_namespace_names and namespace_name not in aks_explicit_namespace_names:
                                     logger.info(f"Skipping {namespace_name} due to explicit namespace setting in workspaceInfo cloudConfig.azure.aksClusters.namespaces")
                                     continue 
-                                namespace_lod = LevelOfDetail.construct_from_config(aks_cluster_lod_settings.get(cluster_name, default_lod))
+                                
+                                # Enhanced LOD determination for AKS clusters with namespaceLODs support
+                                # Priority order: 1) cluster-specific namespaceLODs, 2) global namespaceLODs, 3) AKS defaultNamespaceLOD, 4) global default
+                                namespace_lod = None
+                                lod_source = None
+                                
+                                # Check cluster-specific namespaceLODs first
+                                cluster_specific_namespace_lods = aks_cluster_namespace_lods.get(cluster_name, {})
+                                if namespace_name in cluster_specific_namespace_lods:
+                                    namespace_lod = LevelOfDetail.construct_from_config(cluster_specific_namespace_lods[namespace_name])
+                                    lod_source = f"AKS cluster '{cluster_name}' namespaceLODs"
+                                # Then check global namespaceLODs
+                                elif namespace_name in namespace_lods:
+                                    namespace_lod = LevelOfDetail.construct_from_config(namespace_lods[namespace_name])
+                                    lod_source = "global namespaceLODs"
+                                # Finally fall back to cluster default
+                                else:
+                                    namespace_lod = LevelOfDetail.construct_from_config(aks_cluster_lod_settings.get(cluster_name, default_lod))
+                                    lod_source = f"AKS cluster '{cluster_name}' defaultNamespaceLOD"
+                                
+                                logger.info(f"Using {lod_source} for AKS namespace '{namespace_name}': {namespace_lod}")
                             else:
                                 if kubernetes_explicit_namespace_names and namespace_name not in kubernetes_explicit_namespace_names:
                                     logger.info(f"Skipping {namespace_name} due to explicit namespace setting in workspaceInfo cloudConfig.kubernetes.namespaces")
                                     continue
-                                namespace_lod = LevelOfDetail.construct_from_config(kube_context_lod_settings.get(context_name, default_lod))
-                                if namespace_lod is None:
-                                    namespace_lod = default_lod  # Final fallback
+                                
+                                # Enhanced LOD determination for non-AKS clusters
+                                # Priority order: 1) global namespaceLODs, 2) contexts defaultNamespaceLOD, 3) global default
+                                namespace_lod = None
+                                lod_source = None
+                                
+                                # Check global namespaceLODs first
+                                if namespace_name in namespace_lods:
+                                    namespace_lod = LevelOfDetail.construct_from_config(namespace_lods[namespace_name])
+                                    lod_source = "global namespaceLODs"
+                                # Then check context default
+                                else:
+                                    namespace_lod = LevelOfDetail.construct_from_config(kube_context_lod_settings.get(context_name, default_lod))
+                                    if namespace_lod is None:
+                                        namespace_lod = default_lod  # Final fallback
+                                    lod_source = f"context '{context_name}' defaultNamespaceLOD"
+                                
+                                logger.info(f"Using {lod_source} for namespace '{namespace_name}': {namespace_lod}")
 
                             logger.info(f"Cluster: {cluster_name}, Namespace: {namespace_name}, LOD: {namespace_lod}")
 
