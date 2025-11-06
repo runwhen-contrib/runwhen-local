@@ -86,6 +86,7 @@ RUN pip install --no-cache-dir \
     pyyaml
 
 ENV NODE_PATH="/var/lib/neo4j/node_modules"
+ENV CLOUDQUERY_PLUGINS_PREINSTALLED=true
 
 # Determine architecture and set variables
 RUN ARCH=$(uname -m) && \
@@ -111,6 +112,27 @@ RUN ARCH=$(uname -m) && \
     # Temporary hack to fix critical vuln
     && curl -L "https://github.com/stewartshea/cloudquery/releases/latest/download/cloudquery-linux-${CQ_ARCH}" -o /usr/local/bin/cloudquery \
     && chmod a+x /usr/local/bin/cloudquery \
+    # Pre-install CloudQuery plugins for airgap support
+    # NOTE: Plugin versions are centrally managed in src/cloudquery-plugins.yaml
+    #       Update versions there and keep this Dockerfile in sync
+    && mkdir -p /opt/cloudquery/plugins \
+    && cd /opt/cloudquery/plugins \
+    # Download Azure plugin (v11.4.3)
+    && curl -L "https://github.com/cloudquery/cloudquery/releases/download/plugins-source-azure-v11.4.3/cloudquery_source_azure_v11.4.3_linux_${CQ_ARCH}" -o azure \
+    && chmod +x azure \
+    # Download AWS plugin (v25.1.0)
+    && curl -L "https://github.com/cloudquery/cloudquery/releases/download/plugins-source-aws-v25.1.0/cloudquery_source_aws_v25.1.0_linux_${CQ_ARCH}" -o aws \
+    && chmod +x aws \
+    # Download GCP plugin (v13.1.0)
+    && curl -L "https://github.com/cloudquery/cloudquery/releases/download/plugins-source-gcp-v13.1.0/cloudquery_source_gcp_v13.1.0_linux_${CQ_ARCH}" -o gcp \
+    && chmod +x gcp \
+    # Download SQLite destination plugin (v2.5.1)
+    && curl -L "https://github.com/cloudquery/cloudquery/releases/download/plugins-destination-sqlite-v2.5.1/cloudquery_destination_sqlite_v2.5.1_linux_${CQ_ARCH}" -o sqlite \
+    && chmod +x sqlite \
+    # Download Kubernetes plugin (v8.0.2)
+    && curl -L "https://github.com/cloudquery/cloudquery/releases/download/plugins-source-k8s-v8.0.2/cloudquery_source_k8s_v8.0.2_linux_${CQ_ARCH}" -o k8s \
+    && chmod +x k8s \
+    && cd - \
     # Install kubelogin for azure kubeconfig conversion
     # renovate: datasource=github-releases depName=Azure/kubelogin
     && curl -Lo kubelogin.zip https://github.com/Azure/kubelogin/releases/latest/download/kubelogin-linux-amd64.zip \

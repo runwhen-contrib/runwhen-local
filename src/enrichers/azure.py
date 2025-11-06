@@ -172,14 +172,27 @@ class AzurePlatformHandler(PlatformHandler):
 
         # Get subscription_id - either from direct field or extract from resource ID
         subscription_id = resource_data.get("subscription_id")
-        if not subscription_id:
-            # Extract subscription_id from resource ID path
-            resource_id = resource_data.get("id", "")
-            if "/subscriptions/" in resource_id:
-                parts = resource_id.split("/subscriptions/")
-                if len(parts) > 1:
-                    subscription_part = parts[1].split("/")[0]
-                    subscription_id = subscription_part
+        resource_id = resource_data.get("id", "")
+        
+        # Extract subscription_id from resource ID path for comparison
+        extracted_subscription_id = None
+        if "/subscriptions/" in resource_id:
+            parts = resource_id.split("/subscriptions/")
+            if len(parts) > 1:
+                subscription_part = parts[1].split("/")[0]
+                extracted_subscription_id = subscription_part
+        
+        # BUG FIX: Always use the subscription ID from the resource ID if available
+        # The direct subscription_id field from CloudQuery might be incorrect
+        if extracted_subscription_id:
+            if subscription_id and subscription_id != extracted_subscription_id:
+                logger.warning(f"Subscription ID mismatch for resource {name}: "
+                             f"direct field='{subscription_id}' vs ID field='{extracted_subscription_id}'. "
+                             f"Using ID field value.")
+            subscription_id = extracted_subscription_id
+        elif not subscription_id:
+            logger.warning(f"Could not determine subscription_id for resource {name}")
+            subscription_id = None
         
         if subscription_id:
             resource_attributes["subscription_id"] = subscription_id
@@ -190,11 +203,16 @@ class AzurePlatformHandler(PlatformHandler):
 
         if resource_type_name == "resource_group":
                     # nested map built in init_cloudquery_config
-                    sub_map = (
-                        platform_config_data
-                        .get("subscriptionResourceGroupLevelOfDetails", {})
-                        .get(subscription_id, {})
-                    )
+                    # BUG FIX: Check if subscription_id is None before using as dict key
+                    if subscription_id:
+                        sub_map = (
+                            platform_config_data
+                            .get("subscriptionResourceGroupLevelOfDetails", {})
+                            .get(subscription_id, {})
+                        )
+                    else:
+                        sub_map = {}
+                        logger.debug(f"No subscription_id for resource group {name}, skipping subscription-specific LOD lookup")
                     global_rg_map = platform_config_data.get("resourceGroupLevelOfDetails", {})
 
                     lod_value = (
@@ -210,7 +228,7 @@ class AzurePlatformHandler(PlatformHandler):
                         else context.get_setting("DEFAULT_LOD")   # 3. workspace default
                     )
         else:
-            # ------------- unchanged block resolving parent RG ----------------
+            # ------------- resolve parent RG and inherit LOD ----------------
             id_val = resource_data.get("id", "")
             rg_marker = "resourcegroups/"
             start = id_val.lower().find(rg_marker)
@@ -221,27 +239,93 @@ class AzurePlatformHandler(PlatformHandler):
                     rg_name = id_val[start:end]
                     registry: Registry = context.get_property(REGISTRY_PROPERTY_NAME)
                     rg_type = registry.lookup_resource_type(AZURE_PLATFORM, "resource_group")
+                    
+                    # Try to find existing resource group
+                    rg_resource = None
                     if rg_type:
                         for rg in rg_type.instances.values():
                             if rg.name.upper() == rg_name.upper():
+                                rg_resource = rg
                                 resource_attributes["resource_group"] = rg
                                 qualified_name = f"{rg.name}/{name}"
                                 break
+                    
+                    # If resource group not found in registry, look up LOD directly from config
+                    if not rg_resource:
+                        logger.debug(f"Resource group {rg_name} not found in registry for resource {name}, looking up LOD directly")
+                        
+                        # Look up LOD for this resource group from the configuration
+                        # BUG FIX: Check if subscription_id is None before using as dict key
+                        if subscription_id:
+                            sub_map = (
+                                platform_config_data
+                                .get("subscriptionResourceGroupLevelOfDetails", {})
+                                .get(subscription_id, {})
+                            )
+                        else:
+                            sub_map = {}
+                            logger.debug(f"No subscription_id available for resource {name}, skipping subscription-specific LOD lookup")
+                        global_rg_map = platform_config_data.get("resourceGroupLevelOfDetails", {})
+                        
+                        lod_value = (
+                            sub_map.get(rg_name)      # 1. explicit RG override
+                            or sub_map.get("*")       # 2. per-subscription default
+                            or global_rg_map.get(rg_name)     # (3) legacy top-level RG
+                            or global_rg_map.get("*")         # (4) legacy wildcard
+                        )
+                        
+                        if lod_value is not None:
+                            resource_attributes["lod"] = LevelOfDetail.construct_from_config(lod_value)
+                            logger.debug(f"Set LOD for resource {name} to {lod_value} (inherited from RG {rg_name})")
+                        else:
+                            resource_attributes["lod"] = context.get_setting("DEFAULT_LOD")
+                            logger.debug(f"No LOD config found for RG {rg_name}, using default for resource {name}")
+                        
+                        qualified_name = f"{rg_name}/{name}"
 
         return name, qualified_name, resource_attributes
 
 
     def get_level_of_detail(self, resource: Resource) -> LevelOfDetail:
-        resource_group = get_resource_group(resource)
-        if not resource_group:
-            # If no resource group, return DEFAULT_LOD from context settings.
-            return LevelOfDetail.DETAILED  # Or LevelOfDetail.BASIC, as per the default you'd like
+        # First, check if the resource itself has an LOD (for resource groups)
+        if hasattr(resource, 'lod') and resource.lod is not None:
+            logger.debug(f"Using direct LOD for resource {resource.name}: {resource.lod}")
+            return resource.lod
         
-        # Fetch level_of_detail from resource group, or fallback to DEFAULT_LOD
-        level_of_detail = getattr(resource_group, 'lod', None)
-        if level_of_detail is None:
-            return LevelOfDetail.DETAILED  # Replace with context.get_setting("DEFAULT_LOD") if accessible here
-        return level_of_detail
+        # For non-resource-group resources, find the parent resource group
+        resource_group = get_resource_group(resource)
+        if resource_group and hasattr(resource_group, 'lod') and resource_group.lod is not None:
+            logger.debug(f"Using resource group LOD for resource {resource.name}: {resource_group.lod} (from RG: {resource_group.name})")
+            return resource_group.lod
+        
+        # If no resource group found or no LOD set, try to extract RG name and look up LOD manually
+        if not resource_group:
+            # Extract resource group name from resource ID
+            resource_id = getattr(resource, 'resource', {}).get('id', '') if hasattr(resource, 'resource') else ''
+            if not resource_id:
+                resource_id = getattr(resource, 'id', '')
+            
+            if resource_id and "/resourceGroups/" in resource_id:
+                try:
+                    rg_name = resource_id.split("/resourceGroups/")[1].split("/")[0]
+                    subscription_id = resource_id.split("/subscriptions/")[1].split("/")[0] if "/subscriptions/" in resource_id else None
+                    
+                    if subscription_id and rg_name:
+                        # Try to look up LOD configuration directly
+                        # This is a fallback when resource group relationship isn't properly established
+                        logger.warning(f"Resource group relationship not found for {resource.name}, attempting direct LOD lookup for RG: {rg_name} in subscription: {subscription_id}")
+                        
+                        # We need access to the platform config data to do the lookup
+                        # For now, log the issue and return a default
+                        logger.warning(f"Cannot perform direct LOD lookup without platform config access. Resource: {resource.name}, RG: {rg_name}")
+                        
+                except (IndexError, AttributeError) as e:
+                    logger.warning(f"Failed to extract resource group info from resource ID: {e}")
+        
+        # Fallback to workspace defaultLOD setting
+        # This method should only be called during generation rules processing where context is available
+        logger.warning(f"No LOD found for resource {resource.name}, this should not happen during normal processing")
+        raise Exception(f"Unable to determine LOD for resource {resource.name}. This indicates a bug in LOD assignment logic.")
 
 
     @staticmethod

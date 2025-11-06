@@ -1,0 +1,37 @@
+# CloudQuery Plugin Versions Configuration
+# This file is the single source of truth for CloudQuery plugin versions
+# used throughout RunWhen Local (Dockerfile, templates, airgap support)
+
+plugins:
+  # Source plugins
+  azure:
+    version: "v11.4.3"
+    type: "source"
+    registry: "cloudquery"
+    
+  aws:
+    version: "v25.1.0"
+    type: "source"
+    registry: "cloudquery"
+    
+  gcp:
+    version: "v13.1.0"
+    type: "source"
+    registry: "cloudquery"
+    
+  k8s:
+    version: "v8.0.2"
+    type: "source"
+    registry: "cloudquery"
+  
+  # Destination plugins
+  sqlite:
+    version: "v2.5.1"
+    type: "destination"
+    registry: "cloudquery"
+
+# Download URL templates
+download_urls:
+  cloudquery_cli: "https://github.com/stewartshea/cloudquery/releases/latest/download/cloudquery-linux-{arch}"
+  plugin_source: "https://github.com/cloudquery/cloudquery/releases/download/plugins-{type}-{name}-{version}/cloudquery_{type}_{name}_{version}_linux_{arch}"
+

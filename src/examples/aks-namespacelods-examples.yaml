@@ -1,0 +1,227 @@
+# Example workspaceInfo.yaml configurations demonstrating namespaceLODs support for AKS clusters
+# This file shows how to use the traditional namespaceLODs setting with AKS clusters
+
+---
+# Example 1: AKS clusters with namespaceLODs override
+workspaceName: "aks-namespacelods-example"
+workspaceOwnerEmail: authors@runwhen.com
+defaultLocation: location-01
+defaultLOD: basic
+
+cloudConfig:
+  kubernetes:
+    kubeconfigFile: /shared/kubeconfig
+    
+    # Traditional namespaceLODs now works with AKS clusters!
+    # These settings override any defaultNamespaceLOD from AKS or context configuration
+    namespaceLODs:
+      # Production namespaces get detailed monitoring
+      production: "detailed"
+      prod-frontend: "detailed"
+      prod-backend: "detailed"
+      
+      # Staging namespaces get basic monitoring
+      staging: "basic"
+      staging-frontend: "basic"
+      staging-backend: "basic"
+      
+      # Development namespaces get basic monitoring
+      development: "basic"
+      dev-frontend: "basic"
+      dev-backend: "basic"
+      
+      # System namespaces get no monitoring
+      kube-system: "none"
+      kube-public: "none"
+      kube-node-lease: "none"
+      azure-system: "none"
+      
+      # Test namespaces get no monitoring
+      test: "none"
+      integration-test: "none"
+    
+    # Context-level defaults (lower priority than namespaceLODs)
+    contexts:
+      aks-prod-cluster:
+        defaultNamespaceLOD: basic    # Fallback for namespaces not in namespaceLODs
+      aks-staging-cluster:
+        defaultNamespaceLOD: basic    # Fallback for namespaces not in namespaceLODs
+
+  azure:
+    subscriptionId: "your-subscription-id"
+    tenantId: "your-tenant-id"
+    clientId: "your-client-id"
+    clientSecret: "your-client-secret"
+    
+    aksClusters:
+      autoDiscover: false
+      
+      # Explicit AKS clusters with defaultNamespaceLOD (lowest priority)
+      clusters:
+        - name: aks-prod-cluster
+          server: https://aks-prod.hcp.eastus.azmk8s.io:443
+          resource_group: prod-rg
+          subscriptionId: prod-subscription-id
+          defaultNamespaceLOD: none   # This is overridden by namespaceLODs above
+        
+        - name: aks-staging-cluster
+          server: https://aks-staging.hcp.westus.azmk8s.io:443
+          resource_group: staging-rg
+          subscriptionId: staging-subscription-id
+          defaultNamespaceLOD: none   # This is overridden by namespaceLODs above
+
+---
+# Example 2: Mixed priority demonstration
+workspaceName: "aks-mixed-priority-example"
+workspaceOwnerEmail: authors@runwhen.com
+defaultLocation: location-01
+defaultLOD: none  # Global fallback (lowest priority)
+
+cloudConfig:
+  kubernetes:
+    kubeconfigFile: /shared/kubeconfig
+    
+    # Specific namespace overrides (highest priority for config-based LOD)
+    namespaceLODs:
+      critical-app: "detailed"      # Specific override
+      monitoring: "basic"           # Specific override
+      # Other namespaces will use defaultNamespaceLOD or global default
+    
+    contexts:
+      my-aks-cluster:
+        defaultNamespaceLOD: basic  # Medium priority - used for namespaces not in namespaceLODs
+
+  azure:
+    subscriptionId: "your-subscription-id"
+    tenantId: "your-tenant-id"
+    clientId: "your-client-id"
+    clientSecret: "your-client-secret"
+    
+    aksClusters:
+      autoDiscover: false
+      clusters:
+        - name: my-aks-cluster
+          server: https://my-aks.hcp.eastus.azmk8s.io:443
+          resource_group: my-rg
+          subscriptionId: my-subscription-id
+          defaultNamespaceLOD: none   # Lowest priority (only used if no namespaceLODs or context setting)
+
+---
+# Example 3: Auto-discovered AKS clusters with namespaceLODs
+workspaceName: "aks-autodiscovery-namespacelods-example"
+workspaceOwnerEmail: authors@runwhen.com
+defaultLocation: location-01
+defaultLOD: basic
+
+cloudConfig:
+  kubernetes:
+    kubeconfigFile: /shared/kubeconfig
+    
+    # namespaceLODs works with auto-discovered AKS clusters too!
+    namespaceLODs:
+      production: "detailed"
+      staging: "basic"
+      development: "basic"
+      kube-system: "none"
+      kube-public: "none"
+      kube-node-lease: "none"
+
+  azure:
+    subscriptionId: "your-subscription-id"
+    tenantId: "your-tenant-id"
+    clientId: "your-client-id"
+    clientSecret: "your-client-secret"
+    
+    aksClusters:
+      autoDiscover: true
+      discoveryConfig:
+        discoveredClustersDefaultLOD: basic  # Fallback for namespaces not in namespaceLODs
+        subscriptions:
+          - subscriptionId: "prod-subscription-id"
+            defaultNamespaceLOD: basic      # Fallback for this subscription
+            resourceGroups:
+              - "prod-resource-group"
+
+---
+# Example 4: Runtime annotation override (highest priority)
+# This example shows that Kubernetes annotations still have the highest priority
+workspaceName: "aks-annotation-override-example"
+workspaceOwnerEmail: authors@runwhen.com
+defaultLocation: location-01
+defaultLOD: basic
+
+cloudConfig:
+  kubernetes:
+    kubeconfigFile: /shared/kubeconfig
+    
+    namespaceLODs:
+      my-namespace: "basic"  # This will be overridden by annotation
+
+  azure:
+    subscriptionId: "your-subscription-id"
+    tenantId: "your-tenant-id"
+    clientId: "your-client-id"
+    clientSecret: "your-client-secret"
+    
+    aksClusters:
+      autoDiscover: false
+      clusters:
+        - name: my-aks-cluster
+          server: https://my-aks.hcp.eastus.azmk8s.io:443
+          resource_group: my-rg
+          subscriptionId: my-subscription-id
+          defaultNamespaceLOD: none
+
+# To override with annotation (highest priority), run:
+# kubectl annotate namespace my-namespace config.runwhen.com/lod=detailed
+# This will override the "basic" setting from namespaceLODs above
+
+---
+# Example 5: Complete priority order demonstration
+workspaceName: "aks-priority-order-example"
+workspaceOwnerEmail: authors@runwhen.com
+defaultLocation: location-01
+defaultLOD: none  # Priority 5 (lowest): Global default
+
+cloudConfig:
+  kubernetes:
+    kubeconfigFile: /shared/kubeconfig
+    
+    # Priority 2 (highest config-based): Specific namespace LODs
+    namespaceLODs:
+      app-namespace: "detailed"
+      test-namespace: "none"
+      # other-namespace will use lower priority settings
+    
+    # Priority 3: Context-level defaults
+    contexts:
+      my-aks-cluster:
+        defaultNamespaceLOD: basic
+
+  azure:
+    subscriptionId: "your-subscription-id"
+    tenantId: "your-tenant-id"
+    clientId: "your-client-id"
+    clientSecret: "your-client-secret"
+    
+    aksClusters:
+      autoDiscover: false
+      clusters:
+        - name: my-aks-cluster
+          server: https://my-aks.hcp.eastus.azmk8s.io:443
+          resource_group: my-rg
+          subscriptionId: my-subscription-id
+          defaultNamespaceLOD: basic  # Priority 4: AKS cluster default
+
+# Priority Order (highest to lowest):
+# 1. Kubernetes annotations on namespace objects (config.runwhen.com/lod)
+# 2. namespaceLODs configuration (specific namespace names)
+# 3. contexts.defaultNamespaceLOD (per-context default)
+# 4. aksClusters.clusters.defaultNamespaceLOD (per-AKS-cluster default)
+# 5. defaultLOD (global default)
+
+# Example results for this configuration:
+# - app-namespace: "detailed" (from namespaceLODs)
+# - test-namespace: "none" (from namespaceLODs)
+# - other-namespace: "basic" (from contexts.defaultNamespaceLOD)
+# - If other-namespace has annotation config.runwhen.com/lod=detailed, it becomes "detailed"

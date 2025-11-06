@@ -243,7 +243,7 @@ tasks:
               kubeconfigFile: /shared/kubeconfig.secret
               contexts:
                 sandbox-cluster-1: 
-                  defaultNamespaceLOD: detailed
+                  defaultNamespaceLOD: basic
               
               namespaces:
                 - ci-verify-basic

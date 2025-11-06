@@ -3,6 +3,7 @@ spec:
   # Source spec section
   name: "azure"
   path: "cloudquery/azure"
+  # NOTE: Version is centrally managed in src/cloudquery-plugins.yaml
   version: "v11.4.3"
   registry: "cloudquery"
   destinations: ["{{destination_plugin_name}}"]

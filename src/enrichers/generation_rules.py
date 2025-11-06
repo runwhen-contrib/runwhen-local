@@ -1,5 +1,6 @@
 import os
 import re
+import time
 import yaml
 import tempfile
 from abc import ABC, abstractmethod
@@ -1199,6 +1200,17 @@ def load(context: Context) -> None:
 
 def enrich(context: Context) -> None:
     logger.debug("Beginning generation_rules.enrich")
+    
+    # Initialize generation rules statistics tracking
+    gen_stats = {
+        'total_resources_evaluated': 0,
+        'total_resources_matched': 0,
+        'total_slxs_generated': 0,
+        'total_output_items_generated': 0,
+        'platforms': {},
+        'start_time': time.time()
+    }
+    context.set_property("GEN_STATS", gen_stats)
     map_customization_rules_path = context.get_setting("MAP_CUSTOMIZATION_RULES")
     map_customization_rules = MapCustomizationRules.load(map_customization_rules_path) \
         if map_customization_rules_path else MapCustomizationRules()
@@ -1296,9 +1308,23 @@ def enrich(context: Context) -> None:
                 platform_handler = platform_handlers[platform_name]
                 level_of_detail = platform_handler.get_level_of_detail(resource)
                 resource_type_name = resource_type_spec.get_resource_type_name()
+                
+                # Track resource evaluation statistics
+                gen_stats['total_resources_evaluated'] += 1
+                platform_stats = gen_stats['platforms'].setdefault(platform_name, {
+                    'resources_evaluated': 0,
+                    'resources_matched': 0,
+                    'slxs_generated': 0,
+                    'output_items_generated': 0
+                })
+                platform_stats['resources_evaluated'] += 1
+                
                 generation_rule_match_info = GenerationRuleMatchInfo(resource, base_template_variables, context)
                 matches = generation_rule.match_predicate.matches(generation_rule_match_info)
                 if matches:
+                    # Track matched resource
+                    gen_stats['total_resources_matched'] += 1
+                    platform_stats['resources_matched'] += 1
                     # Emit the non-SLX output items directly. We currently don't do any name/path config
                     # detection/resolution for these. I actually don't think we're using these for
                     # anything currently, so we might want to take out support for this to simplify
@@ -1316,8 +1342,19 @@ def enrich(context: Context) -> None:
                                                  renderer_output_items,
                                                  base_template_variables,
                                                  context)
+                            # Track generated output item
+                            gen_stats['total_output_items_generated'] += 1
+                            platform_stats['output_items_generated'] += 1
 
+                    # Count SLXs before collecting them
+                    slxs_before = len(slxs)
                     collect_emitted_slxs(generation_rule_info, resource, level_of_detail, slxs, context)
+                    slxs_after = len(slxs)
+                    slxs_added = slxs_after - slxs_before
+                    
+                    # Track generated SLXs
+                    gen_stats['total_slxs_generated'] += slxs_added
+                    platform_stats['slxs_generated'] += slxs_added
 
     # Assign the shortened names to the enabled SLXs, including detecting and resolving any name conflicts.
     workspace_name = workspace["name"]
@@ -1355,7 +1392,23 @@ def enrich(context: Context) -> None:
     output_item = RendererOutputItem(path, "workspace.yaml", workspace_template_variables)
     renderer_output_items[path] = output_item
 
+    # Calculate and log generation rules statistics
+    gen_stats['end_time'] = time.time()
+    gen_stats['duration'] = gen_stats['end_time'] - gen_stats['start_time']
+    
     logger.debug("Ending generation_rules.enrich")
+    
+    # Log summary statistics
+    logger.info(f"Generation Rules Summary:")
+    logger.info(f"  Total resources evaluated: {gen_stats['total_resources_evaluated']}")
+    logger.info(f"  Total resources matched: {gen_stats['total_resources_matched']}")
+    logger.info(f"  Total SLXs generated: {gen_stats['total_slxs_generated']}")
+    logger.info(f"  Total output items generated: {gen_stats['total_output_items_generated']}")
+    logger.info(f"  Generation duration: {gen_stats['duration']:.2f} seconds")
+    
+    # Log per-platform statistics
+    for platform_name, platform_stats in gen_stats['platforms'].items():
+        logger.info(f"  {platform_name.upper()}: evaluated={platform_stats['resources_evaluated']}, matched={platform_stats['resources_matched']}, slxs={platform_stats['slxs_generated']}, outputs={platform_stats['output_items_generated']}")
 
 
 def check_codebundle_access_allowed(generation_rule_info: "GenerationRuleInfo", context: Context) -> bool:
