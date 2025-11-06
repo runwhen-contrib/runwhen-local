@@ -12,20 +12,35 @@ import logging
 import subprocess
 import tempfile
 import shutil
+import yaml
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from utils import read_file, write_file
 
 logger = logging.getLogger(__name__)
 
-# CloudQuery plugin versions used by RunWhen Local
-CLOUDQUERY_PLUGINS = {
-    "azure": "v11.4.3",
-    "aws": "v25.1.0", 
-    "gcp": "v13.1.0",
-    "sqlite": "v2.5.1",
-    "kubernetes": "v8.0.2"
-}
+# Load CloudQuery plugin versions from centralized config
+def _load_plugin_config() -> Dict:
+    """Load CloudQuery plugin configuration from YAML file"""
+    config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "cloudquery-plugins.yaml")
+    try:
+        config_content = read_file(config_path, "r")
+        return yaml.safe_load(config_content)
+    except Exception as e:
+        logger.warning(f"Failed to load cloudquery-plugins.yaml: {e}. Using fallback versions.")
+        # Fallback to hardcoded versions if config file is missing
+        return {
+            "plugins": {
+                "azure": {"version": "v11.4.3", "type": "source"},
+                "aws": {"version": "v25.1.0", "type": "source"},
+                "gcp": {"version": "v13.1.0", "type": "source"},
+                "k8s": {"version": "v8.0.2", "type": "source"},
+                "sqlite": {"version": "v2.5.1", "type": "destination"}
+            }
+        }
+
+PLUGIN_CONFIG = _load_plugin_config()
+CLOUDQUERY_PLUGINS = {name: info["version"] for name, info in PLUGIN_CONFIG.get("plugins", {}).items()}
 
 # Default airgap directory structure
 AIRGAP_BASE_DIR = "/opt/runwhen/airgap"
@@ -141,22 +156,33 @@ class AirgapManager:
         return env_vars
     
     def _copy_plugins_to_execution_dir(self, target_dir: str):
-        """Copy pre-packaged plugins to CloudQuery execution directory"""
+        """Copy pre-packaged plugins to CloudQuery execution directory with proper naming"""
         os.makedirs(target_dir, exist_ok=True)
+        
+        arch = self._get_architecture()
         
         # First, try to copy Docker pre-installed plugins
         if os.path.exists(DOCKER_PLUGINS_DIR):
-            logger.debug("Copying Docker pre-installed plugins")
+            logger.debug("Copying Docker pre-installed plugins with proper naming")
             for plugin_file in os.listdir(DOCKER_PLUGINS_DIR):
                 src_path = os.path.join(DOCKER_PLUGINS_DIR, plugin_file)
-                dst_path = os.path.join(target_dir, plugin_file)
                 
                 if os.path.isfile(src_path):
                     try:
+                        # Get plugin info from config
+                        plugin_info = PLUGIN_CONFIG.get("plugins", {}).get(plugin_file, {})
+                        plugin_type = plugin_info.get("type", "source")
+                        version = plugin_info.get("version", "unknown")
+                        
+                        # Create proper CloudQuery plugin naming
+                        # Format: cloudquery_{type}_{name}_{version}_linux_{arch}
+                        proper_name = f"cloudquery_{plugin_type}_{plugin_file}_{version}_linux_{arch}"
+                        dst_path = os.path.join(target_dir, proper_name)
+                        
                         shutil.copy2(src_path, dst_path)
                         # Ensure executable permissions
                         os.chmod(dst_path, 0o755)
-                        logger.debug(f"Copied Docker plugin: {plugin_file}")
+                        logger.debug(f"Copied Docker plugin: {plugin_file} -> {proper_name}")
                     except Exception as e:
                         logger.warning(f"Failed to copy Docker plugin {plugin_file}: {e}")
         
@@ -198,31 +224,16 @@ class AirgapManager:
         if not self.is_airgap_mode:
             return config_template
         
-        # Modify the config to use local plugins instead of registry
-        config_lines = config_template.split('\n')
-        modified_lines = []
+        # In airgap mode, keep the config as-is but verify plugins are available
+        # CloudQuery will find plugins via CQ_PLUGIN_DIR environment variable
+        plugin_path = self.get_plugin_path(plugin_name, version)
+        if plugin_path:
+            logger.debug(f"Airgap mode: Plugin available at {plugin_path}, keeping standard config format")
+        else:
+            logger.warning(f"Airgap mode: Plugin {plugin_name} {version} not found in airgap directories")
         
-        for line in config_lines:
-            if 'path: "cloudquery/' in line:
-                # Replace registry path with local path
-                plugin_path = self.get_plugin_path(plugin_name, version)
-                if plugin_path:
-                    modified_lines.append(f'  path: "{plugin_path}"')
-                    logger.debug(f"Modified config to use local plugin: {plugin_path}")
-                else:
-                    # Keep original if plugin not found (will likely fail, but preserves config)
-                    modified_lines.append(line)
-                    logger.warning(f"Local plugin not found, keeping registry path for {plugin_name}")
-            elif 'registry: "cloudquery"' in line:
-                # Remove registry line for local plugins
-                if self.get_plugin_path(plugin_name, version):
-                    modified_lines.append('  # registry: "cloudquery"  # Disabled for airgap mode')
-                else:
-                    modified_lines.append(line)
-            else:
-                modified_lines.append(line)
-        
-        return '\n'.join(modified_lines)
+        # Return the original config - CloudQuery will use CQ_PLUGIN_DIR to find plugins
+        return config_template
 
 def create_airgap_package(output_dir: str, platforms: List[str] = None) -> bool:
     """

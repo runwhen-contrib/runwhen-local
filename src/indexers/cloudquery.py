@@ -899,18 +899,15 @@ def init_cloudquery_config(
         
         # Apply airgap modifications if enabled
         if airgap_manager.is_enabled():
-            platform_version = None
-            # Extract version from platform spec or use defaults
-            if platform_name == "azure":
-                platform_version = "v11.4.3"
-            elif platform_name == "aws":
-                platform_version = "v25.1.0"
-            elif platform_name == "gcp":
-                platform_version = "v13.1.0"
+            # Get version from airgap manager's plugin config
+            from .airgap_support import CLOUDQUERY_PLUGINS
+            platform_version = CLOUDQUERY_PLUGINS.get(platform_name)
             
             if platform_version:
                 final_yaml = airgap_manager.generate_offline_config(platform_name, platform_version, final_yaml)
-                logger.info(f"Applied airgap configuration for {platform_name}")
+                logger.info(f"Applied airgap configuration for {platform_name} {platform_version}")
+            else:
+                logger.warning(f"No version configured for platform {platform_name} in cloudquery-plugins.yaml")
         
         write_file(cfg_path, final_yaml)
         

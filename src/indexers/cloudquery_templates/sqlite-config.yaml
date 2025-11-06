@@ -2,6 +2,7 @@ kind: destination
 spec:
   name: sqlite
   path: cloudquery/sqlite
+  # NOTE: Version is centrally managed in src/cloudquery-plugins.yaml
   version: "v2.5.1"
   spec:
     connection_string: {{database_path}}
