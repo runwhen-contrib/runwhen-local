@@ -67,10 +67,15 @@ OWNER_ANNOTATION_KEY = "config.runwhen.com/owner"
 
 DOCUMENTATION = "Index assets from a Kubernetes configuration"
 
+NAMESPACE_LODS_SETTING = Setting("NAMESPACE_LODS",
+                                "namespaceLODs",
+                                Setting.Type.DICT,
+                                "Dictionary mapping namespace names to their level of detail settings")
+
 SETTINGS = (
     SettingDependency(CLOUD_CONFIG_SETTING, False),
     SettingDependency(DEFAULT_LOD_SETTING, False),
-    SettingDependency("NAMESPACE_LODS", False),
+    SettingDependency(NAMESPACE_LODS_SETTING, False),
 )
 
 
@@ -190,14 +195,14 @@ def index(component_context: Context):
     include_annotations = {}
     include_labels = {}
     lod_annotations = HARDCODED_LOD_ANNOTATIONS
-    default_lod = component_context.get_setting("DEFAULT_LOD")
+    default_lod = component_context.get_setting(DEFAULT_LOD_SETTING)
     
     # Load the traditional namespaceLODs setting for backward compatibility
-    namespace_lods = component_context.get_setting("NAMESPACE_LODS") or {}
+    namespace_lods = component_context.get_setting(NAMESPACE_LODS_SETTING) or {}
 
     with TemporaryDirectory() as temp_dir:
         # Extract settings from the context
-        cloud_config_settings: Optional[dict[str, Any]] = component_context.get_setting("CLOUD_CONFIG")
+        cloud_config_settings: Optional[dict[str, Any]] = component_context.get_setting(CLOUD_CONFIG_SETTING)
 
         if cloud_config_settings:
             # Retrieve Kubernetes settings, if present
