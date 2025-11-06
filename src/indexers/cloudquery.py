@@ -1210,7 +1210,8 @@ def resolve_deferred_azure_relationships(registry: Registry, platform_handlers: 
         if resource_type_name == "resource_group":
             continue  # Skip resource groups themselves
             
-        for resource_qualified_name, resource in resource_type.instances.items():
+        # Create a snapshot to avoid "dictionary changed size during iteration" error
+        for resource_qualified_name, resource in list(resource_type.instances.items()):
             deferred_info = getattr(resource, '_deferred_rg_lookup', None)
             if not deferred_info:
                 continue  # No deferred lookup needed
