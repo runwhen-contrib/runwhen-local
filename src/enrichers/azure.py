@@ -202,14 +202,6 @@ class AzurePlatformHandler(PlatformHandler):
             resource_attributes["subscription_name"] = subscription_name
 
         if resource_type_name == "resource_group":
-                    # BUG FIX: Include subscription ID in qualified name to avoid collisions
-                    # when the same resource group name exists in multiple subscriptions
-                    if subscription_id:
-                        qualified_name = f"{subscription_id}/{name}"
-                        logger.debug(f"Resource group qualified name: {qualified_name}")
-                    else:
-                        logger.warning(f"Resource group {name} has no subscription ID, using name as qualified_name")
-                    
                     # nested map built in init_cloudquery_config
                     # BUG FIX: Check if subscription_id is None before using as dict key
                     if subscription_id:
