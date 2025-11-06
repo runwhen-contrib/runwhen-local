@@ -202,12 +202,25 @@ class AzurePlatformHandler(PlatformHandler):
             resource_attributes["subscription_name"] = subscription_name
 
         if resource_type_name == "resource_group":
+                    # BUG FIX: Include subscription ID in qualified name to avoid collisions
+                    # when the same resource group name exists in multiple subscriptions
+                    if subscription_id:
+                        qualified_name = f"{subscription_id}/{name}"
+                        logger.debug(f"Resource group qualified name: {qualified_name}")
+                    else:
+                        logger.warning(f"Resource group {name} has no subscription ID, using name as qualified_name")
+                    
                     # nested map built in init_cloudquery_config
-                    sub_map = (
-                        platform_config_data
-                        .get("subscriptionResourceGroupLevelOfDetails", {})
-                        .get(subscription_id, {})
-                    )
+                    # BUG FIX: Check if subscription_id is None before using as dict key
+                    if subscription_id:
+                        sub_map = (
+                            platform_config_data
+                            .get("subscriptionResourceGroupLevelOfDetails", {})
+                            .get(subscription_id, {})
+                        )
+                    else:
+                        sub_map = {}
+                        logger.debug(f"No subscription_id for resource group {name}, skipping subscription-specific LOD lookup")
                     global_rg_map = platform_config_data.get("resourceGroupLevelOfDetails", {})
 
                     lod_value = (
@@ -250,11 +263,16 @@ class AzurePlatformHandler(PlatformHandler):
                         logger.debug(f"Resource group {rg_name} not found in registry for resource {name}, looking up LOD directly")
                         
                         # Look up LOD for this resource group from the configuration
-                        sub_map = (
-                            platform_config_data
-                            .get("subscriptionResourceGroupLevelOfDetails", {})
-                            .get(subscription_id, {})
-                        )
+                        # BUG FIX: Check if subscription_id is None before using as dict key
+                        if subscription_id:
+                            sub_map = (
+                                platform_config_data
+                                .get("subscriptionResourceGroupLevelOfDetails", {})
+                                .get(subscription_id, {})
+                            )
+                        else:
+                            sub_map = {}
+                            logger.debug(f"No subscription_id available for resource {name}, skipping subscription-specific LOD lookup")
                         global_rg_map = platform_config_data.get("resourceGroupLevelOfDetails", {})
                         
                         lod_value = (
@@ -312,9 +330,10 @@ class AzurePlatformHandler(PlatformHandler):
                 except (IndexError, AttributeError) as e:
                     logger.warning(f"Failed to extract resource group info from resource ID: {e}")
         
-        # Fallback to NONE if no LOD can be determined
-        logger.warning(f"No LOD found for resource {resource.name}, defaulting to NONE")
-        return LevelOfDetail.NONE
+        # Fallback to workspace defaultLOD setting
+        # This method should only be called during generation rules processing where context is available
+        logger.warning(f"No LOD found for resource {resource.name}, this should not happen during normal processing")
+        raise Exception(f"Unable to determine LOD for resource {resource.name}. This indicates a bug in LOD assignment logic.")
 
 
     @staticmethod
