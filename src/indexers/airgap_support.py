@@ -31,9 +31,9 @@ def _load_plugin_config() -> Dict:
         # Fallback to hardcoded versions if config file is missing
         return {
             "plugins": {
-                "azure": {"version": "v11.4.3", "type": "source"},
-                "aws": {"version": "v25.1.0", "type": "source"},
-                "gcp": {"version": "v13.1.0", "type": "source"},
+                "azure": {"version": "v10.3.0", "type": "source"},
+                "aws": {"version": "v22.19.2", "type": "source"},
+                "gcp": {"version": "v9.9.2", "type": "source"},
                 "k8s": {"version": "v8.0.2", "type": "source"},
                 "sqlite": {"version": "v2.5.1", "type": "destination"}
             }

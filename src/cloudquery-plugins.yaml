@@ -5,17 +5,17 @@
 plugins:
   # Source plugins
   azure:
-    version: "v11.4.3"
+    version: "v10.3.0"
     type: "source"
     registry: "cloudquery"
     
   aws:
-    version: "v23.6.1"
+    version: "v22.19.2"
     type: "source"
     registry: "cloudquery"
     
   gcp:
-    version: "v11.5.1"
+    version: "v9.9.2"
     type: "source"
     registry: "cloudquery"
     

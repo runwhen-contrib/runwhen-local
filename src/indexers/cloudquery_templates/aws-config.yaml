@@ -5,7 +5,7 @@ spec:
   path: cloudquery/aws
   registry: cloudquery
   # NOTE: Version is centrally managed in src/cloudquery-plugins.yaml
-  version: "v23.6.1"
+  version: "v22.19.2"
   destinations: ["{{destination_plugin_name}}"]
   tables: [
     {% for table_name in tables %}

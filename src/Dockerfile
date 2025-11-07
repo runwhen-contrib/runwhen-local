@@ -91,54 +91,56 @@ ENV CLOUDQUERY_PLUGINS_PREINSTALLED=true
 # Determine architecture and set variables
 RUN ARCH=$(uname -m) && \
     if [ "$ARCH" = "x86_64" ]; then \
-    KUBE_ARCH="amd64"; \
-    CQ_ARCH="amd64"; \
+        export KUBE_ARCH="amd64"; \
+        export CQ_ARCH="amd64"; \
     elif [ "$ARCH" = "aarch64" ]; then \
-    KUBE_ARCH="arm64"; \
-    CQ_ARCH="arm64"; \
+        export KUBE_ARCH="arm64"; \
+        export CQ_ARCH="arm64"; \
     else \
-    echo "Unsupported architecture"; \
-    exit 1; \
-    fi && \
-    # Install and validate kubectl
+        echo "Unsupported architecture"; \
+        exit 1; \
+    fi
+
+# Install kubectl
+RUN KUBE_ARCH=$(if [ "$(uname -m)" = "x86_64" ]; then echo "amd64"; else echo "arm64"; fi) && \
     curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/${KUBE_ARCH}/kubectl" \
     && curl -LO "https://dl.k8s.io/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/${KUBE_ARCH}/kubectl.sha256" \
     && echo "$(cat kubectl.sha256) kubectl" | sha256sum --check \
     && rm kubectl.sha256 \
     && chmod +x kubectl \
-    && mv kubectl /usr/local/bin/ \
-    && KUBECONFIG=/shared/kubeconfig \
-    # Download the cloudquery CLI
-    # Temporary hack to fix critical vuln
-    && curl -L "https://github.com/stewartshea/cloudquery/releases/latest/download/cloudquery-linux-${CQ_ARCH}" -o /usr/local/bin/cloudquery \
-    && chmod a+x /usr/local/bin/cloudquery \
-    # Pre-install CloudQuery plugins for airgap support
-    # NOTE: Plugin versions are centrally managed in src/cloudquery-plugins.yaml
-    #       Update versions there and keep this Dockerfile in sync
-    && mkdir -p /opt/cloudquery/plugins \
-    && cd /opt/cloudquery/plugins \
-    # Download Azure plugin (v11.4.3)
-    && curl -L "https://github.com/cloudquery/cloudquery/releases/download/plugins-source-azure-v11.4.3/cloudquery_source_azure_v11.4.3_linux_${CQ_ARCH}" -o azure \
-    && chmod +x azure \
-    # Download AWS plugin (v25.1.0)
-    && curl -L "https://github.com/cloudquery/cloudquery/releases/download/plugins-source-aws-v25.1.0/cloudquery_source_aws_v25.1.0_linux_${CQ_ARCH}" -o aws \
-    && chmod +x aws \
-    # Download GCP plugin (v13.1.0)
-    && curl -L "https://github.com/cloudquery/cloudquery/releases/download/plugins-source-gcp-v13.1.0/cloudquery_source_gcp_v13.1.0_linux_${CQ_ARCH}" -o gcp \
-    && chmod +x gcp \
+    && mv kubectl /usr/local/bin/
+
+# Download CloudQuery CLI
+RUN CQ_ARCH=$(if [ "$(uname -m)" = "x86_64" ]; then echo "amd64"; else echo "arm64"; fi) && \
+    curl -L "https://github.com/stewartshea/cloudquery/releases/latest/download/cloudquery-linux-${CQ_ARCH}" -o /usr/local/bin/cloudquery \
+    && chmod a+x /usr/local/bin/cloudquery
+
+# Pre-install CloudQuery plugins for airgap support
+RUN CQ_ARCH=$(if [ "$(uname -m)" = "x86_64" ]; then echo "amd64"; else echo "arm64"; fi) && \
+    mkdir -p /opt/cloudquery/plugins && \
+    cd /opt/cloudquery/plugins && \
+    # Download Azure plugin (v10.3.0)
+    curl -L "https://github.com/cloudquery/cloudquery/releases/download/plugins-source-azure-v10.3.0/azure_linux_${CQ_ARCH}.zip" -o azure.zip && \
+    mkdir azure_temp && unzip azure.zip -d azure_temp && mv azure_temp/plugins/source/azure azure && rm azure.zip && rm -rf azure_temp && \
+    chmod +x azure && \
+    # Download AWS plugin (v22.19.2)
+    curl -L "https://github.com/cloudquery/cloudquery/releases/download/plugins-source-aws-v22.19.2/aws_linux_${CQ_ARCH}.zip" -o aws.zip && \
+    mkdir aws_temp && unzip aws.zip -d aws_temp && mv aws_temp/plugins/source/aws aws && rm aws.zip && rm -rf aws_temp && \
+    chmod +x aws && \
+    # Download GCP plugin (v9.9.2)
+    curl -L "https://github.com/cloudquery/cloudquery/releases/download/plugins-source-gcp-v9.9.2/gcp_linux_${CQ_ARCH}.zip" -o gcp.zip && \
+    mkdir gcp_temp && unzip gcp.zip -d gcp_temp && mv gcp_temp/plugins/source/gcp gcp && rm gcp.zip && rm -rf gcp_temp && \
+    chmod +x gcp && \
     # Download SQLite destination plugin (v2.5.1)
-    && curl -L "https://github.com/cloudquery/cloudquery/releases/download/plugins-destination-sqlite-v2.5.1/cloudquery_destination_sqlite_v2.5.1_linux_${CQ_ARCH}" -o sqlite \
-    && chmod +x sqlite \
-    # Download Kubernetes plugin (v8.0.2)
-    && curl -L "https://github.com/cloudquery/cloudquery/releases/download/plugins-source-k8s-v8.0.2/cloudquery_source_k8s_v8.0.2_linux_${CQ_ARCH}" -o k8s \
-    && chmod +x k8s \
-    && cd - \
-    # Install kubelogin for azure kubeconfig conversion
-    # renovate: datasource=github-releases depName=Azure/kubelogin
-    && curl -Lo kubelogin.zip https://github.com/Azure/kubelogin/releases/latest/download/kubelogin-linux-amd64.zip \
+    curl -L "https://github.com/cloudquery/cloudquery/releases/download/plugins-destination-sqlite-v2.5.1/sqlite_linux_${CQ_ARCH}.zip" -o sqlite.zip && \
+    mkdir sqlite_temp && unzip sqlite.zip -d sqlite_temp && mv sqlite_temp/plugins/destination/sqlite sqlite && rm sqlite.zip && rm -rf sqlite_temp && \
+    chmod +x sqlite
+
+# Install kubelogin for Azure
+RUN curl -Lo kubelogin.zip https://github.com/Azure/kubelogin/releases/latest/download/kubelogin-linux-amd64.zip \
     && unzip kubelogin.zip \
     && mv bin/linux_amd64/kubelogin /usr/local/bin/kubelogin \
-    && rm kubelogin.zip \ 
+    && rm kubelogin.zip \
     && rm -rf bin \
     && chmod +x /usr/local/bin/kubelogin
 
