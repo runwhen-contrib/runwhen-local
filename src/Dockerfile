@@ -131,8 +131,8 @@ RUN CQ_ARCH=$(if [ "$(uname -m)" = "x86_64" ]; then echo "amd64"; else echo "arm
     curl -L "https://github.com/cloudquery/cloudquery/releases/download/plugins-source-gcp-v9.9.2/gcp_linux_${CQ_ARCH}.zip" -o gcp.zip && \
     mkdir gcp_temp && unzip gcp.zip -d gcp_temp && mv gcp_temp/plugins/source/gcp gcp && rm gcp.zip && rm -rf gcp_temp && \
     chmod +x gcp && \
-    # Download SQLite destination plugin (v2.5.1)
-    curl -L "https://github.com/cloudquery/cloudquery/releases/download/plugins-destination-sqlite-v2.5.1/sqlite_linux_${CQ_ARCH}.zip" -o sqlite.zip && \
+    # Download SQLite destination plugin (v2.5.1) - use amd64 version for all architectures
+    curl -L "https://github.com/cloudquery/cloudquery/releases/download/plugins-destination-sqlite-v2.5.1/sqlite_linux_amd64.zip" -o sqlite.zip && \
     mkdir sqlite_temp && unzip sqlite.zip -d sqlite_temp && mv sqlite_temp/plugins/destination/sqlite sqlite && rm sqlite.zip && rm -rf sqlite_temp && \
     chmod +x sqlite
 
