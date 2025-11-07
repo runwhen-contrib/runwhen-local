@@ -4,7 +4,7 @@ spec:
   name: "azure"
   path: "cloudquery/azure"
   # NOTE: Version is centrally managed in src/cloudquery-plugins.yaml
-  version: "v11.4.3"
+  version: "v10.3.0"
   registry: "cloudquery"
   destinations: ["{{destination_plugin_name}}"]
   tables: [
