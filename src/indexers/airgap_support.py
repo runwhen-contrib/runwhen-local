@@ -64,17 +64,23 @@ class AirgapManager:
     
     def _check_airgap_mode(self) -> bool:
         """Check if airgap mode should be enabled"""
-        # Check environment variable
-        if os.getenv("CLOUDQUERY_AIRGAP_MODE", "").lower() == "true":
+        # Check environment variable - explicit false overrides auto-detection
+        airgap_env = os.getenv("CLOUDQUERY_AIRGAP_MODE", "").lower()
+        if airgap_env == "false":
+            logger.info("CloudQuery airgap mode explicitly disabled via CLOUDQUERY_AIRGAP_MODE=false")
+            return False
+        elif airgap_env == "true":
             return True
         
+        # Auto-detect only if not explicitly set
         # Check if Docker pre-installed plugins exist
         if os.path.exists(DOCKER_PLUGINS_DIR) and os.listdir(DOCKER_PLUGINS_DIR):
-            logger.debug("Found Docker pre-installed CloudQuery plugins")
+            logger.debug("Found Docker pre-installed CloudQuery plugins - enabling airgap mode")
             return True
         
         # Check if airgap directory exists with plugins
         if os.path.exists(self.plugins_dir) and os.listdir(self.plugins_dir):
+            logger.debug("Found airgap plugins directory - enabling airgap mode")
             return True
             
         return False
