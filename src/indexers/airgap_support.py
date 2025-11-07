@@ -31,9 +31,9 @@ def _load_plugin_config() -> Dict:
         # Fallback to hardcoded versions if config file is missing
         return {
             "plugins": {
-                "azure": {"version": "v11.4.3", "type": "source"},
-                "aws": {"version": "v25.1.0", "type": "source"},
-                "gcp": {"version": "v13.1.0", "type": "source"},
+                "azure": {"version": "v10.3.0", "type": "source"},
+                "aws": {"version": "v22.19.2", "type": "source"},
+                "gcp": {"version": "v9.9.2", "type": "source"},
                 "k8s": {"version": "v8.0.2", "type": "source"},
                 "sqlite": {"version": "v2.5.1", "type": "destination"}
             }
@@ -64,17 +64,26 @@ class AirgapManager:
     
     def _check_airgap_mode(self) -> bool:
         """Check if airgap mode should be enabled"""
-        # Check environment variable
-        if os.getenv("CLOUDQUERY_AIRGAP_MODE", "").lower() == "true":
+        # Check environment variable - explicit false overrides auto-detection
+        airgap_env = os.getenv("CLOUDQUERY_AIRGAP_MODE", "").lower()
+        logger.info(f"CloudQuery airgap mode environment check: CLOUDQUERY_AIRGAP_MODE='{airgap_env}'")
+        
+        if airgap_env == "false":
+            logger.info("CloudQuery airgap mode explicitly disabled via CLOUDQUERY_AIRGAP_MODE=false")
+            return False
+        elif airgap_env == "true":
+            logger.info("CloudQuery airgap mode explicitly enabled via CLOUDQUERY_AIRGAP_MODE=true")
             return True
         
+        # Auto-detect only if not explicitly set
         # Check if Docker pre-installed plugins exist
         if os.path.exists(DOCKER_PLUGINS_DIR) and os.listdir(DOCKER_PLUGINS_DIR):
-            logger.debug("Found Docker pre-installed CloudQuery plugins")
+            logger.debug("Found Docker pre-installed CloudQuery plugins - enabling airgap mode")
             return True
         
         # Check if airgap directory exists with plugins
         if os.path.exists(self.plugins_dir) and os.listdir(self.plugins_dir):
+            logger.debug("Found airgap plugins directory - enabling airgap mode")
             return True
             
         return False
@@ -423,5 +432,12 @@ echo "Set CLOUDQUERY_AIRGAP_MODE=true to enable airgap mode"
 echo "Airgap directory: $AIRGAP_DIR"
 """
 
-# Global airgap manager instance
-airgap_manager = AirgapManager()
+# Global airgap manager instance - initialized lazily
+_airgap_manager = None
+
+def get_airgap_manager() -> AirgapManager:
+    """Get the global airgap manager instance, creating it if needed"""
+    global _airgap_manager
+    if _airgap_manager is None:
+        _airgap_manager = AirgapManager()
+    return _airgap_manager

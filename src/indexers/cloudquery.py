@@ -30,7 +30,7 @@ from exceptions import WorkspaceBuilderException
 from resources import Registry, REGISTRY_PROPERTY_NAME, ResourceTypeSpec
 from utils import read_file, write_file, mask_string
 from .common import CLOUD_CONFIG_SETTING
-from .airgap_support import airgap_manager
+from .airgap_support import get_airgap_manager
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from k8s_utils import get_secret
 from gcp_utils import get_gcp_credential, authenticate_gcloud, validate_gcp_credentials
@@ -222,6 +222,7 @@ def invoke_cloudquery(cq_command: str,
     logger.debug(f"CloudQuery plugin directory: {plugin_dir}")
     
     # Setup airgap environment if enabled
+    airgap_manager = get_airgap_manager()
     if airgap_manager.is_enabled():
         logger.info("CloudQuery airgap mode detected - using pre-installed plugins")
         airgap_env_vars = airgap_manager.setup_airgap_environment(plugin_dir)
@@ -425,6 +426,7 @@ def init_cloudquery_table_info():
     cloudquery_premium_table_info = dict()
     
     # In airgap mode, try to load pre-packaged table information
+    airgap_manager = get_airgap_manager()
     if airgap_manager.is_enabled():
         logger.info("Loading table information from airgap package")
         for platform_name in ["azure", "aws", "gcp"]:
@@ -898,6 +900,7 @@ def init_cloudquery_config(
         final_yaml = render(platform_spec.config_template_name, tmpl_vars)
         
         # Apply airgap modifications if enabled
+        airgap_manager = get_airgap_manager()
         if airgap_manager.is_enabled():
             # Get version from airgap manager's plugin config
             from .airgap_support import CLOUDQUERY_PLUGINS
