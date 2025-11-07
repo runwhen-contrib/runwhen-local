@@ -316,10 +316,144 @@ tasks:
         echo "Validation successful: $SLI_FILE has a valid spec.location."
     silent: true
 
+  ci-test-airgap-disabled:
+    desc: "Test CloudQuery with airgap mode explicitly disabled"
+    env:
+      RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
+    vars: 
+      EXPECTED_SLXS: "5"
+    cmds:
+      - |
+        # Generate workspaceInfo.yaml for airgap test
+        cat <<EOF > workspaceInfo.yaml
+        workspaceName: "$RW_WORKSPACE"
+        workspaceOwnerEmail: authors@runwhen.com
+        defaultLocation: location-01
+        defaultLOD: none
+        cloudConfig:
+          kubernetes:             
+            kubeconfigFile: /shared/kubeconfig.secret
+            contexts:
+              sandbox-cluster-1: 
+                defaultNamespaceLOD: basic
+          gcp:
+            applicationCredentialsFile: /shared/gcp.secret
+            projects:
+            - runwhen-nonprod-sandbox
+            projectLevelOfDetails:
+              runwhen-nonprod-sandbox: basic
+        codeCollections: []
+        custom: 
+          kubernetes_distribution_binary: kubectl
+        EOF
+
+      - task: ci-run-rwl-discovery-airgap-disabled
+      - task: verify-slx-count
+        vars:
+          EXPECTED_SLX_COUNT: "{{.EXPECTED_SLXS}}"
+      - task: verify-airgap-logs
+    silent: true
+
+  ci-run-rwl-discovery-airgap-disabled:
+    desc: "Run RunWhen Local Discovery with airgap mode explicitly disabled"
+    cmds:
+      - |
+        rm slx_count.txt || true
+        CONTAINER_NAME="RunWhenLocal-AirgapTest"    
+        if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Stopping and removing existing container $CONTAINER_NAME..."
+          docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME
+        elif docker ps -a -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Removing existing stopped container $CONTAINER_NAME..."
+          docker rm $CONTAINER_NAME
+        else
+          echo "No existing container named $CONTAINER_NAME found."
+        fi
+        
+        echo "Cleaning up output directory..."
+        rm -rf output || { echo "Failed to remove output directory"; exit 1; }
+        mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
+        chmod 777 . 
+        echo "Starting new container $CONTAINER_NAME with airgap mode disabled..."
+        echo "User $(whoami)"
+        
+        # Start container with airgap mode explicitly disabled
+        docker run -d \
+          -e WB_DEBUG_SUPPRESS_CHEAT_SHEET="true" \
+          -e DEBUG_LOGS=true \
+          -e CLOUDQUERY_AIRGAP_MODE=false \
+          -e CLOUDQUERY_PLUGINS_PREINSTALLED=false \
+          --name "$CONTAINER_NAME" \
+          -p 8082:8081 \
+          -v "$(pwd):/shared" \
+          runwhen-local:test
+
+        # Follow the main container logs in the background
+        docker logs -f "$CONTAINER_NAME" &
+
+        # Execute the workspace builder script
+        docker exec -w /workspace-builder "$CONTAINER_NAME" ./run.sh "$1" --verbose 2>&1 | tee airgap_test_output.log
+
+        # Check if the run was successful
+        if [ ${PIPESTATUS[0]} -ne 0 ]; then
+          echo "❌ Discovery failed with airgap mode disabled"
+          docker logs "$CONTAINER_NAME" | tail -50
+          docker stop "$CONTAINER_NAME"
+          docker rm "$CONTAINER_NAME"
+          exit 1
+        fi
+
+        # Stop and remove container
+        docker stop "$CONTAINER_NAME"
+        docker rm "$CONTAINER_NAME"        
+
+        echo "Review generated config files under output/workspaces/"
+        total_slxs=$(find $(find 'output/' -type d -name 'slxs') -mindepth 1 -type d | wc -l)
+        echo "Total SLXs: $total_slxs"
+        echo "$total_slxs" > slx_count.txt
+    silent: true
+
+  verify-airgap-logs:
+    desc: "Verify that airgap mode was properly disabled in logs"
+    cmds:
+      - |
+        echo "---Verifying Airgap Mode Logs---"
+        
+        # Check that airgap mode was explicitly disabled
+        if grep -q "CloudQuery airgap mode explicitly disabled via CLOUDQUERY_AIRGAP_MODE=false" airgap_test_output.log; then
+          echo "✅ Found log confirming airgap mode was explicitly disabled"
+        else
+          echo "❌ Missing log entry for explicit airgap mode disable"
+          echo "Searching for airgap-related logs:"
+          grep -i "airgap\|offline" airgap_test_output.log || echo "No airgap logs found"
+          exit 1
+        fi
+        
+        # Check that we don't see the old error
+        if grep -q "404 Not Found" airgap_test_output.log; then
+          echo "❌ Still seeing 404 Not Found errors - airgap fix may not be working"
+          grep -A 5 -B 5 "404 Not Found" airgap_test_output.log
+          exit 1
+        else
+          echo "✅ No 404 Not Found errors detected"
+        fi
+        
+        # Check that CloudQuery online mode was used
+        if grep -q "CloudQuery online mode - plugins will be downloaded as needed" airgap_test_output.log; then
+          echo "✅ CloudQuery running in online mode as expected"
+        else
+          echo "⚠️  Could not confirm CloudQuery online mode (may be normal if log level is different)"
+        fi
+        
+        echo "✅ Airgap mode verification passed"
+    silent: true
+
   clean-rwl-discovery:
     desc: "Check and clean up RunWhen Local discovery output"
     cmds:
       - |
         rm -rf output
         rm workspaceInfo.yaml
+        rm airgap_test_output.log || true
+        rm slx_count.txt || true
     silent: true
