@@ -4,8 +4,7 @@ spec:
   spec: 
       service_account_key_json: '$service_account_key_json'
   path: "cloudquery/gcp"
-  # NOTE: Version is centrally managed in src/cloudquery-plugins.yaml
-  version: "v13.1.0"
+  version: "v11.5.1"
   registry: "cloudquery"
   destinations: ["{{destination_plugin_name}}"]
   tables: [

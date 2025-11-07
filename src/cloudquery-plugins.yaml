@@ -10,12 +10,12 @@ plugins:
     registry: "cloudquery"
     
   aws:
-    version: "v25.1.0"
+    version: "v23.6.1"
     type: "source"
     registry: "cloudquery"
     
   gcp:
-    version: "v13.1.0"
+    version: "v11.5.1"
     type: "source"
     registry: "cloudquery"
     

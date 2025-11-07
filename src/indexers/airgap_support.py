@@ -66,10 +66,13 @@ class AirgapManager:
         """Check if airgap mode should be enabled"""
         # Check environment variable - explicit false overrides auto-detection
         airgap_env = os.getenv("CLOUDQUERY_AIRGAP_MODE", "").lower()
+        logger.info(f"CloudQuery airgap mode environment check: CLOUDQUERY_AIRGAP_MODE='{airgap_env}'")
+        
         if airgap_env == "false":
             logger.info("CloudQuery airgap mode explicitly disabled via CLOUDQUERY_AIRGAP_MODE=false")
             return False
         elif airgap_env == "true":
+            logger.info("CloudQuery airgap mode explicitly enabled via CLOUDQUERY_AIRGAP_MODE=true")
             return True
         
         # Auto-detect only if not explicitly set
@@ -429,5 +432,12 @@ echo "Set CLOUDQUERY_AIRGAP_MODE=true to enable airgap mode"
 echo "Airgap directory: $AIRGAP_DIR"
 """
 
-# Global airgap manager instance
-airgap_manager = AirgapManager()
+# Global airgap manager instance - initialized lazily
+_airgap_manager = None
+
+def get_airgap_manager() -> AirgapManager:
+    """Get the global airgap manager instance, creating it if needed"""
+    global _airgap_manager
+    if _airgap_manager is None:
+        _airgap_manager = AirgapManager()
+    return _airgap_manager
