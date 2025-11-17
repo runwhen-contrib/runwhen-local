@@ -27,13 +27,17 @@ echo "Configuring Git safe directories..."
 for cache_root in "/opt/runwhen/codecollection-cache" "/home/runwhen/codecollection-cache"; do
   if [ -d "$cache_root" ]; then
     echo "Found cache directory: $cache_root"
-    # Add the entire cache root as a safe directory
-    git config --global --add safe.directory "$cache_root"
+    # Add the entire cache root as a safe directory (only if not already present)
+    if ! git config --global --get-all safe.directory | grep -q "^$cache_root$"; then
+      git config --global --add safe.directory "$cache_root"
+    fi
     # Add all .git directories in the cache as safe directories  
     for repo_dir in "$cache_root"/*.git; do
       if [ -d "$repo_dir" ]; then
-        git config --global --add safe.directory "$repo_dir"
-        echo "Added safe directory: $repo_dir"
+        if ! git config --global --get-all safe.directory | grep -q "^$repo_dir$"; then
+          git config --global --add safe.directory "$repo_dir"
+          echo "Added safe directory: $repo_dir"
+        fi
       fi
     done
   fi
@@ -43,14 +47,22 @@ done
 # Python's TemporaryDirectory() typically creates directories under /tmp/tmp*
 # Also handle any custom WB_CODE_COLLECTION_CACHE_DIR that might be set
 echo "Configuring git safe directories for temporary locations..."
-git config --global --add safe.directory '/tmp/*'
-git config --global --add safe.directory '/tmp/tmp*'
+if ! git config --global --get-all safe.directory | grep -q "^/tmp/\*$"; then
+  git config --global --add safe.directory '/tmp/*'
+fi
+if ! git config --global --get-all safe.directory | grep -q "^/tmp/tmp\*$"; then
+  git config --global --add safe.directory '/tmp/tmp*'
+fi
 
 # Handle custom cache directory if WB_CODE_COLLECTION_CACHE_DIR is set
 if [ -n "$WB_CODE_COLLECTION_CACHE_DIR" ]; then
   echo "Configuring git safe directory for custom cache: $WB_CODE_COLLECTION_CACHE_DIR"
-  git config --global --add safe.directory "$WB_CODE_COLLECTION_CACHE_DIR"
-  git config --global --add safe.directory "$WB_CODE_COLLECTION_CACHE_DIR/*"
+  if ! git config --global --get-all safe.directory | grep -q "^$WB_CODE_COLLECTION_CACHE_DIR$"; then
+    git config --global --add safe.directory "$WB_CODE_COLLECTION_CACHE_DIR"
+  fi
+  if ! git config --global --get-all safe.directory | grep -q "^$WB_CODE_COLLECTION_CACHE_DIR/\*$"; then
+    git config --global --add safe.directory "$WB_CODE_COLLECTION_CACHE_DIR/*"
+  fi
 fi
 
 OUTPUT="/shared/output"
