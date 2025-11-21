@@ -748,10 +748,14 @@ def index(component_context: Context):
                                 
                                 # Check per-context namespaceLODs first (highest priority)
                                 context_namespace_lods = kube_context_namespace_lods.get(context_name, {})
+                                logger.info(f"DEBUG: Processing context '{context_name}' for namespace '{namespace_name}'")
+                                logger.info(f"DEBUG: Available configured contexts: {list(kube_context_namespace_lods.keys())}")
+                                logger.info(f"DEBUG: Context namespaceLODs for '{context_name}': {context_namespace_lods}")
+                                
                                 if not context_namespace_lods and kube_context_namespace_lods:
                                     # Debug: Log when context name doesn't match any configured contexts
                                     available_contexts = list(kube_context_namespace_lods.keys())
-                                    logger.debug(f"Context '{context_name}' not found in configured contexts. Available contexts: {available_contexts}")
+                                    logger.warning(f"Context '{context_name}' not found in configured contexts. Available contexts: {available_contexts}")
                                 
                                 if namespace_name in context_namespace_lods:
                                     namespace_lod = LevelOfDetail.construct_from_config(context_namespace_lods[namespace_name])
