@@ -48,7 +48,7 @@ See [www.runwhen.com](https://www.runwhen.com) or [docs.runwhen.com](https://doc
 
 ### Who Can Benefit?
 
-If you're involved with **Kubernetes** or **Public Cloud** environments, RunWhen Local could be for you. It’s designed for:
+If you're involved with **Kubernetes** or **Public Cloud** environments, RunWhen Local could be for you. It's designed for:
 
 * Kubernetes administrators
 * Kubernetes application developers
@@ -117,6 +117,7 @@ All documentation is stored in [/docs](https://github.com/runwhen-contrib/runwhe
 * [User Guide](https://docs.runwhen.com/public/v/runwhen-local/user-guide/)
 * [Architecture](https://docs.runwhen.com/public/v/runwhen-local/architecture)
 * [Development](https://docs.runwhen.com/public/v/runwhen-local/development/)
+* [Kubernetes LOD Configuration](./kubernetes-lod-index.md) - Configure resource discovery across multiple clusters
 
 ### Stay Updated with Release Notes
 

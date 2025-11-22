@@ -746,35 +746,36 @@ def index(component_context: Context):
                                     continue
                                 
                                 # Enhanced LOD determination for non-AKS clusters
-                                # Priority order: 1) global namespaceLODs, 2) per-context namespaceLODs, 3) contexts defaultNamespaceLOD, 4) global default
+                                # Priority order:
+                                # 1) context-specific namespaceLODs (highest config priority)
+                                # 2) global namespaceLODs (overrides context defaults)
+                                # 3) context defaultNamespaceLOD
+                                # 4) global defaultLOD
+                                # Note: Namespace annotations checked later will override ALL of these
                                 namespace_lod = None
                                 lod_source = None
                                 
-                                # FIXED PRIORITY ORDER: Check global namespaceLODs FIRST
-                                # This ensures global namespaceLODs override context defaults
-                                
-                                # 1. Check global namespaceLODs first (highest priority for your use case)
-                                if namespace_name in namespace_lods:
+                                # 1. Check context-specific namespaceLODs first
+                                context_namespace_lods = kube_context_namespace_lods.get(context_name, {})
+                                if namespace_name in context_namespace_lods:
+                                    namespace_lod = LevelOfDetail.construct_from_config(context_namespace_lods[namespace_name])
+                                    lod_source = f"context '{context_name}' namespaceLODs"
+                                # 2. Check global namespaceLODs (overrides context default but not context-specific)
+                                elif namespace_name in namespace_lods:
                                     namespace_lod = LevelOfDetail.construct_from_config(namespace_lods[namespace_name])
                                     lod_source = "global namespaceLODs"
-                                # 2. Check per-context namespaceLODs
+                                # 3. Fall back to context defaultNamespaceLOD
                                 else:
-                                    context_namespace_lods = kube_context_namespace_lods.get(context_name, {})
-                                    if namespace_name in context_namespace_lods:
-                                        namespace_lod = LevelOfDetail.construct_from_config(context_namespace_lods[namespace_name])
-                                        lod_source = f"context '{context_name}' namespaceLODs"
-                                    # 3. Fall back to context default
-                                    else:
-                                        context_default_lod = kube_context_lod_settings.get(context_name)
-                                        if context_default_lod is None and kube_context_lod_settings:
-                                            # Debug: Log when context name doesn't match any configured contexts
-                                            available_contexts = list(kube_context_lod_settings.keys())
-                                            logger.debug(f"Context '{context_name}' not found in configured contexts for defaultNamespaceLOD. Available contexts: {available_contexts}")
-                                        
-                                        namespace_lod = LevelOfDetail.construct_from_config(context_default_lod or default_lod)
-                                        if namespace_lod is None:
-                                            namespace_lod = default_lod  # Final fallback
-                                        lod_source = f"context '{context_name}' defaultNamespaceLOD" if context_default_lod else "global defaultLOD"
+                                    context_default_lod = kube_context_lod_settings.get(context_name)
+                                    if context_default_lod is None and kube_context_lod_settings:
+                                        # Debug: Log when context name doesn't match any configured contexts
+                                        available_contexts = list(kube_context_lod_settings.keys())
+                                        logger.debug(f"Context '{context_name}' not found in configured contexts for defaultNamespaceLOD. Available contexts: {available_contexts}")
+                                    
+                                    namespace_lod = LevelOfDetail.construct_from_config(context_default_lod or default_lod)
+                                    if namespace_lod is None:
+                                        namespace_lod = default_lod  # Final fallback
+                                    lod_source = f"context '{context_name}' defaultNamespaceLOD" if context_default_lod else "global defaultLOD"
                                 
                                 logger.info(f"Using {lod_source} for namespace '{namespace_name}': {namespace_lod}")
 
