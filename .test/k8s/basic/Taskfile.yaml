@@ -298,6 +298,30 @@ tasks:
 
       silent: true
 
+  test-multi-kubeconfig:
+      desc: "Test multi-context kubeconfig with overlapping namespaces"
+      cmds:
+        - |
+          echo "Testing multi-context kubeconfig discovery..."
+          echo "Expected: Both watcher-platform-cluster-01 and beta-platform-cluster-01"
+          echo "should emit SLXs for backend-services namespace (LOD: detailed)"
+          
+          # Copy the multi-kubeconfig workspaceInfo
+          cp multi-kubeconfig-workspaceInfo.yaml workspaceInfo.yaml
+
+        - task: build-rwl
+        - task: run-rwl-discovery
+        
+        - |
+          echo ""
+          echo "=== Multi-Context Test Results ==="
+          total_slxs=$(find $(find 'output/' -type d -name 'slxs') -mindepth 1 -type d 2>/dev/null | wc -l)
+          echo "Total SLXs generated: $total_slxs"
+          echo ""
+          echo "Review the generated SLXs in output/workspaces/"
+          echo "Check the logs for namespace processing from both contexts"
+      silent: false
+
   ci-test-local-git:
       desc: "Run CI Discovery Test - Local Git Functionality Validation"
       env:

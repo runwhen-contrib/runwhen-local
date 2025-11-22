@@ -232,6 +232,10 @@ def index(component_context: Context):
                 if kubernetes_namespace_lods:
                     namespace_lods.update(kubernetes_namespace_lods)
                     logger.info(f"Loaded namespaceLODs from kubernetes settings: {kubernetes_namespace_lods}")
+                
+                # CRITICAL FIX: Ensure global namespaceLODs take precedence over context defaults
+                # The issue is that when defaultNamespaceLOD is 'none', namespaces get skipped
+                # before global namespaceLODs can be checked
                 # FIXME: This kubeconfig file handling is pretty convoluted right now after the
                 # changes with merging/constructing the kubeconfig in the run.py script and then
                 # the subsequent changes to revert to using the encoded kubeconfig in the request
@@ -742,25 +746,25 @@ def index(component_context: Context):
                                     continue
                                 
                                 # Enhanced LOD determination for non-AKS clusters
-                                # Priority order: 1) per-context namespaceLODs, 2) global namespaceLODs, 3) contexts defaultNamespaceLOD, 4) global default
+                                # Priority order:
+                                # 1) context-specific namespaceLODs (highest config priority)
+                                # 2) global namespaceLODs (overrides context defaults)
+                                # 3) context defaultNamespaceLOD
+                                # 4) global defaultLOD
+                                # Note: Namespace annotations checked later will override ALL of these
                                 namespace_lod = None
                                 lod_source = None
                                 
-                                # Check per-context namespaceLODs first (highest priority)
+                                # 1. Check context-specific namespaceLODs first
                                 context_namespace_lods = kube_context_namespace_lods.get(context_name, {})
-                                if not context_namespace_lods and kube_context_namespace_lods:
-                                    # Debug: Log when context name doesn't match any configured contexts
-                                    available_contexts = list(kube_context_namespace_lods.keys())
-                                    logger.debug(f"Context '{context_name}' not found in configured contexts. Available contexts: {available_contexts}")
-                                
                                 if namespace_name in context_namespace_lods:
                                     namespace_lod = LevelOfDetail.construct_from_config(context_namespace_lods[namespace_name])
                                     lod_source = f"context '{context_name}' namespaceLODs"
-                                # Then check global namespaceLODs
+                                # 2. Check global namespaceLODs (overrides context default but not context-specific)
                                 elif namespace_name in namespace_lods:
                                     namespace_lod = LevelOfDetail.construct_from_config(namespace_lods[namespace_name])
                                     lod_source = "global namespaceLODs"
-                                # Then check context default
+                                # 3. Fall back to context defaultNamespaceLOD
                                 else:
                                     context_default_lod = kube_context_lod_settings.get(context_name)
                                     if context_default_lod is None and kube_context_lod_settings:
@@ -810,6 +814,19 @@ def index(component_context: Context):
                                 if owner_name:
                                     namespace_attributes['owner'] = owner_name
 
+                                # Check if namespace already exists in registry (from another context)
+                                existing_namespace = registry.lookup_resource(
+                                    KUBERNETES_PLATFORM,
+                                    KubernetesResourceType.NAMESPACE.value,
+                                    namespace_qualified_name
+                                )
+                                
+                                if existing_namespace:
+                                    logger.info(f"Namespace '{namespace_qualified_name}' already exists in registry from previous context. "
+                                               f"Current context '{context_name}' will update LOD to '{namespace_lod}' and process resources.")
+                                else:
+                                    logger.info(f"Adding new namespace '{namespace_qualified_name}' to registry from context '{context_name}' with LOD '{namespace_lod}'")
+                                
                                 namespace = registry.add_resource(
                                     KUBERNETES_PLATFORM,
                                     KubernetesResourceType.NAMESPACE.value,
@@ -820,14 +837,16 @@ def index(component_context: Context):
 
                                 cluster_namespaces[namespace_qualified_name] = namespace
                                 namespaces[namespace_qualified_name] = namespace
+                                logger.debug(f"Added namespace '{namespace_qualified_name}' to local namespaces dict for resource processing in context '{context_name}'")
 
                             except ApiException as e:
                                 logger.info(f"Error accessing namespace '{namespace_name}' in cluster '{cluster_name}'; skipping. Error: {e}")
                                 pass
+                        logger.info(f"Context '{context_name}' will process {len(namespaces)} namespace(s) for resources: {list(namespaces.keys())}")
                         for namespace in namespaces.values():
                             namespace_qualified_name = namespace.qualified_name
                             namespace_name = namespace.name
-                            logger.info(f'Scanning for Kubernetes resources in namespace "{namespace_name}" with LOD:{namespace.lod}')
+                            logger.info(f'Context "{context_name}" scanning for Kubernetes resources in namespace "{namespace_qualified_name}" with LOD:{namespace.lod}')
             
                             #
                             # Index Deployments, DaemonSets and StatefulSets (the common app Kinds)
