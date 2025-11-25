@@ -350,10 +350,34 @@ def run_components(context: Context, components: list[Component]) -> None:
 
     :param components: The components to run
     """
+    # Import health tracker to update stages
+    try:
+        from workspace_builder.health import health_tracker
+    except ImportError:
+        health_tracker = None
+    
+    # Load phase
     for component in components:
         if component.load_func:
+            if health_tracker:
+                health_tracker.update_stage("loading", component.name)
             component.load_func(context)
+    
+    # Run phase with stage tracking
     for component in components:
+        if health_tracker:
+            # Determine stage based on component type
+            if component.stage == Stage.INDEXER:
+                stage_name = "indexing"
+            elif component.stage == Stage.ENRICHER:
+                stage_name = "enriching" 
+            elif component.stage == Stage.RENDERER:
+                stage_name = "rendering"
+            else:
+                stage_name = "processing"
+            
+            health_tracker.update_stage(stage_name, component.name)
+        
         component.run_func(context)
 
 

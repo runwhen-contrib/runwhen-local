@@ -35,12 +35,23 @@ class InfoView(APIView):
         return Response(serializer.data)
 
 
+
+
 class RunView(APIView):
     def post(self, request: Request):
 
         # Extract the lists of components to run.
-        input_component_names = request.data.get("components", "").split(",")
-        input_components = [get_component(name) for name in input_component_names]
+        components_data = request.data.get("components", "")
+        if isinstance(components_data, list):
+            # Components provided as a list
+            input_component_names = components_data
+        elif isinstance(components_data, str):
+            # Components provided as a comma-separated string
+            input_component_names = components_data.split(",") if components_data else []
+        else:
+            input_component_names = []
+        
+        input_components = [get_component(name) for name in input_component_names if name.strip()]
 
         components: list[Component] = apply_component_dependencies(input_components)
 
@@ -104,10 +115,13 @@ class RunView(APIView):
             if overrides:
                 context.set_property("overrides", overrides)
             
+            
             run_components(context, components)
 
             outputter.close()
             archive_bytes = outputter.get_bytes()
+            
+            
             run_result = ArchiveRunResult("Workspace builder completed successfully.",
                                           context.warnings,
                                           archive_bytes)
@@ -130,3 +144,18 @@ class RunView(APIView):
 
         serializer = ArchiveRunResultSerializer(run_result)
         return Response(serializer.data)
+
+
+class HealthView(APIView):
+    """
+    Simple health endpoint for liveness checks.
+    """
+    def get(self, request: Request):
+        from datetime import datetime, timezone
+        return Response({
+            'status': 'healthy',
+            'timestamp': datetime.now(timezone.utc).isoformat(),
+            'is_healthy': True,
+            'is_ready': True,
+            'current_process': 'idle'
+        })

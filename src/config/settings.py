@@ -85,10 +85,29 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.1/ref/settings/#databases
 
+# Database configuration - use /shared if available (Docker), otherwise local
+import os
+from pathlib import Path
+
+def get_database_path():
+    """Get the appropriate database path based on environment."""
+    shared_path = Path('/shared/db.sqlite3')
+    local_path = BASE_DIR / 'db.sqlite3'
+    
+    # Check if /shared directory exists and is writable
+    try:
+        shared_dir = Path('/shared')
+        if shared_dir.exists() and os.access(shared_dir, os.W_OK):
+            return shared_path
+    except (OSError, PermissionError):
+        pass
+    
+    return local_path
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': '/shared/db.sqlite3',  # Absolute path under /shared
+        'NAME': get_database_path(),
     }
 }
 

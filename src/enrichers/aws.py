@@ -44,7 +44,7 @@ class AWSPlatformHandler(PlatformHandler):
         try:
             arn = ARN(arn_string)
         except Exception as e:
-            raise ValueError(f"Invalid ARN format '{arn_string}': {e}")
+            raise ValueError(f"Invalid ARN format '{arn_string}': {e}") from e
             
         name = resource_data.get("name", arn.resource_id)  # Fallback to ARN resource_id
         if not name:
