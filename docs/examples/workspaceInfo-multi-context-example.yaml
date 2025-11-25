@@ -1,0 +1,228 @@
+# Example workspaceInfo.yaml for Multi-Context Kubernetes Discovery
+# This example demonstrates the LOD priority system across multiple clusters
+# Copy and customize this for your environment
+
+workspaceName: "example-multi-context"
+workspaceOwnerEmail: platform-team@example.com
+defaultLocation: us-east-1
+
+# Global default LOD (lowest priority fallback)
+# Options: none | basic | detailed
+defaultLOD: basic
+
+cloudConfig:
+  kubernetes:
+    # Path to your kubeconfig file (in container context)
+    kubeconfigFile: /shared/kubeconfig
+    inClusterAuth: false
+    
+    # ============================================================================
+    # EXCLUDE/INCLUDE FILTERS (Optional)
+    # ============================================================================
+    
+    # Skip resources with these labels
+    excludeLabels:
+      type:
+        - "croncoderun"
+        - "coderun"
+      app.kubernetes.io/managed-by:
+        - "helm-test"
+    
+    # Skip resources with these annotations
+    # excludeAnnotations:
+    #   config.runwhen.com/discovery: "exclude"
+    
+    # ============================================================================
+    # CONTEXT-SPECIFIC CONFIGURATIONS
+    # ============================================================================
+    # Context names must match your kubeconfig exactly
+    # Run: kubectl config get-contexts
+    
+    contexts:
+      
+      # Production East Coast Cluster
+      production-us-east:
+        # Context-level default for all namespaces in this context
+        defaultNamespaceLOD: none  # Restrictive by default
+        
+        # Per-context namespace overrides (HIGHEST CONFIG PRIORITY)
+        # These override global namespaceLODs for this context only
+        namespaceLODs:
+          # Example: Skip system namespace in production only
+          kube-system: "none"
+          
+          # Example: Extra detail for critical service in this region
+          payment-processing: "detailed"
+      
+      # Production West Coast Cluster
+      production-us-west:
+        defaultNamespaceLOD: none
+        namespaceLODs:
+          kube-system: "none"
+          # Different config for same namespace in different context
+          payment-processing: "basic"  # Less detail in west coast cluster
+      
+      # Staging Cluster
+      staging-cluster:
+        # More permissive in staging
+        defaultNamespaceLOD: basic
+        namespaceLODs:
+          # Extra detail for testing namespaces
+          test-environment: "detailed"
+          integration-tests: "detailed"
+      
+      # Development Cluster  
+      development-cluster:
+        # Most permissive in dev
+        defaultNamespaceLOD: detailed
+        # No namespace overrides - discover everything
+    
+    # ============================================================================
+    # GLOBAL NAMESPACE CONFIGURATIONS
+    # ============================================================================
+    # These apply across ALL contexts unless overridden by context-specific settings
+    # Priority: Context namespaceLODs > Global namespaceLODs > Context defaultNamespaceLOD
+    
+    namespaceLODs:
+      
+      # -----------------------------------------------------------------------
+      # Critical Production Services (detailed everywhere)
+      # -----------------------------------------------------------------------
+      backend-services: "detailed"
+      frontend-services: "detailed"
+      api-gateway: "detailed"
+      user-authentication: "detailed"
+      payment-processing: "detailed"  # Overridden per-context above
+      database-services: "detailed"
+      
+      # -----------------------------------------------------------------------
+      # Infrastructure Services (basic level sufficient)
+      # -----------------------------------------------------------------------
+      ingress-nginx: "basic"
+      cert-manager: "basic"
+      external-dns: "basic"
+      
+      # -----------------------------------------------------------------------
+      # Monitoring & Observability (detailed for full visibility)
+      # -----------------------------------------------------------------------
+      prometheus: "detailed"
+      grafana: "detailed"
+      loki: "detailed"
+      tempo: "detailed"
+      alertmanager: "basic"
+      
+      # -----------------------------------------------------------------------
+      # CI/CD Systems (basic level)
+      # -----------------------------------------------------------------------
+      gitlab: "basic"
+      argocd: "basic"
+      flux-system: "basic"
+      tekton-pipelines: "basic"
+      
+      # -----------------------------------------------------------------------
+      # Service Mesh (basic level)
+      # -----------------------------------------------------------------------
+      istio-system: "basic"
+      linkerd: "basic"
+      
+      # -----------------------------------------------------------------------
+      # Storage & Data (basic level)
+      # -----------------------------------------------------------------------
+      minio: "basic"
+      postgresql: "basic"
+      redis: "basic"
+      
+      # -----------------------------------------------------------------------
+      # Security & Compliance (detailed for audit trail)
+      # -----------------------------------------------------------------------
+      vault: "detailed"
+      falco: "detailed"
+      
+      # -----------------------------------------------------------------------
+      # System Namespaces (typically excluded)
+      # -----------------------------------------------------------------------
+      # Note: These can still be overridden by context-specific settings above
+      kube-system: "none"
+      kube-public: "none"
+      kube-node-lease: "none"
+      default: "none"
+      
+      # -----------------------------------------------------------------------
+      # Development/Testing Namespaces
+      # -----------------------------------------------------------------------
+      sandbox: "basic"
+      experimental: "basic"
+
+# ============================================================================
+# CODE COLLECTIONS (Optional)
+# ============================================================================
+# Reference to SLX generation templates and code bundles
+codeCollections: []
+
+# ============================================================================
+# CUSTOM SETTINGS
+# ============================================================================
+custom:
+  # Kubernetes CLI binary to use
+  # Options: kubectl (standard) | oc (OpenShift)
+  kubernetes_distribution_binary: kubectl
+
+# ============================================================================
+# USAGE EXAMPLES
+# ============================================================================
+#
+# Example 1: Namespace exists in all 4 contexts
+# Namespace: backend-services
+# Result:
+#   - production-us-east:    detailed (global namespaceLODs)
+#   - production-us-west:    detailed (global namespaceLODs)
+#   - staging-cluster:       detailed (global namespaceLODs overrides context default of basic)
+#   - development-cluster:   detailed (matches both global and context default)
+# SLXs generated from ALL FOUR contexts
+#
+# Example 2: Namespace only exists in production contexts
+# Namespace: payment-processing  
+# Result:
+#   - production-us-east:    detailed (context-specific namespaceLODs)
+#   - production-us-west:    basic   (context-specific namespaceLODs)
+# SLXs generated from BOTH production contexts with different LOD levels
+#
+# Example 3: Namespace exists only in staging
+# Namespace: integration-tests
+# Result:
+#   - staging-cluster:       detailed (context-specific namespaceLODs)
+# SLXs generated only from staging context
+#
+# Example 4: New namespace not in any configuration
+# Namespace: new-service
+# Result:
+#   - production-us-east:    none (context defaultNamespaceLOD)
+#   - production-us-west:    none (context defaultNamespaceLOD)
+#   - staging-cluster:       basic (context defaultNamespaceLOD)
+#   - development-cluster:   detailed (context defaultNamespaceLOD)
+#
+# Example 5: Namespace annotation override
+# If any namespace has annotation: runwhen.com/lod: "detailed"
+# That namespace will ALWAYS use detailed, regardless of all other settings
+#
+# ============================================================================
+# TESTING YOUR CONFIGURATION
+# ============================================================================
+#
+# 1. Save this file as workspaceInfo.yaml in your test directory
+#
+# 2. Ensure your kubeconfig context names match exactly:
+#    kubectl config get-contexts
+#
+# 3. Run discovery:
+#    cd .test/k8s/basic
+#    task test-multi-kubeconfig
+#
+# 4. Check logs for LOD determination:
+#    Look for: "Using [source] for namespace '[name]': [LOD]"
+#
+# 5. Verify SLX generation:
+#    Check: output/workspaces/[workspace]/[location]/[platform]/[cluster]/[namespace]/
+#
+# ============================================================================
+

@@ -145,14 +145,23 @@ class GCPPlatformHandler(PlatformHandler):
             resource_attributes["project_name"] = project_name
         
         if resource_type_name == "project":
-            name: str = resource_data['project_id']
+            name: str = resource_data.get('project_id')
+            if not name:
+                raise ValueError(f"Project resource missing required 'project_id' field. Available fields: {list(resource_data.keys())}")
             qualified_name = name
             project_level_of_detail_config = platform_config_data.get("projectLevelOfDetails", dict())
             project_lod_value = project_level_of_detail_config.get(name)
             resource_attributes['lod'] = LevelOfDetail.construct_from_config(project_lod_value) \
                 if project_lod_value is not None else context.get_setting("DEFAULT_LOD")
         else:
-            name: str = resource_data['name']
+            name: str = resource_data.get('name')
+            if not name:
+                # Try alternative name fields
+                name = resource_data.get("display_name") or resource_data.get("resource_name")
+                if not name and "/" in resource_data.get("id", ""):
+                    name = resource_data["id"].split("/")[-1]
+                if not name:
+                    raise ValueError(f"Resource missing required 'name' field and no alternative name found. Available fields: {list(resource_data.keys())}")
             qualified_name = name
             if project_id:
                 registry: Registry = context.get_property(REGISTRY_PROPERTY_NAME)
