@@ -44,6 +44,24 @@ def enrich(context: Context) -> None:
         logger.info(f"   Resources skipped: {cq_stats.get('total_skipped', 0):,}")
         logger.info(f"   Discovery duration: {cq_stats.get('duration', 0):.2f}s")
         
+        # Parsing errors summary
+        parsing_errors = cq_stats.get('parsing_errors', [])
+        if parsing_errors:
+            logger.info(f"   ⚠️  Parsing errors: {len(parsing_errors):,} resources failed to parse")
+            
+            # Group errors by type for summary
+            error_summary = {}
+            for error in parsing_errors:
+                error_type = error['error_type']
+                if error_type not in error_summary:
+                    error_summary[error_type] = {'count': 0, 'platforms': set()}
+                error_summary[error_type]['count'] += 1
+                error_summary[error_type]['platforms'].add(error['platform'])
+            
+            for error_type, summary in error_summary.items():
+                platforms_str = ', '.join(sorted(summary['platforms']))
+                logger.info(f"      └─ {error_type}: {summary['count']:,} errors in [{platforms_str}]")
+        
         # Platform breakdown
         for platform_name, platform_stats in cq_stats.get('platforms', {}).items():
             logger.info(f"   └─ {platform_name.upper()}: {platform_stats['discovered']:,} discovered, {platform_stats['added_to_registry']:,} added, {platform_stats['skipped']:,} skipped")

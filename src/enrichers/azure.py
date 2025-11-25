@@ -13,6 +13,44 @@ logger = logging.getLogger(__name__)
 
 AZURE_PLATFORM = "azure"
 
+# Azure resource type naming field mappings
+# This maps CloudQuery table names to the field that should be used as the resource name
+AZURE_RESOURCE_NAME_MAPPINGS = {
+    # Subscription resources
+    "azure_subscription_subscriptions": ["display_name", "subscription_id"],
+    
+    # Azure AD resources
+    "azure_ad_users": ["display_name", "user_principal_name", "mail"],
+    "azure_ad_groups": ["display_name", "mail_nickname"],
+    "azure_ad_applications": ["display_name", "app_display_name"],
+    "azure_ad_service_principals": ["display_name", "app_display_name"],
+    
+    # Management resources
+    "azure_resources_resource_groups": ["name"],  # Resource groups do have 'name'
+    "azure_resources_subscriptions": ["display_name", "subscription_id"],
+    
+    # Storage resources
+    "azure_storage_accounts": ["name", "account_name"],
+    "azure_storage_containers": ["name", "container_name"],
+    
+    # Key Vault resources
+    "azure_keyvault_vaults": ["name", "vault_name"],
+    "azure_keyvault_keys": ["name", "key_name"],
+    "azure_keyvault_secrets": ["name", "secret_name"],
+    
+    # Compute resources
+    "azure_compute_virtual_machines": ["name", "vm_name"],
+    "azure_compute_disks": ["name", "disk_name"],
+    
+    # Network resources
+    "azure_network_virtual_networks": ["name", "vnet_name"],
+    "azure_network_subnets": ["name", "subnet_name"],
+    "azure_network_security_groups": ["name", "nsg_name"],
+    
+    # Default fallback for any resource type not explicitly mapped
+    "_default": ["name", "display_name", "resource_name", "title", "friendly_name"]
+}
+
 # Cache subscription names to avoid repeated API calls
 subscription_names_cache: Dict[str, str] = {}
 # Cache for Azure credentials
@@ -165,7 +203,44 @@ class AzurePlatformHandler(PlatformHandler):
         context: Context,
     ) -> tuple[str, str, dict[str, Any]]:
 
-        name: str = resource_data["name"]
+        # Handle different naming conventions for different Azure resource types
+        # Use the mapping to determine which fields to try for this resource type
+        name: str = None
+        
+        # Get the field priority list for this resource type
+        # First check if we have a specific mapping for this CloudQuery table
+        table_name = None
+        # Try to infer table name from resource_type_name if not provided
+        if resource_type_name.startswith("azure_"):
+            table_name = resource_type_name
+        else:
+            # Convert resource type to likely table name (best guess)
+            table_name = f"azure_{resource_type_name.replace('_', '_')}"
+        
+        # Get the field priority list
+        field_priority = AZURE_RESOURCE_NAME_MAPPINGS.get(table_name, AZURE_RESOURCE_NAME_MAPPINGS["_default"])
+        
+        # Try each field in priority order
+        for field_name in field_priority:
+            name = resource_data.get(field_name)
+            if name:
+                logger.debug(f"Found name '{name}' for resource type '{resource_type_name}' using field '{field_name}'")
+                break
+        
+        # Last resort: extract from ID field
+        if not name and resource_data.get("id"):
+            id_parts = resource_data["id"].split("/")
+            name = id_parts[-1] if id_parts else None
+            if name:
+                logger.debug(f"Extracted name '{name}' from ID field for resource type '{resource_type_name}'")
+        
+        # If still no name, raise an informative error
+        if not name:
+            available_fields = list(resource_data.keys())
+            tried_fields = field_priority + ["id (extraction)"]
+            raise ValueError(f"Resource of type '{resource_type_name}' missing identifiable name field. "
+                           f"Tried fields in order: {tried_fields}. "
+                           f"Available fields: {available_fields}")
         qualified_name = name
         tags = resource_data.get("tags", {})
         resource_attributes = {"tags": tags}
