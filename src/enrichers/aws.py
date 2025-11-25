@@ -39,10 +39,16 @@ class AWSPlatformHandler(PlatformHandler):
         # Extract ARN and validate
         arn_string = resource_data.get("arn")
         if not arn_string:
-            raise ValueError("ARN is required for AWS resource data.")
+            raise ValueError(f"ARN is required for AWS resource data. Available fields: {list(resource_data.keys())}")
 
-        arn = ARN(arn_string)
+        try:
+            arn = ARN(arn_string)
+        except Exception as e:
+            raise ValueError(f"Invalid ARN format '{arn_string}': {e}")
+            
         name = resource_data.get("name", arn.resource_id)  # Fallback to ARN resource_id
+        if not name:
+            raise ValueError(f"Resource missing both 'name' field and valid ARN resource_id. ARN: {arn_string}")
         tags = resource_data.get("tags", {})
 
         # Populate qualifiers

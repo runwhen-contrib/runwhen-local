@@ -1121,6 +1121,52 @@ def index(context: Context):
                                 table_stats['skipped'] += 1
                                 platform_stats['skipped'] += 1
                                 cq_stats['total_skipped'] += 1
+                                # Track parsing errors for summary
+                                if 'parsing_errors' not in cq_stats:
+                                    cq_stats['parsing_errors'] = []
+                                cq_stats['parsing_errors'].append({
+                                    'platform': platform_name,
+                                    'table': table_name,
+                                    'resource_id': resource_data.get('id', 'unknown'),
+                                    'error_type': 'WorkspaceBuilderException',
+                                    'error_message': str(e)
+                                })
+                                continue
+                            except (KeyError, ValueError, TypeError, AttributeError) as e:
+                                # Handle common parsing errors that shouldn't crash the indexer
+                                resource_id = resource_data.get('id', resource_data.get('name', 'unknown'))
+                                logger.warning(f"Failed to parse resource data for {resource_id} in table {table_name}. Skipping. Error: {type(e).__name__}: {e}")
+                                table_stats['skipped'] += 1
+                                platform_stats['skipped'] += 1
+                                cq_stats['total_skipped'] += 1
+                                # Track parsing errors for summary
+                                if 'parsing_errors' not in cq_stats:
+                                    cq_stats['parsing_errors'] = []
+                                cq_stats['parsing_errors'].append({
+                                    'platform': platform_name,
+                                    'table': table_name,
+                                    'resource_id': resource_id,
+                                    'error_type': type(e).__name__,
+                                    'error_message': str(e)
+                                })
+                                continue
+                            except Exception as e:
+                                # Catch any other unexpected errors to prevent total crash
+                                resource_id = resource_data.get('id', resource_data.get('name', 'unknown'))
+                                logger.error(f"Unexpected error parsing resource data for {resource_id} in table {table_name}. Skipping. Error: {type(e).__name__}: {e}")
+                                table_stats['skipped'] += 1
+                                platform_stats['skipped'] += 1
+                                cq_stats['total_skipped'] += 1
+                                # Track parsing errors for summary
+                                if 'parsing_errors' not in cq_stats:
+                                    cq_stats['parsing_errors'] = []
+                                cq_stats['parsing_errors'].append({
+                                    'platform': platform_name,
+                                    'table': table_name,
+                                    'resource_id': resource_id,
+                                    'error_type': type(e).__name__,
+                                    'error_message': str(e)
+                                })
                                 continue
 
                             resource_attributes['resource'] = resource_data
@@ -1169,6 +1215,26 @@ def index(context: Context):
     logger.info(f"  Total resources added to registry: {cq_stats['total_added_to_registry']}")
     logger.info(f"  Total resources skipped: {cq_stats['total_skipped']}")
     logger.info(f"  Discovery duration: {cq_stats['duration']:.2f} seconds")
+    
+    # Log parsing error summary if any errors occurred
+    parsing_errors = cq_stats.get('parsing_errors', [])
+    if parsing_errors:
+        logger.warning(f"  Parsing errors encountered: {len(parsing_errors)} resources failed to parse")
+        
+        # Group errors by type for summary
+        error_summary = {}
+        for error in parsing_errors:
+            error_type = error['error_type']
+            if error_type not in error_summary:
+                error_summary[error_type] = {'count': 0, 'platforms': set(), 'tables': set()}
+            error_summary[error_type]['count'] += 1
+            error_summary[error_type]['platforms'].add(error['platform'])
+            error_summary[error_type]['tables'].add(error['table'])
+        
+        for error_type, summary in error_summary.items():
+            platforms_str = ', '.join(sorted(summary['platforms']))
+            tables_str = ', '.join(sorted(summary['tables']))
+            logger.warning(f"    {error_type}: {summary['count']} errors across platforms [{platforms_str}] in tables [{tables_str}]")
     
     # Log per-platform statistics
     for platform_name, platform_stats in cq_stats['platforms'].items():
