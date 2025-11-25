@@ -165,8 +165,8 @@ def strip_start_end_quotes(cmd):
 
 def remove_escape_chars(cmd):
     # Cases where the command needs to use ${} but it's escaped from robot
-    cmd = cmd.replace('\\\$', '$')
-    cmd = cmd.replace('\\\%', '%')
+    cmd = cmd.replace(r'\\\$', '$')
+    cmd = cmd.replace(r'\\\%', '%')
     cmd = cmd.replace('\\\n', '')
     cmd = cmd.replace('\\\\', '\\')
     # Cases where two spaces are escaped in robot
