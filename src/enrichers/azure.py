@@ -276,7 +276,12 @@ class AzurePlatformHandler(PlatformHandler):
             subscription_name = get_subscription_name(subscription_id)
             resource_attributes["subscription_name"] = subscription_name
 
-        if resource_type_name == "resource_group":
+        if resource_type_name == "azure_subscription_subscriptions":
+            # Subscription resources are top-level and don't have resource groups
+            # They get a default LOD unless specifically configured
+            resource_attributes["lod"] = context.get_setting("DEFAULT_LOD")
+            logger.debug(f"Set default LOD for subscription resource {name}")
+        elif resource_type_name == "resource_group":
                     # nested map built in init_cloudquery_config
                     # BUG FIX: Check if subscription_id is None before using as dict key
                     if subscription_id:
@@ -362,10 +367,15 @@ class AzurePlatformHandler(PlatformHandler):
 
 
     def get_level_of_detail(self, resource: Resource) -> LevelOfDetail:
-        # First, check if the resource itself has an LOD (for resource groups)
+        # First, check if the resource itself has an LOD (for resource groups and subscriptions)
         if hasattr(resource, 'lod') and resource.lod is not None:
             logger.debug(f"Using direct LOD for resource {resource.name}: {resource.lod}")
             return resource.lod
+        
+        # Handle subscription resources - they don't have resource groups
+        if resource.resource_type.name == "azure_subscription_subscriptions":
+            logger.debug(f"Subscription resource {resource.name} has no LOD set, using BASIC as default")
+            return LevelOfDetail.BASIC
         
         # For non-resource-group resources, find the parent resource group
         resource_group = get_resource_group(resource)
@@ -396,11 +406,14 @@ class AzurePlatformHandler(PlatformHandler):
                         
                 except (IndexError, AttributeError) as e:
                     logger.warning(f"Failed to extract resource group info from resource ID: {e}")
+            else:
+                # Resource has no resource group in its ID (might be a top-level resource)
+                logger.debug(f"Resource {resource.name} has no resource group in ID, using BASIC LOD as default")
+                return LevelOfDetail.BASIC
         
-        # Fallback to workspace defaultLOD setting
-        # This method should only be called during generation rules processing where context is available
-        logger.warning(f"No LOD found for resource {resource.name}, this should not happen during normal processing")
-        raise Exception(f"Unable to determine LOD for resource {resource.name}. This indicates a bug in LOD assignment logic.")
+        # Fallback to BASIC LOD instead of crashing
+        logger.warning(f"No LOD found for resource {resource.name}, using BASIC as fallback")
+        return LevelOfDetail.BASIC
 
 
     @staticmethod
