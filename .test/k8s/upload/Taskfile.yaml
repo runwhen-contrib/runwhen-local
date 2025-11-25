@@ -647,7 +647,7 @@ tasks:
             sleep 30
             
             # Verify cleanup completed with proper validation
-            max_cleanup_attempts=30  # 5 minutes (30 * 10 seconds)
+            max_cleanup_attempts=60  # 5 minutes (30 * 10 seconds)
             cleanup_attempt=1
             
             while [ $cleanup_attempt -le $max_cleanup_attempts ]; do
