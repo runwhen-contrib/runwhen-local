@@ -1,5 +1,7 @@
 from component import Component, Setting
 from outputter import DirectoryItem
+from typing import Optional
+from dataclasses import dataclass
 
 
 class InfoResult:
@@ -64,6 +66,27 @@ class FileItemRunResult(CommonRunResult):
     def __init__(self, message: str, warnings: list[str], output: DirectoryItem):
         super().__init__(message, warnings, "file-items")
         self.output = output
+
+
+@dataclass
+class HealthResult:
+    """
+    Result from the /health endpoint.
+    """
+    status: str
+    service_start_time: str
+    uptime_seconds: float
+    last_run_start: Optional[str] = None
+    last_run_end: Optional[str] = None
+    last_run_status: Optional[str] = None
+    last_run_error: Optional[str] = None
+    last_run_warnings_count: Optional[int] = None
+    last_run_components: Optional[list] = None
+    last_run_parsing_errors_count: Optional[int] = None
+    current_stage: Optional[str] = None
+    current_component: Optional[str] = None
+    is_healthy: bool = True
+    is_ready: bool = True
 
 
 # Also, does it make sense to have a run result variant that corresponds

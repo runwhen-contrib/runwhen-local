@@ -92,3 +92,20 @@ class ArchiveRunResultSerializer(CommonRunResultSerializer):
 
 class FileItemsRunResultSerializer(CommonRunResultSerializer):
     output = DirectoryItemSerializer()
+
+
+class HealthResultSerializer(serializers.Serializer):
+    status = serializers.CharField()
+    service_start_time = serializers.CharField()
+    uptime_seconds = serializers.FloatField()
+    last_run_start = serializers.CharField(required=False, allow_null=True)
+    last_run_end = serializers.CharField(required=False, allow_null=True)
+    last_run_status = serializers.CharField(required=False, allow_null=True)
+    last_run_error = serializers.CharField(required=False, allow_null=True)
+    last_run_warnings_count = serializers.IntegerField(required=False, allow_null=True)
+    last_run_components = serializers.ListField(child=serializers.CharField(), required=False, allow_null=True)
+    last_run_parsing_errors_count = serializers.IntegerField(required=False, allow_null=True)
+    current_stage = serializers.CharField(required=False, allow_null=True)
+    current_component = serializers.CharField(required=False, allow_null=True)
+    is_healthy = serializers.BooleanField()
+    is_ready = serializers.BooleanField()

@@ -81,7 +81,7 @@ cp -r /workspace-builder/cheat-sheet-docs/* "$MKDOCS_TMP"
 cd "$MKDOCS_TMP"
 
 # Optionally set site_dir in mkdocs.yml or run with an alternate config that points site_dir somewhere in TMPDIR
-# For live reload on 0.0.0.0:8000:
+# For live reload on 0.0.0.0:8081 (configured in mkdocs.yml):
 mkdocs serve -f mkdocs.yml &
 echo "MkDocs serve started in the background, serving from $MKDOCS_TMP"
 
