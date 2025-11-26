@@ -15,7 +15,9 @@
 {% else %}
     - subscription_id
 {% endif %}
+{% if resource_group is defined or (match_resource.resource_group is defined and match_resource.resource_group.name is defined) %}
     - resource_group
+{% endif %}
 {% endif %}
     - resource_type
 {% if match_resource.name %}

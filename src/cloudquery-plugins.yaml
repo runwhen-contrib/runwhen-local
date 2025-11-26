@@ -5,7 +5,7 @@
 plugins:
   # Source plugins
   azure:
-    version: "v10.3.0"
+    version: "v11.4.5"
     type: "source"
     registry: "cloudquery"
     
