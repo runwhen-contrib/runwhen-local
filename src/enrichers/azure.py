@@ -286,7 +286,8 @@ class AzurePlatformHandler(PlatformHandler):
                     configured_subscriptions.append(str(legacy_sub))
             
             # If we have a configured list and this subscription is not in it, skip it
-            if configured_subscriptions and subscription_id not in configured_subscriptions:
+            # Convert subscription_id to string for consistent comparison
+            if configured_subscriptions and str(subscription_id) not in configured_subscriptions:
                 logger.info(f"Skipping subscription {subscription_id} ({name}) - not in configured subscription list: {configured_subscriptions}")
                 raise ValueError(f"Subscription {subscription_id} not in configured subscription list")
         # ========================================================================================
