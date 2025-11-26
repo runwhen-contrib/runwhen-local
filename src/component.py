@@ -352,8 +352,10 @@ def run_components(context: Context, components: list[Component]) -> None:
     """
     # Import health tracker to update stages
     try:
-        from workspace_builder.health import health_tracker
-    except ImportError:
+        from workspace_builder.health import get_health_tracker
+        health_tracker = get_health_tracker()
+    except (ImportError, Exception) as e:
+        print(f"Info: Health tracker not available: {e}")
         health_tracker = None
     
     # Load phase

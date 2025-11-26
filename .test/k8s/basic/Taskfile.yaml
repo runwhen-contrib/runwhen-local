@@ -156,7 +156,7 @@ tasks:
 
         echo "Starting new container $CONTAINER_NAME..."
 
-        docker run -e DEBUG_LOGGING=false --name $CONTAINER_NAME -p 8081:8081 -v $(pwd):/shared -d runwhen-local:test || {
+        docker run -e DEBUG_LOGGING=false --name $CONTAINER_NAME -p 8081:8081 -p 8000:8000 -v $(pwd):/shared -d runwhen-local:test || {
           echo "Failed to start container"; exit 1;
         }
 
