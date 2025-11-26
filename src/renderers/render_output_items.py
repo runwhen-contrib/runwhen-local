@@ -53,7 +53,7 @@ def load(context: Context):
 
 def deduplicate_secrets_provided(yaml_text: str) -> str:
     """
-    Deduplicates entries under 'secretsProvided' in a YAML document.
+    Deduplicates entries under 'secretsProvided' and 'tags' in a YAML document.
     """
     data = yaml.safe_load(yaml_text)  # Load the YAML as a Python dictionary
     if 'secretsProvided' in data['spec']:
@@ -63,10 +63,23 @@ def deduplicate_secrets_provided(yaml_text: str) -> str:
         data['spec']['secretsProvided'] = list(unique_secrets)
     
     # CRITICAL FIX: Ensure all tag values remain as quoted strings to prevent K8s reconciliation errors
+    # AND deduplicate tags based on name+value combination
     if 'spec' in data and 'tags' in data['spec']:
+        # First, ensure all tag values are strings
         for tag in data['spec']['tags']:
             if 'value' in tag:
-                tag['value'] = str(tag['value'])  # Force all tag values to strings
+                tag['value'] = str(tag['value'])
+        
+        # Deduplicate tags based on both name and value
+        # Use a dict with (name, value) tuple as key to preserve order and deduplicate
+        seen_tags = {}
+        for tag in data['spec']['tags']:
+            tag_key = (tag.get('name'), tag.get('value'))
+            if tag_key not in seen_tags:
+                seen_tags[tag_key] = tag
+        
+        # Replace with deduplicated list
+        data['spec']['tags'] = list(seen_tags.values())
     
     # Use PyYAML with explicit string representation to ensure all values are quoted
     return yaml.dump(data, sort_keys=False, default_flow_style=False, allow_unicode=True, default_style='"')
