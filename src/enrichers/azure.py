@@ -560,7 +560,8 @@ class AzurePlatformHandler(PlatformHandler):
             resource_path_parts.append(subscription_id)
         if resource_group and resource_group.name:
             resource_path_parts.append(resource_group.name)
-        if resource.name:
+        # Only add resource name if it's not already represented as resource_group
+        if resource.name and resource != resource_group:
             resource_path_parts.append(resource.name)
         template_variables['resource_path'] = "/".join(resource_path_parts)
         
