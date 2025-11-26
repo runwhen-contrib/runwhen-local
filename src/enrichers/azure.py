@@ -269,6 +269,28 @@ class AzurePlatformHandler(PlatformHandler):
             logger.warning(f"Could not determine subscription_id for resource {name}")
             subscription_id = None
         
+        # ============== FIX: Filter subscription resources based on configured list ==============
+        if resource_type_name == "azure_subscription_subscriptions" and subscription_id:
+            # Get the list of configured subscriptions from platform config
+            configured_subscriptions = []
+            
+            # Extract from subscriptions list (preferred)
+            for item in platform_config_data.get("subscriptions", []):
+                if isinstance(item, dict) and item.get("subscriptionId"):
+                    configured_subscriptions.append(str(item["subscriptionId"]))
+            
+            # Fallback to legacy single subscription field
+            if not configured_subscriptions:
+                legacy_sub = platform_config_data.get("subscriptionId")
+                if legacy_sub:
+                    configured_subscriptions.append(str(legacy_sub))
+            
+            # If we have a configured list and this subscription is not in it, skip it
+            if configured_subscriptions and subscription_id not in configured_subscriptions:
+                logger.info(f"Skipping subscription {subscription_id} ({name}) - not in configured subscription list: {configured_subscriptions}")
+                raise ValueError(f"Subscription {subscription_id} not in configured subscription list")
+        # ========================================================================================
+
         if subscription_id:
             resource_attributes["subscription_id"] = subscription_id
             
