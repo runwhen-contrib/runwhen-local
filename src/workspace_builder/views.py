@@ -39,6 +39,13 @@ class InfoView(APIView):
 
 class RunView(APIView):
     def post(self, request: Request):
+        # Import and use health tracker
+        try:
+            from .health import get_health_tracker
+            health_tracker = get_health_tracker()
+        except Exception as e:
+            print(f"Warning: Could not initialize health_tracker: {e}")
+            health_tracker = None
 
         # Extract the lists of components to run.
         components_data = request.data.get("components", "")
@@ -54,6 +61,13 @@ class RunView(APIView):
         input_components = [get_component(name) for name in input_component_names if name.strip()]
 
         components: list[Component] = apply_component_dependencies(input_components)
+        
+        # Track the run start (non-blocking, won't interfere with main workflow)
+        if health_tracker:
+            try:
+                health_tracker.start_run(components)
+            except Exception as health_error:
+                print(f"Warning: Health tracker start_run failed: {health_error}")
 
         setting_temp_files: list[tempfile.TemporaryFile] = []
         setting_temp_dirs: list[tempfile.TemporaryDirectory] = []
@@ -121,20 +135,38 @@ class RunView(APIView):
             outputter.close()
             archive_bytes = outputter.get_bytes()
             
+            # Count SLXs from context
+            slx_count = None
+            try:
+                slxs = context.get_property("SLXS")
+                if slxs:
+                    slx_count = len(slxs)
+            except Exception:
+                pass
+            
+            # Track successful completion (non-blocking)
+            if health_tracker:
+                try:
+                    health_tracker.complete_run(warnings=context.warnings, slx_count=slx_count)
+                except Exception as health_error:
+                    print(f"Warning: Health tracker complete_run failed: {health_error}")
             
             run_result = ArchiveRunResult("Workspace builder completed successfully.",
                                           context.warnings,
                                           archive_bytes)
         except Exception as e:
+            # Capture full stacktrace
+            full_stacktrace = traceback.format_exc()
+            
+            # Track failed run (non-blocking) with full stacktrace
+            if health_tracker:
+                try:
+                    health_tracker.fail_run(e, full_stacktrace)
+                except Exception as health_error:
+                    print(f"Warning: Health tracker fail_run failed: {health_error}")
+            
             # FIXME: This exception handling block is just for debugging. Can eventually get rid of it.
-            next_exc = e
-            stack_traces = []
-            while next_exc:
-                next_stack_trace = "\n".join(traceback.format_tb(next_exc.__traceback__))
-                stack_traces.append(next_stack_trace)
-                next_exc = next_exc.__cause__
-            stack_trace = "\nCaused by:\n\n".join(stack_traces)
-            print(stack_trace)
+            print(full_stacktrace)
             raise e
         finally:
             for setting_temp_file in setting_temp_files:
@@ -148,14 +180,58 @@ class RunView(APIView):
 
 class HealthView(APIView):
     """
-    Simple health endpoint for liveness checks.
+    Health endpoint for liveness and readiness checks.
+    Returns detailed health information from the HealthTracker.
     """
     def get(self, request: Request):
         from datetime import datetime, timezone
-        return Response({
-            'status': 'healthy',
-            'timestamp': datetime.now(timezone.utc).isoformat(),
-            'is_healthy': True,
-            'is_ready': True,
-            'current_process': 'idle'
-        })
+        
+        try:
+            from .health import get_health_tracker
+            health_tracker = get_health_tracker()
+            
+            # Get current health info from the tracker
+            health_info = health_tracker.get_health_info()
+            is_healthy = health_tracker.is_healthy()
+            is_ready = health_tracker.is_ready()
+            
+            # Build response
+            response_data = {
+                'status': health_info.service_status,
+                'service_start_time': health_info.service_start_time,
+                'uptime_seconds': health_info.uptime_seconds,
+                'is_healthy': is_healthy,
+                'is_ready': is_ready,
+            }
+            
+            # Include last run info if available
+            if health_info.last_run:
+                last_run = health_info.last_run
+                response_data['last_run'] = {
+                    'start_time': last_run.start_time,
+                    'end_time': last_run.end_time,
+                    'status': last_run.status,
+                    'error_message': last_run.error_message,
+                    'stacktrace': last_run.stacktrace,
+                    'warnings_count': last_run.warnings_count,
+                    'parsing_errors_count': last_run.parsing_errors_count,
+                    'components_run': last_run.components_run,
+                    'current_stage': last_run.current_stage,
+                    'current_component': last_run.current_component,
+                    'slx_count': last_run.slx_count,
+                    'duration_seconds': last_run.duration_seconds,
+                }
+            
+            return Response(response_data)
+        except Exception as e:
+            # If health tracker fails, return a basic healthy response
+            print(f"Warning: Health tracker failed: {e}")
+            import traceback
+            traceback.print_exc()
+            return Response({
+                'status': 'healthy',
+                'timestamp': datetime.now(timezone.utc).isoformat(),
+                'is_healthy': True,
+                'is_ready': True,
+                'error': str(e)
+            })
