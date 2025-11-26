@@ -231,7 +231,8 @@ class GCPPlatformHandler(PlatformHandler):
         if location:
             resource_path_parts.append(location)
             
-        if resource.name:
+        # Only add resource name if it's not already represented as project
+        if resource.name and resource != project:
             resource_path_parts.append(resource.name)
         template_variables['resource_path'] = "/".join(resource_path_parts)
         

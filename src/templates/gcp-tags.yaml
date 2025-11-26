@@ -28,11 +28,11 @@
     - name: gcp_location
       value: "{{ match_resource.location }}"
 {% endif %}
-{% if project is defined and project.name is defined %}
+{% if project is defined and project.name is defined and (match_resource.resource_type.name | default('') != 'project') %}
     - name: gcp_project_id
       value: "{{ project.name }}"
 {% endif %}
-{% if project is defined and project.project_name is defined %}
+{% if project is defined and project.project_name is defined and (match_resource.resource_type.name | default('') != 'project') %}
     - name: gcp_project_name
       value: "{{ project.project_name }}"
 {% endif %}

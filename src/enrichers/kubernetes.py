@@ -134,7 +134,8 @@ class KubernetesPlatformHandler(PlatformHandler):
             resource_path_parts.append(cluster.name)
         if namespace and namespace.name:
             resource_path_parts.append(namespace.name)
-        if resource.name:
+        # Only add resource name if it's not already represented as cluster or namespace
+        if resource.name and resource != cluster and resource != namespace:
             resource_path_parts.append(resource.name)
         template_variables['resource_path'] = "/".join(resource_path_parts)
         
