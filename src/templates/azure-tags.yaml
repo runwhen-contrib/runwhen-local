@@ -30,10 +30,10 @@
     - name: resource_group
       value: '{{ resource_group.name | default(match_resource.resource_group.name) | string }}'
 {% endif %}
-    {% if qualifiers and qualifiers.resource is defined %}
+    {% if qualifiers and qualifiers.resource is defined and qualifiers.resource %}
     - name: resource_name
       value: '{{ qualifiers.resource | string }}'
-    {% elif qualifiers and qualifiers.resource_group is defined %}
+    {% elif qualifiers and qualifiers.resource_group is defined and qualifiers.resource_group %}
     - name: resource_name
       value: '{{ qualifiers.resource_group | string }}'
     {% elif match_resource.resource_group is defined and match_resource.resource_group.name is defined %}
