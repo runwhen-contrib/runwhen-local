@@ -26,6 +26,12 @@
 {% elif custom is defined and custom.kubeconfig_secret_name | default('') != '' %}
     - name: kubeconfig
       workspaceKey: {{ custom.kubeconfig_secret_name | default('undefined') }}
+{% elif workspace_info is defined and workspace_info.custom is defined and workspace_info.custom.kubeconfig_key is defined %}
+    - name: kubeconfig
+      workspaceKey: "{{ workspace_info.custom.kubeconfig_key }}"
+{% elif workspace_info is defined and workspace_info.secrets is defined and workspace_info.secrets.kubernetes_kubeconfig is defined %}
+    - name: kubeconfig
+      workspaceKey: "{{ workspace_info.secrets.kubernetes_kubeconfig }}"
 {% else %}
     - name: kubeconfig
       workspaceKey: AUTH DETAILS NOT FOUND
