@@ -45,12 +45,12 @@
 {% elif match_resource is defined and match_resource.auth_type | default('') == "azure_identity" %}
     - name: azure_credentials
       workspaceKey: azure:identity@cli
-{% elif workspace_info is defined and workspace_info.custom is defined and workspace_info.custom.azure_credentials_key is defined %}
+{% elif custom is defined and custom.azure_credentials_key is defined %}
     - name: azure_credentials
-      workspaceKey: "{{ workspace_info.custom.azure_credentials_key }}"
-{% elif workspace_info is defined and workspace_info.secrets is defined and workspace_info.secrets.azure_service_principal is defined %}
+      workspaceKey: "{{ custom.azure_credentials_key }}"
+{% elif secrets is defined and secrets.azure_service_principal is defined %}
     - name: azure_credentials
-      workspaceKey: "{{ workspace_info.secrets.azure_service_principal }}"
+      workspaceKey: "{{ secrets.azure_service_principal }}"
 {% else %}
     - name: azure_credentials
       workspaceKey: AUTH DETAILS NOT FOUND
