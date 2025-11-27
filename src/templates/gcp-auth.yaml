@@ -32,12 +32,12 @@
 {% elif cluster is defined and cluster.cluster_type | default('') == "gke" and cluster.auth_type | default('') == "gcp_adc" %}
     - name: gcp_credentials
       workspaceKey: gcp:adc@cli
-{% elif workspace_info is defined and workspace_info.custom is defined and workspace_info.custom.gcp_credentials_key is defined %}
+{% elif custom is defined and custom.gcp_credentials_key is defined %}
     - name: gcp_credentials
-      workspaceKey: "{{ workspace_info.custom.gcp_credentials_key }}"
-{% elif workspace_info is defined and workspace_info.secrets is defined and workspace_info.secrets.gcp_service_account is defined %}
+      workspaceKey: "{{ custom.gcp_credentials_key }}"
+{% elif secrets is defined and secrets.gcp_service_account is defined %}
     - name: gcp_credentials
-      workspaceKey: "{{ workspace_info.secrets.gcp_service_account }}"
+      workspaceKey: "{{ secrets.gcp_service_account }}"
 {% else %}
     - name: gcp_credentials
       workspaceKey: GCP AUTH DETAILS NOT FOUND
