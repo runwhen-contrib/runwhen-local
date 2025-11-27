@@ -196,6 +196,7 @@ def main():
             namespaces = workspace_info.get("namespaces")
         namespace_lods = workspace_info.get('namespaceLODs')
         custom_definitions = workspace_info.get("custom", dict())
+        secrets_definitions = workspace_info.get("secrets", dict())
         personas = workspace_info.get("personas", dict())
     else:
         upload_token = None
@@ -313,6 +314,8 @@ def main():
             request_data['namespaceLODs'] = namespace_lods
         if custom_definitions:
             request_data['customDefinitions'] = custom_definitions
+        if secrets_definitions:
+            request_data['secrets'] = secrets_definitions
         if personas:
             request_data['personas'] = personas
         if namespaces:
