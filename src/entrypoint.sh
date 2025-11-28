@@ -108,44 +108,41 @@ then
     
     # Automatically discover and watch all files under /shared/ (excluding output directories)
     # This catches ConfigMaps, Secrets, and any other mounted files without needing to know names in advance
-    discover_config_files() {
-        # Find all regular files under /shared/, excluding:
-        # - /shared/output (generated content)
-        # - hidden files/dirs (like .status, .lock files)
-        # - temporary files
-        find /shared/ -type f \
-            ! -path "/shared/output/*" \
-            ! -path "*/.*" \
-            ! -name ".*" \
-            2>/dev/null || true
-    }
-    
     get_config_checksum() {
         local checksum=""
-        local files=$(discover_config_files)
         
-        for file in $files; do
+        # Find all regular files in /shared/ (top-level only)
+        # -L follows symlinks (required for K8s ConfigMaps/Secrets which are mounted as symlinks)
+        # -maxdepth 1 only looks at direct children of /shared/, automatically excluding:
+        #   - /shared/output/* (subdirectory)
+        #   - /shared/..data/* (hidden Kubernetes internal directory)
+        #   - /shared/..2024* (hidden Kubernetes timestamped directories)
+        # -print0 uses null bytes as delimiter to safely handle filenames with spaces
+        while IFS= read -r -d '' file; do
             if [ -f "$file" ]; then
                 # Use stat to get modification time (works on both Linux and macOS)
                 local mtime=$(stat -c %Y "$file" 2>/dev/null || stat -f %m "$file" 2>/dev/null)
                 checksum="${checksum}${file}:${mtime}|"
             fi
-        done
+        done < <(find -L /shared/ -maxdepth 1 -type f -print0 2>/dev/null)
+        
         echo "$checksum"
     }
     
     LAST_CONFIG_CHECKSUM=$(get_config_checksum)
     
     # Log which files are being watched
-    WATCHED_FILES=$(discover_config_files)
-    WATCHED_COUNT=$(echo "$WATCHED_FILES" | grep -v '^$' | wc -l | tr -d ' ')
+    echo "Config/Secret file watcher enabled, scanning /shared/ for mounted files..."
+    WATCHED_COUNT=0
+    while IFS= read -r -d '' file; do
+        echo "  - $file"
+        WATCHED_COUNT=$((WATCHED_COUNT + 1))
+    done < <(find -L /shared/ -maxdepth 1 -type f -print0 2>/dev/null)
     
     if [ "$WATCHED_COUNT" -gt 0 ]; then
-        echo "Config/Secret file watcher enabled, monitoring $WATCHED_COUNT file(s) under /shared/"
-        echo "Watched files:"
-        echo "$WATCHED_FILES" | sed 's/^/  - /'
+        echo "Monitoring $WATCHED_COUNT file(s) under /shared/"
     else
-        echo "Config/Secret file watcher enabled (no files found yet under /shared/)"
+        echo "No files found yet under /shared/ (ConfigMaps/Secrets may not be mounted)"
     fi
     
     if [[ "${RW_LOCAL_UPLOAD_ENABLED,,}" == "true" ]]; 
