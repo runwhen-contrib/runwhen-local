@@ -429,6 +429,7 @@ def main():
     )
 
     custom_definitions = workspace_info.get("custom", {})
+    secrets_definitions = workspace_info.get("secrets", {})
     code_collections = workspace_info.get("codeCollections")
     overrides = workspace_info.get("overrides", {})
     task_tag_exclusions = workspace_info.get("taskTagExclusions")
@@ -632,6 +633,8 @@ def main():
             request_data['namespaceLODs'] = namespace_lods
         if custom_definitions:
             request_data['customDefinitions'] = custom_definitions
+        if secrets_definitions:
+            request_data['secrets'] = secrets_definitions
         if namespaces:
             request_data['namespaces'] = namespaces
         if code_collections:

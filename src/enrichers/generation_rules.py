@@ -86,6 +86,11 @@ CUSTOM_DEFINITIONS_SETTING = Setting("CUSTOM_DEFINITIONS",
                                      Setting.Type.DICT,
                                      "Custom variable definitions from client.")
 
+SECRETS_SETTING = Setting("SECRETS",
+                         "secrets",
+                         Setting.Type.DICT,
+                         "Secrets variable definitions from client.")
+
 PERSONAS_SETTING = Setting("PERSONAS",
                            "personas",
                            Setting.Type.DICT,
@@ -117,6 +122,7 @@ SETTINGS = (
     SettingDependency(DEFAULT_LOD_SETTING, False),
     SettingDependency(MAP_CUSTOMIZATION_RULES_SETTING, False),
     SettingDependency(CUSTOM_DEFINITIONS_SETTING, False),
+    SettingDependency(SECRETS_SETTING, False),
     SettingDependency(PERSONAS_SETTING, False),
     SettingDependency(CODE_COLLECTIONS_SETTING, False),
     SettingDependency(WB_VERSION_SETTING, False),
@@ -1216,6 +1222,7 @@ def enrich(context: Context) -> None:
         if map_customization_rules_path else MapCustomizationRules()
 
     custom_definitions: dict[str, Any] = context.get_setting("CUSTOM_DEFINITIONS")
+    secrets_definitions: dict[str, Any] = context.get_setting("SECRETS")
     renderer_output_items: dict[str, RendererOutputItem] = context.get_property(OUTPUT_ITEMS_PROPERTY)
     platform_handlers: dict[str, PlatformHandler] = context.get_property(PLATFORM_HANDLERS_PROPERTY_NAME)
 
@@ -1270,6 +1277,7 @@ def enrich(context: Context) -> None:
         'default_location': location_id,
         'generated_by': generated_by,
         'custom': custom_definitions,
+        'secrets': secrets_definitions,
         'shorten_name': shorten_name,
         'make_slx_name': make_slx_name,
         'make_slx_directory_name': make_qualified_slx_name,

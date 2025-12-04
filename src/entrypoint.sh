@@ -117,19 +117,95 @@ then
     # Put this back after testing
     # python manage.py runserver 0.0.0.0:8000 --noreload &
     sleep 60
+    
+    # Automatically discover and watch all files under /shared/ (excluding output directories)
+    # This catches ConfigMaps, Secrets, and any other mounted files without needing to know names in advance
+    get_config_checksum() {
+        local checksum=""
+        
+        # Find all regular files in /shared/ (top-level only)
+        # -L follows symlinks (required for K8s ConfigMaps/Secrets which are mounted as symlinks)
+        # -maxdepth 1 only looks at direct children of /shared/, automatically excluding:
+        #   - /shared/output/* (subdirectory)
+        #   - /shared/..data/* (hidden Kubernetes internal directory)
+        #   - /shared/..2024* (hidden Kubernetes timestamped directories)
+        # -print0 uses null bytes as delimiter to safely handle filenames with spaces
+        while IFS= read -r -d '' file; do
+            if [ -f "$file" ]; then
+                # Use stat to get modification time (works on both Linux and macOS)
+                local mtime=$(stat -c %Y "$file" 2>/dev/null || stat -f %m "$file" 2>/dev/null)
+                checksum="${checksum}${file}:${mtime}|"
+            fi
+        done < <(find -L /shared/ -maxdepth 1 -type f -print0 2>/dev/null)
+        
+        echo "$checksum"
+    }
+    
+    LAST_CONFIG_CHECKSUM=$(get_config_checksum)
+    
+    # Log which files are being watched
+    echo "Config/Secret file watcher enabled, scanning /shared/ for mounted files..."
+    WATCHED_COUNT=0
+    while IFS= read -r -d '' file; do
+        echo "  - $file"
+        WATCHED_COUNT=$((WATCHED_COUNT + 1))
+    done < <(find -L /shared/ -maxdepth 1 -type f -print0 2>/dev/null)
+    
+    if [ "$WATCHED_COUNT" -gt 0 ]; then
+        echo "Monitoring $WATCHED_COUNT file(s) under /shared/"
+    else
+        echo "No files found yet under /shared/ (ConfigMaps/Secrets may not be mounted)"
+    fi
+    
     if [[ "${RW_LOCAL_UPLOAD_ENABLED,,}" == "true" ]]; 
     then
         echo "Upload to RunWhen Platform Enabled"
         if [[ "$RW_LOCAL_UPLOAD_MERGE_MODE" == "keep-uploaded" ]]; 
         then
             echo "Merge Mode: keep-uploaded"
-            while true; do ./run.sh --upload --upload-merge-mode keep-uploaded --prune-stale-slxs; sleep $AUTORUN_WORKSPACE_BUILDER_INTERVAL; done
+            while true; do
+                ./run.sh --upload --upload-merge-mode keep-uploaded --prune-stale-slxs
+                
+                # Check for config changes and adjust sleep accordingly
+                CURRENT_CONFIG_CHECKSUM=$(get_config_checksum)
+                if [ "$CURRENT_CONFIG_CHECKSUM" != "$LAST_CONFIG_CHECKSUM" ]; then
+                    echo "Configuration change detected! Running discovery immediately..."
+                    LAST_CONFIG_CHECKSUM=$CURRENT_CONFIG_CHECKSUM
+                    sleep 5  # Short delay to allow potential cascading updates
+                else
+                    sleep $AUTORUN_WORKSPACE_BUILDER_INTERVAL
+                fi
+            done
         else
             echo "Merge Mode: keep-existing"
-            while true; do ./run.sh --upload --upload-merge-mode keep-existing --prune-stale-slxs; sleep $AUTORUN_WORKSPACE_BUILDER_INTERVAL; done
+            while true; do
+                ./run.sh --upload --upload-merge-mode keep-existing --prune-stale-slxs
+                
+                # Check for config changes and adjust sleep accordingly
+                CURRENT_CONFIG_CHECKSUM=$(get_config_checksum)
+                if [ "$CURRENT_CONFIG_CHECKSUM" != "$LAST_CONFIG_CHECKSUM" ]; then
+                    echo "Configuration change detected! Running discovery immediately..."
+                    LAST_CONFIG_CHECKSUM=$CURRENT_CONFIG_CHECKSUM
+                    sleep 5  # Short delay to allow potential cascading updates
+                else
+                    sleep $AUTORUN_WORKSPACE_BUILDER_INTERVAL
+                fi
+            done
         fi
     else
-        while true; do ./run.sh; sleep $AUTORUN_WORKSPACE_BUILDER_INTERVAL; done
+        while true; do
+            ./run.sh
+            
+            # Check for config changes and adjust sleep accordingly
+            CURRENT_CONFIG_CHECKSUM=$(get_config_checksum)
+            if [ "$CURRENT_CONFIG_CHECKSUM" != "$LAST_CONFIG_CHECKSUM" ]; then
+                echo "Configuration change detected! Running discovery immediately..."
+                LAST_CONFIG_CHECKSUM=$CURRENT_CONFIG_CHECKSUM
+                sleep 5  # Short delay to allow potential cascading updates
+            else
+                sleep $AUTORUN_WORKSPACE_BUILDER_INTERVAL
+            fi
+        done
     fi 
 else
   python manage.py runserver 0.0.0.0:8000 
