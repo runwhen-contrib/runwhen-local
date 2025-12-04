@@ -2,7 +2,7 @@ version: "3"
 
 tasks:
   default:
-    desc: "Generate workspaceInfo and rebuild/test"
+    desc: "Generate workspaceInfo and rebuild/test (use 'task run-collision-test' for SLX collision testing)"
     cmds:
       - task: generate-rwl-config
       - task: run-rwl-discovery
@@ -21,6 +21,143 @@ tasks:
 
   generate-rwl-config:
     desc: "Generate RunWhen Local configuration (workspaceInfo.yaml)"
+    env:
+      ARM_SUBSCRIPTION_ID: "{{.TF_VAR_subscription_id_1}}"
+      AZ_TENANT_ID: "{{.AZ_TENANT_ID}}"
+      AZ_CLIENT_SECRET: "{{.AZ_CLIENT_SECRET}}"
+      AZ_CLIENT_ID: "{{.AZ_CLIENT_ID}}"
+      RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
+
+  generate-collision-test-config:
+    desc: "Generate RunWhen Local configuration for SLX collision testing (workspaceInfo.yaml)"
+    env:
+      ARM_SUBSCRIPTION_ID: "{{.TF_VAR_subscription_id_1}}"
+      AZ_TENANT_ID: "{{.AZ_TENANT_ID}}"
+      AZ_CLIENT_SECRET: "{{.AZ_CLIENT_SECRET}}"
+      AZ_CLIENT_ID: "{{.AZ_CLIENT_ID}}"
+      RW_WORKSPACE: '{{.RW_WORKSPACE | default "collision-test-workspace"}}'
+    cmds:
+      - |
+        repo_url=$(git config --get remote.origin.url)
+        branch_name=$(git rev-parse --abbrev-ref HEAD)
+        codebundle=$(basename "$(dirname "$PWD")")
+
+        # Fetch cluster and test resource details from Terraform state
+        pushd terraform > /dev/null
+        cluster1_sub=$(terraform show -json terraform.tfstate | jq -r '
+          .values.outputs.cluster_1_sub.value')
+        cluster2_sub=$(terraform show -json terraform.tfstate | jq -r '
+          .values.outputs.cluster_2_sub.value')
+        
+        # Test resource group details
+        test_rg_1_name=$(terraform show -json terraform.tfstate | jq -r '
+          .values.outputs.test_rg_1_name.value')
+        test_rg_2_name=$(terraform show -json terraform.tfstate | jq -r '
+          .values.outputs.test_rg_2_name.value')
+        test_storage_1_name=$(terraform show -json terraform.tfstate | jq -r '
+          .values.outputs.test_storage_1_name.value')
+        test_storage_2_name=$(terraform show -json terraform.tfstate | jq -r '
+          .values.outputs.test_storage_2_name.value')
+        popd > /dev/null
+
+        # Check if any of the required variables are empty
+        if [ -z "$cluster1_sub" ] || [ -z "$cluster2_sub" ] || [ -z "$test_rg_1_name" ]; then
+          echo "Error: Missing terraform output values. Ensure Terraform plan has been applied."
+          exit 1
+        fi
+
+        # Generate workspaceInfo.yaml focused on collision testing
+        cat <<EOF > workspaceInfo.yaml
+        workspaceName: "$RW_WORKSPACE"
+        workspaceOwnerEmail: authors@runwhen.com
+        defaultLocation: location-01
+        defaultLOD: none
+        cloudConfig:
+          azure:
+            subscriptionId: "$ARM_SUBSCRIPTION_ID"
+            tenantId: "$AZ_TENANT_ID"
+            clientId: "$AZ_CLIENT_ID"
+            clientSecret: "$AZ_CLIENT_SECRET"
+            
+            # Multi-subscription configuration for collision testing
+            subscriptions: 
+              # Subscription 1 - Contains test-collision-rg with detailed LOD
+              - subscriptionId: "$cluster1_sub"
+                defaultLOD: none 
+                resourceGroupLevelOfDetails:
+                  $test_rg_1_name: detailed
+                  
+              # Subscription 2 - Contains test-collision-rg with detailed LOD  
+              - subscriptionId: "$cluster2_sub"
+                defaultLOD: none
+                resourceGroupLevelOfDetails:
+                  $test_rg_2_name: detailed
+
+        # Use default code collections to test generation rules
+        codeCollections: []
+        
+        custom: 
+          kubernetes_distribution_binary: kubectl
+          
+
+        EOF
+        
+    silent: true
+
+  run-collision-test:
+    desc: "Run collision test using the collision-specific config"
+    cmds:
+      - task: generate-collision-test-config
+      - |
+        BUILD_DIR=/home/runwhen/runwhen-local/src
+        CONTAINER_NAME="RunWhenLocal-CollisionTest"
+        CONFIG_FILE="workspaceInfo-collision-test.yaml"
+        
+        if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Stopping and removing existing container $CONTAINER_NAME..."
+          docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME
+        elif docker ps -a -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Removing existing stopped container $CONTAINER_NAME..."
+          docker rm $CONTAINER_NAME
+        else
+          echo "No existing container named $CONTAINER_NAME found."
+        fi
+        
+        echo "Cleaning up collision test output directory..."
+        rm -rf collision-test-output || { echo "Failed to remove output directory"; exit 1; }
+        mkdir collision-test-output && chmod 777 collision-test-output || { echo "Failed to set permissions"; exit 1; }
+
+        ## Building Container Image
+        docker buildx build --builder mybuilder --platform linux/amd64  -t runwhen-local:collision-test -f $BUILD_DIR/Dockerfile $BUILD_DIR --load
+
+        echo "Starting collision test container $CONTAINER_NAME..."
+        
+        # Copy the collision test config to the shared directory
+        cp $CONFIG_FILE workspaceInfo.yaml
+
+        docker run -e DEBUG_LOGGING=true -e CQ_DEBUG=true --name $CONTAINER_NAME -p 8082:8081 -v $(pwd):/shared -d runwhen-local:collision-test || {
+          echo "Failed to start container"; exit 1;
+        }
+
+        echo "Running collision test workspace builder script in container..."
+        docker exec -w /workspace-builder $CONTAINER_NAME ./run.sh $1 --verbose || {
+          echo "Error executing script in container"; exit 1;
+        }
+
+        # Copy results to collision-test-output
+        cp -r output/* collision-test-output/ 2>/dev/null || echo "No output to copy"
+        
+        echo ""
+        echo "🧪 Collision Test Complete!"
+        echo "📋 Review generated config files under collision-test-output/workspaces/"
+        echo "🔍 Check for SLX generation for both storage accounts:"
+        echo "   - Look for storage account SLXs in different subscriptions"
+        echo "   - Verify no SLX name collisions occurred"
+        echo "   - Test different qualifier combinations in generation rules"
+    silent: true
+
+  original-generate-rwl-config:
+    desc: "Generate original RunWhen Local configuration (workspaceInfo.yaml)"
     env:
       ARM_SUBSCRIPTION_ID: "{{.TF_VAR_subscription_id_1}}"
       AZ_TENANT_ID: "{{.AZ_TENANT_ID}}"
@@ -130,7 +267,7 @@ tasks:
         rm -rf output || { echo "Failed to remove output directory"; exit 1; }
         mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
 
-        ## Building Container Image
+        # ## Building Container Image
         docker buildx build --builder mybuilder --platform linux/amd64  -t runwhen-local:test -f $BUILD_DIR/Dockerfile $BUILD_DIR --load
 
         echo "Starting new container $CONTAINER_NAME..."

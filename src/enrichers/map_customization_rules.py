@@ -28,6 +28,8 @@ def get_qualifier_value(qualifier: str, resource: Resource, context: Context) ->
 
         value = platform_handler.get_resource_qualifier_value(resource, qualifier)
         if value is None:
+            logger.error(f"INVALID QUALIFIER: '{qualifier}' is not supported for platform '{platform_name}' on resource '{resource.name}'. "
+                        f"Valid qualifiers for Azure include: resource, resource_group, subscription_id, subscription_name")
             raise WorkspaceBuilderException(f'Unresolved qualifier value for SLX name: "{qualifier}"')
         
         return value
@@ -72,8 +74,21 @@ class SLXInfo:
         # and we want the base name to be a top-level setting for that.
         self.base_name = slx.base_name
         self.qualifiers = {q: get_qualifier_value(q, resource, context) for q in slx.qualifiers}
+        
+        # DEBUG: Log qualifier resolution for collision debugging
+        logger.warning(f"SLXInfo DEBUG for resource '{resource.name}': qualifiers={self.qualifiers}")
+        
+        # Check for None values in qualifiers which would cause issues
+        if None in self.qualifiers.values():
+            logger.error(f"SLXInfo ERROR: None qualifier values found for resource '{resource.name}': {self.qualifiers}")
+            raise WorkspaceBuilderException(f"Cannot create SLX for resource '{resource.name}' due to unresolved qualifiers: {self.qualifiers}")
+        
         self.qualifier_values = [self.qualifiers[q] for q in slx.qualifiers]
         self.full_name = make_qualified_slx_name(slx.base_name, self.qualifier_values, None)
+        
+        # DEBUG: Log full name generation
+        logger.warning(f"SLXInfo DEBUG for resource '{resource.name}': qualifier_values={self.qualifier_values}, full_name='{self.full_name}'")
+        
         self.resource = resource
         # Track the initial resource; additional names may be aggregated later.
         self.child_resource_names = [resource.name]

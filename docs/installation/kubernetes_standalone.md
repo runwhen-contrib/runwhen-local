@@ -65,6 +65,7 @@ Deploying RunWhen Local to a Kubernetes cluster can be achieved with the followi
 
 * Deployment:
   * Supports an environment variable titled `AUTORUN_WORKSPACE_BUILDER_INTERVAL` to control how often the Troubleshooting Cheat Sheet content is refreshed
+  * Includes automatic file watching for configuration changes - see [File Watching Configuration](../configuration/file-watching-configuration.md) for details
   * Defines the following volumes to mount into the container:
     * configmap-volume: mounts the workspaceInto.yaml file into the container
     * kubeconfig: mounts the kubeconfig secret into the container

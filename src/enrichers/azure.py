@@ -343,15 +343,33 @@ class AzurePlatformHandler(PlatformHandler):
                     registry: Registry = context.get_property(REGISTRY_PROPERTY_NAME)
                     rg_type = registry.lookup_resource_type(AZURE_PLATFORM, "resource_group")
                     
-                    # Try to find existing resource group
+                    # Try to find existing resource group in the same subscription
                     rg_resource = None
                     if rg_type:
-                        for rg in rg_type.instances.values():
-                            if rg.name.upper() == rg_name.upper():
+                        logger.debug(f"Looking for resource group '{rg_name}' in subscription '{subscription_id}' for resource '{name}'")
+                        logger.debug(f"Available resource groups: {list(rg_type.instances.keys())}")
+                        for rg_qualified_name, rg in rg_type.instances.items():
+                            rg_sub_id = getattr(rg, 'subscription_id', None)
+                            logger.debug(f"  Checking RG '{rg.name}' (qualified: '{rg_qualified_name}') in subscription '{rg_sub_id}'")
+                            if (rg.name.upper() == rg_name.upper() and 
+                                rg_sub_id == subscription_id):
                                 rg_resource = rg
                                 resource_attributes["resource_group"] = rg
                                 qualified_name = f"{rg.name}/{name}"
+                                logger.info(f"SUCCESS: Linked resource '{name}' to resource group '{rg.name}' in subscription '{subscription_id}'")
                                 break
+                        
+                        if not rg_resource:
+                            logger.warning(f"FAILED: Could not find resource group '{rg_name}' in subscription '{subscription_id}' for resource '{name}'. Available RGs: {[(rg.name, getattr(rg, 'subscription_id', None)) for rg in rg_type.instances.values()]}")
+                            
+                            # DEFERRED RELATIONSHIP: Store info for later resolution
+                            # This handles cases where storage accounts are processed before their resource groups
+                            resource_attributes["_deferred_rg_lookup"] = {
+                                "rg_name": rg_name,
+                                "subscription_id": subscription_id,
+                                "resource_id": resource_id
+                            }
+                            logger.info(f"DEFERRED: Storing resource group lookup info for '{name}' - will resolve after all resources loaded")
                     
                     # If resource group not found in registry, look up LOD directly from config
                     if not rg_resource:
@@ -444,9 +462,53 @@ class AzurePlatformHandler(PlatformHandler):
         if qualifier_name == "resource_group":
             resource_group = get_resource_group(resource)
             if resource_group is not None:
+                logger.info(f"Found resource_group reference for {resource.name}: {resource_group.name}")
                 return resource_group.name
             else:
-                # Handle case when resource_group is None
+                # Fallback: Extract resource group name from resource ID when reference is missing
+                logger.warning(f"No resource_group reference found for {resource.name}, trying fallback extraction")
+                
+                # Access the original CloudQuery resource data
+                resource_id = ''
+                if hasattr(resource, 'resource') and isinstance(resource.resource, dict):
+                    resource_id = resource.resource.get('id', '')
+                logger.info(f"Resource ID for {resource.name}: '{resource_id}'")
+                if "/resourceGroups/" in resource_id:
+                    parts = resource_id.split("/resourceGroups/")
+                    if len(parts) > 1:
+                        rg_name = parts[1].split("/")[0]
+                        logger.warning(f"FALLBACK: Extracted resource group name '{rg_name}' from resource ID for {resource.name}")
+                        
+                        # CRITICAL: Try to find the actual resource group Resource object in the registry
+                        # Templates expect resource.resource_group to be a Resource object, not a string
+                        from resources import REGISTRY_PROPERTY_NAME
+                        from component import Context
+                        
+                        # Get the registry from context (this is a bit hacky but necessary for fallback)
+                        try:
+                            # We need to get the registry to look up the resource group
+                            # This is tricky because we don't have direct access to context here
+                            # Let's try to find the resource group by looking through the resource type instances
+                            registry = None
+                            if hasattr(resource.resource_type, 'platform') and resource.resource_type.platform:
+                                platform = resource.resource_type.platform
+                                if hasattr(platform, 'resource_types') and 'resource_group' in platform.resource_types:
+                                    rg_type = platform.resource_types['resource_group']
+                                    # Look for resource group with matching name in same subscription
+                                    subscription_id = getattr(resource, 'subscription_id', None)
+                                    for rg_qualified_name, rg_resource in rg_type.instances.items():
+                                        if (rg_resource.name.upper() == rg_name.upper() and 
+                                            getattr(rg_resource, 'subscription_id', None) == subscription_id):
+                                            logger.warning(f"FALLBACK: Found matching resource group Resource object for {resource.name}")
+                                            setattr(resource, 'resource_group', rg_resource)
+                                            return rg_name
+                            
+                            logger.warning(f"FALLBACK: Could not find resource group Resource object, using string fallback for {resource.name}")
+                        except Exception as e:
+                            logger.warning(f"FALLBACK: Error looking up resource group Resource object: {e}")
+                        
+                        return rg_name
+                logger.error(f"FAILED: Could not determine resource group for resource {resource.name}")
                 return None
         elif qualifier_name == "subscription_id":
             return getattr(resource, 'subscription_id', None)
@@ -458,7 +520,13 @@ class AzurePlatformHandler(PlatformHandler):
 
 
     def get_resource_qualifier_value(self, resource: Resource, qualifier_name: str) -> Optional[str]:
-        return self.get_common_resource_property_values(resource, qualifier_name)
+        logger.debug(f"Azure platform handler requested qualifier '{qualifier_name}' for resource '{resource.name}'")
+        result = self.get_common_resource_property_values(resource, qualifier_name)
+        if result is None:
+            logger.warning(f"Azure platform handler could not resolve qualifier '{qualifier_name}' for resource '{resource.name}'")
+        else:
+            logger.debug(f"Azure platform handler resolved qualifier '{qualifier_name}' = '{result}' for resource '{resource.name}'")
+        return result
 
     def get_resource_property_values(self, resource: Resource, property_name: str) -> Optional[list[Any]]:
         property_name = property_name.lower()
@@ -478,6 +546,22 @@ class AzurePlatformHandler(PlatformHandler):
         resource_group = get_resource_group(resource)
         if resource_group:
             template_variables['resource_group'] = resource_group
+        else:
+            # FALLBACK: If resource_group Resource object not found, try to get the name from qualifiers
+            # This handles cases where fallback extraction worked for qualifiers but didn't set the Resource object
+            rg_name = self.get_common_resource_property_values(resource, "resource_group")
+            if rg_name:
+                # Create a minimal resource group object for template compatibility
+                from resources import Resource as ResourceClass, ResourceType
+                # Create a minimal ResourceType for the resource group
+                minimal_rg_type = ResourceType(name="resource_group", platform=None, custom_attributes=set())
+                minimal_rg = ResourceClass(name=rg_name, qualified_name=rg_name, resource_type=minimal_rg_type)
+                template_variables['resource_group'] = minimal_rg
+                
+                # CRITICAL: Also set the resource_group attribute on the resource object itself
+                # Templates may access match_resource.resource_group directly
+                setattr(resource, 'resource_group', minimal_rg)
+                logger.warning(f"TEMPLATE FALLBACK: Created minimal resource_group object for {resource.name} with name '{rg_name}' and set resource.resource_group attribute")
         
         # Always add subscription information as top-level template variables
         # Access subscription info using the same methods as qualifiers

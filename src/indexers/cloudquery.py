@@ -1206,6 +1206,9 @@ def index(context: Context):
     
     logger.info("Finished CloudQuery indexing")
     
+    # RESOLVE DEFERRED RELATIONSHIPS: Handle resources that couldn't find their resource groups during initial processing
+    resolve_deferred_azure_relationships(registry, platform_handlers)
+    
     # Log summary statistics
     logger.info(f"CloudQuery Discovery Summary:")
     logger.info(f"  Total resources discovered: {cq_stats['total_discovered']}")
@@ -1241,6 +1244,85 @@ def index(context: Context):
         if cq_debug_logging:
             for table_name, table_stats in platform_stats['tables'].items():
                 logger.debug(f"    Table {table_name}: discovered={table_stats['discovered']}, added={table_stats['added_to_registry']}, skipped={table_stats['skipped']}")
+
+
+def resolve_deferred_azure_relationships(registry: Registry, platform_handlers: dict[str, PlatformHandler]):
+    """
+    Resolve deferred resource group relationships for Azure resources.
+    This handles cases where storage accounts were processed before their resource groups.
+    """
+    logger.info("Starting deferred Azure relationship resolution...")
+    
+    # Get Azure platform handler
+    azure_handler = platform_handlers.get("azure")
+    if not azure_handler:
+        logger.debug("No Azure platform handler found, skipping deferred relationship resolution")
+        return
+    
+    # Get Azure platform from registry
+    azure_platform = registry.platforms.get("azure")
+    if not azure_platform:
+        logger.debug("No Azure platform in registry, skipping deferred relationship resolution")
+        return
+    
+    # Get resource group type
+    rg_type = azure_platform.resource_types.get("resource_group")
+    if not rg_type:
+        logger.debug("No resource groups in registry, skipping deferred relationship resolution")
+        return
+    
+    resolved_count = 0
+    failed_count = 0
+    
+    # Process all resource types that might have deferred relationships
+    for resource_type_name, resource_type in azure_platform.resource_types.items():
+        if resource_type_name == "resource_group":
+            continue  # Skip resource groups themselves
+            
+        # Create a snapshot to avoid "dictionary changed size during iteration" error
+        for resource_qualified_name, resource in list(resource_type.instances.items()):
+            deferred_info = getattr(resource, '_deferred_rg_lookup', None)
+            if not deferred_info:
+                continue  # No deferred lookup needed
+                
+            rg_name = deferred_info.get('rg_name')
+            subscription_id = deferred_info.get('subscription_id')
+            
+            logger.debug(f"Resolving deferred relationship for {resource.name}: looking for RG '{rg_name}' in subscription '{subscription_id}'")
+            
+            # Try to find the resource group now that all resources are loaded
+            rg_resource = None
+            for rg in rg_type.instances.values():
+                if (rg.name.upper() == rg_name.upper() and 
+                    getattr(rg, 'subscription_id', None) == subscription_id):
+                    rg_resource = rg
+                    break
+            
+            if rg_resource:
+                # SUCCESS: Establish the relationship
+                setattr(resource, 'resource_group', rg_resource)
+                # Update qualified name to include resource group
+                new_qualified_name = f"{rg_resource.name}/{resource.name}"
+                
+                # Update the registry with the new qualified name
+                old_qualified_name = resource.qualified_name
+                resource.qualified_name = new_qualified_name
+                
+                # Update the instances dictionary
+                if old_qualified_name in resource_type.instances:
+                    del resource_type.instances[old_qualified_name]
+                resource_type.instances[new_qualified_name] = resource
+                
+                # Clean up the deferred lookup info
+                delattr(resource, '_deferred_rg_lookup')
+                
+                resolved_count += 1
+                logger.info(f"SUCCESS: Resolved deferred relationship for '{resource.name}' -> resource group '{rg_resource.name}' (qualified name: {old_qualified_name} -> {new_qualified_name})")
+            else:
+                failed_count += 1
+                logger.warning(f"FAILED: Could not resolve deferred relationship for '{resource.name}' - resource group '{rg_name}' in subscription '{subscription_id}' still not found")
+    
+    logger.info(f"Deferred relationship resolution completed: {resolved_count} resolved, {failed_count} failed")
 
 
 def get_auth_type(platform_name, platform_config_data: dict[str,Any]): 
