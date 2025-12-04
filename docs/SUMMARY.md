@@ -30,6 +30,7 @@
 ## Configuration
 
 * [WorkspaceInfo Customization](configuration/workspaceinfo-customization.md)
+* [File Watching Configuration](configuration/file-watching-configuration.md)
 * [CodeCollection Configuration](configuration/codecollection-configuration.md)
 * [Group / Map Customizations](configuration/user\_reference.md)
 * [Cheat Sheet Features](configuration/cheat-sheet-features/README.md)
