@@ -118,43 +118,58 @@ then
     # python manage.py runserver 0.0.0.0:8000 --noreload &
     sleep 60
     
-    # Automatically discover and watch all files under /shared/ (excluding output directories)
-    # This catches ConfigMaps, Secrets, and any other mounted files without needing to know names in advance
+    # Configure which files to watch for changes (inclusive list)
+    # Can be overridden via RW_WATCH_FILES environment variable (colon-separated)
+    # or via /shared/watch-files.conf config file (one file per line)
+    # This prevents race conditions with script-generated files like kubeconfig
+    
+    if [ -f "/shared/watch-files.conf" ]; then
+        echo "Loading watch list from /shared/watch-files.conf"
+        mapfile -t WATCH_FILES < <(grep -v '^#' /shared/watch-files.conf | grep -v '^[[:space:]]*$')
+    elif [ -n "$RW_WATCH_FILES" ]; then
+        echo "Loading watch list from RW_WATCH_FILES environment variable"
+        IFS=':' read -ra WATCH_FILES <<< "$RW_WATCH_FILES"
+    else
+        echo "Using default watch list"
+        WATCH_FILES=(
+            "/shared/workspaceInfo.yaml"
+            "/shared/uploadInfo.yaml"
+        )
+    fi
+    
     get_config_checksum() {
         local checksum=""
         
-        # Find all regular files in /shared/ (top-level only)
-        # -L follows symlinks (required for K8s ConfigMaps/Secrets which are mounted as symlinks)
-        # -maxdepth 1 only looks at direct children of /shared/, automatically excluding:
-        #   - /shared/output/* (subdirectory)
-        #   - /shared/..data/* (hidden Kubernetes internal directory)
-        #   - /shared/..2024* (hidden Kubernetes timestamped directories)
-        # -print0 uses null bytes as delimiter to safely handle filenames with spaces
-        while IFS= read -r -d '' file; do
+        # Generate checksum only for files in the watch list
+        for file in "${WATCH_FILES[@]}"; do
             if [ -f "$file" ]; then
                 # Use stat to get modification time (works on both Linux and macOS)
                 local mtime=$(stat -c %Y "$file" 2>/dev/null || stat -f %m "$file" 2>/dev/null)
                 checksum="${checksum}${file}:${mtime}|"
             fi
-        done < <(find -L /shared/ -maxdepth 1 -type f -print0 2>/dev/null)
+        done
         
         echo "$checksum"
     }
     
     LAST_CONFIG_CHECKSUM=$(get_config_checksum)
     
-    # Log which files are being watched
-    echo "Config/Secret file watcher enabled, scanning /shared/ for mounted files..."
+    # Log which files are being watched from the watch list
+    echo "File watcher enabled with inclusive watch list..."
     WATCHED_COUNT=0
-    while IFS= read -r -d '' file; do
-        echo "  - $file"
-        WATCHED_COUNT=$((WATCHED_COUNT + 1))
-    done < <(find -L /shared/ -maxdepth 1 -type f -print0 2>/dev/null)
+    for file in "${WATCH_FILES[@]}"; do
+        if [ -f "$file" ]; then
+            echo "  ✓ $file (found)"
+            WATCHED_COUNT=$((WATCHED_COUNT + 1))
+        else
+            echo "  ✗ $file (not found)"
+        fi
+    done
     
     if [ "$WATCHED_COUNT" -gt 0 ]; then
-        echo "Monitoring $WATCHED_COUNT file(s) under /shared/"
+        echo "Monitoring $WATCHED_COUNT file(s) from watch list for changes"
     else
-        echo "No files found yet under /shared/ (ConfigMaps/Secrets may not be mounted)"
+        echo "No watched files found yet (files may not be mounted)"
     fi
     
     if [[ "${RW_LOCAL_UPLOAD_ENABLED,,}" == "true" ]]; 
