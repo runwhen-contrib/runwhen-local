@@ -35,6 +35,26 @@ cloudConfig:
 Store credentials securely. Consider using Kubernetes secrets or IAM roles instead of embedding credentials directly in configuration files.
 {% endhint %}
 
+**For codebundle access**, explicit credentials should be stored in a Kubernetes secret and referenced via the `custom` section:
+
+```yaml
+cloudConfig:
+  aws:
+    region: us-east-1
+    awsAccessKeyId: AKIA...
+    awsSecretAccessKey: ...
+custom:
+  aws_credentials_secret_name: aws-explicit-credentials
+```
+
+Create the secret with the same credentials:
+```bash
+kubectl create secret generic aws-explicit-credentials \
+  --from-literal=awsAccessKeyId=AKIA... \
+  --from-literal=awsSecretAccessKey=... \
+  --namespace runwhen-local
+```
+
 ### Method 2: Kubernetes Secret
 
 Store credentials in a Kubernetes secret and reference it in your configuration:
@@ -149,6 +169,8 @@ cloudConfig:
     awsSecretAccessKey: ...
     assumeRoleArn: arn:aws:iam::TARGET_ACCOUNT:role/DiscoveryRole
     assumeRoleExternalId: shared-secret
+custom:
+  aws_credentials_secret_name: base-credentials  # Required for codebundle access
 
 # Example 2: Kubernetes secret + assume role
 cloudConfig:
@@ -164,6 +186,10 @@ cloudConfig:
     useWorkloadIdentity: true
     assumeRoleArn: arn:aws:iam::TARGET_ACCOUNT:role/DiscoveryRole
 ```
+
+{% hint style="info" %}
+When using explicit credentials with assume role, the base credentials must also be available in a Kubernetes secret (referenced via `custom.aws_credentials_secret_name`) so that codebundles can assume the target role at runtime.
+{% endhint %}
 
 ## AWS CloudQuery Version Details
 

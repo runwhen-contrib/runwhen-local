@@ -1,0 +1,252 @@
+# Helm values for RunWhen Local on EKS with IRSA (IAM Roles for Service Accounts)
+
+###############################################################################
+######################## Global/Shared Settings ###############################
+###############################################################################
+workspaceName: "aws-workload-identity-eks"
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+podAnnotations: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Override the container image registry used for all images
+registryOverride: ""
+
+# Set proxy env for RunWhen Local
+proxy:
+  enabled: false
+  httpProxy: ""
+  httpsProxy: ""
+  noProxy: "127.0.0.1,localhost,$($KUBERNETES_SERVICE_HOST),pushgateway"
+
+proxyCA: {}
+
+# Platform configuration
+platformType: "kubernetes"
+platformArch: "amd64"
+
+###############################################################################
+######################## RunWhen Local Configuration ##########################
+###############################################################################
+runwhenLocal:
+  enabled: true
+  image:
+    registry: "us-docker.pkg.dev"
+    repository: "runwhen-nonprod-shared/public-images/runwhen-local"
+    pullPolicy: Always
+    # Update this tag with task get-latest-rwl-tag or set manually
+    tag: "latest"
+
+  volumes: {}
+  volumeMounts: {}
+  tolerations: []
+
+  serviceAccount:
+    # Use existing service account created by Terraform with IRSA annotation
+    create: false
+    annotations: {}
+    # Name must match the service account created by Terraform
+    name: "runwhen-local"
+
+  serviceAccountRoles:
+    namespaceRole:
+      enabled: false
+      namespaces: []
+      rules:
+        - apiGroups: [""]
+          resources: ["*"]
+          verbs: ["get", "watch", "list"]
+    clusterRoleView:
+      enabled: true
+    advancedClusterRole:
+      enabled: false
+      rules: []
+
+  service:
+    type: ClusterIP
+    port: 8081
+
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts:
+      - host: chart-example.local
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+
+  resources:
+    default:
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+      limits:
+        cpu: "1"
+        memory: "1024Mi"
+
+  clusterName: "default"
+
+  discoveryKubeconfig:
+    inClusterAuth:
+      enabled: true
+      createKubeconfigSecret: false
+    secretProvided:
+      enabled: false
+
+  ### RunWhen Local Runtime Configuration
+  autoRun:
+    discoveryInterval: 14400 # seconds to wait until a new discovery
+    uploadEnabled: false # upload configuration to RunWhen Platform
+    uploadMergeMode: "keep-uploaded" # 'keep-uploaded' or 'keep-existing'
+
+  terminal:
+    disabled: true
+
+  debugLogs: false
+
+  uploadInfo:
+    secretProvided:
+      enabled: false
+      secretName: "uploadinfo"
+      secretKey: uploadInfo.yaml
+      secretPath: uploadInfo.yaml
+
+  ## workspaceInfo
+  workspaceInfo:
+    useExistingConfigMap: true
+    existingConfigMapName: "workspaceinfo"
+    configMap:
+      create: false
+      name: workspace-builder
+
+###############################################################################
+######################## Runner Configuration #################################
+###############################################################################
+runner:
+  enabled: false
+  log:
+    level: info
+    format: console
+  configMap:
+    create: true
+    name: runner-config
+    apiVersion: config.runwhen.com/v1
+    kind: RunnerConfig
+    raw: {}
+  image:
+    registry: ""
+    repository: ""
+    tag: ""
+  controlAddr: "https://runner.beta.runwhen.com"
+  metrics:
+    url: "https://runner-cortex-tenant.beta.runwhen.com/push"
+  securityContext: {}
+  podSecurityContext: {}
+  extraEnv: {}
+  volumes: {}
+  volumeMounts: {}
+  tolerations: []
+
+  runEnvironment:
+    image:
+      pullSecret: ""
+      pullPolicy: ""
+      registry: ""
+      repository: "runwhen"
+    volumes: {}
+    volumeMounts: {}
+    extraEnv: {}
+    securityContext: {}
+    podSecurityContext: {}
+    secretProviders: {}
+    secretsProvided: {}
+    blockedSecrets: []
+
+    deployment:
+      annotations: {}
+      podAnnotations: {}
+      affinity: {}
+      nodeName: ""
+      nodeSelector: {}
+      tolerations: []
+      resources:
+        default:
+          requests:
+            cpu: "50m"
+            memory: "64Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+
+    pod:
+      runAsJob: false
+      annotations: {}
+      affinity: {}
+      nodeName: ""
+      nodeSelector: {}
+      tolerations: []
+      resources:
+        default:
+          requests:
+            cpu: "300m"
+            memory: "128Mi"
+          limits:
+            cpu: "1"
+            memory: "512Mi"
+
+    proxy: {}
+    proxyCA: {}
+
+  resources:
+    default:
+      requests:
+        cpu: "200m"
+        memory: "64Mi"
+      limits:
+        cpu: "800m"
+        memory: "256Mi"
+
+  pushgateway:
+    image:
+      registry: ""
+      repository: "runwhen/pushgateway"
+      tag: "v1.10.0"
+    tolerations: []
+
+opentelemetry-collector:
+  mode: deployment
+  configMap:
+    create: false
+    existingName: "otel-collector"
+  image:
+    repository: "runwhen/opentelemetry-collector"
+    pullPolicy: IfNotPresent
+    tag: "0.109.0"
+  imagePullSecrets: []
+  command:
+    name: "otelcol"
+    extraArgs: ["--feature-gates=-pkg.translator.prometheus.NormalizeName"]
+  serviceAccount:
+    create: false
+    annotations: {}
+    name: "otel-collector"
+  extraVolumes:
+    - name: tls-secret-volume
+      secret:
+        secretName: runner-metrics-tls
+  extraVolumeMounts:
+    - name: tls-secret-volume
+      mountPath: /tls
+      readOnly: true
+  resources:
+    requests:
+      cpu: "10m"
+      memory: "32Mi"
+    limits:
+      cpu: "60m"
+      memory: "64Mi"

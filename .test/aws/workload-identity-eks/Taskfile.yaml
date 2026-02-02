@@ -94,11 +94,115 @@ tasks:
         
         echo "Generated workspaceInfo.yaml with Workload Identity enabled"
 
+  get-latest-rwl-tag:
+    desc: Find the latest tag stored in the dev registry
+    cmds:
+      - |
+        # Variables
+        REGION="us"
+        PROJECT_ID="runwhen-nonprod-shared"
+        REPO_NAME="public-images"
+        IMAGE_NAME="runwhen-local"
+
+        # API endpoint for unauthenticated access
+        URL="https://$REGION-docker.pkg.dev/v2/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME/tags/list"
+
+        # Fetch tags and metadata
+        RESPONSE=$(curl -s "$URL")
+
+        # Check if the response is valid
+        if [[ -z "$RESPONSE" || "$(echo "$RESPONSE" | jq '.errors')" != "null" ]]; then
+          echo "Failed to fetch tags. Ensure the image is public and the URL is correct."
+          exit 1
+        fi
+
+        # Fetch the current branch name
+        BRANCH=$(git branch --show-current)
+
+        # Fetch the PR number (without #) associated with the branch using gh CLI
+        PR_ID=$(gh pr list --head "$BRANCH" --state open --json number -q '.[0].number')
+
+        # Check if a PR was found
+        if [[ -z "$PR_ID" ]]; then
+          echo "No open pull request found for branch: $BRANCH"
+          exit 1
+        fi
+
+        echo "Pull Request ID: $PR_ID"
+
+        # Extract and sort tags by timestamp
+        PR_TAG=$(echo "$RESPONSE" | jq -r '.tags' | grep "$PR_ID-" | xargs | tr -d ",")
+
+        echo "$PR_TAG is most likely the desired last build image from this branch - updating values.yaml"
+        yq -i ".runwhenLocal.image.tag = \"${PR_TAG}\"" values.yaml
+    silent: true
+
   build-rwl:
     desc: Build RunWhen Local Docker image
     dir: ../../../src
     cmds:
       - docker build -t runwhen-local:test .
+
+  install-rwl-helm:
+    desc: Install RunWhen Local components into cluster via Helm
+    dir: terraform
+    env:
+      RUNNER_TOKEN: "{{.RUNNER_TOKEN}}"
+    cmds:
+      - |
+        NAMESPACE=$(terraform output -raw k8s_namespace)
+        SERVICE_ACCOUNT=$(terraform output -raw k8s_service_account)
+        
+        # Create namespace
+        kubectl create namespace $NAMESPACE || true
+        
+        # Create workspaceInfo configmap
+        kubectl create configmap workspaceinfo --from-file=../workspaceInfo.yaml -n $NAMESPACE || \
+          (kubectl delete configmap workspaceinfo -n $NAMESPACE && kubectl create configmap workspaceinfo --from-file=../workspaceInfo.yaml -n $NAMESPACE)
+        
+        # Create runner registration token secret
+        kubectl create secret generic runner-registration-token --from-literal=token="$RUNNER_TOKEN" -n $NAMESPACE || true
+        
+        # Add and update Helm repo
+        helm repo add runwhen-contrib https://runwhen-contrib.github.io/helm-charts || true
+        helm repo update
+        
+        # Install RunWhen Local
+        helm install runwhen-local runwhen-contrib/runwhen-local -f ../values.yaml -n $NAMESPACE
+        
+        echo "RunWhen Local installed successfully. Check with: kubectl get pods -n $NAMESPACE"
+    silent: true
+
+  delete-rwl-helm:
+    desc: Delete RunWhen Local Helm installation
+    dir: terraform
+    cmds:
+      - |
+        NAMESPACE=$(terraform output -raw k8s_namespace)
+        kubectl delete namespace $NAMESPACE
+    silent: true
+
+  upgrade-rwl-helm:
+    desc: Upgrade RunWhen Local Helm installation
+    dir: terraform
+    env:
+      RUNNER_TOKEN: "{{.RUNNER_TOKEN}}"
+    cmds:
+      - |
+        NAMESPACE=$(terraform output -raw k8s_namespace)
+        
+        # Update workspaceInfo configmap
+        kubectl delete configmap workspaceinfo -n $NAMESPACE || true
+        kubectl create configmap workspaceinfo --from-file=../workspaceInfo.yaml -n $NAMESPACE
+        
+        # Upgrade Helm release
+        helm upgrade runwhen-local runwhen-contrib/runwhen-local -f ../values.yaml -n $NAMESPACE
+        
+        # Restart pods
+        kubectl delete pod -l app.kubernetes.io/name=runwhen-local -n $NAMESPACE
+        
+        echo "RunWhen Local upgraded successfully"
+    silent: true
 
   push-rwl-to-ecr:
     desc: Push RunWhen Local image to ECR for EKS

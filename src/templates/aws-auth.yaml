@@ -15,20 +15,20 @@
    - aws_workload_identity_assume_role
 #}
 
-{# EKS cluster with explicit credentials #}
+{# EKS cluster with explicit credentials (via custom secret reference) #}
 {% if cluster is defined and cluster.cluster_type | default('') == "eks" and cluster.auth_type | default('') == "aws_explicit" %}
     - name: aws_credentials
       workspaceKey: aws:access_key@cli
-    - name: aws_access_key_id
+    - name: AWS_ACCESS_KEY_ID
       workspaceKey: k8s:file@secret/{{ custom.aws_credentials_secret_name | default('undefined') }}:awsAccessKeyId
-    - name: aws_secret_access_key
+    - name: AWS_SECRET_ACCESS_KEY
       workspaceKey: k8s:file@secret/{{ custom.aws_credentials_secret_name | default('undefined') }}:awsSecretAccessKey
 {% elif cluster is defined and cluster.cluster_type | default('') == "eks" and cluster.auth_type | default('') == "aws_secret" %}
     - name: aws_credentials
       workspaceKey: aws:access_key@cli
-    - name: aws_access_key_id
+    - name: AWS_ACCESS_KEY_ID
       workspaceKey: k8s:file@secret/{{ cluster.auth_secret | default('undefined') }}:awsAccessKeyId
-    - name: aws_secret_access_key
+    - name: AWS_SECRET_ACCESS_KEY
       workspaceKey: k8s:file@secret/{{ cluster.auth_secret | default('undefined') }}:awsSecretAccessKey
 {% elif cluster is defined and cluster.cluster_type | default('') == "eks" and cluster.auth_type | default('') == "aws_workload_identity" %}
     - name: aws_credentials
@@ -42,20 +42,20 @@
     - name: aws_credentials
       workspaceKey: aws:default@cli
 
-{# Non-cluster AWS resources with explicit credentials #}
+{# Non-cluster AWS resources with explicit credentials (via custom secret reference) #}
 {% elif match_resource is defined and match_resource.auth_type | default('') == "aws_explicit" %}
     - name: aws_credentials
       workspaceKey: aws:access_key@cli
-    - name: aws_access_key_id
+    - name: AWS_ACCESS_KEY_ID
       workspaceKey: k8s:file@secret/{{ custom.aws_credentials_secret_name | default('undefined') }}:awsAccessKeyId
-    - name: aws_secret_access_key
+    - name: AWS_SECRET_ACCESS_KEY
       workspaceKey: k8s:file@secret/{{ custom.aws_credentials_secret_name | default('undefined') }}:awsSecretAccessKey
 {% elif match_resource is defined and match_resource.auth_type | default('') == "aws_secret" %}
     - name: aws_credentials
       workspaceKey: aws:access_key@cli
-    - name: aws_access_key_id
+    - name: AWS_ACCESS_KEY_ID
       workspaceKey: k8s:file@secret/{{ match_resource.auth_secret | default('undefined') }}:awsAccessKeyId
-    - name: aws_secret_access_key
+    - name: AWS_SECRET_ACCESS_KEY
       workspaceKey: k8s:file@secret/{{ match_resource.auth_secret | default('undefined') }}:awsSecretAccessKey
 {% elif match_resource is defined and match_resource.auth_type | default('') == "aws_workload_identity" %}
     - name: aws_credentials
@@ -72,26 +72,26 @@
 {# Combined auth types with assume role #}
 {% elif match_resource is defined and match_resource.auth_type | default('') == "aws_explicit_assume_role" %}
     - name: aws_credentials
-      workspaceKey: aws:access_key@cli
-    - name: aws_access_key_id
+      workspaceKey: aws:assume_role@cli
+    - name: AWS_ACCESS_KEY_ID
       workspaceKey: k8s:file@secret/{{ custom.aws_credentials_secret_name | default('undefined') }}:awsAccessKeyId
-    - name: aws_secret_access_key
+    - name: AWS_SECRET_ACCESS_KEY
       workspaceKey: k8s:file@secret/{{ custom.aws_credentials_secret_name | default('undefined') }}:awsSecretAccessKey
-    - name: aws_role_arn
+    - name: AWS_ROLE_ARN
       value: "{{ match_resource.assume_role_arn | default('undefined') }}"
 {% elif match_resource is defined and match_resource.auth_type | default('') == "aws_secret_assume_role" %}
     - name: aws_credentials
-      workspaceKey: aws:access_key@cli
-    - name: aws_access_key_id
+      workspaceKey: aws:assume_role@cli
+    - name: AWS_ACCESS_KEY_ID
       workspaceKey: k8s:file@secret/{{ match_resource.auth_secret | default('undefined') }}:awsAccessKeyId
-    - name: aws_secret_access_key
+    - name: AWS_SECRET_ACCESS_KEY
       workspaceKey: k8s:file@secret/{{ match_resource.auth_secret | default('undefined') }}:awsSecretAccessKey
-    - name: aws_role_arn
+    - name: AWS_ROLE_ARN
       value: "{{ match_resource.assume_role_arn | default('undefined') }}"
 {% elif match_resource is defined and match_resource.auth_type | default('') == "aws_workload_identity_assume_role" %}
     - name: aws_credentials
       workspaceKey: aws:irsa@cli
-    - name: aws_role_arn
+    - name: AWS_ROLE_ARN
       value: "{{ match_resource.assume_role_arn | default('undefined') }}"
 
 {# Custom credential key override #}
