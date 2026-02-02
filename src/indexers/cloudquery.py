@@ -34,6 +34,7 @@ from .airgap_support import get_airgap_manager
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from k8s_utils import get_secret
 from gcp_utils import get_gcp_credential, authenticate_gcloud, validate_gcp_credentials
+from aws_utils import get_aws_credential, set_aws_credentials, get_aws_environment_vars, get_account_id, get_account_alias
 
 logger = logging.getLogger(__name__)
 tmpdir_value = os.getenv("TMPDIR", "/tmp")  # fallback to /tmp if TMPDIR not set
@@ -839,15 +840,49 @@ def init_cloudquery_config(
 
         # ──────────────────────────── AWS ────────────────────────────────
         elif platform_name == "aws":
-            akid = platform_cfg.get("awsAccessKeyId")
-            sak  = platform_cfg.get("awsSecretAccessKey")
-            stkn = platform_cfg.get("awsSessionToken")
-            if not (akid and sak):
-                raise ValueError("AWS credentials incomplete.")
-            cq_process_environment_vars["AWS_ACCESS_KEY_ID"]     = akid
-            cq_process_environment_vars["AWS_SECRET_ACCESS_KEY"] = sak
-            if stkn:
-                cq_process_environment_vars["AWS_SESSION_TOKEN"] = stkn
+            try:
+                # Construct workspace_info structure from platform_cfg for get_aws_credential
+                aws_workspace_info = {'cloudConfig': {'aws': platform_cfg}}
+                session, region, akid, sak, stkn, auth_type, auth_secret = get_aws_credential(aws_workspace_info)
+                
+                # Set environment variables for CloudQuery
+                aws_env_vars = get_aws_environment_vars(akid, sak, stkn, region)
+                cq_process_environment_vars.update(aws_env_vars)
+                
+                # Store auth type and secret for template rendering
+                platform_cfg["_auth_type"] = auth_type
+                platform_cfg["_auth_secret"] = auth_secret
+                
+                # Get account info for logging
+                account_id = get_account_id(session)
+                if account_id:
+                    logger.info(f"AWS authenticated to account: {mask_string(account_id)} with auth type: {auth_type}")
+                    platform_cfg["_account_id"] = account_id
+                
+                # Get account alias if available
+                account_alias = get_account_alias(session)
+                if account_alias:
+                    logger.info(f"AWS account alias: {account_alias}")
+                    platform_cfg["_account_alias"] = account_alias
+                
+                # Update enrichers.aws module with credentials
+                try:
+                    from enrichers.aws import set_aws_credentials as set_enricher_aws_credentials
+                    assume_role_arn = platform_cfg.get("assumeRoleArn")
+                    set_enricher_aws_credentials(
+                        session=session,
+                        auth_type=auth_type,
+                        account_id=account_id,
+                        account_alias=account_alias,
+                        assume_role_arn=assume_role_arn,
+                        auth_secret=auth_secret
+                    )
+                except Exception as e:
+                    logger.debug(f"Could not update enrichers.aws credentials: {e}")
+                    
+            except Exception as e:
+                logger.error(f"AWS authentication failed: {e}")
+                raise ValueError(f"AWS authentication failed: {e}")
 
         # ---------- dynamic tables from generation-rules ----------
         premium_tables = cloudquery_premium_table_info.get(platform_name, [])
@@ -1326,19 +1361,51 @@ def resolve_deferred_azure_relationships(registry: Registry, platform_handlers: 
 
 
 def get_auth_type(platform_name, platform_config_data: dict[str,Any]): 
-    # Determine auth type from platform_config_data for use with azure-auth.yaml template
-    auth_secret=None
-    auth_type=None
+    """
+    Determine auth type from platform_config_data for use with auth templates.
+    
+    For Azure: azure-auth.yaml template
+    For AWS: aws-auth.yaml template
+    
+    Returns:
+        Tuple of (auth_type, auth_secret)
+    """
+    auth_secret = None
+    auth_type = None
+    
     if platform_name == "azure":
-        auth_secret=platform_config_data.get("clientId")
+        auth_secret = platform_config_data.get("clientId")
         if auth_secret:    
-            auth_type="azure_explicit"
-            auth_secret=None
+            auth_type = "azure_explicit"
+            auth_secret = None
         else: 
-            auth_secret=platform_config_data.get("spSecretName")
+            auth_secret = platform_config_data.get("spSecretName")
             if auth_secret: 
-                auth_type="azure_service_principal_secret"
+                auth_type = "azure_service_principal_secret"
             else: 
-                auth_type="azure_identity"
-                auth_secret=None
+                auth_type = "azure_identity"
+                auth_secret = None
+                
+    elif platform_name == "aws":
+        # Check for cached auth type from get_aws_credential
+        if platform_config_data.get("_auth_type"):
+            auth_type = platform_config_data.get("_auth_type")
+            auth_secret = platform_config_data.get("_auth_secret")
+        # Fallback to determining from config
+        elif platform_config_data.get("awsAccessKeyId"):
+            auth_type = "aws_explicit"
+        elif platform_config_data.get("awsSecretName"):
+            auth_secret = platform_config_data.get("awsSecretName")
+            auth_type = "aws_secret"
+        elif platform_config_data.get("useWorkloadIdentity") or os.environ.get('AWS_WEB_IDENTITY_TOKEN_FILE'):
+            auth_type = "aws_workload_identity"
+        elif platform_config_data.get("assumeRoleArn"):
+            auth_type = "aws_assume_role"
+        else:
+            auth_type = "aws_default_chain"
+        
+        # Check for assume role modifier (when combined with other auth methods)
+        if platform_config_data.get("assumeRoleArn") and auth_type not in ("aws_assume_role", "aws_explicit_assume_role", "aws_secret_assume_role", "aws_workload_identity_assume_role"):
+            auth_type = auth_type + "_assume_role"
+            
     return auth_type, auth_secret

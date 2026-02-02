@@ -1,0 +1,543 @@
+"""
+AWS authentication utilities for RunWhen Local.
+
+Supports multiple authentication methods (in priority order):
+1. Explicit access keys from workspaceInfo.yaml
+2. Access keys from Kubernetes secret
+3. Assume Role (with or without base credentials)
+4. EKS Workload Identity (IRSA)
+5. Default AWS credential chain
+
+This module follows the patterns established in azure_utils.py and gcp_utils.py.
+"""
+
+import base64
+import logging
+import os
+import sys
+from typing import Any, Optional, Tuple
+
+import boto3
+from botocore.exceptions import ClientError, NoCredentialsError
+
+from k8s_utils import get_secret
+from utils import mask_string
+
+logger = logging.getLogger(__name__)
+
+# Cache for AWS credentials
+_aws_credentials = {
+    "access_key_id": None,
+    "secret_access_key": None,
+    "session_token": None,
+    "region": None,
+    "auth_type": None,
+    "auth_secret": None,
+    "session": None,
+}
+
+
+def set_aws_credentials(
+    access_key_id: str = None,
+    secret_access_key: str = None,
+    session_token: str = None,
+    region: str = None,
+    auth_type: str = None,
+    auth_secret: str = None,
+    session: boto3.Session = None
+):
+    """
+    Set AWS credentials for reuse across modules.
+    
+    Args:
+        access_key_id: AWS access key ID
+        secret_access_key: AWS secret access key
+        session_token: AWS session token (for temporary credentials)
+        region: AWS region
+        auth_type: Type of authentication used
+        auth_secret: Name of Kubernetes secret (if applicable)
+        session: Pre-configured boto3 session
+    """
+    global _aws_credentials
+    if access_key_id:
+        _aws_credentials["access_key_id"] = access_key_id
+    if secret_access_key:
+        _aws_credentials["secret_access_key"] = secret_access_key
+    if session_token:
+        _aws_credentials["session_token"] = session_token
+    if region:
+        _aws_credentials["region"] = region
+    if auth_type:
+        _aws_credentials["auth_type"] = auth_type
+    if auth_secret:
+        _aws_credentials["auth_secret"] = auth_secret
+    if session:
+        _aws_credentials["session"] = session
+    
+    logger.info(f"Set AWS credentials with auth type: {auth_type}")
+
+
+def get_cached_credentials() -> dict:
+    """Get the cached AWS credentials."""
+    return _aws_credentials.copy()
+
+
+def get_aws_credential(workspace_info: dict) -> Tuple[boto3.Session, str, Optional[str], Optional[str], Optional[str], str, Optional[str]]:
+    """
+    Get AWS credentials using workspace configuration.
+    
+    Evaluates authentication methods in priority order:
+    1. Explicit access keys in workspaceInfo.yaml
+    2. Credentials from Kubernetes secret
+    3. Workload Identity (IRSA) - detected via environment or config
+    4. Assume Role only (uses default chain for base credentials)
+    5. Default AWS credential chain
+    
+    Args:
+        workspace_info: The workspace configuration dictionary
+        
+    Returns:
+        Tuple of (session, region, access_key_id, secret_access_key, session_token, auth_type, auth_secret)
+    """
+    auth_type = None
+    auth_secret = None
+    aws_config = workspace_info.get('cloudConfig', {}).get('aws', {})
+    
+    # Get region with fallbacks
+    region = aws_config.get('region') or aws_config.get('defaultRegion') or os.environ.get('AWS_DEFAULT_REGION') or 'us-east-1'
+    
+    # Extract configuration options
+    access_key_id = aws_config.get('awsAccessKeyId')
+    secret_access_key = aws_config.get('awsSecretAccessKey')
+    session_token = aws_config.get('awsSessionToken')
+    aws_secret_name = aws_config.get('awsSecretName')
+    assume_role_arn = aws_config.get('assumeRoleArn')
+    use_workload_identity = aws_config.get('useWorkloadIdentity', False)
+    
+    # Method 1: Explicit access keys in workspaceInfo.yaml
+    if access_key_id and secret_access_key:
+        logger.info("Using explicit AWS access keys from workspaceInfo.yaml")
+        auth_type = "aws_explicit"
+        session = create_boto_session(access_key_id, secret_access_key, session_token, region)
+        
+        # Handle assume role if specified
+        if assume_role_arn:
+            session, access_key_id, secret_access_key, session_token = assume_role(
+                session, assume_role_arn, aws_config, region
+            )
+            auth_type = "aws_explicit_assume_role"
+        
+        # Cache credentials
+        set_aws_credentials(
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+            session_token=session_token,
+            region=region,
+            auth_type=auth_type,
+            session=session
+        )
+        
+        return session, region, access_key_id, secret_access_key, session_token, auth_type, auth_secret
+    
+    # Method 2: Credentials from Kubernetes secret
+    if aws_secret_name:
+        logger.info(f"Using AWS credentials from Kubernetes secret: {mask_string(aws_secret_name)}")
+        try:
+            secret_data = get_secret(aws_secret_name)
+            
+            # Decode credentials from secret
+            access_key_id = base64.b64decode(secret_data.get('awsAccessKeyId', '')).decode('utf-8') if secret_data.get('awsAccessKeyId') else None
+            secret_access_key = base64.b64decode(secret_data.get('awsSecretAccessKey', '')).decode('utf-8') if secret_data.get('awsSecretAccessKey') else None
+            
+            if not access_key_id or not secret_access_key:
+                logger.error(f"AWS credentials not found in Kubernetes secret '{aws_secret_name}'")
+                sys.exit(1)
+            
+            session_token = None
+            if secret_data.get('awsSessionToken'):
+                session_token = base64.b64decode(secret_data.get('awsSessionToken')).decode('utf-8')
+            
+            # Check for region in secret
+            if secret_data.get('region'):
+                region = base64.b64decode(secret_data.get('region')).decode('utf-8')
+            
+            auth_type = "aws_secret"
+            auth_secret = aws_secret_name
+            session = create_boto_session(access_key_id, secret_access_key, session_token, region)
+            
+            # Handle assume role if specified
+            if assume_role_arn:
+                session, access_key_id, secret_access_key, session_token = assume_role(
+                    session, assume_role_arn, aws_config, region
+                )
+                auth_type = "aws_secret_assume_role"
+            
+            # Cache credentials
+            set_aws_credentials(
+                access_key_id=access_key_id,
+                secret_access_key=secret_access_key,
+                session_token=session_token,
+                region=region,
+                auth_type=auth_type,
+                auth_secret=auth_secret,
+                session=session
+            )
+            
+            return session, region, access_key_id, secret_access_key, session_token, auth_type, auth_secret
+            
+        except Exception as e:
+            logger.error(f"Failed to retrieve AWS credentials from Kubernetes secret '{aws_secret_name}': {e}")
+            sys.exit(1)
+    
+    # Method 3: Assume Role with Web Identity (EKS IRSA / Workload Identity)
+    if use_workload_identity or os.environ.get('AWS_WEB_IDENTITY_TOKEN_FILE'):
+        logger.info("Using AWS Workload Identity (IRSA) for authentication")
+        auth_type = "aws_workload_identity"
+        
+        try:
+            # boto3 automatically handles IRSA when AWS_WEB_IDENTITY_TOKEN_FILE and AWS_ROLE_ARN are set
+            session = boto3.Session(region_name=region)
+            
+            # Verify credentials are working
+            if not validate_aws_credentials(session):
+                logger.error("Failed to authenticate using AWS Workload Identity")
+                sys.exit(1)
+            
+            # Handle additional assume role if specified (in addition to IRSA)
+            if assume_role_arn:
+                session, access_key_id, secret_access_key, session_token = assume_role(
+                    session, assume_role_arn, aws_config, region
+                )
+                auth_type = "aws_workload_identity_assume_role"
+            
+            # Cache credentials
+            set_aws_credentials(
+                region=region,
+                auth_type=auth_type,
+                session=session
+            )
+            
+            return session, region, None, None, None, auth_type, auth_secret
+            
+        except Exception as e:
+            logger.error(f"Failed to use AWS Workload Identity: {e}")
+            sys.exit(1)
+    
+    # Method 4: Assume Role only (relies on default chain for base credentials)
+    if assume_role_arn:
+        logger.info(f"Using AWS Assume Role with default credential chain: {mask_string(assume_role_arn)}")
+        auth_type = "aws_assume_role"
+        
+        try:
+            base_session = boto3.Session(region_name=region)
+            session, access_key_id, secret_access_key, session_token = assume_role(
+                base_session, assume_role_arn, aws_config, region
+            )
+            
+            # Cache credentials
+            set_aws_credentials(
+                access_key_id=access_key_id,
+                secret_access_key=secret_access_key,
+                session_token=session_token,
+                region=region,
+                auth_type=auth_type,
+                session=session
+            )
+            
+            return session, region, access_key_id, secret_access_key, session_token, auth_type, auth_secret
+            
+        except Exception as e:
+            logger.error(f"Failed to assume role: {e}")
+            sys.exit(1)
+    
+    # Method 5: Default AWS credential chain
+    logger.info("Using default AWS credential chain for authentication")
+    auth_type = "aws_default_chain"
+    
+    try:
+        session = boto3.Session(region_name=region)
+        
+        # Verify credentials are available
+        if not validate_aws_credentials(session):
+            logger.error("Failed to authenticate using default AWS credential chain. No valid credentials found.")
+            sys.exit(1)
+        
+        identity = get_caller_identity(session)
+        if identity:
+            logger.info(f"Authenticated as: {mask_string(identity.get('Arn', 'unknown'))}")
+        
+        # Cache credentials
+        set_aws_credentials(
+            region=region,
+            auth_type=auth_type,
+            session=session
+        )
+        
+        return session, region, None, None, None, auth_type, auth_secret
+        
+    except Exception as e:
+        logger.error(f"Failed to authenticate using default AWS credential chain: {e}")
+        sys.exit(1)
+
+
+def create_boto_session(
+    access_key_id: str,
+    secret_access_key: str,
+    session_token: str = None,
+    region: str = None
+) -> boto3.Session:
+    """
+    Create a boto3 session with explicit credentials.
+    
+    Args:
+        access_key_id: AWS access key ID
+        secret_access_key: AWS secret access key
+        session_token: Optional session token for temporary credentials
+        region: AWS region
+        
+    Returns:
+        Configured boto3 Session
+    """
+    return boto3.Session(
+        aws_access_key_id=access_key_id,
+        aws_secret_access_key=secret_access_key,
+        aws_session_token=session_token,
+        region_name=region
+    )
+
+
+def assume_role(
+    session: boto3.Session,
+    role_arn: str,
+    aws_config: dict,
+    region: str
+) -> Tuple[boto3.Session, str, str, str]:
+    """
+    Assume an IAM role and return a new session with the assumed credentials.
+    
+    Args:
+        session: Base boto3 session to use for assuming the role
+        role_arn: ARN of the role to assume
+        aws_config: AWS configuration dictionary with optional assume role settings
+        region: AWS region
+        
+    Returns:
+        Tuple of (new_session, access_key_id, secret_access_key, session_token)
+    """
+    external_id = aws_config.get('assumeRoleExternalId')
+    session_name = aws_config.get('assumeRoleSessionName', 'runwhen-local-session')
+    duration_seconds = aws_config.get('assumeRoleDurationSeconds', 3600)
+    
+    logger.info(f"Assuming role: {mask_string(role_arn)}")
+    
+    sts = session.client('sts', region_name=region)
+    
+    assume_role_params = {
+        'RoleArn': role_arn,
+        'RoleSessionName': session_name,
+        'DurationSeconds': duration_seconds
+    }
+    
+    if external_id:
+        assume_role_params['ExternalId'] = external_id
+        logger.info(f"Using external ID for role assumption")
+    
+    try:
+        response = sts.assume_role(**assume_role_params)
+    except ClientError as e:
+        logger.error(f"Failed to assume role {mask_string(role_arn)}: {e}")
+        raise
+    
+    credentials = response['Credentials']
+    access_key_id = credentials['AccessKeyId']
+    secret_access_key = credentials['SecretAccessKey']
+    session_token = credentials['SessionToken']
+    
+    new_session = boto3.Session(
+        aws_access_key_id=access_key_id,
+        aws_secret_access_key=secret_access_key,
+        aws_session_token=session_token,
+        region_name=region
+    )
+    
+    logger.info(f"Successfully assumed role: {mask_string(role_arn)}")
+    
+    return new_session, access_key_id, secret_access_key, session_token
+
+
+def get_caller_identity(session: boto3.Session) -> Optional[dict]:
+    """
+    Get the caller identity for the current session.
+    
+    Args:
+        session: boto3 session
+        
+    Returns:
+        Dictionary with Account, Arn, and UserId, or None if failed
+    """
+    try:
+        sts = session.client('sts')
+        return sts.get_caller_identity()
+    except Exception as e:
+        logger.warning(f"Failed to get caller identity: {e}")
+        return None
+
+
+def get_account_id(session: boto3.Session) -> Optional[str]:
+    """
+    Get the AWS account ID for the current session.
+    
+    Args:
+        session: boto3 session
+        
+    Returns:
+        Account ID string, or None if failed
+    """
+    identity = get_caller_identity(session)
+    if identity:
+        return identity.get('Account')
+    return None
+
+
+def get_account_alias(session: boto3.Session) -> Optional[str]:
+    """
+    Get the AWS account alias for the current session.
+    
+    Args:
+        session: boto3 session
+        
+    Returns:
+        Account alias string, or None if not set or failed
+    """
+    try:
+        iam = session.client('iam')
+        aliases = iam.list_account_aliases()
+        if aliases.get('AccountAliases'):
+            return aliases['AccountAliases'][0]
+        return None
+    except Exception as e:
+        logger.warning(f"Failed to get AWS account alias: {e}")
+        return None
+
+
+def enumerate_regions(session: boto3.Session, service: str = 'ec2') -> list:
+    """
+    Enumerate all available AWS regions for a service.
+    
+    Args:
+        session: boto3 session
+        service: AWS service name (default: ec2)
+        
+    Returns:
+        List of region names
+    """
+    try:
+        # Use us-east-1 as a reliable region to query available regions
+        ec2 = session.client('ec2', region_name='us-east-1')
+        regions = ec2.describe_regions()
+        return [r['RegionName'] for r in regions.get('Regions', [])]
+    except Exception as e:
+        logger.warning(f"Failed to enumerate AWS regions: {e}")
+        return ['us-east-1']  # Fallback to us-east-1
+
+
+def validate_aws_credentials(session: boto3.Session) -> bool:
+    """
+    Validate AWS credentials by calling STS GetCallerIdentity.
+    
+    Args:
+        session: boto3 session to validate
+        
+    Returns:
+        True if credentials are valid, False otherwise
+    """
+    try:
+        sts = session.client('sts')
+        sts.get_caller_identity()
+        return True
+    except (ClientError, NoCredentialsError) as e:
+        logger.warning(f"AWS credential validation failed: {e}")
+        return False
+    except Exception as e:
+        logger.error(f"Unexpected error validating AWS credentials: {e}")
+        return False
+
+
+def get_aws_environment_vars(
+    access_key_id: Optional[str] = None,
+    secret_access_key: Optional[str] = None,
+    session_token: Optional[str] = None,
+    region: Optional[str] = None
+) -> dict:
+    """
+    Get AWS environment variables for passing to subprocesses.
+    
+    Args:
+        access_key_id: AWS access key ID
+        secret_access_key: AWS secret access key
+        session_token: AWS session token
+        region: AWS region
+        
+    Returns:
+        Dictionary of environment variable names and values
+    """
+    env_vars = {}
+    
+    if access_key_id:
+        env_vars['AWS_ACCESS_KEY_ID'] = access_key_id
+    if secret_access_key:
+        env_vars['AWS_SECRET_ACCESS_KEY'] = secret_access_key
+    if session_token:
+        env_vars['AWS_SESSION_TOKEN'] = session_token
+    if region:
+        env_vars['AWS_DEFAULT_REGION'] = region
+        env_vars['AWS_REGION'] = region
+    
+    return env_vars
+
+
+def discover_eks_clusters(session: boto3.Session, regions: list = None) -> list:
+    """
+    Discover EKS clusters in specified regions.
+    
+    Args:
+        session: boto3 session
+        regions: List of regions to search (default: all available regions)
+        
+    Returns:
+        List of discovered cluster configurations
+    """
+    discovered_clusters = []
+    
+    if not regions:
+        regions = enumerate_regions(session)
+    
+    for region in regions:
+        try:
+            eks = session.client('eks', region_name=region)
+            clusters = eks.list_clusters()
+            
+            for cluster_name in clusters.get('clusters', []):
+                try:
+                    cluster_info = eks.describe_cluster(name=cluster_name)
+                    cluster = cluster_info.get('cluster', {})
+                    
+                    discovered_clusters.append({
+                        'name': cluster_name,
+                        'region': region,
+                        'endpoint': cluster.get('endpoint'),
+                        'arn': cluster.get('arn'),
+                        'status': cluster.get('status'),
+                        'version': cluster.get('version'),
+                        'cluster_type': 'eks'
+                    })
+                    logger.info(f"Discovered EKS cluster: {cluster_name} in {region}")
+                    
+                except ClientError as e:
+                    logger.warning(f"Error describing EKS cluster {cluster_name} in {region}: {e}")
+                    
+        except ClientError as e:
+            logger.debug(f"Error listing EKS clusters in {region}: {e}")
+    
+    logger.info(f"Total EKS clusters discovered: {len(discovered_clusters)}")
+    return discovered_clusters

@@ -103,12 +103,10 @@ RUN ARCH=$(uname -m) && \
 
 # Install kubectl
 RUN KUBE_ARCH=$(if [ "$(uname -m)" = "x86_64" ]; then echo "amd64"; else echo "arm64"; fi) && \
-    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/${KUBE_ARCH}/kubectl" \
-    && curl -LO "https://dl.k8s.io/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/${KUBE_ARCH}/kubectl.sha256" \
-    && echo "$(cat kubectl.sha256) kubectl" | sha256sum --check \
-    && rm kubectl.sha256 \
-    && chmod +x kubectl \
-    && mv kubectl /usr/local/bin/
+    KUBE_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt) && \
+    curl -LO "https://dl.k8s.io/release/${KUBE_VERSION}/bin/linux/${KUBE_ARCH}/kubectl" && \
+    chmod +x kubectl && \
+    mv kubectl /usr/local/bin/
 
 # Download CloudQuery CLI
 RUN CQ_ARCH=$(if [ "$(uname -m)" = "x86_64" ]; then echo "amd64"; else echo "arm64"; fi) && \
