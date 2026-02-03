@@ -23,6 +23,26 @@
 {% elif cluster is defined and cluster.cluster_type | default('') == "aks" and cluster.auth_type | default('') == "azure_managed_identity" %}
     - name: kubeconfig
       workspaceKey: azure:identity@kubeconfig:{{ cluster.resource_group | default('undefined') }}/{{ cluster.name | default('undefined') }}
+{% elif cluster is defined and cluster.cluster_type | default('') == "eks" and cluster.auth_type | default('') == "aws_workload_identity" %}
+    - name: kubeconfig
+      workspaceKey: aws:workload_identity@kubeconfig:{{ cluster.region | default('us-east-1') }}/{{ cluster.cluster_name | default('undefined') }}
+{% elif cluster is defined and cluster.cluster_type | default('') == "eks" and cluster.auth_type | default('') == "aws_explicit" %}
+    - name: kubeconfig
+      workspaceKey: aws:cli@kubeconfig:{{ cluster.region | default('us-east-1') }}/{{ cluster.cluster_name | default('undefined') }}
+    - name: AWS_ACCESS_KEY_ID
+      workspaceKey: k8s:file@secret/{{ custom.aws_credentials_secret_name | default('undefined') }}:AWS_ACCESS_KEY_ID
+    - name: AWS_SECRET_ACCESS_KEY
+      workspaceKey: k8s:file@secret/{{ custom.aws_credentials_secret_name | default('undefined') }}:AWS_SECRET_ACCESS_KEY
+{% elif cluster is defined and cluster.cluster_type | default('') == "eks" and cluster.auth_type | default('') == "aws_secret" %}
+    - name: kubeconfig
+      workspaceKey: aws:cli@kubeconfig:{{ cluster.region | default('us-east-1') }}/{{ cluster.cluster_name | default('undefined') }}
+    - name: AWS_ACCESS_KEY_ID
+      workspaceKey: k8s:file@secret/{{ cluster.auth_secret | default('undefined') }}:AWS_ACCESS_KEY_ID
+    - name: AWS_SECRET_ACCESS_KEY
+      workspaceKey: k8s:file@secret/{{ cluster.auth_secret | default('undefined') }}:AWS_SECRET_ACCESS_KEY
+{% elif cluster is defined and cluster.cluster_type | default('') == "eks" %}
+    - name: kubeconfig
+      workspaceKey: aws:cli@kubeconfig:{{ cluster.region | default('us-east-1') }}/{{ cluster.cluster_name | default('undefined') }}
 {% elif custom is defined and custom.kubeconfig_secret_name | default('') != '' %}
     - name: kubeconfig
       workspaceKey: {{ custom.kubeconfig_secret_name | default('undefined') }}

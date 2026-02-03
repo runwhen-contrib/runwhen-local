@@ -15,22 +15,6 @@ provider "aws" {
   region = var.region
 }
 
-# Configure kubectl provider to access EKS cluster (defined after module.eks)
-# This will be configured after the cluster is created
-data "aws_eks_cluster" "cluster" {
-  name = module.eks.cluster_name
-}
-
-data "aws_eks_cluster_auth" "cluster" {
-  name = module.eks.cluster_name
-}
-
-provider "kubernetes" {
-  host                   = data.aws_eks_cluster.cluster.endpoint
-  cluster_ca_certificate = base64decode(data.aws_eks_cluster.cluster.certificate_authority[0].data)
-  token                  = data.aws_eks_cluster_auth.cluster.token
-}
-
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 data "aws_availability_zones" "available" {}
@@ -192,31 +176,43 @@ resource "aws_s3_bucket_public_access_block" "test_bucket" {
 #------------------------------------------------------------------------------
 # EKS Auth Configuration
 #------------------------------------------------------------------------------
-# Update aws-auth ConfigMap to allow IRSA role to authenticate to the cluster
-resource "kubernetes_config_map_v1_data" "aws_auth" {
-  metadata {
-    name      = "aws-auth"
-    namespace = "kube-system"
+# Use null_resource with eksctl to add IRSA role to aws-auth ConfigMap
+# This avoids the circular dependency with the Kubernetes provider
+resource "null_resource" "update_aws_auth" {
+  triggers = {
+    irsa_role_arn = aws_iam_role.runwhen_irsa.arn
+    cluster_name  = module.eks.cluster_name
   }
 
-  data = {
-    mapRoles = yamlencode(concat(
-      # Keep existing node role mappings
-      [{
-        rolearn  = module.eks.eks_managed_node_groups["default"].iam_role_arn
-        username = "system:node:{{EC2PrivateDNSName}}"
-        groups   = ["system:bootstrappers", "system:nodes"]
-      }],
-      # Add IRSA role for RunWhen Local
-      [{
-        rolearn  = aws_iam_role.runwhen_irsa.arn
-        username = "runwhen-local"
-        groups   = ["system:masters"]
-      }]
-    ))
+  provisioner "local-exec" {
+    command = <<-EOT
+      set -e
+      
+      # Update kubeconfig
+      aws eks update-kubeconfig --name ${module.eks.cluster_name} --region ${var.region} --kubeconfig /tmp/kubeconfig-${module.eks.cluster_name}
+      export KUBECONFIG=/tmp/kubeconfig-${module.eks.cluster_name}
+      
+      # Create identity mapping for IRSA role using eksctl or kubectl
+      if command -v eksctl &> /dev/null; then
+        eksctl create iamidentitymapping \
+          --cluster ${module.eks.cluster_name} \
+          --region ${var.region} \
+          --arn ${aws_iam_role.runwhen_irsa.arn} \
+          --username runwhen-local \
+          --group system:masters \
+          --no-duplicate-arns || echo "IAM identity mapping may already exist"
+      else
+        # Fallback to kubectl edit
+        echo "Manually add this to aws-auth ConfigMap:"
+        echo "- rolearn: ${aws_iam_role.runwhen_irsa.arn}"
+        echo "  username: runwhen-local"
+        echo "  groups:"
+        echo "  - system:masters"
+      fi
+      
+      rm -f /tmp/kubeconfig-${module.eks.cluster_name}
+    EOT
   }
-
-  force = true
 
   depends_on = [
     module.eks,

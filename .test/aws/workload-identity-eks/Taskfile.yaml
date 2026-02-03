@@ -8,6 +8,7 @@ tasks:
     desc: Run full test workflow
     cmds:
       - task: configure-kubectl
+      - task: configure-eks-auth
       - task: setup-k8s-resources
       - task: generate-rwl-config
       - task: run-rwl-discovery
@@ -42,6 +43,55 @@ tasks:
         REGION=$(terraform output -raw region)
         aws eks update-kubeconfig --name "$CLUSTER_NAME" --region "$REGION"
         echo "Configured kubectl for cluster: $CLUSTER_NAME"
+
+  configure-eks-auth:
+    desc: Configure EKS aws-auth ConfigMap to allow IRSA role access
+    dir: terraform
+    cmds:
+      - |
+        set -e
+        
+        CLUSTER_NAME=$(terraform output -raw cluster_name)
+        REGION=$(terraform output -raw region)
+        IRSA_ROLE_ARN=$(terraform output -raw irsa_role_arn)
+        
+        echo "Configuring aws-auth for cluster: $CLUSTER_NAME"
+        echo "IRSA Role ARN: $IRSA_ROLE_ARN"
+        
+        # Update kubeconfig
+        aws eks update-kubeconfig --name "$CLUSTER_NAME" --region "$REGION"
+        
+        # Get current aws-auth ConfigMap and check if our role is already there
+        if kubectl get configmap aws-auth -n kube-system -o yaml | grep -q "$IRSA_ROLE_ARN"; then
+          echo "IRSA role already exists in aws-auth ConfigMap"
+          exit 0
+        fi
+        
+        echo "Adding IRSA role to aws-auth ConfigMap..."
+        
+        # Get current mapRoles
+        kubectl get configmap aws-auth -n kube-system -o yaml > /tmp/aws-auth-backup.yaml
+        CURRENT_MAP=$(kubectl get configmap aws-auth -n kube-system -o jsonpath='{.data.mapRoles}')
+        
+        # Create new role entry
+        NEW_ROLE="- rolearn: $IRSA_ROLE_ARN
+          username: runwhen-local
+          groups:
+          - system:masters"
+        
+        # Combine current and new
+        printf "%s\n%s" "$CURRENT_MAP" "$NEW_ROLE" > /tmp/new-maproles.yaml
+        
+        # Update ConfigMap
+        kubectl create configmap aws-auth \
+          --from-file=mapRoles=/tmp/new-maproles.yaml \
+          --dry-run=client -o yaml | \
+          kubectl apply -f - -n kube-system
+        
+        echo ""
+        echo "Successfully updated aws-auth ConfigMap!"
+        echo "Verifying IRSA role is present:"
+        kubectl get configmap aws-auth -n kube-system -o yaml | grep -A3 "$IRSA_ROLE_ARN"
 
   setup-k8s-resources:
     desc: Create Kubernetes namespace and service account with IRSA annotation
