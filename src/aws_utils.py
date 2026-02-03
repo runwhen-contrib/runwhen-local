@@ -540,9 +540,10 @@ def discover_eks_clusters(session: boto3.Session, regions: list = None) -> list:
                         'arn': cluster.get('arn'),
                         'status': cluster.get('status'),
                         'version': cluster.get('version'),
+                        'certificateAuthority': cluster.get('certificateAuthority', {}).get('data'),
                         'cluster_type': 'eks'
                     })
-                    logger.info(f"Discovered EKS cluster: {cluster_name} in {region}")
+                    logger.info(f"Discovered EKS cluster: {cluster_name} in {region} (endpoint: {cluster.get('endpoint') is not None}, ca: {cluster.get('certificateAuthority', {}).get('data') is not None})")
                     
                 except ClientError as e:
                     logger.warning(f"Error describing EKS cluster {cluster_name} in {region}: {e}")
