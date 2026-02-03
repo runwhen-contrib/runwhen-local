@@ -19,6 +19,7 @@ from utils import transform_client_cloud_config
 from utils import get_proxy_config
 from utils import get_request_verify
 from azure_utils import generate_kubeconfig_for_aks
+from aws_utils import generate_kubeconfig_for_eks
 
 
 debug_suppress_cheat_sheet = os.getenv("WB_DEBUG_SUPPRESS_CHEAT_SHEET")
@@ -481,6 +482,36 @@ def main():
     if not azure_config:
         print("Azure configuration not found in workspace_info.")
 
+    # Check AWS EKS configuration
+    aws_config = None
+    eks_clusters = None
+    eks_kubeconfig_path = None
+    eks_auto_discover = False
+    
+    if cloud_config:
+        aws_config = workspace_info.get("cloudConfig", {}).get("aws")
+        if aws_config:
+            eks_clusters_config = aws_config.get('eksClusters', {})
+            eks_clusters = eks_clusters_config.get('clusters', [])
+            eks_auto_discover = eks_clusters_config.get('autoDiscover', False)
+            
+            # Generate kubeconfig if there are explicit clusters OR if auto-discovery is enabled
+            if (isinstance(eks_clusters, list) and len(eks_clusters) > 0) or eks_auto_discover:
+                try:
+                    generate_kubeconfig_for_eks(eks_clusters, workspace_info)
+                    eks_kubeconfig_path = os.path.expanduser("~/.kube/eks-kubeconfig")
+                    print(f"EKS kubeconfig generated and saved to {eks_kubeconfig_path}")
+                except Exception as e:
+                    print(f"Error generating kubeconfig for EKS clusters: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    eks_kubeconfig_path = None
+            else:
+                print("EKS clusters not found or improperly formatted, and auto-discovery is disabled. Skipping Kubernetes discovery for EKS.")
+    
+    if not aws_config:
+        print("AWS configuration not found in workspace_info.")
+
     # Check Kubernetes configuration in cloudConfig
     kubernetes_config = cloud_config.get('kubernetes') if cloud_config else None
     kubeconfig_path = None
@@ -516,7 +547,7 @@ def main():
             final_kubeconfig_path = None
 
     # Continue only if valid kubeconfig paths are found
-    if (isinstance(aks_clusters, list) and len(aks_clusters) > 0) or auto_discover or kubeconfig_path:
+    if (isinstance(aks_clusters, list) and len(aks_clusters) > 0) or auto_discover or (isinstance(eks_clusters, list) and len(eks_clusters) > 0) or eks_auto_discover or kubeconfig_path:
         final_kubeconfig_path = os.path.expanduser("~/.kube/config")
         kubeconfigs_to_merge = []
 
@@ -524,6 +555,11 @@ def main():
             if os.path.exists(azure_kubeconfig_path):
                 kubeconfigs_to_merge.append(azure_kubeconfig_path)
                 print(f"Merging azure kubeconfig into {final_kubeconfig_path}...")
+
+        if ((isinstance(eks_clusters, list) and len(eks_clusters) > 0) or eks_auto_discover) and eks_kubeconfig_path:
+            if os.path.exists(eks_kubeconfig_path):
+                kubeconfigs_to_merge.append(eks_kubeconfig_path)
+                print(f"Merging EKS kubeconfig into {final_kubeconfig_path}...")
 
         if kubeconfig_path and os.path.exists(kubeconfig_path):
             kubeconfigs_to_merge.append(kubeconfig_path)
@@ -534,7 +570,7 @@ def main():
         else:
             print("No valid kubeconfigs found to merge.")
     else:
-        print("Skipping Kubernetes discovery due to missing kubeconfig or AKS clusters configuration.")
+        print("Skipping Kubernetes discovery due to missing kubeconfig, AKS clusters, or EKS clusters configuration.")
         final_kubeconfig_path = None 
 
     if final_kubeconfig_path:

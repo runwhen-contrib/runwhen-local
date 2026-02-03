@@ -1,12 +1,16 @@
 # AWS EKS Workload Identity (IRSA) Authentication Test
 
-This test validates AWS authentication using EKS IAM Roles for Service Accounts (IRSA).
+This test validates AWS authentication using EKS IAM Roles for Service Accounts (IRSA) while also discovering Kubernetes resources from the same EKS cluster.
 
 ## Authentication Method
 
-- **Auth Type**: `aws_workload_identity`
-- **Configuration**: `useWorkloadIdentity: true` in workspaceInfo.yaml (or auto-detected via `AWS_WEB_IDENTITY_TOKEN_FILE`)
-- **Mechanism**: Uses projected service account token to assume IAM role
+- **EKS Cluster Discovery**: Uses AWS credentials (IRSA) to auto-discover EKS clusters
+- **Kubernetes Discovery**: Uses AWS credentials via EKS to discover K8s resources
+- **AWS Auth Type**: `aws_workload_identity`
+- **Configuration**: 
+  - `useWorkloadIdentity: true` in workspaceInfo.yaml
+  - `eksClusters.autoDiscover: true` to automatically discover all clusters in the region
+- **Mechanism**: Single IRSA service account provides access to both EKS/K8s API and AWS APIs
 
 ## How IRSA Works
 
@@ -33,6 +37,8 @@ The Terraform configuration creates:
 
 ## Running the Test
 
+### Option 1: Using Helm (Recommended)
+
 ```bash
 # Deploy test infrastructure (takes ~15-20 minutes for EKS)
 task build-terraform-infra
@@ -40,11 +46,49 @@ task build-terraform-infra
 # Configure kubectl
 task configure-kubectl
 
-# Deploy RunWhen Local with IRSA service account
-task deploy-runwhen-local
+# Setup Kubernetes resources (namespace, service account with IRSA)
+task setup-k8s-resources
 
-# Run discovery (runs inside the EKS cluster)
+# Generate workspaceInfo.yaml
+task generate-rwl-config
+
+# Get latest RunWhen Local image tag (optional)
+task get-latest-rwl-tag
+
+# Install RunWhen Local via Helm
+task install-rwl-helm
+
+# Watch the discovery process
+kubectl logs -f -n runwhen-local deployment/runwhen-local
+
+# Cleanup (important - EKS clusters are expensive!)
+task cleanup
+```
+
+### Option 2: Using Kubernetes Job
+
+```bash
+# Deploy test infrastructure (takes ~15-20 minutes for EKS)
+task build-terraform-infra
+
+# Configure kubectl
+task configure-kubectl
+
+# Setup Kubernetes resources (namespace, service account with IRSA)
+task setup-k8s-resources
+
+# Generate workspaceInfo.yaml
+task generate-rwl-config
+
+# Build and push RunWhen Local image to ECR
+task build-rwl
+task push-rwl-to-ecr
+
+# Run discovery as a Kubernetes job
 task run-rwl-discovery
+
+# Watch progress
+task watch-job
 
 # Verify results
 task verify-results
@@ -55,16 +99,22 @@ task cleanup
 
 ## Expected Results
 
-- RunWhen Local pod should authenticate using IRSA
-- AWS resources should be discovered without explicit credentials
+- RunWhen Local discovers the EKS cluster using AWS IRSA credentials
+- Kubernetes resources (namespaces, deployments) are discovered from the EKS cluster
+- AWS resources (S3 buckets) are also discovered using the same IRSA credentials
+- No explicit credentials required - single workload identity for both platforms
 - Auth type should be `aws_workload_identity` in generated workspace files
+- Generated kubeconfig uses AWS IAM authenticator (similar to Azure kubelogin)
 
 ## Validation Points
 
 1. Service account is annotated with IAM role ARN
 2. Pod has `AWS_WEB_IDENTITY_TOKEN_FILE` and `AWS_ROLE_ARN` environment variables
-3. AWS SDK uses web identity token provider
-4. Resources are discovered with assumed role permissions
+3. AWS SDK uses web identity token provider for both EKS and AWS resource discovery
+4. EKS cluster is auto-discovered via `eks:ListClusters` and `eks:DescribeCluster` APIs
+5. Kubeconfig is generated dynamically using AWS IAM authenticator
+6. Both Kubernetes and AWS resources are discovered using the same IRSA identity
+7. No explicit cluster configuration needed - auto-discovery handles it
 
 ## Cost Considerations
 

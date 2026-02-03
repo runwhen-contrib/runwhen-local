@@ -196,6 +196,64 @@ When using explicit credentials with assume role, the base credentials must also
 * Currently supported source plugin: AWS [v23.6.0](https://hub.cloudquery.io/plugins/source/cloudquery/aws/v23.6.0/docs)
 * Available resources: See [tables documentation](https://hub.cloudquery.io/plugins/source/cloudquery/aws/v23.6.0/tables)
 
+## EKS Cluster Discovery
+
+When using AWS credentials to discover Kubernetes resources in EKS clusters, configure clusters under `eksClusters` in the workspaceInfo.yaml `cloudConfig`. This follows the same pattern as Azure AKS clusters.
+
+### Explicit Configuration
+
+List each EKS cluster explicitly when `autoDiscover` is `false` or omitted:
+
+```yaml
+cloudConfig:
+  kubernetes: null  # Do not use generic kubernetes config for EKS
+  aws:
+    region: us-east-1
+    useWorkloadIdentity: true  # or other auth method
+    eksClusters:
+      autoDiscover: false
+      clusters:
+        - name: my-eks-cluster
+          server: https://ABC123.gr7.us-east-1.eks.amazonaws.com
+          region: us-east-1
+        - name: prod-eks-cluster
+          server: https://XYZ456.gr7.us-west-2.eks.amazonaws.com
+          region: us-west-2
+```
+
+### Auto-Discovery
+
+Enable `autoDiscover: true` to automatically discover all EKS clusters in the configured region(s):
+
+```yaml
+cloudConfig:
+  aws:
+    region: us-east-1
+    useWorkloadIdentity: true
+    eksClusters:
+      autoDiscover: true
+      discoveryConfig:
+        regions:
+          - us-east-1
+          - us-west-2
+        # All discovered clusters will use the default LOD
+```
+
+**Benefits of auto-discovery:**
+- No need to manually list each cluster
+- Automatically picks up new clusters
+- Can be combined with explicit cluster configurations
+- Useful for development/testing environments
+
+**When to use explicit configuration:**
+- Production environments requiring strict control
+- Limited subset of clusters should be discovered
+- Different authentication methods per cluster
+
+{% hint style="info" %}
+Auto-discovery uses the configured AWS credentials to call `eks:ListClusters` and `eks:DescribeCluster` APIs in the specified regions. Ensure the IAM permissions include these actions.
+{% endhint %}
+
 ## IAM Permissions
 
 The AWS credentials used by RunWhen Local require specific IAM permissions to discover resources. At minimum, the following permissions are recommended:
@@ -216,7 +274,9 @@ The AWS credentials used by RunWhen Local require specific IAM permissions to di
         "cloudwatch:Get*",
         "cloudwatch:List*",
         "iam:Get*",
-        "iam:List*"
+        "iam:List*",
+        "eks:ListClusters",
+        "eks:DescribeCluster"
       ],
       "Resource": "*"
     }
@@ -287,6 +347,29 @@ The supported fields for AWS configuration (`cloudConfig.aws`) are:
 | assumeRoleExternalId      | string  | No       | External ID for role assumption (security best practice) |
 | assumeRoleSessionName     | string  | No       | Session name for role assumption (default: runwhen-local-session) |
 | assumeRoleDurationSeconds | integer | No       | Duration for assumed role session in seconds (default: 3600, max: 43200) |
+| eksClusters               | object  | No       | EKS cluster discovery configuration (see below)       |
+
+### eksClusters Configuration
+
+| Field Name       | Type    | Required | Description                                                 |
+| ---------------- | ------- | -------- | ----------------------------------------------------------- |
+| autoDiscover     | boolean | No       | Automatically discover all EKS clusters (default: false)    |
+| clusters         | array   | No       | List of explicit EKS cluster configurations                 |
+| discoveryConfig  | object  | No       | Configuration for auto-discovery (used when autoDiscover=true) |
+
+### eksClusters.clusters[] Configuration
+
+| Field Name | Type   | Required | Description                                    |
+| ---------- | ------ | -------- | ---------------------------------------------- |
+| name       | string | Yes      | EKS cluster name                               |
+| server     | string | Yes      | EKS cluster API server endpoint                |
+| region     | string | No       | Cluster region (defaults to global aws.region) |
+
+### eksClusters.discoveryConfig Configuration
+
+| Field Name | Type  | Required | Description                                      |
+| ---------- | ----- | -------- | ------------------------------------------------ |
+| regions    | array | No       | List of regions to discover clusters in          |
 
 ## Example Configurations
 

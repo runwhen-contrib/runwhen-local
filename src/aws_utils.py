@@ -15,6 +15,7 @@ import base64
 import logging
 import os
 import sys
+import yaml
 from typing import Any, Optional, Tuple
 
 import boto3
@@ -483,6 +484,7 @@ def get_aws_environment_vars(
     """
     env_vars = {}
     
+    # Pass explicit credentials if provided
     if access_key_id:
         env_vars['AWS_ACCESS_KEY_ID'] = access_key_id
     if secret_access_key:
@@ -492,6 +494,15 @@ def get_aws_environment_vars(
     if region:
         env_vars['AWS_DEFAULT_REGION'] = region
         env_vars['AWS_REGION'] = region
+    
+    # Pass IRSA/Workload Identity environment variables if they exist
+    # This is crucial for CloudQuery to work with EKS IRSA
+    if os.environ.get('AWS_WEB_IDENTITY_TOKEN_FILE'):
+        env_vars['AWS_WEB_IDENTITY_TOKEN_FILE'] = os.environ.get('AWS_WEB_IDENTITY_TOKEN_FILE')
+    if os.environ.get('AWS_ROLE_ARN'):
+        env_vars['AWS_ROLE_ARN'] = os.environ.get('AWS_ROLE_ARN')
+    if os.environ.get('AWS_ROLE_SESSION_NAME'):
+        env_vars['AWS_ROLE_SESSION_NAME'] = os.environ.get('AWS_ROLE_SESSION_NAME')
     
     return env_vars
 
@@ -541,3 +552,171 @@ def discover_eks_clusters(session: boto3.Session, regions: list = None) -> list:
     
     logger.info(f"Total EKS clusters discovered: {len(discovered_clusters)}")
     return discovered_clusters
+
+
+def generate_kubeconfig_for_eks(clusters, workspace_info):
+    """
+    Generate kubeconfig for EKS clusters with AWS IAM authenticator.
+    
+    Args:
+        clusters: List of explicit EKS cluster configurations
+        workspace_info: Workspace configuration dictionary
+    """
+    combined_kubeconfig = {
+        'apiVersion': 'v1',
+        'kind': 'Config',
+        'clusters': [],
+        'contexts': [],
+        'current-context': '',
+        'users': []
+    }
+    
+    # Get AWS session and configuration
+    aws_config = workspace_info.get('cloudConfig', {}).get('aws', {})
+    region = aws_config.get('region', 'us-east-1')
+    
+    # Get or create AWS session
+    session, auth_type, account_id, account_alias, auth_secret = get_aws_credential(workspace_info)
+    
+    # Check if auto-discovery is enabled
+    eks_config = aws_config.get('eksClusters', {})
+    auto_discover = eks_config.get('autoDiscover', False)
+    
+    if auto_discover:
+        logger.info("Auto-discovery enabled for EKS clusters")
+        discovery_config = eks_config.get('discoveryConfig', {})
+        regions = discovery_config.get('regions', [region])
+        discovered_clusters = discover_eks_clusters(session, regions)
+        
+        # Merge discovered clusters with explicitly configured clusters
+        explicit_clusters = clusters if clusters else []
+        all_clusters = explicit_clusters + discovered_clusters
+        
+        logger.info(f"Using {len(explicit_clusters)} explicit clusters + {len(discovered_clusters)} discovered clusters = {len(all_clusters)} total")
+    else:
+        logger.info("Auto-discovery disabled, using only explicitly configured clusters")
+        all_clusters = clusters if clusters else []
+    
+    if not all_clusters:
+        logger.warning("No EKS clusters configured or discovered")
+        return
+    
+    # Generate kubeconfig entries for each cluster
+    for cluster in all_clusters:
+        cluster_name = cluster.get('name')
+        cluster_region = cluster.get('region', region)
+        
+        # Get cluster details if not already available
+        if 'endpoint' not in cluster or 'arn' not in cluster:
+            try:
+                eks = session.client('eks', region_name=cluster_region)
+                cluster_info = eks.describe_cluster(name=cluster_name)
+                cluster_data = cluster_info.get('cluster', {})
+                cluster_endpoint = cluster_data.get('endpoint')
+                cluster_arn = cluster_data.get('arn')
+                cluster_ca_data = cluster_data.get('certificateAuthority', {}).get('data')
+            except ClientError as e:
+                logger.error(f"Failed to describe EKS cluster {cluster_name} in region {cluster_region}: {e}")
+                continue
+        else:
+            # Use provided data (from auto-discovery or explicit config)
+            cluster_endpoint = cluster.get('endpoint') or cluster.get('server')
+            cluster_arn = cluster.get('arn')
+            cluster_ca_data = cluster.get('certificateAuthority')
+            
+            # If still missing endpoint, try to get it
+            if not cluster_endpoint:
+                try:
+                    eks = session.client('eks', region_name=cluster_region)
+                    cluster_info = eks.describe_cluster(name=cluster_name)
+                    cluster_data = cluster_info.get('cluster', {})
+                    cluster_endpoint = cluster_data.get('endpoint')
+                    cluster_arn = cluster_data.get('arn')
+                    cluster_ca_data = cluster_data.get('certificateAuthority', {}).get('data')
+                except ClientError as e:
+                    logger.error(f"Failed to describe EKS cluster {cluster_name} in region {cluster_region}: {e}")
+                    continue
+        
+        if not cluster_endpoint:
+            logger.error(f"No endpoint found for EKS cluster {cluster_name}")
+            continue
+        
+        # Create cluster entry
+        cluster_entry = {
+            'name': cluster_name,
+            'cluster': {
+                'server': cluster_endpoint,
+                'certificate-authority-data': cluster_ca_data,
+                'extensions': [{
+                    'name': 'workspace-builder',
+                    'extension': {
+                        'cluster_type': 'eks',
+                        'cluster_name': cluster_name,
+                        'region': cluster_region,
+                        'account_id': account_id,
+                        'auth_type': auth_type,
+                        'auth_secret': auth_secret,
+                        'cluster_arn': cluster_arn
+                    }
+                }]
+            }
+        }
+        
+        # Add defaultNamespaceLOD if it exists in the cluster config
+        if 'defaultNamespaceLOD' in cluster:
+            cluster_entry['cluster']['extensions'][0]['extension']['defaultNamespaceLOD'] = cluster['defaultNamespaceLOD']
+            logger.info(f"Adding defaultNamespaceLOD to extension for cluster '{cluster_name}': {cluster['defaultNamespaceLOD']}")
+        
+        combined_kubeconfig['clusters'].append(cluster_entry)
+        
+        # Create user entry with AWS IAM authenticator
+        user_name = f"{cluster_name}-user"
+        user_entry = {
+            'name': user_name,
+            'user': {
+                'exec': {
+                    'apiVersion': 'client.authentication.k8s.io/v1beta1',
+                    'command': 'aws',
+                    'args': [
+                        'eks',
+                        'get-token',
+                        '--cluster-name', cluster_name,
+                        '--region', cluster_region
+                    ],
+                    'env': None
+                }
+            }
+        }
+        combined_kubeconfig['users'].append(user_entry)
+        
+        # Create context entry
+        context_name = cluster_name
+        context_entry = {
+            'name': context_name,
+            'context': {
+                'cluster': cluster_name,
+                'user': user_name
+            }
+        }
+        combined_kubeconfig['contexts'].append(context_entry)
+        
+        # Set first cluster as current context
+        if not combined_kubeconfig['current-context']:
+            combined_kubeconfig['current-context'] = context_name
+            logger.info(f"Setting current context to: {context_name}")
+        
+        logger.info(f"Added kubeconfig entry for EKS cluster {cluster_name} in region {cluster_region}")
+    
+    # Save combined kubeconfig to file
+    kubeconfig_dir = os.path.expanduser("~/.kube")
+    if not os.path.exists(kubeconfig_dir):
+        os.makedirs(kubeconfig_dir)
+    
+    kubeconfig_path = os.path.join(kubeconfig_dir, "eks-kubeconfig")
+    try:
+        with open(kubeconfig_path, "w") as kubeconfig_file:
+            yaml.dump(combined_kubeconfig, kubeconfig_file, default_flow_style=False)
+        logger.info(f"Combined kubeconfig saved to {kubeconfig_path}")
+    except IOError as e:
+        logger.error(f"Failed to write kubeconfig file: {e}")
+        raise

@@ -11,23 +11,18 @@ podAnnotations: {}
 nodeSelector: {}
 tolerations: []
 affinity: {}
-
 # Override the container image registry used for all images
 registryOverride: ""
-
 # Set proxy env for RunWhen Local
 proxy:
   enabled: false
   httpProxy: ""
   httpsProxy: ""
   noProxy: "127.0.0.1,localhost,$($KUBERNETES_SERVICE_HOST),pushgateway"
-
 proxyCA: {}
-
 # Platform configuration
 platformType: "kubernetes"
 platformArch: "amd64"
-
 ###############################################################################
 ######################## RunWhen Local Configuration ##########################
 ###############################################################################
@@ -38,19 +33,16 @@ runwhenLocal:
     repository: "runwhen-nonprod-shared/public-images/runwhen-local"
     pullPolicy: Always
     # Update this tag with task get-latest-rwl-tag or set manually
-    tag: "latest"
-
+    tag: "779-merge-dae455a7"
   volumes: {}
   volumeMounts: {}
   tolerations: []
-
   serviceAccount:
     # Use existing service account created by Terraform with IRSA annotation
     create: false
     annotations: {}
     # Name must match the service account created by Terraform
     name: "runwhen-local"
-
   serviceAccountRoles:
     namespaceRole:
       enabled: false
@@ -64,11 +56,9 @@ runwhenLocal:
     advancedClusterRole:
       enabled: false
       rules: []
-
   service:
     type: ClusterIP
     port: 8081
-
   ingress:
     enabled: false
     className: ""
@@ -79,7 +69,6 @@ runwhenLocal:
           - path: /
             pathType: Prefix
     tls: []
-
   resources:
     default:
       requests:
@@ -88,34 +77,27 @@ runwhenLocal:
       limits:
         cpu: "1"
         memory: "1024Mi"
-
   clusterName: "default"
-
   discoveryKubeconfig:
     inClusterAuth:
       enabled: true
       createKubeconfigSecret: false
     secretProvided:
       enabled: false
-
   ### RunWhen Local Runtime Configuration
   autoRun:
     discoveryInterval: 14400 # seconds to wait until a new discovery
     uploadEnabled: false # upload configuration to RunWhen Platform
     uploadMergeMode: "keep-uploaded" # 'keep-uploaded' or 'keep-existing'
-
   terminal:
     disabled: true
-
   debugLogs: false
-
   uploadInfo:
     secretProvided:
       enabled: false
       secretName: "uploadinfo"
       secretKey: uploadInfo.yaml
       secretPath: uploadInfo.yaml
-
   ## workspaceInfo
   workspaceInfo:
     useExistingConfigMap: true
@@ -123,7 +105,6 @@ runwhenLocal:
     configMap:
       create: false
       name: workspace-builder
-
 ###############################################################################
 ######################## Runner Configuration #################################
 ###############################################################################
@@ -151,7 +132,6 @@ runner:
   volumes: {}
   volumeMounts: {}
   tolerations: []
-
   runEnvironment:
     image:
       pullSecret: ""
@@ -166,7 +146,6 @@ runner:
     secretProviders: {}
     secretsProvided: {}
     blockedSecrets: []
-
     deployment:
       annotations: {}
       podAnnotations: {}
@@ -182,7 +161,6 @@ runner:
           limits:
             cpu: "500m"
             memory: "512Mi"
-
     pod:
       runAsJob: false
       annotations: {}
@@ -198,10 +176,8 @@ runner:
           limits:
             cpu: "1"
             memory: "512Mi"
-
     proxy: {}
     proxyCA: {}
-
   resources:
     default:
       requests:
@@ -210,14 +186,12 @@ runner:
       limits:
         cpu: "800m"
         memory: "256Mi"
-
   pushgateway:
     image:
       registry: ""
       repository: "runwhen/pushgateway"
       tag: "v1.10.0"
     tolerations: []
-
 opentelemetry-collector:
   mode: deployment
   configMap:

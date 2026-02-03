@@ -82,17 +82,27 @@ tasks:
         defaultLocation: location-01
         defaultLOD: detailed
         cloudConfig:
+          kubernetes: null
           aws:
             region: "${REGION}"
             useWorkloadIdentity: true
+            eksClusters:
+              autoDiscover: true
+              discoveryConfig:
+                regions:
+                  - ${REGION}
         codeCollections:
+          - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection"
+            branch: "main"
+            codeBundles: ["k8s-namespace-healthcheck", "k8s-deployment-healthcheck"]
           - repoURL: "https://github.com/runwhen-contrib/aws-c7n-codecollection"
             branch: "main"
             codeBundles: ["aws-c7n-s3-health"]
-        custom: []
+        custom:
+          kubernetes_distribution_binary: kubectl
         EOF
         
-        echo "Generated workspaceInfo.yaml with Workload Identity enabled"
+        echo "Generated workspaceInfo.yaml with EKS auto-discovery enabled for region ${REGION}"
 
   get-latest-rwl-tag:
     desc: Find the latest tag stored in the dev registry
@@ -130,10 +140,15 @@ tasks:
 
         echo "Pull Request ID: $PR_ID"
 
-        # Extract and sort tags by timestamp
-        PR_TAG=$(echo "$RESPONSE" | jq -r '.tags' | grep "$PR_ID-" | xargs | tr -d ",")
+        # Extract tags matching the PR ID, excluding architecture-specific tags
+        PR_TAG=$(echo "$RESPONSE" | jq -r '.tags[]' | grep "^$PR_ID-merge-" | grep -v '\-amd64$' | grep -v '\-arm64$' | head -1)
 
-        echo "$PR_TAG is most likely the desired last build image from this branch - updating values.yaml"
+        if [[ -z "$PR_TAG" ]]; then
+          echo "No multi-arch tag found for PR $PR_ID"
+          exit 1
+        fi
+
+        echo "$PR_TAG is the multi-arch tag for this branch - updating values.yaml"
         yq -i ".runwhenLocal.image.tag = \"${PR_TAG}\"" values.yaml
     silent: true
 
