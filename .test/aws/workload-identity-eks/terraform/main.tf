@@ -15,6 +15,22 @@ provider "aws" {
   region = var.region
 }
 
+# Configure kubectl provider to access EKS cluster (defined after module.eks)
+# This will be configured after the cluster is created
+data "aws_eks_cluster" "cluster" {
+  name = module.eks.cluster_name
+}
+
+data "aws_eks_cluster_auth" "cluster" {
+  name = module.eks.cluster_name
+}
+
+provider "kubernetes" {
+  host                   = data.aws_eks_cluster.cluster.endpoint
+  cluster_ca_certificate = base64decode(data.aws_eks_cluster.cluster.certificate_authority[0].data)
+  token                  = data.aws_eks_cluster_auth.cluster.token
+}
+
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 data "aws_availability_zones" "available" {}
@@ -171,4 +187,39 @@ resource "aws_s3_bucket_public_access_block" "test_bucket" {
   block_public_policy     = true
   ignore_public_acls      = true
   restrict_public_buckets = true
+}
+
+#------------------------------------------------------------------------------
+# EKS Auth Configuration
+#------------------------------------------------------------------------------
+# Update aws-auth ConfigMap to allow IRSA role to authenticate to the cluster
+resource "kubernetes_config_map_v1_data" "aws_auth" {
+  metadata {
+    name      = "aws-auth"
+    namespace = "kube-system"
+  }
+
+  data = {
+    mapRoles = yamlencode(concat(
+      # Keep existing node role mappings
+      [{
+        rolearn  = module.eks.eks_managed_node_groups["default"].iam_role_arn
+        username = "system:node:{{EC2PrivateDNSName}}"
+        groups   = ["system:bootstrappers", "system:nodes"]
+      }],
+      # Add IRSA role for RunWhen Local
+      [{
+        rolearn  = aws_iam_role.runwhen_irsa.arn
+        username = "runwhen-local"
+        groups   = ["system:masters"]
+      }]
+    ))
+  }
+
+  force = true
+
+  depends_on = [
+    module.eks,
+    aws_iam_role.runwhen_irsa
+  ]
 }
