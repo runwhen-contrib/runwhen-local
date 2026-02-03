@@ -140,13 +140,44 @@ tasks:
 
         echo "Pull Request ID: $PR_ID"
 
-        # Extract tags matching the PR ID, excluding architecture-specific tags
-        PR_TAG=$(echo "$RESPONSE" | jq -r '.tags[]' | grep "^$PR_ID-merge-" | grep -v '\-amd64$' | grep -v '\-arm64$' | head -1)
-
-        if [[ -z "$PR_TAG" ]]; then
+        # Extract all tags matching the PR ID, excluding architecture-specific tags
+        MATCHING_TAGS=$(echo "$RESPONSE" | jq -r '.tags[]' | grep "^$PR_ID-merge-" | grep -v '\-amd64$' | grep -v '\-arm64$')
+        
+        if [[ -z "$MATCHING_TAGS" ]]; then
           echo "No multi-arch tag found for PR $PR_ID"
           exit 1
         fi
+        
+        echo "Found matching tags:"
+        echo "$MATCHING_TAGS"
+        
+        # Extract commit hashes from tags and find the latest one in git history
+        LATEST_COMMIT=""
+        LATEST_TAG=""
+        
+        for TAG in $MATCHING_TAGS; do
+          # Extract commit hash from tag (format: PR_ID-merge-COMMITHASH)
+          COMMIT_HASH=$(echo "$TAG" | sed "s/^$PR_ID-merge-//")
+          
+          # Check if this commit exists in git and get its timestamp
+          if git cat-file -e "$COMMIT_HASH" 2>/dev/null; then
+            COMMIT_TIME=$(git show -s --format=%ct "$COMMIT_HASH" 2>/dev/null || echo 0)
+            
+            # Keep track of the latest commit
+            if [[ -z "$LATEST_COMMIT" ]] || [[ "$COMMIT_TIME" -gt "$LATEST_COMMIT" ]]; then
+              LATEST_COMMIT="$COMMIT_TIME"
+              LATEST_TAG="$TAG"
+            fi
+          fi
+        done
+        
+        # If we couldn't find any commits in git, just use the last tag in the list
+        if [[ -z "$LATEST_TAG" ]]; then
+          echo "Warning: Could not determine latest commit from git history, using last tag in list"
+          LATEST_TAG=$(echo "$MATCHING_TAGS" | tail -1)
+        fi
+        
+        PR_TAG="$LATEST_TAG"
 
         echo "$PR_TAG is the multi-arch tag for this branch - updating values.yaml"
         yq -i ".runwhenLocal.image.tag = \"${PR_TAG}\"" values.yaml

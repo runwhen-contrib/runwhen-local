@@ -610,39 +610,23 @@ def generate_kubeconfig_for_eks(clusters, workspace_info):
         cluster_name = cluster.get('name')
         cluster_region = cluster.get('region', region)
         
-        # Get cluster details if not already available
-        if 'endpoint' not in cluster or 'arn' not in cluster:
-            try:
-                eks = session.client('eks', region_name=cluster_region)
-                cluster_info = eks.describe_cluster(name=cluster_name)
-                cluster_data = cluster_info.get('cluster', {})
-                cluster_endpoint = cluster_data.get('endpoint')
-                cluster_arn = cluster_data.get('arn')
-                cluster_ca_data = cluster_data.get('certificateAuthority', {}).get('data')
-            except ClientError as e:
-                logger.error(f"Failed to describe EKS cluster {cluster_name} in region {cluster_region}: {e}")
-                continue
-        else:
-            # Use provided data (from auto-discovery or explicit config)
-            cluster_endpoint = cluster.get('endpoint') or cluster.get('server')
-            cluster_arn = cluster.get('arn')
-            cluster_ca_data = cluster.get('certificateAuthority')
+        # Always fetch full cluster details from EKS API
+        try:
+            eks = session.client('eks', region_name=cluster_region)
+            cluster_info = eks.describe_cluster(name=cluster_name)
+            cluster_data = cluster_info.get('cluster', {})
+            cluster_endpoint = cluster_data.get('endpoint')
+            cluster_arn = cluster_data.get('arn')
+            cluster_ca_data = cluster_data.get('certificateAuthority', {}).get('data')
             
-            # If still missing endpoint, try to get it
-            if not cluster_endpoint:
-                try:
-                    eks = session.client('eks', region_name=cluster_region)
-                    cluster_info = eks.describe_cluster(name=cluster_name)
-                    cluster_data = cluster_info.get('cluster', {})
-                    cluster_endpoint = cluster_data.get('endpoint')
-                    cluster_arn = cluster_data.get('arn')
-                    cluster_ca_data = cluster_data.get('certificateAuthority', {}).get('data')
-                except ClientError as e:
-                    logger.error(f"Failed to describe EKS cluster {cluster_name} in region {cluster_region}: {e}")
-                    continue
+            logger.info(f"Fetched cluster details for {cluster_name}: endpoint={cluster_endpoint is not None}, ca_data={cluster_ca_data is not None}")
+            
+        except ClientError as e:
+            logger.error(f"Failed to describe EKS cluster {cluster_name} in region {cluster_region}: {e}")
+            continue
         
-        if not cluster_endpoint:
-            logger.error(f"No endpoint found for EKS cluster {cluster_name}")
+        if not cluster_endpoint or not cluster_ca_data:
+            logger.error(f"Missing required data for EKS cluster {cluster_name}: endpoint={cluster_endpoint is not None}, ca_data={cluster_ca_data is not None}")
             continue
         
         # Create cluster entry

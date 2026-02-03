@@ -33,7 +33,7 @@ runwhenLocal:
     repository: "runwhen-nonprod-shared/public-images/runwhen-local"
     pullPolicy: Always
     # Update this tag with task get-latest-rwl-tag or set manually
-    tag: "779-merge-37feab71"
+    tag: "779-merge-87983e74"
   volumes: {}
   volumeMounts: {}
   tolerations: []
