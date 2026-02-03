@@ -573,10 +573,14 @@ def generate_kubeconfig_for_eks(clusters, workspace_info):
     
     # Get AWS session and configuration
     aws_config = workspace_info.get('cloudConfig', {}).get('aws', {})
-    region = aws_config.get('region', 'us-east-1')
     
     # Get or create AWS session
-    session, auth_type, account_id, account_alias, auth_secret = get_aws_credential(workspace_info)
+    # get_aws_credential returns: session, region, akid, sak, stkn, auth_type, auth_secret
+    session, region, _, _, _, auth_type, auth_secret = get_aws_credential(workspace_info)
+    
+    # Get account info
+    account_id = get_account_id(session)
+    account_alias = get_account_alias(session)
     
     # Check if auto-discovery is enabled
     eks_config = aws_config.get('eksClusters', {})

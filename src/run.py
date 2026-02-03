@@ -499,8 +499,14 @@ def main():
             if (isinstance(eks_clusters, list) and len(eks_clusters) > 0) or eks_auto_discover:
                 try:
                     generate_kubeconfig_for_eks(eks_clusters, workspace_info)
-                    eks_kubeconfig_path = os.path.expanduser("~/.kube/eks-kubeconfig")
-                    print(f"EKS kubeconfig generated and saved to {eks_kubeconfig_path}")
+                    eks_kubeconfig_path_candidate = os.path.expanduser("~/.kube/eks-kubeconfig")
+                    # Only use the path if the file was actually created
+                    if os.path.exists(eks_kubeconfig_path_candidate):
+                        eks_kubeconfig_path = eks_kubeconfig_path_candidate
+                        print(f"EKS kubeconfig generated and saved to {eks_kubeconfig_path}")
+                    else:
+                        print(f"Warning: EKS kubeconfig was not created at {eks_kubeconfig_path_candidate}")
+                        eks_kubeconfig_path = None
                 except Exception as e:
                     print(f"Error generating kubeconfig for EKS clusters: {e}")
                     import traceback
