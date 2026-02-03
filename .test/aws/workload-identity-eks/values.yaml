@@ -11,16 +11,22 @@ podAnnotations: {}
 nodeSelector: {}
 tolerations: []
 affinity: {}
-# Override the container image registry used for all images
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - all
+  readOnlyRootFilesystem: false
+  seccompProfile:
+    type: "RuntimeDefault"
+podSecurityContext: {}
 registryOverride: ""
-# Set proxy env for RunWhen Local
 proxy:
   enabled: false
   httpProxy: ""
   httpsProxy: ""
-  noProxy: "127.0.0.1,localhost,$($KUBERNETES_SERVICE_HOST),pushgateway"
+  noProxy: "127.0.0.1,localhost,$($KUBERNETES_SERVICE_HOST)"
 proxyCA: {}
-# Platform configuration
 platformType: "kubernetes"
 platformArch: "amd64"
 ###############################################################################
@@ -32,16 +38,13 @@ runwhenLocal:
     registry: "us-docker.pkg.dev"
     repository: "runwhen-nonprod-shared/public-images/runwhen-local"
     pullPolicy: Always
-    # Update this tag with task get-latest-rwl-tag or set manually
-    tag: "779-merge-674f1ce3"
   volumes: {}
   volumeMounts: {}
   tolerations: []
   serviceAccount:
-    # Use existing service account created by Terraform with IRSA annotation
-    create: false
-    annotations: {}
-    # Name must match the service account created by Terraform
+    create: true
+    annotations:
+      eks.amazonaws.com/role-arn: "arn:aws:iam::982534371594:role/runwhen-irsa-test"
     name: "runwhen-local"
   serviceAccountRoles:
     namespaceRole:
@@ -77,28 +80,29 @@ runwhenLocal:
       limits:
         cpu: "1"
         memory: "1024Mi"
-  clusterName: "default"
+  clusterName: "runwhen-irsa-test-test"
   discoveryKubeconfig:
     inClusterAuth:
       enabled: true
       createKubeconfigSecret: false
     secretProvided:
       enabled: false
-  ### RunWhen Local Runtime Configuration
   autoRun:
-    discoveryInterval: 14400 # seconds to wait until a new discovery
-    uploadEnabled: false # upload configuration to RunWhen Platform
-    uploadMergeMode: "keep-uploaded" # 'keep-uploaded' or 'keep-existing'
+    discoveryInterval: 14400
+    uploadEnabled: true
+    uploadMergeMode: "keep-uploaded"
   terminal:
     disabled: true
   debugLogs: false
+  cheatSheet:
+    disabled: true
+  extraEnv: []
   uploadInfo:
     secretProvided:
-      enabled: false
+      enabled: true
       secretName: "uploadinfo"
       secretKey: uploadInfo.yaml
       secretPath: uploadInfo.yaml
-  ## workspaceInfo
   workspaceInfo:
     useExistingConfigMap: true
     existingConfigMapName: "workspaceinfo"
@@ -109,10 +113,15 @@ runwhenLocal:
 ######################## Runner Configuration #################################
 ###############################################################################
 runner:
-  enabled: false
+  enabled: true
   log:
     level: info
     format: console
+  debugLogs: true
+  codeCollections:
+    - repoURL: https://github.com/runwhen-contrib/rw-cli-codecollection
+      branch: main
+      workerReplicas: 4
   configMap:
     create: true
     name: runner-config
@@ -123,9 +132,9 @@ runner:
     registry: ""
     repository: ""
     tag: ""
-  controlAddr: "https://runner.beta.runwhen.com"
+  controlAddr: "https://runner.test.runwhen.com"
   metrics:
-    url: "https://runner-cortex-tenant.beta.runwhen.com/push"
+    url: "https://runner-cortex-tenant.test.runwhen.com/push"
   securityContext: {}
   podSecurityContext: {}
   extraEnv: {}
@@ -147,6 +156,8 @@ runner:
     secretsProvided: {}
     blockedSecrets: []
     deployment:
+      # CRITICAL: Use runwhen-local SA which has IRSA annotation
+      serviceAccount: "runwhen-local"
       annotations: {}
       podAnnotations: {}
       affinity: {}
@@ -156,13 +167,15 @@ runner:
       resources:
         default:
           requests:
-            cpu: "50m"
-            memory: "64Mi"
-          limits:
-            cpu: "500m"
+            cpu: "100m"
             memory: "512Mi"
+          limits:
+            cpu: "1"
+            memory: "1024Mi"
     pod:
       runAsJob: false
+      # CRITICAL: Use runwhen-local SA which has IRSA annotation
+      serviceAccount: "runwhen-local"
       annotations: {}
       affinity: {}
       nodeName: ""
@@ -171,7 +184,7 @@ runner:
       resources:
         default:
           requests:
-            cpu: "300m"
+            cpu: "50m"
             memory: "128Mi"
           limits:
             cpu: "1"
@@ -181,26 +194,24 @@ runner:
   resources:
     default:
       requests:
-        cpu: "200m"
+        cpu: "50m"
         memory: "64Mi"
       limits:
-        cpu: "800m"
+        cpu: "600m"
         memory: "256Mi"
-  pushgateway:
-    image:
-      registry: ""
-      repository: "runwhen/pushgateway"
-      tag: "v1.10.0"
-    tolerations: []
+###############################################################################
+######################## OpenTelemetry Collector ##############################
+###############################################################################
 opentelemetry-collector:
+  fullnameOverride: otel-collector
   mode: deployment
   configMap:
     create: false
     existingName: "otel-collector"
   image:
-    repository: "runwhen/opentelemetry-collector"
+    repository: "otel/opentelemetry-collector"
     pullPolicy: IfNotPresent
-    tag: "0.109.0"
+    tag: "0.127.0"
   imagePullSecrets: []
   command:
     name: "otelcol"
@@ -222,5 +233,13 @@ opentelemetry-collector:
       cpu: "10m"
       memory: "32Mi"
     limits:
-      cpu: "60m"
+      cpu: "50m"
       memory: "64Mi"
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - all
+    readOnlyRootFilesystem: true
+    seccompProfile:
+      type: "RuntimeDefault"

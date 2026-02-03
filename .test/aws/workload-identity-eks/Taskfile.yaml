@@ -201,6 +201,10 @@ tasks:
         echo "Found matching tags:"
         echo "$MATCHING_TAGS"
         
+        # Fetch all commits to ensure we have the latest
+        echo "Fetching latest commits from origin..."
+        git fetch origin --quiet 2>/dev/null || true
+        
         # Extract commit hashes from tags and find the latest one in git history
         LATEST_COMMIT=""
         LATEST_TAG=""
@@ -209,15 +213,20 @@ tasks:
           # Extract commit hash from tag (format: PR_ID-merge-COMMITHASH)
           COMMIT_HASH=$(echo "$TAG" | sed "s/^$PR_ID-merge-//")
           
-          # Check if this commit exists in git and get its timestamp
-          if git cat-file -e "$COMMIT_HASH" 2>/dev/null; then
-            COMMIT_TIME=$(git show -s --format=%ct "$COMMIT_HASH" 2>/dev/null || echo 0)
+          # Check if this commit exists in git (check local and remote refs)
+          if git cat-file -e "$COMMIT_HASH" 2>/dev/null || git cat-file -e "origin/$COMMIT_HASH" 2>/dev/null; then
+            COMMIT_TIME=$(git show -s --format=%ct "$COMMIT_HASH" 2>/dev/null || git show -s --format=%ct "origin/$COMMIT_HASH" 2>/dev/null || echo 0)
+            COMMIT_DATE=$(date -d "@$COMMIT_TIME" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || date -r "$COMMIT_TIME" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo "unknown")
+            
+            echo "  $TAG -> commit $COMMIT_HASH ($COMMIT_DATE)"
             
             # Keep track of the latest commit
             if [[ -z "$LATEST_COMMIT" ]] || [[ "$COMMIT_TIME" -gt "$LATEST_COMMIT" ]]; then
               LATEST_COMMIT="$COMMIT_TIME"
               LATEST_TAG="$TAG"
             fi
+          else
+            echo "  $TAG -> commit $COMMIT_HASH (not found in git)"
           fi
         done
         
@@ -225,6 +234,8 @@ tasks:
         if [[ -z "$LATEST_TAG" ]]; then
           echo "Warning: Could not determine latest commit from git history, using last tag in list"
           LATEST_TAG=$(echo "$MATCHING_TAGS" | tail -1)
+        else
+          echo "Selected latest: $LATEST_TAG"
         fi
         
         PR_TAG="$LATEST_TAG"
@@ -248,6 +259,11 @@ tasks:
       - |
         NAMESPACE=$(terraform output -raw k8s_namespace)
         SERVICE_ACCOUNT=$(terraform output -raw k8s_service_account)
+        IRSA_ROLE_ARN=$(terraform output -raw irsa_role_arn)
+        
+        # Update values.yaml with dynamic IRSA role ARN
+        echo "Updating values.yaml with IRSA role: $IRSA_ROLE_ARN"
+        yq -i ".runwhenLocal.serviceAccount.annotations.\"eks.amazonaws.com/role-arn\" = \"${IRSA_ROLE_ARN}\"" ../values.yaml
         
         # Create namespace
         kubectl create namespace $NAMESPACE || true
@@ -255,6 +271,15 @@ tasks:
         # Create workspaceInfo configmap
         kubectl create configmap workspaceinfo --from-file=../workspaceInfo.yaml -n $NAMESPACE || \
           (kubectl delete configmap workspaceinfo -n $NAMESPACE && kubectl create configmap workspaceinfo --from-file=../workspaceInfo.yaml -n $NAMESPACE)
+        
+        # Create uploadInfo secret (if file exists)
+        if [ -f ../uploadInfo.yaml ]; then
+          echo "Creating uploadInfo secret..."
+          kubectl create secret generic uploadinfo --from-file=uploadInfo.yaml=../uploadInfo.yaml -n $NAMESPACE || \
+            (kubectl delete secret uploadinfo -n $NAMESPACE && kubectl create secret generic uploadinfo --from-file=uploadInfo.yaml=../uploadInfo.yaml -n $NAMESPACE)
+        else
+          echo "uploadInfo.yaml not found, skipping uploadInfo secret creation"
+        fi
         
         # Create runner registration token secret
         kubectl create secret generic runner-registration-token --from-literal=token="$RUNNER_TOKEN" -n $NAMESPACE || true
@@ -266,7 +291,9 @@ tasks:
         # Install RunWhen Local
         helm install runwhen-local runwhen-contrib/runwhen-local -f ../values.yaml -n $NAMESPACE
         
+        echo ""
         echo "RunWhen Local installed successfully. Check with: kubectl get pods -n $NAMESPACE"
+        echo "Service account 'runwhen-local' created with IRSA annotation"
     silent: true
 
   delete-rwl-helm:
@@ -286,18 +313,40 @@ tasks:
     cmds:
       - |
         NAMESPACE=$(terraform output -raw k8s_namespace)
+        IRSA_ROLE_ARN=$(terraform output -raw irsa_role_arn)
+        
+        # Update values.yaml with dynamic IRSA role ARN
+        echo "Updating values.yaml with IRSA role: $IRSA_ROLE_ARN"
+        yq -i ".runwhenLocal.serviceAccount.annotations.\"eks.amazonaws.com/role-arn\" = \"${IRSA_ROLE_ARN}\"" ../values.yaml
+        
+        # Delete existing service account so Helm can recreate it with IRSA annotation
+        echo "Deleting existing runwhen-local service account to allow Helm to manage it..."
+        kubectl delete serviceaccount runwhen-local -n $NAMESPACE 2>/dev/null || echo "Service account doesn't exist, will be created by Helm"
         
         # Update workspaceInfo configmap
         kubectl delete configmap workspaceinfo -n $NAMESPACE || true
         kubectl create configmap workspaceinfo --from-file=../workspaceInfo.yaml -n $NAMESPACE
         
+        # Update uploadInfo secret (if file exists)
+        if [ -f ../uploadInfo.yaml ]; then
+          echo "Updating uploadInfo secret..."
+          kubectl delete secret uploadinfo -n $NAMESPACE || true
+          kubectl create secret generic uploadinfo --from-file=uploadInfo.yaml=../uploadInfo.yaml -n $NAMESPACE
+        fi
+        
         # Upgrade Helm release
         helm upgrade runwhen-local runwhen-contrib/runwhen-local -f ../values.yaml -n $NAMESPACE
         
-        # Restart pods
+        # Restart ALL RunWhen Local pods to pick up IRSA annotation
+        echo "Restarting pods to pick up IRSA credentials..."
         kubectl delete pod -l app.kubernetes.io/name=runwhen-local -n $NAMESPACE
+        kubectl delete pod -l app.kubernetes.io/instance=runwhen-local -n $NAMESPACE
         
+        echo ""
         echo "RunWhen Local upgraded successfully"
+        echo "Waiting for pods to restart..."
+        sleep 5
+        kubectl get pods -n $NAMESPACE
     silent: true
 
   push-rwl-to-ecr:

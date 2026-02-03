@@ -116,7 +116,9 @@ resource "aws_iam_role" "runwhen_irsa" {
         Condition = {
           StringEquals = {
             "${module.eks.oidc_provider}:aud" = "sts.amazonaws.com"
-            "${module.eks.oidc_provider}:sub" = "system:serviceaccount:${var.k8s_namespace}:${var.k8s_service_account}"
+          }
+          StringLike = {
+            "${module.eks.oidc_provider}:sub" = "system:serviceaccount:${var.k8s_namespace}:*"
           }
         }
       }
