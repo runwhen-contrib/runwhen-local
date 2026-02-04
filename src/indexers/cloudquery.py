@@ -1397,15 +1397,19 @@ def get_auth_type(platform_name, platform_config_data: dict[str,Any]):
         elif platform_config_data.get("awsSecretName"):
             auth_secret = platform_config_data.get("awsSecretName")
             auth_type = "aws_secret"
-        elif platform_config_data.get("useWorkloadIdentity") or os.environ.get('AWS_WEB_IDENTITY_TOKEN_FILE'):
-            auth_type = "aws_workload_identity"
+        elif platform_config_data.get("useWorkloadIdentity") or os.environ.get('AWS_WEB_IDENTITY_TOKEN_FILE') or os.environ.get('AWS_CONTAINER_CREDENTIALS_FULL_URI'):
+            # Determine which workload identity method
+            if os.environ.get('AWS_CONTAINER_CREDENTIALS_FULL_URI'):
+                auth_type = "aws_pod_identity"
+            else:
+                auth_type = "aws_workload_identity"
         elif platform_config_data.get("assumeRoleArn"):
             auth_type = "aws_assume_role"
         else:
             auth_type = "aws_default_chain"
         
         # Check for assume role modifier (when combined with other auth methods)
-        if platform_config_data.get("assumeRoleArn") and auth_type not in ("aws_assume_role", "aws_explicit_assume_role", "aws_secret_assume_role", "aws_workload_identity_assume_role"):
+        if platform_config_data.get("assumeRoleArn") and auth_type not in ("aws_assume_role", "aws_explicit_assume_role", "aws_secret_assume_role", "aws_workload_identity_assume_role", "aws_pod_identity_assume_role"):
             auth_type = auth_type + "_assume_role"
             
     return auth_type, auth_secret

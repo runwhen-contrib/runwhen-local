@@ -6,6 +6,7 @@
    - aws_explicit: Explicit access keys from workspaceInfo.yaml
    - aws_secret: Credentials from Kubernetes secret
    - aws_workload_identity: EKS IRSA (IAM Roles for Service Accounts)
+   - aws_pod_identity: EKS Pod Identity
    - aws_assume_role: IAM role assumption
    - aws_default_chain: Default AWS credential chain
    
@@ -13,6 +14,7 @@
    - aws_explicit_assume_role
    - aws_secret_assume_role
    - aws_workload_identity_assume_role
+   - aws_pod_identity_assume_role
 #}
 
 {# EKS cluster with explicit credentials (via custom secret reference) #}
@@ -33,6 +35,9 @@
 {% elif cluster is defined and cluster.cluster_type | default('') == "eks" and cluster.auth_type | default('') == "aws_workload_identity" %}
     - name: aws_credentials
       workspaceKey: aws:irsa@cli
+{% elif cluster is defined and cluster.cluster_type | default('') == "eks" and cluster.auth_type | default('') == "aws_pod_identity" %}
+    - name: aws_credentials
+      workspaceKey: aws:pod-identity@cli
 {% elif cluster is defined and cluster.cluster_type | default('') == "eks" and cluster.auth_type | default('') == "aws_assume_role" %}
     - name: aws_credentials
       workspaceKey: aws:assume_role@cli
@@ -60,6 +65,9 @@
 {% elif match_resource is defined and match_resource.auth_type | default('') == "aws_workload_identity" %}
     - name: aws_credentials
       workspaceKey: aws:irsa@cli
+{% elif match_resource is defined and match_resource.auth_type | default('') == "aws_pod_identity" %}
+    - name: aws_credentials
+      workspaceKey: aws:pod-identity@cli
 {% elif match_resource is defined and match_resource.auth_type | default('') == "aws_assume_role" %}
     - name: aws_credentials
       workspaceKey: aws:assume_role@cli
@@ -91,6 +99,11 @@
 {% elif match_resource is defined and match_resource.auth_type | default('') == "aws_workload_identity_assume_role" %}
     - name: aws_credentials
       workspaceKey: aws:irsa@cli
+    - name: AWS_ROLE_ARN
+      value: "{{ match_resource.assume_role_arn | default('undefined') }}"
+{% elif match_resource is defined and match_resource.auth_type | default('') == "aws_pod_identity_assume_role" %}
+    - name: aws_credentials
+      workspaceKey: aws:pod-identity@cli
     - name: AWS_ROLE_ARN
       value: "{{ match_resource.assume_role_arn | default('undefined') }}"
 

@@ -32,9 +32,39 @@ secretsProvided:
 
 **Description:** Uses EKS IRSA (IAM Roles for Service Accounts). No additional credentials needed - uses projected service account token.
 
+**Environment Variables Used:**
+- `AWS_WEB_IDENTITY_TOKEN_FILE`
+- `AWS_ROLE_ARN`
+- `AWS_ROLE_SESSION_NAME`
+
 ---
 
-### 1.2 Explicit Access Keys
+### 1.2 Pod Identity
+
+**Pattern:** `aws:pod-identity@cli`
+
+**Auth Type:** `aws_pod_identity`
+
+**Example:**
+```yaml
+secretsProvided:
+  - name: aws_credentials
+    workspaceKey: aws:pod-identity@cli
+```
+
+**Description:** Uses EKS Pod Identity (newer alternative to IRSA). No additional credentials needed - credentials provided via EKS Pod Identity Agent.
+
+**Environment Variables Used:**
+- `AWS_CONTAINER_CREDENTIALS_FULL_URI`
+- `AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE`
+
+**Requirements:**
+- EKS 1.24+ with Pod Identity Agent addon enabled
+- PodIdentityAssociation linking service account to IAM role
+
+---
+
+### 1.3 Explicit Access Keys
 
 **Pattern:** `aws:access_key@cli`
 
@@ -70,7 +100,7 @@ secretsProvided:
 
 ---
 
-### 1.3 Assume Role
+### 1.4 Assume Role
 
 **Pattern:** `aws:assume_role@cli`
 
@@ -125,7 +155,7 @@ secretsProvided:
 
 ---
 
-### 1.5 IRSA + Assume Role
+### 1.6 IRSA + Assume Role
 
 **Pattern:** `aws:irsa@cli`
 
@@ -144,7 +174,26 @@ secretsProvided:
 
 ---
 
-### 1.6 Default Credential Chain
+### 1.7 Pod Identity + Assume Role
+
+**Pattern:** `aws:pod-identity@cli` + `AWS_ROLE_ARN`
+
+**Auth Type:** `aws_pod_identity_assume_role`
+
+**Example:**
+```yaml
+secretsProvided:
+  - name: aws_credentials
+    workspaceKey: aws:pod-identity@cli
+  - name: AWS_ROLE_ARN
+    value: "arn:aws:iam::123456789012:role/my-cross-account-role"
+```
+
+**Description:** Uses EKS Pod Identity as base credentials, then assumes an additional IAM role. Useful for cross-account access or additional privilege escalation.
+
+---
+
+### 1.8 Default Credential Chain
 
 **Pattern:** `aws:default@cli`
 
@@ -167,6 +216,38 @@ Used for accessing EKS clusters for Kubernetes operations.
 
 ### 2.1 IRSA (Workload Identity)
 
+**Pattern:** `aws:irsa@eks:{cluster_name}:{region}`
+
+**Auth Type:** `aws_workload_identity`
+
+**Example:**
+```yaml
+secretsProvided:
+  - name: aws_credentials
+    workspaceKey: aws:irsa@eks:my-eks-cluster:us-west-2
+```
+
+**Description:** Uses IRSA for EKS cluster authentication. Automatically generates kubeconfig.
+
+---
+
+### 2.2 Pod Identity
+
+**Pattern:** `aws:pod-identity@eks:{cluster_name}:{region}`
+
+**Auth Type:** `aws_pod_identity`
+
+**Example:**
+```yaml
+secretsProvided:
+  - name: aws_credentials
+    workspaceKey: aws:pod-identity@eks:my-eks-cluster:us-west-2
+```
+
+**Description:** Uses Pod Identity for EKS cluster authentication. Automatically generates kubeconfig.
+
+---
+
 **Pattern:** `aws:workload_identity@kubeconfig:{region}/{cluster_name}`
 
 **Auth Type:** `aws_workload_identity`
@@ -186,7 +267,7 @@ secretsProvided:
 
 ---
 
-### 2.2 Explicit Access Keys (EKS)
+### 2.3 Explicit Access Keys (EKS)
 
 **Pattern:** `aws:cli@kubeconfig:{region}/{cluster_name}`
 
@@ -211,7 +292,7 @@ secretsProvided:
 
 ---
 
-### 2.3 Kubernetes Secret (EKS)
+### 2.4 Kubernetes Secret (EKS)
 
 **Pattern:** `aws:cli@kubeconfig:{region}/{cluster_name}`
 
@@ -232,7 +313,7 @@ secretsProvided:
 
 ---
 
-### 2.4 Generic EKS (Fallback)
+### 2.5 Generic EKS (Fallback)
 
 **Pattern:** `aws:cli@kubeconfig:{region}/{cluster_name}`
 

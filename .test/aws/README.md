@@ -35,15 +35,45 @@ Tests AWS authentication using IAM role assumption (STS AssumeRole). Creates an 
 - `workspaceInfo.yaml` - Uses `assumeRoleArn` and `assumeRoleExternalId`
 - `Taskfile.yaml` - Includes `test-assume-role` task to verify setup
 
-### `workload-identity-eks/`
+### `irsa-eks/`
 Tests AWS authentication using EKS IAM Roles for Service Accounts (IRSA). Creates a full EKS cluster with OIDC provider and IRSA-enabled service account.
 
 **Key files:**
 - `terraform/main.tf` - Creates VPC, EKS cluster, and IRSA role
-- `workspaceInfo.yaml` - Uses `useWorkloadIdentity: true`
+- `workspaceInfo.yaml` - Uses `useWorkloadIdentity: true` for IRSA
 - `Taskfile.yaml` - Full EKS deployment and test workflow
+- `values.yaml` - Helm values with IRSA annotation
 
 **Note:** This test creates an EKS cluster which incurs hourly charges. Always run cleanup when done.
+
+### `pod-identity-eks/`
+Tests AWS authentication using EKS Pod Identity (newer alternative to IRSA, GA since 2024).
+
+**Status**: ⚠️ Infrastructure ready, RunWhen Local code changes needed for full support.
+
+**Key files:**
+- `terraform/main.tf` - Creates EKS cluster with Pod Identity enabled
+- `Taskfile.yaml` - Full EKS deployment and test workflow
+- `values.yaml` - Helm values (no annotation needed for Pod Identity)
+
+**Differences from IRSA:**
+- ✅ No OIDC provider required
+- ✅ Simpler setup - uses `PodIdentityAssociation` resource
+- ✅ No service account annotations needed
+- ✅ Requires EKS Pod Identity Agent addon
+- ⚠️ RunWhen Local needs code updates to detect Pod Identity env vars
+
+**What works now:**
+- Infrastructure provisioning
+- Pod Identity Agent installation
+- IAM role creation and association
+
+**What needs implementation in RunWhen Local:**
+- Detection of `AWS_CONTAINER_CREDENTIALS_FULL_URI` in `aws_utils.py`
+- Template updates for `workspaceKey` generation
+- Documentation updates
+
+See `pod-identity-eks/README.md` for details.
 
 ### `multi-account/`
 Tests AWS authentication for multi-account scenarios. Creates multiple IAM roles simulating different accounts with varying permissions.

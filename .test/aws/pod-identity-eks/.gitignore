@@ -1,0 +1,12 @@
+# Terraform
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/tf.secret
+
+# Generated configs
+workspaceInfo.yaml
+
+# Secrets
+uploadInfo.yaml
