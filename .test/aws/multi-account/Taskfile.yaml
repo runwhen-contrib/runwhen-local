@@ -1,0 +1,186 @@
+version: '3'
+
+vars:
+  TEST_NAME: aws-multi-account
+
+tasks:
+  default:
+    desc: Run full test workflow
+    cmds:
+      - task: generate-rwl-config
+      - task: build-rwl
+      - task: run-rwl-discovery
+
+  build-terraform-infra:
+    desc: Deploy AWS test infrastructure
+    dir: terraform
+    cmds:
+      - terraform init
+      - terraform apply -auto-approve
+
+  cleanup-terraform-infra:
+    desc: Destroy AWS test infrastructure
+    dir: terraform
+    cmds:
+      - terraform destroy -auto-approve
+
+  check-terraform-infra:
+    desc: Check if Terraform infrastructure exists
+    dir: terraform
+    cmds:
+      - terraform show -json | jq -e '.values.root_module.resources | length > 0'
+    silent: true
+
+  generate-rwl-config:
+    desc: Generate workspaceInfo.yaml from Terraform state
+    dir: terraform
+    cmds:
+      - |
+        REGION=$(terraform output -raw region 2>/dev/null || echo "us-east-1")
+        ACCOUNT_ID=$(terraform output -raw account_id 2>/dev/null || echo "unknown")
+        PROD_ROLE=$(terraform output -raw production_role_arn 2>/dev/null)
+        STAGING_ROLE=$(terraform output -raw staging_role_arn 2>/dev/null)
+        DEV_ROLE=$(terraform output -raw development_role_arn 2>/dev/null)
+        
+        if [ -z "$PROD_ROLE" ]; then
+          echo "ERROR: Role ARNs not found. Run 'task build-terraform-infra' first."
+          exit 1
+        fi
+        
+        cat > ../workspaceInfo.yaml << EOF
+        workspaceName: "{{.TEST_NAME}}-${ACCOUNT_ID}"
+        workspaceOwnerEmail: test@runwhen.com
+        defaultLocation: location-01
+        defaultLOD: detailed
+        cloudConfig:
+          aws:
+            region: "${REGION}"
+            # Multi-account configuration
+            # Note: This simulates multi-account with different roles in same account
+            accounts:
+              - accountId: "${ACCOUNT_ID}"
+                accountAlias: "production"
+                assumeRoleArn: "${PROD_ROLE}"
+                regions:
+                  - "${REGION}"
+              - accountId: "${ACCOUNT_ID}"
+                accountAlias: "staging"
+                assumeRoleArn: "${STAGING_ROLE}"
+                regions:
+                  - "${REGION}"
+              - accountId: "${ACCOUNT_ID}"
+                accountAlias: "development"
+                assumeRoleArn: "${DEV_ROLE}"
+                regions:
+                  - "${REGION}"
+        codeCollections:
+          - repoURL: "https://github.com/runwhen-contrib/aws-c7n-codecollection"
+            branch: "main"
+            codeBundles: ["aws-c7n-s3-health"]
+        custom: []
+        EOF
+        
+        echo "Generated workspaceInfo.yaml with multi-account configuration"
+        echo "Roles configured:"
+        echo "  - Production: $PROD_ROLE"
+        echo "  - Staging: $STAGING_ROLE"
+        echo "  - Development: $DEV_ROLE"
+
+  build-rwl:
+    desc: Build RunWhen Local Docker image
+    dir: ../../../src
+    cmds:
+      - docker build -t runwhen-local:test .
+
+  run-rwl-discovery:
+    desc: Run RunWhen Local discovery
+    cmds:
+      - |
+        docker run --rm \
+          -v $(pwd):/shared \
+          -v ~/.aws:/root/.aws:ro \
+          -e AWS_PROFILE=${AWS_PROFILE:-default} \
+          runwhen-local:test \
+          python run.py --config /shared/workspaceInfo.yaml --output /shared/output
+
+  test-all-roles:
+    desc: Test that all roles can be assumed
+    dir: terraform
+    cmds:
+      - |
+        echo "Testing role assumption for all accounts..."
+        
+        for ACCOUNT in production staging development; do
+          ROLE_ARN=$(terraform output -raw ${ACCOUNT}_role_arn)
+          echo "Testing $ACCOUNT role: $ROLE_ARN"
+          
+          RESULT=$(aws sts assume-role \
+            --role-arn "$ROLE_ARN" \
+            --role-session-name "test-session" \
+            --query 'Credentials.AccessKeyId' \
+            --output text 2>&1)
+          
+          if [[ "$RESULT" == ASIA* ]]; then
+            echo "  SUCCESS: $ACCOUNT role can be assumed"
+          else
+            echo "  FAILED: $ACCOUNT role cannot be assumed"
+            echo "  Error: $RESULT"
+          fi
+        done
+
+  verify-results:
+    desc: Verify discovery results
+    cmds:
+      - |
+        echo "=== Checking discovery output ==="
+        
+        if [ ! -d output ]; then
+          echo "FAILED: No output directory"
+          exit 1
+        fi
+        
+        # Check for resources file
+        if [ -f output/resources.yaml ]; then
+          echo "SUCCESS: resources.yaml exists"
+          
+          # Check for AWS resources
+          AWS_COUNT=$(grep -c "platform: aws" output/resources.yaml || echo 0)
+          echo "Found $AWS_COUNT AWS resource entries"
+          
+          # Check for resources from different "accounts" (simulated via tags)
+          for ACCOUNT in production staging development; do
+            ACCOUNT_COUNT=$(grep -c "SimulatedAccount.*$ACCOUNT" output/resources.yaml || echo 0)
+            echo "  $ACCOUNT resources: $ACCOUNT_COUNT"
+          done
+        else
+          echo "WARNING: resources.yaml not found"
+        fi
+        
+        # Check for SLX files
+        SLX_COUNT=$(find output -name "*.yaml" -path "*/slxs/*" 2>/dev/null | wc -l)
+        echo "Found $SLX_COUNT SLX files"
+        
+        echo "=== Verification complete ==="
+
+  ci-test:
+    desc: Full CI test workflow
+    cmds:
+      - task: build-terraform-infra
+      - task: test-all-roles
+      - task: generate-rwl-config
+      - task: build-rwl
+      - task: run-rwl-discovery
+      - task: verify-results
+      - task: cleanup
+
+  cleanup:
+    desc: Clean up all test resources
+    cmds:
+      - rm -rf output/
+      - task: cleanup-terraform-infra
+
+  clean:
+    desc: Clean up local artifacts only
+    cmds:
+      - rm -rf output/
+      - rm -f workspaceInfo.yaml

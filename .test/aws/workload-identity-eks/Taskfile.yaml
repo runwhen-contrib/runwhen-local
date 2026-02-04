@@ -1,0 +1,489 @@
+version: '3'
+
+vars:
+  TEST_NAME: aws-workload-identity-eks
+
+tasks:
+  default:
+    desc: Run full test workflow
+    cmds:
+      - task: configure-kubectl
+      - task: configure-eks-auth
+      - task: setup-k8s-resources
+      - task: generate-rwl-config
+      - task: run-rwl-discovery
+
+  build-terraform-infra:
+    desc: Deploy AWS test infrastructure (EKS cluster - takes ~15-20 min)
+    dir: terraform
+    cmds:
+      - terraform init
+      - terraform apply -auto-approve
+      - echo "Infrastructure deployed. Run 'task configure-kubectl' next."
+
+  cleanup-terraform-infra:
+    desc: Destroy AWS test infrastructure
+    dir: terraform
+    cmds:
+      - terraform destroy -auto-approve
+
+  check-terraform-infra:
+    desc: Check if Terraform infrastructure exists
+    dir: terraform
+    cmds:
+      - terraform show -json | jq -e '.values.root_module.resources | length > 0'
+    silent: true
+
+  configure-kubectl:
+    desc: Configure kubectl for EKS cluster
+    dir: terraform
+    cmds:
+      - |
+        CLUSTER_NAME=$(terraform output -raw cluster_name)
+        REGION=$(terraform output -raw region)
+        aws eks update-kubeconfig --name "$CLUSTER_NAME" --region "$REGION"
+        echo "Configured kubectl for cluster: $CLUSTER_NAME"
+
+  configure-eks-auth:
+    desc: Configure EKS aws-auth ConfigMap to allow IRSA role access
+    dir: terraform
+    cmds:
+      - |
+        set -e
+        
+        CLUSTER_NAME=$(terraform output -raw cluster_name)
+        REGION=$(terraform output -raw region)
+        IRSA_ROLE_ARN=$(terraform output -raw irsa_role_arn)
+        
+        echo "Configuring aws-auth for cluster: $CLUSTER_NAME"
+        echo "IRSA Role ARN: $IRSA_ROLE_ARN"
+        
+        # Update kubeconfig
+        aws eks update-kubeconfig --name "$CLUSTER_NAME" --region "$REGION"
+        
+        # Get current aws-auth ConfigMap and check if our role is already there
+        if kubectl get configmap aws-auth -n kube-system -o yaml | grep -q "$IRSA_ROLE_ARN"; then
+          echo "IRSA role already exists in aws-auth ConfigMap"
+          exit 0
+        fi
+        
+        echo "Adding IRSA role to aws-auth ConfigMap..."
+        
+        # Get current mapRoles
+        kubectl get configmap aws-auth -n kube-system -o yaml > /tmp/aws-auth-backup.yaml
+        CURRENT_MAP=$(kubectl get configmap aws-auth -n kube-system -o jsonpath='{.data.mapRoles}')
+        
+        # Create new role entry
+        NEW_ROLE="- rolearn: $IRSA_ROLE_ARN
+          username: runwhen-local
+          groups:
+          - system:masters"
+        
+        # Combine current and new
+        printf "%s\n%s" "$CURRENT_MAP" "$NEW_ROLE" > /tmp/new-maproles.yaml
+        
+        # Update ConfigMap
+        kubectl create configmap aws-auth \
+          --from-file=mapRoles=/tmp/new-maproles.yaml \
+          --dry-run=client -o yaml | \
+          kubectl apply -f - -n kube-system
+        
+        echo ""
+        echo "Successfully updated aws-auth ConfigMap!"
+        echo "Verifying IRSA role is present:"
+        kubectl get configmap aws-auth -n kube-system -o yaml | grep -A3 "$IRSA_ROLE_ARN"
+
+  setup-k8s-resources:
+    desc: Create Kubernetes namespace and service account with IRSA annotation
+    dir: terraform
+    cmds:
+      - |
+        NAMESPACE=$(terraform output -raw k8s_namespace)
+        SERVICE_ACCOUNT=$(terraform output -raw k8s_service_account)
+        IRSA_ROLE_ARN=$(terraform output -raw irsa_role_arn)
+        
+        # Create namespace
+        kubectl create namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
+        
+        # Create service account with IRSA annotation
+        cat << EOF | kubectl apply -f -
+        apiVersion: v1
+        kind: ServiceAccount
+        metadata:
+          name: $SERVICE_ACCOUNT
+          namespace: $NAMESPACE
+          annotations:
+            eks.amazonaws.com/role-arn: $IRSA_ROLE_ARN
+        EOF
+        
+        echo "Created service account: $SERVICE_ACCOUNT with IRSA role: $IRSA_ROLE_ARN"
+
+  generate-rwl-config:
+    desc: Generate workspaceInfo.yaml
+    dir: terraform
+    cmds:
+      - |
+        REGION=$(terraform output -raw region 2>/dev/null || echo "us-east-1")
+        ACCOUNT_ID=$(terraform output -raw account_id 2>/dev/null || echo "unknown")
+        
+        cat > ../workspaceInfo.yaml << EOF
+        workspaceName: "{{.TEST_NAME}}-${ACCOUNT_ID}"
+        workspaceOwnerEmail: test@runwhen.com
+        defaultLocation: location-01
+        defaultLOD: detailed
+        cloudConfig:
+          kubernetes: null
+          aws:
+            region: "${REGION}"
+            useWorkloadIdentity: true
+            eksClusters:
+              autoDiscover: true
+              discoveryConfig:
+                regions:
+                  - ${REGION}
+        codeCollections:
+          - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection"
+            branch: "main"
+            codeBundles: ["k8s-namespace-healthcheck", "k8s-deployment-healthcheck"]
+          - repoURL: "https://github.com/runwhen-contrib/aws-c7n-codecollection"
+            branch: "main"
+            codeBundles: ["aws-c7n-s3-health"]
+        custom:
+          kubernetes_distribution_binary: kubectl
+        EOF
+        
+        echo "Generated workspaceInfo.yaml with EKS auto-discovery enabled for region ${REGION}"
+
+  get-latest-rwl-tag:
+    desc: Find the latest tag stored in the dev registry
+    cmds:
+      - |
+        # Variables
+        REGION="us"
+        PROJECT_ID="runwhen-nonprod-shared"
+        REPO_NAME="public-images"
+        IMAGE_NAME="runwhen-local"
+
+        # API endpoint for unauthenticated access
+        URL="https://$REGION-docker.pkg.dev/v2/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME/tags/list"
+
+        # Fetch tags and metadata
+        RESPONSE=$(curl -s "$URL")
+
+        # Check if the response is valid
+        if [[ -z "$RESPONSE" || "$(echo "$RESPONSE" | jq '.errors')" != "null" ]]; then
+          echo "Failed to fetch tags. Ensure the image is public and the URL is correct."
+          exit 1
+        fi
+
+        # Fetch the current branch name
+        BRANCH=$(git branch --show-current)
+
+        # Fetch the PR number (without #) associated with the branch using gh CLI
+        PR_ID=$(gh pr list --head "$BRANCH" --state open --json number -q '.[0].number')
+
+        # Check if a PR was found
+        if [[ -z "$PR_ID" ]]; then
+          echo "No open pull request found for branch: $BRANCH"
+          exit 1
+        fi
+
+        echo "Pull Request ID: $PR_ID"
+
+        # Extract all tags matching the PR ID, excluding architecture-specific tags
+        MATCHING_TAGS=$(echo "$RESPONSE" | jq -r '.tags[]' | grep "^$PR_ID-merge-" | grep -v '\-amd64$' | grep -v '\-arm64$')
+        
+        if [[ -z "$MATCHING_TAGS" ]]; then
+          echo "No multi-arch tag found for PR $PR_ID"
+          exit 1
+        fi
+        
+        echo "Found matching tags:"
+        echo "$MATCHING_TAGS"
+        
+        # Fetch all commits to ensure we have the latest
+        echo "Fetching latest commits from origin..."
+        git fetch origin --quiet 2>/dev/null || true
+        
+        # Extract commit hashes from tags and find the latest one in git history
+        LATEST_COMMIT=""
+        LATEST_TAG=""
+        
+        for TAG in $MATCHING_TAGS; do
+          # Extract commit hash from tag (format: PR_ID-merge-COMMITHASH)
+          COMMIT_HASH=$(echo "$TAG" | sed "s/^$PR_ID-merge-//")
+          
+          # Check if this commit exists in git (check local and remote refs)
+          if git cat-file -e "$COMMIT_HASH" 2>/dev/null || git cat-file -e "origin/$COMMIT_HASH" 2>/dev/null; then
+            COMMIT_TIME=$(git show -s --format=%ct "$COMMIT_HASH" 2>/dev/null || git show -s --format=%ct "origin/$COMMIT_HASH" 2>/dev/null || echo 0)
+            COMMIT_DATE=$(date -d "@$COMMIT_TIME" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || date -r "$COMMIT_TIME" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo "unknown")
+            
+            echo "  $TAG -> commit $COMMIT_HASH ($COMMIT_DATE)"
+            
+            # Keep track of the latest commit
+            if [[ -z "$LATEST_COMMIT" ]] || [[ "$COMMIT_TIME" -gt "$LATEST_COMMIT" ]]; then
+              LATEST_COMMIT="$COMMIT_TIME"
+              LATEST_TAG="$TAG"
+            fi
+          else
+            echo "  $TAG -> commit $COMMIT_HASH (not found in git)"
+          fi
+        done
+        
+        # If we couldn't find any commits in git, just use the last tag in the list
+        if [[ -z "$LATEST_TAG" ]]; then
+          echo "Warning: Could not determine latest commit from git history, using last tag in list"
+          LATEST_TAG=$(echo "$MATCHING_TAGS" | tail -1)
+        else
+          echo "Selected latest: $LATEST_TAG"
+        fi
+        
+        PR_TAG="$LATEST_TAG"
+
+        echo "$PR_TAG is the multi-arch tag for this branch - updating values.yaml"
+        yq -i ".runwhenLocal.image.tag = \"${PR_TAG}\"" values.yaml
+    silent: true
+
+  build-rwl:
+    desc: Build RunWhen Local Docker image
+    dir: ../../../src
+    cmds:
+      - docker build -t runwhen-local:test .
+
+  install-rwl-helm:
+    desc: Install RunWhen Local components into cluster via Helm
+    dir: terraform
+    env:
+      RUNNER_TOKEN: "{{.RUNNER_TOKEN}}"
+    cmds:
+      - |
+        NAMESPACE=$(terraform output -raw k8s_namespace)
+        SERVICE_ACCOUNT=$(terraform output -raw k8s_service_account)
+        IRSA_ROLE_ARN=$(terraform output -raw irsa_role_arn)
+        
+        # Update values.yaml with dynamic IRSA role ARN
+        echo "Updating values.yaml with IRSA role: $IRSA_ROLE_ARN"
+        yq -i ".runwhenLocal.serviceAccount.annotations.\"eks.amazonaws.com/role-arn\" = \"${IRSA_ROLE_ARN}\"" ../values.yaml
+        
+        # Create namespace
+        kubectl create namespace $NAMESPACE || true
+        
+        # Create workspaceInfo configmap
+        kubectl create configmap workspaceinfo --from-file=../workspaceInfo.yaml -n $NAMESPACE || \
+          (kubectl delete configmap workspaceinfo -n $NAMESPACE && kubectl create configmap workspaceinfo --from-file=../workspaceInfo.yaml -n $NAMESPACE)
+        
+        # Create uploadInfo secret (if file exists)
+        if [ -f ../uploadInfo.yaml ]; then
+          echo "Creating uploadInfo secret..."
+          kubectl create secret generic uploadinfo --from-file=uploadInfo.yaml=../uploadInfo.yaml -n $NAMESPACE || \
+            (kubectl delete secret uploadinfo -n $NAMESPACE && kubectl create secret generic uploadinfo --from-file=uploadInfo.yaml=../uploadInfo.yaml -n $NAMESPACE)
+        else
+          echo "uploadInfo.yaml not found, skipping uploadInfo secret creation"
+        fi
+        
+        # Create runner registration token secret
+        kubectl create secret generic runner-registration-token --from-literal=token="$RUNNER_TOKEN" -n $NAMESPACE || true
+        
+        # Add and update Helm repo
+        helm repo add runwhen-contrib https://runwhen-contrib.github.io/helm-charts || true
+        helm repo update
+        
+        # Install RunWhen Local
+        helm install runwhen-local runwhen-contrib/runwhen-local -f ../values.yaml -n $NAMESPACE
+        
+        echo ""
+        echo "RunWhen Local installed successfully. Check with: kubectl get pods -n $NAMESPACE"
+        echo "Service account 'runwhen-local' created with IRSA annotation"
+    silent: true
+
+  delete-rwl-helm:
+    desc: Delete RunWhen Local Helm installation
+    dir: terraform
+    cmds:
+      - |
+        NAMESPACE=$(terraform output -raw k8s_namespace)
+        kubectl delete namespace $NAMESPACE
+    silent: true
+
+  upgrade-rwl-helm:
+    desc: Upgrade RunWhen Local Helm installation
+    dir: terraform
+    env:
+      RUNNER_TOKEN: "{{.RUNNER_TOKEN}}"
+    cmds:
+      - |
+        NAMESPACE=$(terraform output -raw k8s_namespace)
+        IRSA_ROLE_ARN=$(terraform output -raw irsa_role_arn)
+        
+        # Update values.yaml with dynamic IRSA role ARN
+        echo "Updating values.yaml with IRSA role: $IRSA_ROLE_ARN"
+        yq -i ".runwhenLocal.serviceAccount.annotations.\"eks.amazonaws.com/role-arn\" = \"${IRSA_ROLE_ARN}\"" ../values.yaml
+        
+        # Delete existing service account so Helm can recreate it with IRSA annotation
+        echo "Deleting existing runwhen-local service account to allow Helm to manage it..."
+        kubectl delete serviceaccount runwhen-local -n $NAMESPACE 2>/dev/null || echo "Service account doesn't exist, will be created by Helm"
+        
+        # Update workspaceInfo configmap
+        kubectl delete configmap workspaceinfo -n $NAMESPACE || true
+        kubectl create configmap workspaceinfo --from-file=../workspaceInfo.yaml -n $NAMESPACE
+        
+        # Update uploadInfo secret (if file exists)
+        if [ -f ../uploadInfo.yaml ]; then
+          echo "Updating uploadInfo secret..."
+          kubectl delete secret uploadinfo -n $NAMESPACE || true
+          kubectl create secret generic uploadinfo --from-file=uploadInfo.yaml=../uploadInfo.yaml -n $NAMESPACE
+        fi
+        
+        # Upgrade Helm release
+        helm upgrade runwhen-local runwhen-contrib/runwhen-local -f ../values.yaml -n $NAMESPACE
+        
+        # Restart ALL RunWhen Local pods to pick up IRSA annotation
+        echo "Restarting pods to pick up IRSA credentials..."
+        kubectl delete pod -l app.kubernetes.io/name=runwhen-local -n $NAMESPACE
+        kubectl delete pod -l app.kubernetes.io/instance=runwhen-local -n $NAMESPACE
+        
+        echo ""
+        echo "RunWhen Local upgraded successfully"
+        echo "Waiting for pods to restart..."
+        sleep 5
+        kubectl get pods -n $NAMESPACE
+    silent: true
+
+  push-rwl-to-ecr:
+    desc: Push RunWhen Local image to ECR for EKS
+    dir: terraform
+    cmds:
+      - |
+        ACCOUNT_ID=$(terraform output -raw account_id)
+        REGION=$(terraform output -raw region)
+        ECR_REPO="${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/runwhen-local"
+        
+        # Create ECR repo if not exists
+        aws ecr create-repository --repository-name runwhen-local --region $REGION || true
+        
+        # Login to ECR
+        aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin ${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com
+        
+        # Tag and push
+        docker tag runwhen-local:test ${ECR_REPO}:test
+        docker push ${ECR_REPO}:test
+        
+        echo "Pushed image to: ${ECR_REPO}:test"
+
+  run-rwl-discovery:
+    desc: Run RunWhen Local discovery as a Kubernetes job
+    dir: terraform
+    cmds:
+      - |
+        NAMESPACE=$(terraform output -raw k8s_namespace)
+        SERVICE_ACCOUNT=$(terraform output -raw k8s_service_account)
+        ACCOUNT_ID=$(terraform output -raw account_id)
+        REGION=$(terraform output -raw region)
+        
+        # Create ConfigMap with workspaceInfo.yaml
+        kubectl create configmap runwhen-config \
+          --namespace=$NAMESPACE \
+          --from-file=workspaceInfo.yaml=../workspaceInfo.yaml \
+          --dry-run=client -o yaml | kubectl apply -f -
+        
+        # Run discovery job
+        cat << EOF | kubectl apply -f -
+        apiVersion: batch/v1
+        kind: Job
+        metadata:
+          name: runwhen-discovery
+          namespace: $NAMESPACE
+        spec:
+          ttlSecondsAfterFinished: 300
+          template:
+            spec:
+              serviceAccountName: $SERVICE_ACCOUNT
+              containers:
+              - name: runwhen-local
+                image: ${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/runwhen-local:test
+                command: ["python", "run.py", "--config", "/config/workspaceInfo.yaml", "--output", "/output"]
+                volumeMounts:
+                - name: config
+                  mountPath: /config
+                - name: output
+                  mountPath: /output
+              volumes:
+              - name: config
+                configMap:
+                  name: runwhen-config
+              - name: output
+                emptyDir: {}
+              restartPolicy: Never
+          backoffLimit: 1
+        EOF
+        
+        echo "Started discovery job. Run 'task watch-job' to monitor."
+
+  watch-job:
+    desc: Watch discovery job progress
+    dir: terraform
+    cmds:
+      - |
+        NAMESPACE=$(terraform output -raw k8s_namespace)
+        kubectl logs -f job/runwhen-discovery -n $NAMESPACE
+
+  verify-irsa:
+    desc: Verify IRSA is working by running a test pod
+    dir: terraform
+    cmds:
+      - |
+        NAMESPACE=$(terraform output -raw k8s_namespace)
+        SERVICE_ACCOUNT=$(terraform output -raw k8s_service_account)
+        
+        # Run test pod
+        kubectl run irsa-test \
+          --namespace=$NAMESPACE \
+          --serviceaccount=$SERVICE_ACCOUNT \
+          --image=amazon/aws-cli \
+          --rm -it --restart=Never \
+          -- sts get-caller-identity
+
+  verify-results:
+    desc: Verify discovery results from job
+    dir: terraform
+    cmds:
+      - |
+        NAMESPACE=$(terraform output -raw k8s_namespace)
+        
+        echo "=== Checking job status ==="
+        kubectl get job runwhen-discovery -n $NAMESPACE
+        
+        echo "=== Checking pod logs ==="
+        kubectl logs job/runwhen-discovery -n $NAMESPACE --tail=50
+
+  ci-test:
+    desc: Full CI test workflow
+    cmds:
+      - task: build-terraform-infra
+      - task: configure-kubectl
+      - task: setup-k8s-resources
+      - task: generate-rwl-config
+      - task: build-rwl
+      - task: push-rwl-to-ecr
+      - task: run-rwl-discovery
+      - sleep 60  # Wait for job to complete
+      - task: verify-results
+      - task: cleanup
+
+  cleanup:
+    desc: Clean up all test resources
+    dir: terraform
+    cmds:
+      - |
+        NAMESPACE=$(terraform output -raw k8s_namespace 2>/dev/null || echo "runwhen-local")
+        kubectl delete job runwhen-discovery -n $NAMESPACE --ignore-not-found
+        kubectl delete configmap runwhen-config -n $NAMESPACE --ignore-not-found
+        kubectl delete sa runwhen-local -n $NAMESPACE --ignore-not-found
+        kubectl delete namespace $NAMESPACE --ignore-not-found
+      - task: cleanup-terraform-infra
+
+  clean:
+    desc: Clean up local artifacts only
+    cmds:
+      - rm -rf output/
+      - rm -f workspaceInfo.yaml

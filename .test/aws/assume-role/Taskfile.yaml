@@ -1,0 +1,200 @@
+version: '3'
+
+vars:
+  TEST_NAME: aws-assume-role
+  CONTAINER_NAME: RunWhenLocal
+
+tasks:
+  default:
+    desc: Run full test workflow
+    cmds:
+      - task: generate-rwl-config
+      - task: build-rwl
+      - task: run-rwl-discovery
+
+  build-terraform-infra:
+    desc: Deploy AWS test infrastructure
+    dir: terraform
+    cmds:
+      - terraform init
+      - terraform apply -auto-approve
+
+  cleanup-terraform-infra:
+    desc: Destroy AWS test infrastructure
+    dir: terraform
+    cmds:
+      - terraform destroy -auto-approve
+
+  check-terraform-infra:
+    desc: Check if Terraform infrastructure exists
+    dir: terraform
+    cmds:
+      - terraform show -json | jq -e '.values.root_module.resources | length > 0'
+    silent: true
+
+  generate-rwl-config:
+    desc: Generate workspaceInfo.yaml from Terraform state
+    dir: terraform
+    cmds:
+      - |
+        ROLE_ARN=$(terraform output -raw assume_role_arn 2>/dev/null)
+        EXTERNAL_ID=$(terraform output -raw external_id 2>/dev/null)
+        REGION=$(terraform output -raw region 2>/dev/null || echo "us-east-1")
+        ACCOUNT_ID=$(terraform output -raw account_id 2>/dev/null || echo "unknown")
+        
+        if [ -z "$ROLE_ARN" ]; then
+          echo "ERROR: Role ARN not found. Run 'task build-terraform-infra' first."
+          exit 1
+        fi
+        
+        cat > ../workspaceInfo.yaml << EOF
+        workspaceName: "{{.TEST_NAME}}-${ACCOUNT_ID}"
+        workspaceOwnerEmail: test@runwhen.com
+        defaultLocation: location-01
+        defaultLOD: detailed
+        cloudConfig:
+          aws:
+            region: "${REGION}"
+            assumeRoleArn: "${ROLE_ARN}"
+            assumeRoleExternalId: "${EXTERNAL_ID}"
+            assumeRoleSessionName: "runwhen-local-test"
+        codeCollections:
+          - repoURL: "https://github.com/runwhen-contrib/aws-c7n-codecollection"
+            branch: "main"
+            codeBundles: ["aws-c7n-s3-health"]
+        custom: []
+        EOF
+        
+        echo "Generated workspaceInfo.yaml with role ARN: $ROLE_ARN"
+
+  build-rwl:
+    desc: Build RunWhen Local Docker image
+    dir: ../../../src
+    cmds:
+      - docker build -t runwhen-local:test .
+
+  run-rwl-discovery:
+    desc: Run RunWhen Local discovery
+    cmds:
+      - |
+        rm slx_count.txt || true
+        CONTAINER_NAME="{{.CONTAINER_NAME}}"    
+        if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Stopping and removing existing container $CONTAINER_NAME..."
+          docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME
+        elif docker ps -a -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Removing existing stopped container $CONTAINER_NAME..."
+          docker rm $CONTAINER_NAME
+        else
+          echo "No existing container named $CONTAINER_NAME found."
+        fi
+        
+        echo "Cleaning up output directory..."
+        rm -rf output || { echo "Failed to remove output directory"; exit 1; }
+        mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
+
+        # Source AWS credentials from tf.secret if it exists
+        if [ -f terraform/tf.secret ]; then
+          echo "Loading AWS credentials from terraform/tf.secret..."
+          source terraform/tf.secret
+        fi
+
+        # Check for AWS credentials
+        if [ -z "$AWS_ACCESS_KEY_ID" ]; then
+          echo "WARNING: AWS_ACCESS_KEY_ID not set. Make sure to source terraform/tf.secret or set AWS credentials."
+        fi
+
+        echo "Starting new container $CONTAINER_NAME..."
+
+        docker run -e DEBUG_LOGGING=false \
+          -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
+          -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
+          -e AWS_SESSION_TOKEN="${AWS_SESSION_TOKEN}" \
+          -e AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION:-us-east-1}" \
+          --name $CONTAINER_NAME -p 8081:8081 -p 8000:8000 -v $(pwd):/shared -d runwhen-local:test || {
+          echo "Failed to start container"; exit 1;
+        }
+
+        echo "Running workspace builder script in container..."
+        docker exec -w /workspace-builder $CONTAINER_NAME ./run.sh $1 --verbose || {
+          echo "Error executing script in container"; exit 1;
+        }
+
+        echo "Review generated config files under output/workspaces/"
+        total_slxs=$(find $(find 'output/' -type d -name 'slxs') -mindepth 1 -type d | wc -l)
+        echo "Total SLXs: $total_slxs"
+        echo "$total_slxs" > slx_count.txt
+    silent: true
+
+  test-assume-role:
+    desc: Test assume role locally with AWS CLI
+    dir: terraform
+    cmds:
+      - |
+        ROLE_ARN=$(terraform output -raw assume_role_arn)
+        EXTERNAL_ID=$(terraform output -raw external_id)
+        
+        echo "Testing assume role: $ROLE_ARN"
+        
+        aws sts assume-role \
+          --role-arn "$ROLE_ARN" \
+          --role-session-name "test-session" \
+          --external-id "$EXTERNAL_ID" \
+          --query 'Credentials.AccessKeyId' \
+          --output text
+        
+        echo "SUCCESS: Role can be assumed"
+
+  verify-results:
+    desc: Verify discovery results
+    cmds:
+      - |
+        echo "=== Checking discovery output ==="
+        
+        if [ ! -d output ]; then
+          echo "FAILED: No output directory"
+          exit 1
+        fi
+        
+        # Check for resources file
+        if [ -f output/resources.yaml ]; then
+          echo "SUCCESS: resources.yaml exists"
+          
+          # Check for AWS resources
+          if grep -q "platform: aws" output/resources.yaml; then
+            echo "SUCCESS: AWS resources found"
+          else
+            echo "WARNING: No AWS resources in output"
+          fi
+        else
+          echo "WARNING: resources.yaml not found"
+        fi
+        
+        # Check for SLX files
+        SLX_COUNT=$(find output -name "*.yaml" -path "*/slxs/*" 2>/dev/null | wc -l)
+        echo "Found $SLX_COUNT SLX files"
+        
+        echo "=== Verification complete ==="
+
+  ci-test:
+    desc: Full CI test workflow
+    cmds:
+      - task: build-terraform-infra
+      - task: test-assume-role
+      - task: generate-rwl-config
+      - task: build-rwl
+      - task: run-rwl-discovery
+      - task: verify-results
+      - task: cleanup
+
+  cleanup:
+    desc: Clean up all test resources
+    cmds:
+      - rm -rf output/
+      - task: cleanup-terraform-infra
+
+  clean:
+    desc: Clean up local artifacts only
+    cmds:
+      - rm -rf output/
+      - rm -f workspaceInfo.yaml

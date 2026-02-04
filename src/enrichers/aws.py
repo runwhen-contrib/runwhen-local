@@ -12,6 +12,91 @@ from exceptions import WorkspaceBuilderException
 AWS_PLATFORM = "aws"
 logger = logging.getLogger(__name__)
 
+# Cache for AWS credentials (set by cloudquery indexer)
+_aws_credentials = {
+    "session": None,
+    "auth_type": None,
+    "account_id": None,
+    "account_alias": None,
+    "assume_role_arn": None,
+    "auth_secret": None,
+}
+
+
+def set_aws_credentials(
+    session: boto3.Session = None,
+    auth_type: str = None,
+    account_id: str = None,
+    account_alias: str = None,
+    assume_role_arn: str = None,
+    auth_secret: str = None
+):
+    """
+    Set AWS credentials for reuse in enricher operations.
+    Called by cloudquery indexer after authentication.
+    
+    Args:
+        session: Pre-configured boto3 session
+        auth_type: Type of authentication used (aws_explicit, aws_secret, etc.)
+        account_id: AWS account ID
+        account_alias: AWS account alias
+        assume_role_arn: ARN of assumed role (if using assume role)
+        auth_secret: Name of Kubernetes secret containing credentials (if applicable)
+    """
+    global _aws_credentials
+    if session:
+        _aws_credentials["session"] = session
+    if auth_type:
+        _aws_credentials["auth_type"] = auth_type
+    if account_id:
+        _aws_credentials["account_id"] = account_id
+    if account_alias:
+        _aws_credentials["account_alias"] = account_alias
+    if assume_role_arn:
+        _aws_credentials["assume_role_arn"] = assume_role_arn
+    if auth_secret:
+        _aws_credentials["auth_secret"] = auth_secret
+    logger.info(f"Set AWS enricher credentials with auth type: {auth_type}")
+
+
+def get_aws_session() -> boto3.Session:
+    """
+    Get the cached AWS session or create a new one using default credentials.
+    
+    Returns:
+        boto3 Session
+    """
+    global _aws_credentials
+    if _aws_credentials["session"]:
+        return _aws_credentials["session"]
+    # Fallback to default session
+    return boto3.Session()
+
+
+def get_aws_auth_type() -> Optional[str]:
+    """Get the cached AWS authentication type."""
+    return _aws_credentials.get("auth_type")
+
+
+def get_cached_account_id() -> Optional[str]:
+    """Get the cached AWS account ID."""
+    return _aws_credentials.get("account_id")
+
+
+def get_cached_account_alias() -> Optional[str]:
+    """Get the cached AWS account alias."""
+    return _aws_credentials.get("account_alias")
+
+
+def get_cached_assume_role_arn() -> Optional[str]:
+    """Get the cached AWS assume role ARN."""
+    return _aws_credentials.get("assume_role_arn")
+
+
+def get_cached_auth_secret() -> Optional[str]:
+    """Get the cached AWS auth secret name."""
+    return _aws_credentials.get("auth_secret")
+
 class ARN:
     def __init__(self, arn_string: str):
         parts = arn_string.split(':', 5)
@@ -52,14 +137,35 @@ class AWSPlatformHandler(PlatformHandler):
         tags = resource_data.get("tags", {})
 
         # Populate qualifiers
+        policy_status = resource_data.get('policy_status') or {}
         resource_attributes = {
             'tags': tags,
             'account_id': resource_data.get('account_id', arn.account),
             'region': resource_data.get('region', arn.region),
             'service': arn.service,
             'arn': arn_string,
-            'is_public': resource_data.get('policy_status', {}).get('IsPublic', False),
+            'is_public': policy_status.get('IsPublic', False),
         }
+        
+        # Add auth type from cached credentials (set by cloudquery indexer)
+        auth_type = get_aws_auth_type()
+        if auth_type:
+            resource_attributes['auth_type'] = auth_type
+        
+        # Add account alias if available
+        account_alias = get_cached_account_alias()
+        if account_alias:
+            resource_attributes['account_alias'] = account_alias
+        
+        # Add assume role ARN if available (for assume role auth types)
+        assume_role_arn = get_cached_assume_role_arn()
+        if assume_role_arn:
+            resource_attributes['assume_role_arn'] = assume_role_arn
+        
+        # Add auth secret if available (for K8s secret-based auth)
+        auth_secret = get_cached_auth_secret()
+        if auth_secret:
+            resource_attributes['auth_secret'] = auth_secret
 
         # Handle level of detail (LOD) if specified in tags
         for tag_key, tag_value in tags.items():
@@ -90,6 +196,14 @@ class AWSPlatformHandler(PlatformHandler):
             value = getattr(resource, "is_public", None)
         elif qualifier_name == "arn":
             value = getattr(resource, "arn", None)
+        elif qualifier_name == "auth_type":
+            value = getattr(resource, "auth_type", None)
+        elif qualifier_name == "account_alias":
+            value = getattr(resource, "account_alias", None)
+        elif qualifier_name == "assume_role_arn":
+            value = getattr(resource, "assume_role_arn", None)
+        elif qualifier_name == "auth_secret":
+            value = getattr(resource, "auth_secret", None)
         else:
             logger.warning(f"Unknown qualifier requested: {qualifier_name}")
             return None
@@ -107,7 +221,7 @@ class AWSPlatformHandler(PlatformHandler):
             return list(tags.keys())
         elif property_name == "tag-values":
             return list(tags.values())
-        elif property_name in ("account_id", "region", "service", "arn", "is_public"):
+        elif property_name in ("account_id", "region", "service", "arn", "is_public", "auth_type", "account_alias", "assume_role_arn", "auth_secret"):
             return [self.get_resource_qualifier_value(resource, property_name)]
         else:
             logger.warning(f"Unknown property requested: {property_name}")
@@ -121,6 +235,10 @@ class AWSPlatformHandler(PlatformHandler):
             'service': str(self.get_resource_qualifier_value(resource, "service") or ""),
             'is_public': str(self.get_resource_qualifier_value(resource, "is_public") or ""),
             'arn': str(self.get_resource_qualifier_value(resource, "arn") or ""),
+            'auth_type': str(self.get_resource_qualifier_value(resource, "auth_type") or ""),
+            'account_alias': str(self.get_resource_qualifier_value(resource, "account_alias") or ""),
+            'assume_role_arn': str(self.get_resource_qualifier_value(resource, "assume_role_arn") or ""),
+            'auth_secret': str(self.get_resource_qualifier_value(resource, "auth_secret") or ""),
         }
         
         # Generate resourcePath for AWS resources

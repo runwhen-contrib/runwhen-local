@@ -1,0 +1,15 @@
+# Terraform
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/.terraform.lock.hcl
+terraform/terraform.tfvars
+
+# Secrets
+terraform/tf.secret
+
+# Output
+output/
+
+# Generated config (keep template)
+# workspaceInfo.yaml is tracked as a template

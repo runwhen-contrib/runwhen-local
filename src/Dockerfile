@@ -103,12 +103,19 @@ RUN ARCH=$(uname -m) && \
 
 # Install kubectl
 RUN KUBE_ARCH=$(if [ "$(uname -m)" = "x86_64" ]; then echo "amd64"; else echo "arm64"; fi) && \
-    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/${KUBE_ARCH}/kubectl" \
-    && curl -LO "https://dl.k8s.io/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/${KUBE_ARCH}/kubectl.sha256" \
-    && echo "$(cat kubectl.sha256) kubectl" | sha256sum --check \
-    && rm kubectl.sha256 \
-    && chmod +x kubectl \
-    && mv kubectl /usr/local/bin/
+    KUBE_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt || echo "") && \
+    if [ -z "$KUBE_VERSION" ]; then \
+        echo "Failed to fetch stable kubectl version, using v1.35.0 as fallback"; \
+        KUBE_VERSION="v1.35.0"; \
+    fi && \
+    echo "Installing kubectl version: ${KUBE_VERSION}" && \
+    curl -LO "https://dl.k8s.io/release/${KUBE_VERSION}/bin/linux/${KUBE_ARCH}/kubectl" && \
+    curl -LO "https://dl.k8s.io/release/${KUBE_VERSION}/bin/linux/${KUBE_ARCH}/kubectl.sha256" && \
+    echo "$(cat kubectl.sha256) kubectl" | sha256sum --check && \
+    rm kubectl.sha256 && \
+    chmod +x kubectl && \
+    mv kubectl /usr/local/bin/ && \
+    kubectl version --client
 
 # Download CloudQuery CLI
 RUN CQ_ARCH=$(if [ "$(uname -m)" = "x86_64" ]; then echo "amd64"; else echo "arm64"; fi) && \
@@ -143,6 +150,17 @@ RUN curl -Lo kubelogin.zip https://github.com/Azure/kubelogin/releases/latest/do
     && rm kubelogin.zip \
     && rm -rf bin \
     && chmod +x /usr/local/bin/kubelogin
+
+# Install AWS CLI for EKS authentication
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "x86_64" ]; then \
+        curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"; \
+    elif [ "$ARCH" = "aarch64" ]; then \
+        curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "awscliv2.zip"; \
+    fi && \
+    unzip awscliv2.zip && \
+    ./aws/install && \
+    rm -rf aws awscliv2.zip
 
 # RunWhen customizations
 ENV HOME=$RUNWHEN_SHARED

@@ -344,14 +344,14 @@ tasks:
                   defaultNamespaceLOD: detailed
           codeCollections:
           - repoURL: https://github.com/runwhen-contrib/rw-public-codecollection.git
-            tag: v0.0.19
+            tag: v0.0.20
           - repoURL: https://github.com/runwhen-contrib/rw-cli-codecollection.git
-            tag: v0.0.25
+            tag: v0.0.26
             codeBundles: ["k8s-cluster-resource-health"]
           - repoURL: https://github.com/runwhen-contrib/rw-workspace-utils.git
-            tag: v0.0.4
+            tag: 2025-11-03.1
           - repoURL: https://github.com/runwhen-contrib/rw-generic-codecollection.git
-            tag: v0.0.3
+            tag: v0.0.5
           - repoURL: https://github.com/runwhen-contrib/azure-c7n-codecollection.git
             tag: v0.0.1
           useLocalGit: true

@@ -1,0 +1,166 @@
+version: '3'
+
+vars:
+  TEST_NAME: aws-secret-auth
+  NAMESPACE: runwhen-local
+  K8S_SECRET_NAME: aws-credentials
+
+tasks:
+  default:
+    desc: Run full test workflow
+    cmds:
+      - task: generate-rwl-config
+      - task: build-rwl
+      - task: run-rwl-discovery
+
+  build-terraform-infra:
+    desc: Deploy AWS test infrastructure
+    dir: terraform
+    cmds:
+      - terraform init
+      - terraform apply -auto-approve
+
+  cleanup-terraform-infra:
+    desc: Destroy AWS test infrastructure
+    dir: terraform
+    cmds:
+      - terraform destroy -auto-approve
+
+  check-terraform-infra:
+    desc: Check if Terraform infrastructure exists
+    dir: terraform
+    cmds:
+      - terraform show -json | jq -e '.values.root_module.resources | length > 0'
+    silent: true
+
+  setup-k8s-secret:
+    desc: Create Kubernetes secret from Terraform outputs
+    dir: terraform
+    cmds:
+      - |
+        ACCESS_KEY=$(terraform output -raw aws_access_key_id)
+        SECRET_KEY=$(terraform output -raw aws_secret_access_key)
+        REGION=$(terraform output -raw region)
+        
+        kubectl create namespace {{.NAMESPACE}} --dry-run=client -o yaml | kubectl apply -f -
+        
+        kubectl create secret generic {{.K8S_SECRET_NAME}} \
+          --namespace={{.NAMESPACE}} \
+          --from-literal=awsAccessKeyId=$ACCESS_KEY \
+          --from-literal=awsSecretAccessKey=$SECRET_KEY \
+          --from-literal=region=$REGION \
+          --dry-run=client -o yaml | kubectl apply -f -
+        
+        echo "Created Kubernetes secret: {{.K8S_SECRET_NAME}} in namespace {{.NAMESPACE}}"
+
+  generate-rwl-config:
+    desc: Generate workspaceInfo.yaml from Terraform state
+    dir: terraform
+    cmds:
+      - |
+        REGION=$(terraform output -raw region 2>/dev/null || echo "us-east-1")
+        ACCOUNT_ID=$(terraform output -raw account_id 2>/dev/null || echo "unknown")
+        
+        cat > ../workspaceInfo.yaml << EOF
+        workspaceName: "{{.TEST_NAME}}-${ACCOUNT_ID}"
+        workspaceOwnerEmail: test@runwhen.com
+        defaultLocation: location-01
+        defaultLOD: detailed
+        cloudConfig:
+          aws:
+            region: "${REGION}"
+            awsSecretName: "{{.K8S_SECRET_NAME}}"
+        codeCollections:
+          - repoURL: "https://github.com/runwhen-contrib/aws-c7n-codecollection"
+            branch: "main"
+            codeBundles: ["aws-c7n-s3-health"]
+        custom: []
+        EOF
+        
+        echo "Generated workspaceInfo.yaml"
+
+  build-rwl:
+    desc: Build RunWhen Local Docker image
+    dir: ../../../src
+    cmds:
+      - docker build -t runwhen-local:test .
+
+  run-rwl-discovery:
+    desc: Run RunWhen Local discovery
+    cmds:
+      - |
+        docker run --rm \
+          -v $(pwd):/shared \
+          -v ~/.kube/config:/root/.kube/config:ro \
+          -e KUBECONFIG=/root/.kube/config \
+          runwhen-local:test \
+          python run.py --config /shared/workspaceInfo.yaml --output /shared/output
+
+  verify-results:
+    desc: Verify discovery results
+    cmds:
+      - |
+        echo "=== Checking discovery output ==="
+        
+        if [ ! -d output ]; then
+          echo "FAILED: No output directory"
+          exit 1
+        fi
+        
+        # Check for resources file
+        if [ -f output/resources.yaml ]; then
+          echo "SUCCESS: resources.yaml exists"
+          
+          # Check for AWS resources
+          if grep -q "platform: aws" output/resources.yaml; then
+            echo "SUCCESS: AWS resources found"
+          else
+            echo "WARNING: No AWS resources in output"
+          fi
+        else
+          echo "WARNING: resources.yaml not found"
+        fi
+        
+        # Check for SLX files
+        SLX_COUNT=$(find output -name "*.yaml" -path "*/slxs/*" 2>/dev/null | wc -l)
+        echo "Found $SLX_COUNT SLX files"
+        
+        echo "=== Verification complete ==="
+
+  verify-slx-count:
+    desc: Verify minimum SLX count
+    vars:
+      MIN_SLX_COUNT: '{{.MIN_SLX_COUNT | default "1"}}'
+    cmds:
+      - |
+        SLX_COUNT=$(find output -name "*.yaml" -path "*/slxs/*" 2>/dev/null | wc -l)
+        if [ "$SLX_COUNT" -ge "{{.MIN_SLX_COUNT}}" ]; then
+          echo "SUCCESS: Found $SLX_COUNT SLXs (minimum: {{.MIN_SLX_COUNT}})"
+        else
+          echo "FAILED: Found only $SLX_COUNT SLXs (minimum: {{.MIN_SLX_COUNT}})"
+          exit 1
+        fi
+
+  ci-test:
+    desc: Full CI test workflow
+    cmds:
+      - task: build-terraform-infra
+      - task: setup-k8s-secret
+      - task: generate-rwl-config
+      - task: build-rwl
+      - task: run-rwl-discovery
+      - task: verify-results
+      - task: cleanup
+
+  cleanup:
+    desc: Clean up all test resources
+    cmds:
+      - kubectl delete secret {{.K8S_SECRET_NAME}} --namespace={{.NAMESPACE}} --ignore-not-found
+      - rm -rf output/
+      - task: cleanup-terraform-infra
+
+  clean:
+    desc: Clean up local artifacts only
+    cmds:
+      - rm -rf output/
+      - rm -f workspaceInfo.yaml

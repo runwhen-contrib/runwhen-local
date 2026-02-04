@@ -1,0 +1,245 @@
+# Helm values for RunWhen Local on EKS with IRSA (IAM Roles for Service Accounts)
+
+###############################################################################
+######################## Global/Shared Settings ###############################
+###############################################################################
+workspaceName: "aws-workload-identity-eks"
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+podAnnotations: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - all
+  readOnlyRootFilesystem: false
+  seccompProfile:
+    type: "RuntimeDefault"
+podSecurityContext: {}
+registryOverride: ""
+proxy:
+  enabled: false
+  httpProxy: ""
+  httpsProxy: ""
+  noProxy: "127.0.0.1,localhost,$($KUBERNETES_SERVICE_HOST)"
+proxyCA: {}
+platformType: "kubernetes"
+platformArch: "amd64"
+###############################################################################
+######################## RunWhen Local Configuration ##########################
+###############################################################################
+runwhenLocal:
+  enabled: true
+  image:
+    registry: "us-docker.pkg.dev"
+    repository: "runwhen-nonprod-shared/public-images/runwhen-local"
+    pullPolicy: Always
+  volumes: {}
+  volumeMounts: {}
+  tolerations: []
+  serviceAccount:
+    create: true
+    annotations:
+      eks.amazonaws.com/role-arn: "arn:aws:iam::982534371594:role/runwhen-irsa-test"
+    name: "runwhen-local"
+  serviceAccountRoles:
+    namespaceRole:
+      enabled: false
+      namespaces: []
+      rules:
+        - apiGroups: [""]
+          resources: ["*"]
+          verbs: ["get", "watch", "list"]
+    clusterRoleView:
+      enabled: true
+    advancedClusterRole:
+      enabled: false
+      rules: []
+  service:
+    type: ClusterIP
+    port: 8081
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts:
+      - host: chart-example.local
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+  resources:
+    default:
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+      limits:
+        cpu: "1"
+        memory: "1024Mi"
+  clusterName: "runwhen-irsa-test-test"
+  discoveryKubeconfig:
+    inClusterAuth:
+      enabled: true
+      createKubeconfigSecret: false
+    secretProvided:
+      enabled: false
+  autoRun:
+    discoveryInterval: 14400
+    uploadEnabled: true
+    uploadMergeMode: "keep-uploaded"
+  terminal:
+    disabled: true
+  debugLogs: false
+  cheatSheet:
+    disabled: true
+  extraEnv: []
+  uploadInfo:
+    secretProvided:
+      enabled: true
+      secretName: "uploadinfo"
+      secretKey: uploadInfo.yaml
+      secretPath: uploadInfo.yaml
+  workspaceInfo:
+    useExistingConfigMap: true
+    existingConfigMapName: "workspaceinfo"
+    configMap:
+      create: false
+      name: workspace-builder
+###############################################################################
+######################## Runner Configuration #################################
+###############################################################################
+runner:
+  enabled: true
+  log:
+    level: info
+    format: console
+  debugLogs: true
+  codeCollections:
+    - repoURL: https://github.com/runwhen-contrib/rw-cli-codecollection
+      branch: main
+      workerReplicas: 4
+  configMap:
+    create: true
+    name: runner-config
+    apiVersion: config.runwhen.com/v1
+    kind: RunnerConfig
+    raw: {}
+  image:
+    registry: ""
+    repository: ""
+    tag: ""
+  controlAddr: "https://runner.test.runwhen.com"
+  metrics:
+    url: "https://runner-cortex-tenant.test.runwhen.com/push"
+  securityContext: {}
+  podSecurityContext: {}
+  extraEnv: {}
+  volumes: {}
+  volumeMounts: {}
+  tolerations: []
+  runEnvironment:
+    image:
+      pullSecret: ""
+      pullPolicy: ""
+      registry: ""
+      repository: "runwhen"
+    volumes: {}
+    volumeMounts: {}
+    extraEnv: {}
+    securityContext: {}
+    podSecurityContext: {}
+    secretProviders: {}
+    secretsProvided: {}
+    blockedSecrets: []
+    deployment:
+      # CRITICAL: Use runwhen-local SA which has IRSA annotation
+      serviceAccount: "runwhen-local"
+      annotations: {}
+      podAnnotations: {}
+      affinity: {}
+      nodeName: ""
+      nodeSelector: {}
+      tolerations: []
+      resources:
+        default:
+          requests:
+            cpu: "100m"
+            memory: "512Mi"
+          limits:
+            cpu: "1"
+            memory: "1024Mi"
+    pod:
+      runAsJob: false
+      # CRITICAL: Use runwhen-local SA which has IRSA annotation
+      serviceAccount: "runwhen-local"
+      annotations: {}
+      affinity: {}
+      nodeName: ""
+      nodeSelector: {}
+      tolerations: []
+      resources:
+        default:
+          requests:
+            cpu: "50m"
+            memory: "128Mi"
+          limits:
+            cpu: "1"
+            memory: "512Mi"
+    proxy: {}
+    proxyCA: {}
+  resources:
+    default:
+      requests:
+        cpu: "50m"
+        memory: "64Mi"
+      limits:
+        cpu: "600m"
+        memory: "256Mi"
+###############################################################################
+######################## OpenTelemetry Collector ##############################
+###############################################################################
+opentelemetry-collector:
+  fullnameOverride: otel-collector
+  mode: deployment
+  configMap:
+    create: false
+    existingName: "otel-collector"
+  image:
+    repository: "otel/opentelemetry-collector"
+    pullPolicy: IfNotPresent
+    tag: "0.127.0"
+  imagePullSecrets: []
+  command:
+    name: "otelcol"
+    extraArgs: ["--feature-gates=-pkg.translator.prometheus.NormalizeName"]
+  serviceAccount:
+    create: false
+    annotations: {}
+    name: "otel-collector"
+  extraVolumes:
+    - name: tls-secret-volume
+      secret:
+        secretName: runner-metrics-tls
+  extraVolumeMounts:
+    - name: tls-secret-volume
+      mountPath: /tls
+      readOnly: true
+  resources:
+    requests:
+      cpu: "10m"
+      memory: "32Mi"
+    limits:
+      cpu: "50m"
+      memory: "64Mi"
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - all
+    readOnlyRootFilesystem: true
+    seccompProfile:
+      type: "RuntimeDefault"

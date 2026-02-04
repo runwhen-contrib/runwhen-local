@@ -81,8 +81,8 @@ def deduplicate_secrets_provided(yaml_text: str) -> str:
         # Replace with deduplicated list
         data['spec']['tags'] = list(seen_tags.values())
     
-    # Use PyYAML with explicit string representation to ensure all values are quoted
-    return yaml.dump(data, sort_keys=False, default_flow_style=False, allow_unicode=True, default_style='"')
+    # Use PyYAML to dump with proper YAML formatting
+    return yaml.dump(data, sort_keys=False, default_flow_style=False, allow_unicode=True)
 
 def apply_config_provided_overrides(context: Context, output_text: str, output_item: OutputItem) -> str:
     """
@@ -164,8 +164,8 @@ def apply_config_provided_overrides(context: Context, output_text: str, output_i
                         if 'value' in tag:
                             tag['value'] = str(tag['value'])  # Force all tag values to strings
                 
-                # Re-serialize the YAML with explicit string representation
-                return yaml.dump(parsed_yaml, default_flow_style=False, sort_keys=False, allow_unicode=True, default_style='"')
+                # Re-serialize the YAML with proper formatting
+                return yaml.dump(parsed_yaml, default_flow_style=False, sort_keys=False, allow_unicode=True)
                 
         return output_text
         
