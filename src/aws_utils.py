@@ -478,21 +478,39 @@ def get_aws_environment_vars(
     access_key_id: Optional[str] = None,
     secret_access_key: Optional[str] = None,
     session_token: Optional[str] = None,
-    region: Optional[str] = None
+    region: Optional[str] = None,
+    session: Optional[boto3.Session] = None
 ) -> dict:
     """
     Get AWS environment variables for passing to subprocesses.
+    
+    For Pod Identity, CloudQuery rejects the credential endpoint (169.254.170.23) 
+    as non-loopback, so we fetch temporary credentials and pass them explicitly.
     
     Args:
         access_key_id: AWS access key ID
         secret_access_key: AWS secret access key
         session_token: AWS session token
         region: AWS region
+        session: boto3 session to get credentials from (for Pod Identity)
         
     Returns:
         Dictionary of environment variable names and values
     """
     env_vars = {}
+    
+    # For Pod Identity: fetch credentials explicitly since CloudQuery rejects the endpoint
+    if os.environ.get('AWS_CONTAINER_CREDENTIALS_FULL_URI') and not access_key_id and session:
+        logger.info("Pod Identity detected - fetching temporary credentials for CloudQuery")
+        try:
+            creds = session.get_credentials()
+            if creds:
+                access_key_id = creds.access_key
+                secret_access_key = creds.secret_key
+                session_token = creds.token
+                logger.info("Retrieved temporary credentials from Pod Identity for CloudQuery")
+        except Exception as e:
+            logger.warning(f"Failed to fetch Pod Identity credentials explicitly: {e}")
     
     # Pass explicit credentials if provided
     if access_key_id:
@@ -505,22 +523,17 @@ def get_aws_environment_vars(
         env_vars['AWS_DEFAULT_REGION'] = region
         env_vars['AWS_REGION'] = region
     
-    # Pass IRSA/Workload Identity environment variables if they exist
-    # This is crucial for CloudQuery to work with EKS authentication
-    
-    # IRSA environment variables
-    if os.environ.get('AWS_WEB_IDENTITY_TOKEN_FILE'):
+    # Pass IRSA environment variables (CloudQuery supports these)
+    # IRSA uses web identity token files which CloudQuery accepts
+    if os.environ.get('AWS_WEB_IDENTITY_TOKEN_FILE') and not access_key_id:
         env_vars['AWS_WEB_IDENTITY_TOKEN_FILE'] = os.environ.get('AWS_WEB_IDENTITY_TOKEN_FILE')
-    if os.environ.get('AWS_ROLE_ARN'):
-        env_vars['AWS_ROLE_ARN'] = os.environ.get('AWS_ROLE_ARN')
-    if os.environ.get('AWS_ROLE_SESSION_NAME'):
-        env_vars['AWS_ROLE_SESSION_NAME'] = os.environ.get('AWS_ROLE_SESSION_NAME')
+        if os.environ.get('AWS_ROLE_ARN'):
+            env_vars['AWS_ROLE_ARN'] = os.environ.get('AWS_ROLE_ARN')
+        if os.environ.get('AWS_ROLE_SESSION_NAME'):
+            env_vars['AWS_ROLE_SESSION_NAME'] = os.environ.get('AWS_ROLE_SESSION_NAME')
     
-    # Pod Identity environment variables
-    if os.environ.get('AWS_CONTAINER_CREDENTIALS_FULL_URI'):
-        env_vars['AWS_CONTAINER_CREDENTIALS_FULL_URI'] = os.environ.get('AWS_CONTAINER_CREDENTIALS_FULL_URI')
-    if os.environ.get('AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE'):
-        env_vars['AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE'] = os.environ.get('AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE')
+    # Note: We do NOT pass Pod Identity env vars to CloudQuery as it rejects the endpoint
+    # Instead, we fetch credentials above and pass them explicitly
     
     return env_vars
 

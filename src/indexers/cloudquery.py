@@ -846,7 +846,8 @@ def init_cloudquery_config(
                 session, region, akid, sak, stkn, auth_type, auth_secret = get_aws_credential(aws_workspace_info)
                 
                 # Set environment variables for CloudQuery
-                aws_env_vars = get_aws_environment_vars(akid, sak, stkn, region)
+                # Pass session for Pod Identity to fetch temporary credentials
+                aws_env_vars = get_aws_environment_vars(akid, sak, stkn, region, session)
                 cq_process_environment_vars.update(aws_env_vars)
                 
                 # Store auth type and secret for template rendering

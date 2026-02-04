@@ -76,6 +76,9 @@ module "eks" {
 
   cluster_endpoint_public_access = true
 
+  # Allow current IAM user/role to access the cluster
+  enable_cluster_creator_admin_permissions = true
+
   # Enable IRSA
   enable_irsa = true
 
@@ -176,48 +179,72 @@ resource "aws_s3_bucket_public_access_block" "test_bucket" {
 }
 
 #------------------------------------------------------------------------------
-# EKS Auth Configuration
+# Kubernetes Provider Configuration
 #------------------------------------------------------------------------------
-# Use null_resource with eksctl to add IRSA role to aws-auth ConfigMap
-# This avoids the circular dependency with the Kubernetes provider
-resource "null_resource" "update_aws_auth" {
-  triggers = {
-    irsa_role_arn = aws_iam_role.runwhen_irsa.arn
-    cluster_name  = module.eks.cluster_name
+data "aws_eks_cluster_auth" "cluster" {
+  name = module.eks.cluster_name
+
+  depends_on = [module.eks]
+}
+
+provider "kubernetes" {
+  host                   = module.eks.cluster_endpoint
+  cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+  token                  = data.aws_eks_cluster_auth.cluster.token
+}
+
+#------------------------------------------------------------------------------
+# Kubernetes RBAC for RunWhen Local Service Account
+# Grants cluster-wide read access for discovery
+#------------------------------------------------------------------------------
+resource "kubernetes_cluster_role" "runwhen_local_discovery" {
+  metadata {
+    name = "runwhen-local-discovery"
   }
 
-  provisioner "local-exec" {
-    command = <<-EOT
-      set -e
-      
-      # Update kubeconfig
-      aws eks update-kubeconfig --name ${module.eks.cluster_name} --region ${var.region} --kubeconfig /tmp/kubeconfig-${module.eks.cluster_name}
-      export KUBECONFIG=/tmp/kubeconfig-${module.eks.cluster_name}
-      
-      # Create identity mapping for IRSA role using eksctl or kubectl
-      if command -v eksctl &> /dev/null; then
-        eksctl create iamidentitymapping \
-          --cluster ${module.eks.cluster_name} \
-          --region ${var.region} \
-          --arn ${aws_iam_role.runwhen_irsa.arn} \
-          --username runwhen-local \
-          --group system:masters \
-          --no-duplicate-arns || echo "IAM identity mapping may already exist"
-      else
-        # Fallback to kubectl edit
-        echo "Manually add this to aws-auth ConfigMap:"
-        echo "- rolearn: ${aws_iam_role.runwhen_irsa.arn}"
-        echo "  username: runwhen-local"
-        echo "  groups:"
-        echo "  - system:masters"
-      fi
-      
-      rm -f /tmp/kubeconfig-${module.eks.cluster_name}
-    EOT
+  rule {
+    api_groups = [""]
+    resources  = ["nodes", "pods", "services", "endpoints", "namespaces", "events", "configmaps", "secrets", "persistentvolumes", "persistentvolumeclaims"]
+    verbs      = ["get", "list", "watch"]
   }
 
-  depends_on = [
-    module.eks,
-    aws_iam_role.runwhen_irsa
-  ]
+  rule {
+    api_groups = ["apps"]
+    resources  = ["deployments", "statefulsets", "daemonsets", "replicasets"]
+    verbs      = ["get", "list", "watch"]
+  }
+
+  rule {
+    api_groups = ["batch"]
+    resources  = ["jobs", "cronjobs"]
+    verbs      = ["get", "list", "watch"]
+  }
+
+  rule {
+    api_groups = ["networking.k8s.io"]
+    resources  = ["ingresses", "networkpolicies"]
+    verbs      = ["get", "list", "watch"]
+  }
+
+  depends_on = [module.eks]
+}
+
+resource "kubernetes_cluster_role_binding" "runwhen_local_discovery" {
+  metadata {
+    name = "runwhen-local-discovery"
+  }
+
+  role_ref {
+    api_group = "rbac.authorization.k8s.io"
+    kind      = "ClusterRole"
+    name      = kubernetes_cluster_role.runwhen_local_discovery.metadata[0].name
+  }
+
+  subject {
+    kind      = "ServiceAccount"
+    name      = var.k8s_service_account
+    namespace = var.k8s_namespace
+  }
+
+  depends_on = [module.eks]
 }

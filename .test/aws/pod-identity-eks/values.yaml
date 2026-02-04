@@ -38,13 +38,15 @@ runwhenLocal:
     registry: "us-docker.pkg.dev"
     repository: "runwhen-nonprod-shared/public-images/runwhen-local"
     pullPolicy: Always
+    tag: 780-merge-856f3ab1
   volumes: {}
   volumeMounts: {}
   tolerations: []
   serviceAccount:
     create: true
     # Pod Identity doesn't use annotations - role association is via PodIdentityAssociation
-    annotations: {}
+    annotations:
+      eks.amazonaws.com/role-arn: arn:aws:iam::982534371594:role/runwhen-podid-test
     name: "runwhen-local"
   serviceAccountRoles:
     namespaceRole:

@@ -60,6 +60,13 @@ module "eks" {
   subnet_ids               = module.vpc.private_subnets
   control_plane_subnet_ids = module.vpc.private_subnets
 
+  # Enable public endpoint access for external connectivity (Codespaces, CI/CD, etc.)
+  cluster_endpoint_public_access  = true
+  cluster_endpoint_private_access = true
+
+  # Allow current IAM user/role to access the cluster
+  enable_cluster_creator_admin_permissions = true
+
   # Enable Pod Identity addon (required for EKS Pod Identity)
   cluster_addons = {
     coredns = {
@@ -197,4 +204,60 @@ provider "kubernetes" {
   host                   = module.eks.cluster_endpoint
   cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
   token                  = data.aws_eks_cluster_auth.cluster.token
+}
+
+#------------------------------------------------------------------------------
+# Kubernetes RBAC for RunWhen Local Service Account
+# Grants cluster-wide read access for discovery
+#------------------------------------------------------------------------------
+resource "kubernetes_cluster_role" "runwhen_local_discovery" {
+  metadata {
+    name = "runwhen-local-discovery"
+  }
+
+  rule {
+    api_groups = [""]
+    resources  = ["nodes", "pods", "services", "endpoints", "namespaces", "events", "configmaps", "secrets", "persistentvolumes", "persistentvolumeclaims"]
+    verbs      = ["get", "list", "watch"]
+  }
+
+  rule {
+    api_groups = ["apps"]
+    resources  = ["deployments", "statefulsets", "daemonsets", "replicasets"]
+    verbs      = ["get", "list", "watch"]
+  }
+
+  rule {
+    api_groups = ["batch"]
+    resources  = ["jobs", "cronjobs"]
+    verbs      = ["get", "list", "watch"]
+  }
+
+  rule {
+    api_groups = ["networking.k8s.io"]
+    resources  = ["ingresses", "networkpolicies"]
+    verbs      = ["get", "list", "watch"]
+  }
+
+  depends_on = [module.eks]
+}
+
+resource "kubernetes_cluster_role_binding" "runwhen_local_discovery" {
+  metadata {
+    name = "runwhen-local-discovery"
+  }
+
+  role_ref {
+    api_group = "rbac.authorization.k8s.io"
+    kind      = "ClusterRole"
+    name      = kubernetes_cluster_role.runwhen_local_discovery.metadata[0].name
+  }
+
+  subject {
+    kind      = "ServiceAccount"
+    name      = var.k8s_service_account
+    namespace = var.k8s_namespace
+  }
+
+  depends_on = [module.eks]
 }

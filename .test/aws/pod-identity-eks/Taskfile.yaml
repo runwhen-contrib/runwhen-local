@@ -8,7 +8,6 @@ tasks:
     desc: Run full test workflow
     cmds:
       - task: configure-kubectl
-      - task: configure-eks-auth
       - task: setup-k8s-resources
       - task: generate-rwl-config
       - task: run-rwl-discovery
@@ -35,63 +34,31 @@ tasks:
     silent: true
 
   configure-kubectl:
-    desc: Configure kubectl for EKS cluster
+    desc: Configure kubectl for EKS cluster (ensures IAM access is configured)
     dir: terraform
     cmds:
       - |
-        CLUSTER_NAME=$(terraform output -raw cluster_name)
-        REGION=$(terraform output -raw region)
-        aws eks update-kubeconfig --name "$CLUSTER_NAME" --region "$REGION"
-        echo "Configured kubectl for cluster: $CLUSTER_NAME"
-
-  configure-eks-auth:
-    desc: Configure EKS aws-auth ConfigMap for Pod Identity role access
-    dir: terraform
-    cmds:
-      - |
-        set -e
+        # Ensure IAM access entry exists (required for kubectl authentication)
+        echo "Ensuring IAM access entry is configured..."
+        terraform apply -auto-approve -target=module.eks.aws_eks_access_entry.this -target=module.eks.aws_eks_access_policy_association.this
         
         CLUSTER_NAME=$(terraform output -raw cluster_name)
         REGION=$(terraform output -raw region)
-        POD_IDENTITY_ROLE_ARN=$(terraform output -raw pod_identity_role_arn)
-        
-        echo "Configuring aws-auth for cluster: $CLUSTER_NAME"
-        echo "Pod Identity Role ARN: $POD_IDENTITY_ROLE_ARN"
         
         # Update kubeconfig
         aws eks update-kubeconfig --name "$CLUSTER_NAME" --region "$REGION"
+        echo "Configured kubectl for cluster: $CLUSTER_NAME"
         
-        # Get current aws-auth ConfigMap and check if our role is already there
-        if kubectl get configmap aws-auth -n kube-system -o yaml | grep -q "$POD_IDENTITY_ROLE_ARN"; then
-          echo "Pod Identity role already exists in aws-auth ConfigMap"
-          exit 0
-        fi
-        
-        echo "Adding Pod Identity role to aws-auth ConfigMap..."
-        
-        # Get current mapRoles
-        kubectl get configmap aws-auth -n kube-system -o yaml > /tmp/aws-auth-backup.yaml
-        CURRENT_MAP=$(kubectl get configmap aws-auth -n kube-system -o jsonpath='{.data.mapRoles}')
-        
-        # Create new role entry
-        NEW_ROLE="- rolearn: $POD_IDENTITY_ROLE_ARN
-          username: runwhen-local
-          groups:
-          - system:masters"
-        
-        # Combine current and new
-        printf "%s\n%s" "$CURRENT_MAP" "$NEW_ROLE" > /tmp/new-maproles.yaml
-        
-        # Update ConfigMap
-        kubectl create configmap aws-auth \
-          --from-file=mapRoles=/tmp/new-maproles.yaml \
-          --dry-run=client -o yaml | \
-          kubectl apply -f - -n kube-system
-        
-        echo ""
-        echo "Successfully updated aws-auth ConfigMap!"
-        echo "Verifying Pod Identity role is present:"
-        kubectl get configmap aws-auth -n kube-system -o yaml | grep -A3 "$POD_IDENTITY_ROLE_ARN"
+        # Verify access
+        echo "Verifying kubectl access..."
+        kubectl get nodes || echo "WARNING: kubectl access not working. Run 'terraform apply' to ensure all access entries are created."
+
+  # NOTE: configure-eks-auth task removed - it was incorrect
+  # Pod Identity/IRSA roles do NOT need to be in aws-auth ConfigMap
+  # - These roles are for AWS authentication (S3, EC2, etc.), not Kubernetes API
+  # - Kubernetes API authentication uses the service account token directly
+  # - aws-auth ConfigMap is only for IAM principals authenticating FROM OUTSIDE the cluster
+  # - Pod Identity association is handled by the PodIdentityAssociation resource in Terraform
 
   setup-k8s-resources:
     desc: Create Kubernetes namespace and service account with Pod Identity annotation
