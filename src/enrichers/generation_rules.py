@@ -931,7 +931,9 @@ def assign_slx_names(slxs: dict[str, SLXInfo], workspace_name):
             # smarter shortening logic to ensure that the shortened names are unique.
             # count_chars = len(f"{count+1}")
             for i, slx_info in enumerate(slx_list):
-                indexed_base_name = f"{slx_info.base_name}{i+1}"
+                # IMPORTANT: Use shortened_base_name, not base_name, to keep qualified names short
+                # Using base_name here was a bug that caused qualified names to exceed expected length
+                indexed_base_name = f"{slx_info.slx.shortened_base_name}{i+1}"
                 initial_qualified_name = make_qualified_slx_name(indexed_base_name, slx_info.qualifier_values)
                 # Use make_slx_name_and_qualified to ensure directory name matches SLX name
                 slx_info.name, slx_info.qualified_name = make_slx_name_and_qualified(workspace_name, initial_qualified_name)

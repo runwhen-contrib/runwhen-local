@@ -112,6 +112,11 @@ def _truncate_qualified_name(qualified_slx_name: str, excess_length: int) -> str
         return qualified_slx_name[:-excess_length]
 
 
+class SLXNameValidationError(Exception):
+    """Raised when an SLX name fails validation (e.g., exceeds max length)."""
+    pass
+
+
 def make_slx_name_and_qualified(workspace_name: str, qualified_slx_name: str) -> tuple[str, str]:
     """
     Create an SLX name and return both the full name and the (possibly truncated) qualified name.
@@ -121,6 +126,7 @@ def make_slx_name_and_qualified(workspace_name: str, qualified_slx_name: str) ->
     :return: A tuple of (full_slx_name, truncated_qualified_name) where:
              - full_slx_name is the combined and sanitized SLX name (workspace--qualified)
              - truncated_qualified_name is the (possibly truncated) qualified name for directory use
+    :raises SLXNameValidationError: If the final name exceeds 63 characters after all processing.
     """
     max_k8s_name_length = 63
     combined_length = len(workspace_name) + 2 + len(qualified_slx_name)  # 2 for the "--" separator
@@ -129,6 +135,16 @@ def make_slx_name_and_qualified(workspace_name: str, qualified_slx_name: str) ->
         qualified_slx_name = _truncate_qualified_name(qualified_slx_name, excess_length)
     safe_qualified_slx_name = sanitize_name(qualified_slx_name)
     full_slx_name = f"{workspace_name}--{safe_qualified_slx_name}"
+    
+    # CRITICAL VALIDATION: Ensure the final name does not exceed 63 characters
+    # This is a hard requirement for Kubernetes resource names and labels
+    if len(full_slx_name) > max_k8s_name_length:
+        raise SLXNameValidationError(
+            f"SLX name '{full_slx_name}' is {len(full_slx_name)} characters, "
+            f"exceeding the Kubernetes limit of {max_k8s_name_length}. "
+            f"Workspace: '{workspace_name}', Qualified name: '{safe_qualified_slx_name}'"
+        )
+    
     return (full_slx_name, safe_qualified_slx_name)
 
 
