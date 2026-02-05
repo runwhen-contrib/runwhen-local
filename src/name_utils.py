@@ -71,13 +71,33 @@ def generate_hash(qualifiers: list[str]) -> str:
     hash_object = hashlib.sha1(combined_qualifiers.encode())
     return hash_object.hexdigest()[:8]  # Use the first 8 characters of the hash for brevity
 
+def _has_hash_suffix(name: str) -> bool:
+    """
+    Check if a name ends with a valid hash suffix (-XXXXXXXX where X is a hex digit).
+    :param name: The name to check.
+    :return: True if the name has a valid hash suffix.
+    """
+    if len(name) < 9:
+        return False
+    # Hash suffix is a dash followed by 8 hex characters
+    if name[-9] != '-':
+        return False
+    hash_part = name[-8:]
+    return all(c in '0123456789abcdef' for c in hash_part)
+
+
 def _truncate_qualified_name(qualified_slx_name: str, excess_length: int) -> str:
     """
-    Internal helper to truncate a qualified SLX name while preserving the hash suffix.
+    Internal helper to truncate a qualified SLX name while preserving the hash suffix if present.
     :param qualified_slx_name: The qualified SLX name to truncate.
     :param excess_length: Number of characters to remove.
-    :return: The truncated qualified name with hash suffix preserved.
+    :return: The truncated qualified name with hash suffix preserved (if it exists).
     """
+    # Check if the name actually has a hash suffix (not all names do - e.g., when qualifiers is empty)
+    if not _has_hash_suffix(qualified_slx_name):
+        # No hash suffix, just truncate from the end
+        return qualified_slx_name[:-excess_length]
+    
     # The hash suffix is 8 characters preceded by a dash (9 chars total)
     # We must preserve this to maintain uniqueness across SLXs
     hash_suffix_length = 9  # "-" + 8 hash characters

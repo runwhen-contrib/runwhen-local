@@ -204,6 +204,29 @@ class NameUtilsTest(TestCase):
         self.assertEqual(len(directory_names), len(set(directory_names)),
                         f"Directory names are not unique: {directory_names}")
 
+    def test_truncation_without_hash_suffix(self):
+        """Test that truncation works correctly for names without hash suffixes."""
+        # When qualifiers is empty, make_qualified_slx_name returns just the base name
+        # without a hash suffix. Truncation should still work correctly.
+        long_workspace = "my-very-long-workspace-name-that-is-quite-lengthy"
+        
+        # A name without a hash suffix (what you'd get with empty qualifiers)
+        no_hash_name = "some-long-base-name-without-any-hash"
+        
+        full_name, directory_name = make_slx_name_and_qualified(long_workspace, no_hash_name)
+        
+        # Should still fit in 63 chars
+        self.assertLessEqual(len(full_name), 63, f"SLX name too long: {len(full_name)}")
+        
+        # Directory should match qualified portion
+        self.assertEqual(directory_name, full_name.split('--')[1])
+        
+        # The name should be truncated from the end (since no hash to preserve)
+        # It should NOT incorrectly treat the last 9 chars as a hash
+        # For example, "without-any-hash" should NOT become "without--any-hash" 
+        # (incorrectly preserving "-any-hash" as if it were a hash suffix)
+        self.assertNotIn('--', directory_name, "Should not have double dashes from incorrect hash detection")
+
 class RepoUtilsTest(TestCase):
 
     def setUp(self):
