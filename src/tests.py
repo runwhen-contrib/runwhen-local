@@ -134,6 +134,35 @@ class NameUtilsTest(TestCase):
         qualified_slx_name = make_qualified_slx_name(shortened_base_name, ["argo-cd-argocd-application-controller"])
         self.assertEqual("acaac-sttflst-hlth-5fb369e9", qualified_slx_name)
 
+    def test_slx_name_truncation_preserves_hash(self):
+        """Test that truncation preserves the unique hash suffix to avoid collisions."""
+        # Simulate long qualified names with different hashes (like the user's scenario)
+        long_workspace = "wba-rpu-nprod-general"
+        
+        # These qualified names differ only in their hash suffix
+        qualified_name_1 = "5f48c-nprodbussvcshbaeastus0-azr-vm-cst-opt-1cf48ae4"
+        qualified_name_2 = "5f48c-nprodbussvcshbaeastus0-azr-vm-cst-opt-295cdd39"
+        qualified_name_3 = "5f48c-nprodbussvcshbaeastus0-azr-vm-cst-opt-84e6e0b6"
+        
+        slx_name_1 = make_slx_name(long_workspace, qualified_name_1)
+        slx_name_2 = make_slx_name(long_workspace, qualified_name_2)
+        slx_name_3 = make_slx_name(long_workspace, qualified_name_3)
+        
+        # All names should be unique (no collisions)
+        self.assertNotEqual(slx_name_1, slx_name_2, "SLX names should be unique")
+        self.assertNotEqual(slx_name_2, slx_name_3, "SLX names should be unique")
+        self.assertNotEqual(slx_name_1, slx_name_3, "SLX names should be unique")
+        
+        # All names should respect the 63 character limit
+        self.assertLessEqual(len(slx_name_1), 63, "SLX name should not exceed 63 chars")
+        self.assertLessEqual(len(slx_name_2), 63, "SLX name should not exceed 63 chars")
+        self.assertLessEqual(len(slx_name_3), 63, "SLX name should not exceed 63 chars")
+        
+        # The hash suffix should be preserved in each name
+        self.assertTrue(slx_name_1.endswith("1cf48ae4"), f"Hash suffix missing: {slx_name_1}")
+        self.assertTrue(slx_name_2.endswith("295cdd39"), f"Hash suffix missing: {slx_name_2}")
+        self.assertTrue(slx_name_3.endswith("84e6e0b6"), f"Hash suffix missing: {slx_name_3}")
+
 class RepoUtilsTest(TestCase):
 
     def setUp(self):
