@@ -214,43 +214,11 @@ secretsProvided:
 
 Used for accessing EKS clusters for Kubernetes operations.
 
-### 2.1 IRSA (Workload Identity)
-
-**Pattern:** `aws:irsa@eks:{cluster_name}:{region}`
-
-**Auth Type:** `aws_workload_identity`
-
-**Example:**
-```yaml
-secretsProvided:
-  - name: aws_credentials
-    workspaceKey: aws:irsa@eks:my-eks-cluster:us-west-2
-```
-
-**Description:** Uses IRSA for EKS cluster authentication. Automatically generates kubeconfig.
-
----
-
-### 2.2 Pod Identity
-
-**Pattern:** `aws:pod-identity@eks:{cluster_name}:{region}`
-
-**Auth Type:** `aws_pod_identity`
-
-**Example:**
-```yaml
-secretsProvided:
-  - name: aws_credentials
-    workspaceKey: aws:pod-identity@eks:my-eks-cluster:us-west-2
-```
-
-**Description:** Uses Pod Identity for EKS cluster authentication. Automatically generates kubeconfig.
-
----
+### 2.1 IRSA / Pod Identity (Unified Pattern)
 
 **Pattern:** `aws:workload_identity@kubeconfig:{region}/{cluster_name}`
 
-**Auth Type:** `aws_workload_identity`
+**Auth Type:** `aws_workload_identity` or `aws_pod_identity`
 
 **Example:**
 ```yaml
@@ -259,7 +227,11 @@ secretsProvided:
     workspaceKey: aws:workload_identity@kubeconfig:us-east-1/my-eks-cluster
 ```
 
-**Description:** Generates kubeconfig using IRSA credentials for EKS cluster authentication.
+**Description:** Generates kubeconfig using workload identity credentials (IRSA or Pod Identity). The authentication mechanism is automatically detected at runtime:
+- **IRSA**: Detected via `AWS_WEB_IDENTITY_TOKEN_FILE` + `AWS_ROLE_ARN`
+- **Pod Identity**: Detected via `AWS_CONTAINER_CREDENTIALS_FULL_URI`
+
+Both authentication methods use the same workspaceKey pattern since the underlying implementation handles both transparently.
 
 **Parameters:**
 - `region`: AWS region (e.g., `us-east-1`, `us-west-2`)
@@ -267,7 +239,7 @@ secretsProvided:
 
 ---
 
-### 2.3 Explicit Access Keys (EKS)
+### 2.2 Explicit Access Keys (EKS)
 
 **Pattern:** `aws:cli@kubeconfig:{region}/{cluster_name}`
 
@@ -292,7 +264,7 @@ secretsProvided:
 
 ---
 
-### 2.4 Kubernetes Secret (EKS)
+### 2.3 Kubernetes Secret (EKS)
 
 **Pattern:** `aws:cli@kubeconfig:{region}/{cluster_name}`
 
@@ -313,7 +285,7 @@ secretsProvided:
 
 ---
 
-### 2.5 Generic EKS (Fallback)
+### 2.4 Generic EKS (Fallback)
 
 **Pattern:** `aws:cli@kubeconfig:{region}/{cluster_name}`
 
@@ -630,12 +602,14 @@ AWS_SESSION_TOKEN: "..."  # Optional
 | Auth Type | AWS Resources | EKS Kubeconfig | Additional Secrets |
 |-----------|--------------|----------------|-------------------|
 | `aws_workload_identity` | `aws:irsa@cli` | `aws:workload_identity@kubeconfig:{region}/{cluster}` | None |
+| `aws_pod_identity` | `aws:pod-identity@cli` | `aws:workload_identity@kubeconfig:{region}/{cluster}` | None |
 | `aws_explicit` | `aws:access_key@cli` | `aws:cli@kubeconfig:{region}/{cluster}` | `k8s:file@secret/{name}:awsAccessKeyId`<br>`k8s:file@secret/{name}:awsSecretAccessKey` |
 | `aws_secret` | `aws:access_key@cli` | `aws:cli@kubeconfig:{region}/{cluster}` | `k8s:file@secret/{auth_secret}:awsAccessKeyId`<br>`k8s:file@secret/{auth_secret}:awsSecretAccessKey` |
 | `aws_assume_role` | `aws:assume_role@cli` | N/A | `aws_role_arn` (value) |
 | `aws_explicit_assume_role` | `aws:assume_role@cli` | N/A | `k8s:file@secret/{name}:awsAccessKeyId`<br>`k8s:file@secret/{name}:awsSecretAccessKey`<br>`AWS_ROLE_ARN` (value) |
 | `aws_secret_assume_role` | `aws:assume_role@cli` | N/A | `k8s:file@secret/{auth_secret}:awsAccessKeyId`<br>`k8s:file@secret/{auth_secret}:awsSecretAccessKey`<br>`AWS_ROLE_ARN` (value) |
 | `aws_workload_identity_assume_role` | `aws:irsa@cli` | N/A | `AWS_ROLE_ARN` (value) |
+| `aws_pod_identity_assume_role` | `aws:pod-identity@cli` | N/A | `AWS_ROLE_ARN` (value) |
 | `aws_default_chain` | `aws:default@cli` | N/A | None |
 
 ---

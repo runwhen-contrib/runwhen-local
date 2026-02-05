@@ -174,6 +174,33 @@ resource "aws_eks_pod_identity_association" "runwhen_local" {
 }
 
 #------------------------------------------------------------------------------
+# EKS Access Entry for Pod Identity IAM Role
+# Grants the Pod Identity IAM role read-only access to the EKS cluster
+# This allows pods using this role to discover and scan Kubernetes resources
+#------------------------------------------------------------------------------
+resource "aws_eks_access_entry" "pod_identity_role" {
+  cluster_name  = module.eks.cluster_name
+  principal_arn = aws_iam_role.runwhen_pod_identity.arn
+  type          = "STANDARD"
+
+  tags = merge(local.common_tags, {
+    Purpose = "pod-identity-cluster-access"
+  })
+}
+
+resource "aws_eks_access_policy_association" "pod_identity_role_view" {
+  cluster_name  = module.eks.cluster_name
+  principal_arn = aws_iam_role.runwhen_pod_identity.arn
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSViewPolicy"
+
+  access_scope {
+    type = "cluster"
+  }
+
+  depends_on = [aws_eks_access_entry.pod_identity_role]
+}
+
+#------------------------------------------------------------------------------
 # Test S3 Bucket
 #------------------------------------------------------------------------------
 resource "aws_s3_bucket" "test_bucket" {
@@ -191,73 +218,5 @@ resource "aws_s3_bucket_public_access_block" "test_bucket" {
   restrict_public_buckets = true
 }
 
-#------------------------------------------------------------------------------
-# Kubernetes Provider Configuration
-#------------------------------------------------------------------------------
-data "aws_eks_cluster_auth" "cluster" {
-  name = module.eks.cluster_name
-
-  depends_on = [module.eks]
-}
-
-provider "kubernetes" {
-  host                   = module.eks.cluster_endpoint
-  cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
-  token                  = data.aws_eks_cluster_auth.cluster.token
-}
-
-#------------------------------------------------------------------------------
-# Kubernetes RBAC for RunWhen Local Service Account
-# Grants cluster-wide read access for discovery
-#------------------------------------------------------------------------------
-resource "kubernetes_cluster_role" "runwhen_local_discovery" {
-  metadata {
-    name = "runwhen-local-discovery"
-  }
-
-  rule {
-    api_groups = [""]
-    resources  = ["nodes", "pods", "services", "endpoints", "namespaces", "events", "configmaps", "secrets", "persistentvolumes", "persistentvolumeclaims"]
-    verbs      = ["get", "list", "watch"]
-  }
-
-  rule {
-    api_groups = ["apps"]
-    resources  = ["deployments", "statefulsets", "daemonsets", "replicasets"]
-    verbs      = ["get", "list", "watch"]
-  }
-
-  rule {
-    api_groups = ["batch"]
-    resources  = ["jobs", "cronjobs"]
-    verbs      = ["get", "list", "watch"]
-  }
-
-  rule {
-    api_groups = ["networking.k8s.io"]
-    resources  = ["ingresses", "networkpolicies"]
-    verbs      = ["get", "list", "watch"]
-  }
-
-  depends_on = [module.eks]
-}
-
-resource "kubernetes_cluster_role_binding" "runwhen_local_discovery" {
-  metadata {
-    name = "runwhen-local-discovery"
-  }
-
-  role_ref {
-    api_group = "rbac.authorization.k8s.io"
-    kind      = "ClusterRole"
-    name      = kubernetes_cluster_role.runwhen_local_discovery.metadata[0].name
-  }
-
-  subject {
-    kind      = "ServiceAccount"
-    name      = var.k8s_service_account
-    namespace = var.k8s_namespace
-  }
-
-  depends_on = [module.eks]
-}
+# Note: Kubernetes RBAC is created via kubectl in the Taskfile after Helm install
+# This avoids Terraform dependency issues with Helm-managed resources
