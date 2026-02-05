@@ -12,6 +12,7 @@ terraform {
     }
   }
 
+  # Backend configured via CLI flags in CI, uses local state when flags not provided
   backend "azurerm" {}
 }
 
