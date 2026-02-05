@@ -14,7 +14,7 @@ Multiple authentication methods are available to access AWS resources. RunWhen L
 
 1. **Explicit Access Keys** - Credentials specified directly in `workspaceInfo.yaml`
 2. **Kubernetes Secret** - Credentials stored in a Kubernetes secret (via `awsSecretName`)
-3. **Workload Identity (IRSA)** - EKS IAM Roles for Service Accounts
+3. **Workload Identity** - EKS IAM Roles for Service Accounts (IRSA) or EKS Pod Identity
 4. **Assume Role** - IAM role assumption (can be combined with other methods)
 5. **Default Credential Chain** - boto3 default credential provider chain
 
@@ -91,9 +91,13 @@ stringData:
   region: us-east-1
 ```
 
-### Method 3: Workload Identity (EKS IRSA)
+### Method 3: Workload Identity
 
-For EKS clusters with IAM Roles for Service Accounts (IRSA) configured, RunWhen Local can use the pod's service account to authenticate:
+RunWhen Local supports two types of EKS workload identity:
+
+#### Method 3a: IRSA (IAM Roles for Service Accounts)
+
+For EKS clusters with IRSA configured, RunWhen Local can use the pod's service account to authenticate:
 
 ```yaml
 cloudConfig:
@@ -119,6 +123,46 @@ metadata:
   annotations:
     eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/RunWhenLocalRole
 ```
+
+#### Method 3b: Pod Identity
+
+{% hint style="info" %}
+EKS Pod Identity is a newer, simpler alternative to IRSA. It's available in EKS 1.24+ and became GA in 2024.
+{% endhint %}
+
+For EKS clusters with Pod Identity configured:
+
+```yaml
+cloudConfig:
+  aws:
+    region: us-east-1
+    useWorkloadIdentity: true
+```
+
+Pod Identity is automatically detected via the `AWS_CONTAINER_CREDENTIALS_FULL_URI` environment variable.
+
+**Prerequisites:**
+- EKS 1.24+ with Pod Identity Agent addon enabled
+- `PodIdentityAssociation` resource linking service account to IAM role
+- IAM role with trust policy for `pods.eks.amazonaws.com`
+
+**Key differences from IRSA:**
+- ✅ No OIDC provider required
+- ✅ No service account annotations needed
+- ✅ Simpler IAM trust policy
+- ✅ Uses EKS Pod Identity Agent addon
+
+Example Pod Identity Association (created via Terraform/CloudFormation):
+```hcl
+resource "aws_eks_pod_identity_association" "runwhen_local" {
+  cluster_name    = "my-eks-cluster"
+  namespace       = "runwhen-local"
+  service_account = "runwhen-local"
+  role_arn        = "arn:aws:iam::123456789012:role/RunWhenLocalRole"
+}
+```
+
+See `.test/aws/pod-identity-eks/` for complete infrastructure examples.
 
 ### Method 4: Assume Role
 
@@ -179,7 +223,7 @@ cloudConfig:
     awsSecretName: base-aws-credentials
     assumeRoleArn: arn:aws:iam::TARGET_ACCOUNT:role/DiscoveryRole
 
-# Example 3: IRSA + assume role
+# Example 3: Workload Identity (IRSA or Pod Identity) + assume role
 cloudConfig:
   aws:
     region: us-east-1
@@ -342,7 +386,7 @@ The supported fields for AWS configuration (`cloudConfig.aws`) are:
 | awsSecretAccessKey        | string  | No       | Explicit secret access key                            |
 | awsSessionToken           | string  | No       | Session token for temporary credentials               |
 | awsSecretName             | string  | No       | Name of Kubernetes secret containing credentials      |
-| useWorkloadIdentity       | boolean | No       | Enable EKS IRSA authentication (default: false)       |
+| useWorkloadIdentity       | boolean | No       | Enable EKS Workload Identity (IRSA or Pod Identity) (default: false) |
 | assumeRoleArn             | string  | No       | ARN of IAM role to assume                             |
 | assumeRoleExternalId      | string  | No       | External ID for role assumption (security best practice) |
 | assumeRoleSessionName     | string  | No       | Session name for role assumption (default: runwhen-local-session) |

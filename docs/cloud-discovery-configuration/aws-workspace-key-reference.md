@@ -32,9 +32,39 @@ secretsProvided:
 
 **Description:** Uses EKS IRSA (IAM Roles for Service Accounts). No additional credentials needed - uses projected service account token.
 
+**Environment Variables Used:**
+- `AWS_WEB_IDENTITY_TOKEN_FILE`
+- `AWS_ROLE_ARN`
+- `AWS_ROLE_SESSION_NAME`
+
 ---
 
-### 1.2 Explicit Access Keys
+### 1.2 Pod Identity
+
+**Pattern:** `aws:pod-identity@cli`
+
+**Auth Type:** `aws_pod_identity`
+
+**Example:**
+```yaml
+secretsProvided:
+  - name: aws_credentials
+    workspaceKey: aws:pod-identity@cli
+```
+
+**Description:** Uses EKS Pod Identity (newer alternative to IRSA). No additional credentials needed - credentials provided via EKS Pod Identity Agent.
+
+**Environment Variables Used:**
+- `AWS_CONTAINER_CREDENTIALS_FULL_URI`
+- `AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE`
+
+**Requirements:**
+- EKS 1.24+ with Pod Identity Agent addon enabled
+- PodIdentityAssociation linking service account to IAM role
+
+---
+
+### 1.3 Explicit Access Keys
 
 **Pattern:** `aws:access_key@cli`
 
@@ -70,7 +100,7 @@ secretsProvided:
 
 ---
 
-### 1.3 Assume Role
+### 1.4 Assume Role
 
 **Pattern:** `aws:assume_role@cli`
 
@@ -125,7 +155,7 @@ secretsProvided:
 
 ---
 
-### 1.5 IRSA + Assume Role
+### 1.6 IRSA + Assume Role
 
 **Pattern:** `aws:irsa@cli`
 
@@ -144,7 +174,26 @@ secretsProvided:
 
 ---
 
-### 1.6 Default Credential Chain
+### 1.7 Pod Identity + Assume Role
+
+**Pattern:** `aws:pod-identity@cli` + `AWS_ROLE_ARN`
+
+**Auth Type:** `aws_pod_identity_assume_role`
+
+**Example:**
+```yaml
+secretsProvided:
+  - name: aws_credentials
+    workspaceKey: aws:pod-identity@cli
+  - name: AWS_ROLE_ARN
+    value: "arn:aws:iam::123456789012:role/my-cross-account-role"
+```
+
+**Description:** Uses EKS Pod Identity as base credentials, then assumes an additional IAM role. Useful for cross-account access or additional privilege escalation.
+
+---
+
+### 1.8 Default Credential Chain
 
 **Pattern:** `aws:default@cli`
 
@@ -165,11 +214,11 @@ secretsProvided:
 
 Used for accessing EKS clusters for Kubernetes operations.
 
-### 2.1 IRSA (Workload Identity)
+### 2.1 IRSA / Pod Identity (Unified Pattern)
 
 **Pattern:** `aws:workload_identity@kubeconfig:{region}/{cluster_name}`
 
-**Auth Type:** `aws_workload_identity`
+**Auth Type:** `aws_workload_identity` or `aws_pod_identity`
 
 **Example:**
 ```yaml
@@ -178,7 +227,11 @@ secretsProvided:
     workspaceKey: aws:workload_identity@kubeconfig:us-east-1/my-eks-cluster
 ```
 
-**Description:** Generates kubeconfig using IRSA credentials for EKS cluster authentication.
+**Description:** Generates kubeconfig using workload identity credentials (IRSA or Pod Identity). The authentication mechanism is automatically detected at runtime:
+- **IRSA**: Detected via `AWS_WEB_IDENTITY_TOKEN_FILE` + `AWS_ROLE_ARN`
+- **Pod Identity**: Detected via `AWS_CONTAINER_CREDENTIALS_FULL_URI`
+
+Both authentication methods use the same workspaceKey pattern since the underlying implementation handles both transparently.
 
 **Parameters:**
 - `region`: AWS region (e.g., `us-east-1`, `us-west-2`)
@@ -549,12 +602,14 @@ AWS_SESSION_TOKEN: "..."  # Optional
 | Auth Type | AWS Resources | EKS Kubeconfig | Additional Secrets |
 |-----------|--------------|----------------|-------------------|
 | `aws_workload_identity` | `aws:irsa@cli` | `aws:workload_identity@kubeconfig:{region}/{cluster}` | None |
+| `aws_pod_identity` | `aws:pod-identity@cli` | `aws:workload_identity@kubeconfig:{region}/{cluster}` | None |
 | `aws_explicit` | `aws:access_key@cli` | `aws:cli@kubeconfig:{region}/{cluster}` | `k8s:file@secret/{name}:awsAccessKeyId`<br>`k8s:file@secret/{name}:awsSecretAccessKey` |
 | `aws_secret` | `aws:access_key@cli` | `aws:cli@kubeconfig:{region}/{cluster}` | `k8s:file@secret/{auth_secret}:awsAccessKeyId`<br>`k8s:file@secret/{auth_secret}:awsSecretAccessKey` |
 | `aws_assume_role` | `aws:assume_role@cli` | N/A | `aws_role_arn` (value) |
 | `aws_explicit_assume_role` | `aws:assume_role@cli` | N/A | `k8s:file@secret/{name}:awsAccessKeyId`<br>`k8s:file@secret/{name}:awsSecretAccessKey`<br>`AWS_ROLE_ARN` (value) |
 | `aws_secret_assume_role` | `aws:assume_role@cli` | N/A | `k8s:file@secret/{auth_secret}:awsAccessKeyId`<br>`k8s:file@secret/{auth_secret}:awsSecretAccessKey`<br>`AWS_ROLE_ARN` (value) |
 | `aws_workload_identity_assume_role` | `aws:irsa@cli` | N/A | `AWS_ROLE_ARN` (value) |
+| `aws_pod_identity_assume_role` | `aws:pod-identity@cli` | N/A | `AWS_ROLE_ARN` (value) |
 | `aws_default_chain` | `aws:default@cli` | N/A | None |
 
 ---

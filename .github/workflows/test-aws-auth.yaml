@@ -1,0 +1,304 @@
+name: Discovery AWS Auth Tests
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "src/**"
+      - ".test/aws/**"
+      - ".github/workflows/test-aws-auth.yaml"
+      - "!src/VERSION"
+
+permissions:
+  contents: "read"
+  id-token: "write"
+  security-events: "write"
+  actions: "read"
+
+env:
+  AZ_RESOURCE_GROUP: "sandbox"
+  AZ_TF_STORAGE_CONTAINER: ${{ secrets.AZ_TF_STORAGE_CONTAINER }}
+
+jobs:
+  build-image:
+    runs-on: ubuntu-latest
+    outputs:
+      image-tag: ${{ github.sha }}
+    steps:
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/checkout@v4
+        name: Checkout
+
+      - name: Build Image
+        run: |
+          cd .test/aws/pod-identity-eks
+          docker buildx create --use --name=mybuilder
+          docker buildx inspect --bootstrap
+          task build-rwl
+          docker save -o image.tar runwhen-local:test || (echo "Image not found!" && exit 1)
+
+      - name: Upload Image as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: container-image
+          path: .test/aws/pod-identity-eks/image.tar
+          retention-days: 1
+
+  aws-auth-infra-build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        auth: [irsa-eks, pod-identity-eks]
+    steps:
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/checkout@v4
+        name: Checkout
+
+      - name: Configure AWS Credentials
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws configure set default.region us-east-1
+
+      - name: Azure Login (for Terraform state)
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZ_SANDBOX_CREDS }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Deploy Infrastructure
+        working-directory: .test/aws/${{ matrix.auth }}
+        run: |
+          cd terraform
+          infra_desc=$(echo "$PWD" | awk -F'/' '{print $(NF-1)}')
+          
+          # Initialize with remote state in Azure Storage (same as AKS tests)
+          terraform init \
+            -backend-config="resource_group_name=${{ env.AZ_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ secrets.AZ_TF_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ secrets.AZ_TF_STORAGE_CONTAINER }}" \
+            -backend-config="key=terraform/$infra_desc/${{ github.job }}/${{ github.repository }}/${{ github.ref_name }}/${{ github.run_id }}/terraform.tfstate"
+          
+          # Use GitHub run ID for unique resource names
+          terraform apply -auto-approve -var="resource_suffix=${{ github.run_id }}"
+
+  aws-auth-tests:
+    needs:
+      - build-image
+      - aws-auth-infra-build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        auth: [irsa-eks, pod-identity-eks]
+    steps:
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/checkout@v4
+        name: Checkout
+
+      - name: Download Image Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: container-image
+          path: .test/aws/${{ matrix.auth }}
+
+      - name: Load Docker Image
+        run: |
+          docker load -i .test/aws/${{ matrix.auth }}/image.tar
+
+      - name: Configure AWS Credentials
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws configure set default.region us-east-1
+
+      - name: Azure Login (for Terraform state)
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZ_SANDBOX_CREDS }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Install RunWhen Local
+        working-directory: .test/aws/${{ matrix.auth }}
+        run: |
+          # Re-initialize with remote state
+          cd terraform
+          infra_desc=$(echo "$PWD" | awk -F'/' '{print $(NF-1)}')
+          terraform init \
+            -backend-config="resource_group_name=${{ env.AZ_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ secrets.AZ_TF_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ secrets.AZ_TF_STORAGE_CONTAINER }}" \
+            -backend-config="key=terraform/$infra_desc/aws-auth-infra-build/${{ github.repository }}/${{ github.ref_name }}/${{ github.run_id }}/terraform.tfstate"
+          cd ..
+          
+          task configure-kubectl
+          task generate-rwl-config
+          task install-rwl-helm
+
+      - name: Wait for Discovery
+        working-directory: .test/aws/${{ matrix.auth }}
+        run: |
+          NAMESPACE=$(cd terraform && terraform output -raw k8s_namespace)
+          
+          echo "Waiting for RunWhen Local pod to be ready..."
+          kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=runwhen-local -n $NAMESPACE --timeout=300s
+          
+          echo "Waiting 90s for discovery to complete..."
+          sleep 90
+
+      - name: Verify Discovery & SLX Generation
+        working-directory: .test/aws/${{ matrix.auth }}
+        run: |
+          # Re-initialize with remote state
+          cd terraform
+          infra_desc=$(echo "$PWD" | awk -F'/' '{print $(NF-1)}')
+          terraform init \
+            -backend-config="resource_group_name=${{ env.AZ_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ secrets.AZ_TF_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ secrets.AZ_TF_STORAGE_CONTAINER }}" \
+            -backend-config="key=terraform/$infra_desc/aws-auth-infra-build/${{ github.repository }}/${{ github.ref_name }}/${{ github.run_id }}/terraform.tfstate"
+          
+          NAMESPACE=$(terraform output -raw k8s_namespace)
+          CLUSTER_NAME=$(terraform output -raw cluster_name)
+          cd ..
+          
+          POD=$(kubectl get pods -n $NAMESPACE -l app.kubernetes.io/name=runwhen-local -o jsonpath='{.items[0].metadata.name}')
+          
+          echo "=== Checking logs ==="
+          kubectl logs -n $NAMESPACE $POD --tail=300 > /tmp/rwl-logs.txt
+          
+          # FAIL if authentication errors
+          if grep -qi "unauthorized\|401\|authentication failed" /tmp/rwl-logs.txt; then
+            echo "❌ FAILED: Authentication errors found"
+            grep -i "unauthorized\|401\|authentication" /tmp/rwl-logs.txt
+            exit 1
+          fi
+          
+          # FAIL if cluster discovery was skipped
+          if grep -q "Skipping cluster.*$CLUSTER_NAME" /tmp/rwl-logs.txt; then
+            echo "❌ FAILED: Cluster discovery was skipped"
+            exit 1
+          fi
+          
+          # Verify cluster was scanned
+          if ! grep -q "Scanning Kubernetes cluster $CLUSTER_NAME" /tmp/rwl-logs.txt; then
+            echo "❌ FAILED: Cluster was not scanned"
+            exit 1
+          fi
+          
+          echo "✅ Cluster discovery completed"
+          
+          # THE CRITICAL TEST: Count SLXs generated
+          echo "=== Counting generated SLXs ==="
+          SLX_COUNT=$(kubectl exec -n $NAMESPACE $POD -- find /shared/output -name "*.yaml" -type f 2>/dev/null | wc -l)
+          
+          echo "Generated SLX count: $SLX_COUNT"
+          
+          if [ "$SLX_COUNT" -lt 1 ]; then
+            echo "❌ FAILED: No SLXs generated (expected > 1)"
+            echo "=== Output directory contents ==="
+            kubectl exec -n $NAMESPACE $POD -- ls -la /shared/output/ || true
+            exit 1
+          fi
+          
+          echo "✅ SUCCESS: Discovery generated $SLX_COUNT SLXs"
+          
+          # Show sample of generated files
+          echo "=== Sample generated files ==="
+          kubectl exec -n $NAMESPACE $POD -- find /shared/output -name "*.yaml" -type f | head -5
+
+  aws-auth-infra-cleanup:
+    runs-on: ubuntu-latest
+    needs:
+      - aws-auth-infra-build
+      - aws-auth-tests
+    if: always()
+    strategy:
+      fail-fast: false
+      matrix:
+        auth: [irsa-eks, pod-identity-eks]
+    steps:
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws configure set default.region us-east-1
+
+      - name: Azure Login (for Terraform state)
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZ_SANDBOX_CREDS }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Clean up terraform infrastructure
+        working-directory: .test/aws/${{ matrix.auth }}
+        run: |
+          cd terraform
+          infra_desc=$(echo "$PWD" | awk -F'/' '{print $(NF-1)}')
+          
+          # Re-initialize with same remote state in Azure Storage
+          terraform init \
+            -backend-config="resource_group_name=${{ env.AZ_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ secrets.AZ_TF_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ secrets.AZ_TF_STORAGE_CONTAINER }}" \
+            -backend-config="key=terraform/$infra_desc/aws-auth-infra-build/${{ github.repository }}/${{ github.ref_name }}/${{ github.run_id }}/terraform.tfstate"
+          
+          terraform destroy -auto-approve -var="resource_suffix=${{ github.run_id }}"
+
+  notify:
+    runs-on: ubuntu-latest
+    needs:
+      - build-image
+      - aws-auth-infra-build
+      - aws-auth-tests
+      - aws-auth-infra-cleanup
+    if: always()
+
+    steps:
+      - name: Set Workflow Status
+        id: status
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
+            echo "status=❌ *Failure*" >> $GITHUB_ENV
+          else
+            echo "status=✅ *Success*" >> $GITHUB_ENV
+          fi
+
+      - name: Send Slack Notification
+        uses: slackapi/slack-github-action@v1
+        with:
+          channel-id: "#runwhen-local"
+          slack-message: "${{ env.status }} - Workflow *${{ github.workflow }}* in repo *${{ github.repository }}* on branch *${{ github.ref_name }}*.\nSee the run: <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}

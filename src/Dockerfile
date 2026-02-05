@@ -101,13 +101,9 @@ RUN ARCH=$(uname -m) && \
         exit 1; \
     fi
 
-# Install kubectl
+# Install kubectl v1.35.0 (pinned for stability)
 RUN KUBE_ARCH=$(if [ "$(uname -m)" = "x86_64" ]; then echo "amd64"; else echo "arm64"; fi) && \
-    KUBE_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt || echo "") && \
-    if [ -z "$KUBE_VERSION" ]; then \
-        echo "Failed to fetch stable kubectl version, using v1.35.0 as fallback"; \
-        KUBE_VERSION="v1.35.0"; \
-    fi && \
+    KUBE_VERSION="v1.35.0" && \
     echo "Installing kubectl version: ${KUBE_VERSION}" && \
     curl -LO "https://dl.k8s.io/release/${KUBE_VERSION}/bin/linux/${KUBE_ARCH}/kubectl" && \
     curl -LO "https://dl.k8s.io/release/${KUBE_VERSION}/bin/linux/${KUBE_ARCH}/kubectl.sha256" && \

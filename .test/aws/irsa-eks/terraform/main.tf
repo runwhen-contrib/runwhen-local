@@ -1,20 +1,3 @@
-terraform {
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-    kubernetes = {
-      source  = "hashicorp/kubernetes"
-      version = "~> 2.23"
-    }
-  }
-}
-
-provider "aws" {
-  region = var.region
-}
-
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 data "aws_availability_zones" "available" {}
@@ -66,7 +49,7 @@ module "vpc" {
 #------------------------------------------------------------------------------
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "~> 19.0"
+  version = "~> 19.21"
 
   cluster_name    = local.cluster_name
   cluster_version = var.eks_version
@@ -96,6 +79,34 @@ module "eks" {
   }
 
   tags = local.common_tags
+}
+
+#------------------------------------------------------------------------------
+# EKS Access Entry for CI/CD User
+# Grants the CI/CD IAM user/role admin access to the EKS cluster
+#------------------------------------------------------------------------------
+resource "aws_eks_access_entry" "ci_admin" {
+  cluster_name  = module.eks.cluster_name
+  principal_arn = data.aws_caller_identity.current.arn
+  type          = "STANDARD"
+
+  tags = merge(local.common_tags, {
+    Purpose = "ci-cd-cluster-access"
+  })
+
+  depends_on = [module.eks]
+}
+
+resource "aws_eks_access_policy_association" "ci_admin" {
+  cluster_name  = module.eks.cluster_name
+  principal_arn = data.aws_caller_identity.current.arn
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+
+  access_scope {
+    type = "cluster"
+  }
+
+  depends_on = [aws_eks_access_entry.ci_admin]
 }
 
 #------------------------------------------------------------------------------
@@ -175,49 +186,5 @@ resource "aws_s3_bucket_public_access_block" "test_bucket" {
   restrict_public_buckets = true
 }
 
-#------------------------------------------------------------------------------
-# EKS Auth Configuration
-#------------------------------------------------------------------------------
-# Use null_resource with eksctl to add IRSA role to aws-auth ConfigMap
-# This avoids the circular dependency with the Kubernetes provider
-resource "null_resource" "update_aws_auth" {
-  triggers = {
-    irsa_role_arn = aws_iam_role.runwhen_irsa.arn
-    cluster_name  = module.eks.cluster_name
-  }
-
-  provisioner "local-exec" {
-    command = <<-EOT
-      set -e
-      
-      # Update kubeconfig
-      aws eks update-kubeconfig --name ${module.eks.cluster_name} --region ${var.region} --kubeconfig /tmp/kubeconfig-${module.eks.cluster_name}
-      export KUBECONFIG=/tmp/kubeconfig-${module.eks.cluster_name}
-      
-      # Create identity mapping for IRSA role using eksctl or kubectl
-      if command -v eksctl &> /dev/null; then
-        eksctl create iamidentitymapping \
-          --cluster ${module.eks.cluster_name} \
-          --region ${var.region} \
-          --arn ${aws_iam_role.runwhen_irsa.arn} \
-          --username runwhen-local \
-          --group system:masters \
-          --no-duplicate-arns || echo "IAM identity mapping may already exist"
-      else
-        # Fallback to kubectl edit
-        echo "Manually add this to aws-auth ConfigMap:"
-        echo "- rolearn: ${aws_iam_role.runwhen_irsa.arn}"
-        echo "  username: runwhen-local"
-        echo "  groups:"
-        echo "  - system:masters"
-      fi
-      
-      rm -f /tmp/kubeconfig-${module.eks.cluster_name}
-    EOT
-  }
-
-  depends_on = [
-    module.eks,
-    aws_iam_role.runwhen_irsa
-  ]
-}
+# Note: Kubernetes RBAC is created via kubectl in the Taskfile after Helm install
+# This avoids Terraform dependency issues with Helm-managed resources

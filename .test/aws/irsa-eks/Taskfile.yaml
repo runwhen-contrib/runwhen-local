@@ -8,7 +8,6 @@ tasks:
     desc: Run full test workflow
     cmds:
       - task: configure-kubectl
-      - task: configure-eks-auth
       - task: setup-k8s-resources
       - task: generate-rwl-config
       - task: run-rwl-discovery
@@ -41,69 +40,30 @@ tasks:
       - |
         CLUSTER_NAME=$(terraform output -raw cluster_name)
         REGION=$(terraform output -raw region)
+        
+        echo "Updating kubeconfig for cluster: $CLUSTER_NAME"
         aws eks update-kubeconfig --name "$CLUSTER_NAME" --region "$REGION"
-        echo "Configured kubectl for cluster: $CLUSTER_NAME"
+        
+        echo "Verifying access..."
+        kubectl get nodes
 
-  configure-eks-auth:
-    desc: Configure EKS aws-auth ConfigMap to allow IRSA role access
-    dir: terraform
-    cmds:
-      - |
-        set -e
-        
-        CLUSTER_NAME=$(terraform output -raw cluster_name)
-        REGION=$(terraform output -raw region)
-        IRSA_ROLE_ARN=$(terraform output -raw irsa_role_arn)
-        
-        echo "Configuring aws-auth for cluster: $CLUSTER_NAME"
-        echo "IRSA Role ARN: $IRSA_ROLE_ARN"
-        
-        # Update kubeconfig
-        aws eks update-kubeconfig --name "$CLUSTER_NAME" --region "$REGION"
-        
-        # Get current aws-auth ConfigMap and check if our role is already there
-        if kubectl get configmap aws-auth -n kube-system -o yaml | grep -q "$IRSA_ROLE_ARN"; then
-          echo "IRSA role already exists in aws-auth ConfigMap"
-          exit 0
-        fi
-        
-        echo "Adding IRSA role to aws-auth ConfigMap..."
-        
-        # Get current mapRoles
-        kubectl get configmap aws-auth -n kube-system -o yaml > /tmp/aws-auth-backup.yaml
-        CURRENT_MAP=$(kubectl get configmap aws-auth -n kube-system -o jsonpath='{.data.mapRoles}')
-        
-        # Create new role entry
-        NEW_ROLE="- rolearn: $IRSA_ROLE_ARN
-          username: runwhen-local
-          groups:
-          - system:masters"
-        
-        # Combine current and new
-        printf "%s\n%s" "$CURRENT_MAP" "$NEW_ROLE" > /tmp/new-maproles.yaml
-        
-        # Update ConfigMap
-        kubectl create configmap aws-auth \
-          --from-file=mapRoles=/tmp/new-maproles.yaml \
-          --dry-run=client -o yaml | \
-          kubectl apply -f - -n kube-system
-        
-        echo ""
-        echo "Successfully updated aws-auth ConfigMap!"
-        echo "Verifying IRSA role is present:"
-        kubectl get configmap aws-auth -n kube-system -o yaml | grep -A3 "$IRSA_ROLE_ARN"
+  # NOTE: configure-eks-auth task removed - it was incorrect
+  # IRSA roles do NOT need to be in aws-auth ConfigMap
+  # - IRSA is for AWS authentication (S3, EC2, etc.), not Kubernetes
+  # - Kubernetes auth uses the service account directly
+  # - aws-auth is only for IAM principals authenticating FROM OUTSIDE the cluster
 
   setup-k8s-resources:
-    desc: Create Kubernetes namespace and service account with IRSA annotation
-    dir: terraform
+    desc: Placeholder - no pre-Helm K8s setup needed for IRSA
     cmds:
       - |
-        NAMESPACE=$(terraform output -raw k8s_namespace)
-        SERVICE_ACCOUNT=$(terraform output -raw k8s_service_account)
-        IRSA_ROLE_ARN=$(terraform output -raw irsa_role_arn)
-        
-        # Create namespace
-        kubectl create namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
+        echo "IRSA setup:"
+        echo "- IAM role created by Terraform"
+        echo "- OIDC provider created by Terraform"
+        echo "- Service account will be created by Helm"
+        echo "- RBAC will be created after Helm install"
+        echo ""
+        echo "Nothing to do in this step for IRSA!"
         
         # Create service account with IRSA annotation
         cat << EOF | kubectl apply -f -
@@ -291,9 +251,20 @@ tasks:
         # Install RunWhen Local
         helm install runwhen-local runwhen-contrib/runwhen-local -f ../values.yaml -n $NAMESPACE
         
+        # Create RBAC for the service account (Helm creates the SA, we add RBAC)
         echo ""
-        echo "RunWhen Local installed successfully. Check with: kubectl get pods -n $NAMESPACE"
-        echo "Service account 'runwhen-local' created with IRSA annotation"
+        echo "Creating ClusterRole and ClusterRoleBinding for discovery..."
+        kubectl create clusterrole runwhen-local-discovery --verb=get,list,watch --resource=nodes,pods,services,endpoints,namespaces,events,configmaps,secrets,persistentvolumes,persistentvolumeclaims --dry-run=client -o yaml > /tmp/cr1.yaml
+        kubectl create clusterrole runwhen-local-discovery-apps --verb=get,list,watch --resource=deployments,statefulsets,daemonsets,replicasets --dry-run=client -o yaml > /tmp/cr2.yaml
+        kubectl create clusterrole runwhen-local-discovery-batch --verb=get,list,watch --resource=jobs,cronjobs --dry-run=client -o yaml > /tmp/cr3.yaml
+        kubectl create clusterrole runwhen-local-discovery-net --verb=get,list,watch --resource=ingresses,networkpolicies --dry-run=client -o yaml > /tmp/cr4.yaml
+        yq eval-all '. as $item ireduce ({}; .rules += $item.rules) | .apiVersion = "rbac.authorization.k8s.io/v1" | .kind = "ClusterRole" | .metadata.name = "runwhen-local-discovery"' /tmp/cr1.yaml /tmp/cr2.yaml /tmp/cr3.yaml /tmp/cr4.yaml | kubectl apply -f -
+        rm -f /tmp/cr*.yaml
+        kubectl create clusterrolebinding runwhen-local-discovery --clusterrole=runwhen-local-discovery --serviceaccount=$NAMESPACE:$SERVICE_ACCOUNT --dry-run=client -o yaml | kubectl apply -f -
+        
+        echo ""
+        echo "RunWhen Local installed successfully with RBAC. Check with: kubectl get pods -n $NAMESPACE"
+        echo "Service account '$SERVICE_ACCOUNT' has cluster-wide read permissions for discovery"
     silent: true
 
   delete-rwl-helm:
@@ -435,12 +406,12 @@ tasks:
         NAMESPACE=$(terraform output -raw k8s_namespace)
         SERVICE_ACCOUNT=$(terraform output -raw k8s_service_account)
         
-        # Run test pod
+        # Run test pod with IRSA service account
         kubectl run irsa-test \
           --namespace=$NAMESPACE \
-          --serviceaccount=$SERVICE_ACCOUNT \
           --image=amazon/aws-cli \
           --rm -it --restart=Never \
+          --overrides='{"spec":{"serviceAccountName":"'$SERVICE_ACCOUNT'"}}' \
           -- sts get-caller-identity
 
   verify-results:

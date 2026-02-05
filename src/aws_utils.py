@@ -5,7 +5,7 @@ Supports multiple authentication methods (in priority order):
 1. Explicit access keys from workspaceInfo.yaml
 2. Access keys from Kubernetes secret
 3. Assume Role (with or without base credentials)
-4. EKS Workload Identity (IRSA)
+4. EKS Workload Identity (IRSA or Pod Identity)
 5. Default AWS credential chain
 
 This module follows the patterns established in azure_utils.py and gcp_utils.py.
@@ -90,7 +90,7 @@ def get_aws_credential(workspace_info: dict) -> Tuple[boto3.Session, str, Option
     Evaluates authentication methods in priority order:
     1. Explicit access keys in workspaceInfo.yaml
     2. Credentials from Kubernetes secret
-    3. Workload Identity (IRSA) - detected via environment or config
+    3. Workload Identity (IRSA or Pod Identity) - detected via environment or config
     4. Assume Role only (uses default chain for base credentials)
     5. Default AWS credential chain
     
@@ -190,26 +190,36 @@ def get_aws_credential(workspace_info: dict) -> Tuple[boto3.Session, str, Option
             logger.error(f"Failed to retrieve AWS credentials from Kubernetes secret '{aws_secret_name}': {e}")
             sys.exit(1)
     
-    # Method 3: Assume Role with Web Identity (EKS IRSA / Workload Identity)
-    if use_workload_identity or os.environ.get('AWS_WEB_IDENTITY_TOKEN_FILE'):
-        logger.info("Using AWS Workload Identity (IRSA) for authentication")
-        auth_type = "aws_workload_identity"
+    # Method 3: EKS Workload Identity (IRSA or Pod Identity)
+    if use_workload_identity or os.environ.get('AWS_WEB_IDENTITY_TOKEN_FILE') or os.environ.get('AWS_CONTAINER_CREDENTIALS_FULL_URI'):
+        # Determine which workload identity method is in use
+        if os.environ.get('AWS_CONTAINER_CREDENTIALS_FULL_URI'):
+            logger.info("Using AWS Pod Identity for authentication")
+            auth_type = "aws_pod_identity"
+        else:
+            logger.info("Using AWS Workload Identity (IRSA) for authentication")
+            auth_type = "aws_workload_identity"
         
         try:
-            # boto3 automatically handles IRSA when AWS_WEB_IDENTITY_TOKEN_FILE and AWS_ROLE_ARN are set
+            # boto3 automatically handles both IRSA and Pod Identity via environment variables
+            # IRSA: AWS_WEB_IDENTITY_TOKEN_FILE + AWS_ROLE_ARN
+            # Pod Identity: AWS_CONTAINER_CREDENTIALS_FULL_URI + AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE
             session = boto3.Session(region_name=region)
             
             # Verify credentials are working
             if not validate_aws_credentials(session):
-                logger.error("Failed to authenticate using AWS Workload Identity")
+                logger.error(f"Failed to authenticate using {auth_type}")
                 sys.exit(1)
             
-            # Handle additional assume role if specified (in addition to IRSA)
+            # Handle additional assume role if specified (in addition to workload identity)
             if assume_role_arn:
                 session, access_key_id, secret_access_key, session_token = assume_role(
                     session, assume_role_arn, aws_config, region
                 )
-                auth_type = "aws_workload_identity_assume_role"
+                if auth_type == "aws_pod_identity":
+                    auth_type = "aws_pod_identity_assume_role"
+                else:
+                    auth_type = "aws_workload_identity_assume_role"
             
             # Cache credentials
             set_aws_credentials(
@@ -468,21 +478,39 @@ def get_aws_environment_vars(
     access_key_id: Optional[str] = None,
     secret_access_key: Optional[str] = None,
     session_token: Optional[str] = None,
-    region: Optional[str] = None
+    region: Optional[str] = None,
+    session: Optional[boto3.Session] = None
 ) -> dict:
     """
     Get AWS environment variables for passing to subprocesses.
+    
+    For Pod Identity, CloudQuery rejects the credential endpoint (169.254.170.23) 
+    as non-loopback, so we fetch temporary credentials and pass them explicitly.
     
     Args:
         access_key_id: AWS access key ID
         secret_access_key: AWS secret access key
         session_token: AWS session token
         region: AWS region
+        session: boto3 session to get credentials from (for Pod Identity)
         
     Returns:
         Dictionary of environment variable names and values
     """
     env_vars = {}
+    
+    # For Pod Identity: fetch credentials explicitly since CloudQuery rejects the endpoint
+    if os.environ.get('AWS_CONTAINER_CREDENTIALS_FULL_URI') and not access_key_id and session:
+        logger.info("Pod Identity detected - fetching temporary credentials for CloudQuery")
+        try:
+            creds = session.get_credentials()
+            if creds:
+                access_key_id = creds.access_key
+                secret_access_key = creds.secret_key
+                session_token = creds.token
+                logger.info("Retrieved temporary credentials from Pod Identity for CloudQuery")
+        except Exception as e:
+            logger.warning(f"Failed to fetch Pod Identity credentials explicitly: {e}")
     
     # Pass explicit credentials if provided
     if access_key_id:
@@ -495,14 +523,17 @@ def get_aws_environment_vars(
         env_vars['AWS_DEFAULT_REGION'] = region
         env_vars['AWS_REGION'] = region
     
-    # Pass IRSA/Workload Identity environment variables if they exist
-    # This is crucial for CloudQuery to work with EKS IRSA
-    if os.environ.get('AWS_WEB_IDENTITY_TOKEN_FILE'):
+    # Pass IRSA environment variables (CloudQuery supports these)
+    # IRSA uses web identity token files which CloudQuery accepts
+    if os.environ.get('AWS_WEB_IDENTITY_TOKEN_FILE') and not access_key_id:
         env_vars['AWS_WEB_IDENTITY_TOKEN_FILE'] = os.environ.get('AWS_WEB_IDENTITY_TOKEN_FILE')
-    if os.environ.get('AWS_ROLE_ARN'):
-        env_vars['AWS_ROLE_ARN'] = os.environ.get('AWS_ROLE_ARN')
-    if os.environ.get('AWS_ROLE_SESSION_NAME'):
-        env_vars['AWS_ROLE_SESSION_NAME'] = os.environ.get('AWS_ROLE_SESSION_NAME')
+        if os.environ.get('AWS_ROLE_ARN'):
+            env_vars['AWS_ROLE_ARN'] = os.environ.get('AWS_ROLE_ARN')
+        if os.environ.get('AWS_ROLE_SESSION_NAME'):
+            env_vars['AWS_ROLE_SESSION_NAME'] = os.environ.get('AWS_ROLE_SESSION_NAME')
+    
+    # Note: We do NOT pass Pod Identity env vars to CloudQuery as it rejects the endpoint
+    # Instead, we fetch credentials above and pass them explicitly
     
     return env_vars
 
@@ -660,6 +691,47 @@ def generate_kubeconfig_for_eks(clusters, workspace_info):
         
         # Create user entry with AWS IAM authenticator
         user_name = f"{cluster_name}-user"
+        
+        # Build environment variables for the exec command
+        # Must pass AWS auth env vars so kubectl can authenticate
+        exec_env = []
+        
+        # Pass Pod Identity env vars
+        if os.environ.get('AWS_CONTAINER_CREDENTIALS_FULL_URI'):
+            exec_env.append({
+                'name': 'AWS_CONTAINER_CREDENTIALS_FULL_URI',
+                'value': os.environ.get('AWS_CONTAINER_CREDENTIALS_FULL_URI')
+            })
+        if os.environ.get('AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE'):
+            exec_env.append({
+                'name': 'AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE',
+                'value': os.environ.get('AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE')
+            })
+        
+        # Pass IRSA env vars
+        if os.environ.get('AWS_WEB_IDENTITY_TOKEN_FILE'):
+            exec_env.append({
+                'name': 'AWS_WEB_IDENTITY_TOKEN_FILE',
+                'value': os.environ.get('AWS_WEB_IDENTITY_TOKEN_FILE')
+            })
+        if os.environ.get('AWS_ROLE_ARN'):
+            exec_env.append({
+                'name': 'AWS_ROLE_ARN',
+                'value': os.environ.get('AWS_ROLE_ARN')
+            })
+        if os.environ.get('AWS_ROLE_SESSION_NAME'):
+            exec_env.append({
+                'name': 'AWS_ROLE_SESSION_NAME',
+                'value': os.environ.get('AWS_ROLE_SESSION_NAME')
+            })
+        
+        # Pass region
+        if cluster_region:
+            exec_env.append({
+                'name': 'AWS_DEFAULT_REGION',
+                'value': cluster_region
+            })
+        
         user_entry = {
             'name': user_name,
             'user': {
@@ -672,7 +744,7 @@ def generate_kubeconfig_for_eks(clusters, workspace_info):
                         '--cluster-name', cluster_name,
                         '--region', cluster_region
                     ],
-                    'env': None
+                    'env': exec_env if exec_env else None
                 }
             }
         }
