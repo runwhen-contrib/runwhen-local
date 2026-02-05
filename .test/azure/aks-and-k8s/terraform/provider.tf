@@ -8,7 +8,13 @@ terraform {
 }
 
 provider "azurerm" {
-  features {}
+  features {
+    resource_group {
+      # Allow RG delete during CI cleanup even if AKS/cluster is still deleting;
+      # Azure API will cascade-delete nested resources.
+      prevent_deletion_if_contains_resources = false
+    }
+  }
   subscription_id = var.subscription_id
   tenant_id       = var.tenant_id
 }
