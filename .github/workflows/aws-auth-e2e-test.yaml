@@ -1,0 +1,107 @@
+name: AWS Auth E2E Tests
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - '.test/aws/**'
+  workflow_dispatch:
+
+jobs:
+  test-auth:
+    name: ${{ matrix.auth }} E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        auth: [irsa-eks, pod-identity-eks]
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Configure AWS Credentials
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws configure set default.region us-east-1
+      
+      - name: Setup Task
+        run: sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
+      
+      - name: Deploy Infrastructure
+        working-directory: .test/aws/${{ matrix.auth }}
+        run: task build-terraform-infra
+      
+      - name: Install RunWhen Local
+        working-directory: .test/aws/${{ matrix.auth }}
+        run: |
+          task configure-kubectl
+          task generate-rwl-config
+          task install-rwl-helm
+      
+      - name: Wait for Discovery
+        working-directory: .test/aws/${{ matrix.auth }}
+        run: |
+          NAMESPACE=$(cd terraform && terraform output -raw k8s_namespace)
+          
+          echo "Waiting for RunWhen Local pod to be ready..."
+          kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=runwhen-local -n $NAMESPACE --timeout=300s
+          
+          echo "Waiting 90s for discovery to complete..."
+          sleep 90
+      
+      - name: Verify Discovery & SLX Generation
+        working-directory: .test/aws/${{ matrix.auth }}
+        run: |
+          NAMESPACE=$(cd terraform && terraform output -raw k8s_namespace)
+          POD=$(kubectl get pods -n $NAMESPACE -l app.kubernetes.io/name=runwhen-local -o jsonpath='{.items[0].metadata.name}')
+          CLUSTER_NAME=$(cd terraform && terraform output -raw cluster_name)
+          
+          echo "=== Checking logs ==="
+          kubectl logs -n $NAMESPACE $POD --tail=300 > /tmp/rwl-logs.txt
+          
+          # FAIL if authentication errors
+          if grep -qi "unauthorized\|401\|authentication failed" /tmp/rwl-logs.txt; then
+            echo "❌ FAILED: Authentication errors found"
+            grep -i "unauthorized\|401\|authentication" /tmp/rwl-logs.txt
+            exit 1
+          fi
+          
+          # FAIL if cluster discovery was skipped
+          if grep -q "Skipping cluster.*$CLUSTER_NAME" /tmp/rwl-logs.txt; then
+            echo "❌ FAILED: Cluster discovery was skipped"
+            exit 1
+          fi
+          
+          # Verify cluster was scanned
+          if ! grep -q "Scanning Kubernetes cluster $CLUSTER_NAME" /tmp/rwl-logs.txt; then
+            echo "❌ FAILED: Cluster was not scanned"
+            exit 1
+          fi
+          
+          echo "✅ Cluster discovery completed"
+          
+          # THE CRITICAL TEST: Count SLXs generated
+          echo "=== Counting generated SLXs ==="
+          SLX_COUNT=$(kubectl exec -n $NAMESPACE $POD -- find /shared/output -name "*.yaml" -type f 2>/dev/null | wc -l)
+          
+          echo "Generated SLX count: $SLX_COUNT"
+          
+          if [ "$SLX_COUNT" -lt 1 ]; then
+            echo "❌ FAILED: No SLXs generated (expected > 1)"
+            echo "=== Output directory contents ==="
+            kubectl exec -n $NAMESPACE $POD -- ls -la /shared/output/ || true
+            exit 1
+          fi
+          
+          echo "✅ SUCCESS: Discovery generated $SLX_COUNT SLXs"
+          
+          # Show sample of generated files
+          echo "=== Sample generated files ==="
+          kubectl exec -n $NAMESPACE $POD -- find /shared/output -name "*.yaml" -type f | head -5
+      
+      - name: Cleanup
+        if: always()
+        working-directory: .test/aws/${{ matrix.auth }}
+        run: task cleanup-terraform-infra
