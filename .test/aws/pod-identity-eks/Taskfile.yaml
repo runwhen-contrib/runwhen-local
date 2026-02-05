@@ -273,7 +273,7 @@ tasks:
     silent: true
 
   upgrade-rwl-helm:
-    desc: Upgrade RunWhen Local Helm installation
+    desc: Upgrade RunWhen Local Helm installation with new image
     dir: terraform
     env:
       RUNNER_TOKEN: "{{.RUNNER_TOKEN}}"
@@ -282,13 +282,8 @@ tasks:
         NAMESPACE=$(terraform output -raw k8s_namespace)
         POD_IDENTITY_ROLE_ARN=$(terraform output -raw pod_identity_role_arn)
         
-        # Update values.yaml with dynamic Pod Identity role ARN
-        echo "Updating values.yaml with Pod Identity role: $POD_IDENTITY_ROLE_ARN"
-        yq -i ".runwhenLocal.serviceAccount.annotations.\"eks.amazonaws.com/role-arn\" = \"${POD_IDENTITY_ROLE_ARN}\"" ../values.yaml
-        
-        # Delete existing service account so Helm can recreate it with Pod Identity annotation
-        echo "Deleting existing runwhen-local service account to allow Helm to manage it..."
-        kubectl delete serviceaccount runwhen-local -n $NAMESPACE 2>/dev/null || echo "Service account doesn't exist, will be created by Helm"
+        echo "Pod Identity Role ARN: $POD_IDENTITY_ROLE_ARN"
+        echo "Note: Pod Identity doesn't use service account annotations - association is via PodIdentityAssociation"
         
         # Update workspaceInfo configmap
         kubectl delete configmap workspaceinfo -n $NAMESPACE || true
@@ -301,13 +296,17 @@ tasks:
           kubectl create secret generic uploadinfo --from-file=uploadInfo.yaml=../uploadInfo.yaml -n $NAMESPACE
         fi
         
-        # Upgrade Helm release
+        # Upgrade Helm release (will pick up new image tag from values.yaml)
         helm upgrade runwhen-local runwhen-contrib/runwhen-local -f ../values.yaml -n $NAMESPACE
         
-        # Restart ALL RunWhen Local pods to pick up Pod Identity annotation
-        echo "Restarting pods to pick up Pod Identity credentials..."
+        # Restart ALL RunWhen Local pods to pick up new image and regenerate kubeconfig
+        echo "Restarting pods to use new image..."
         kubectl delete pod -l app.kubernetes.io/name=runwhen-local -n $NAMESPACE
         kubectl delete pod -l app.kubernetes.io/instance=runwhen-local -n $NAMESPACE
+        
+        echo ""
+        echo "Upgrade complete! Pods are restarting with new code."
+        echo "Check status: kubectl get pods -n $NAMESPACE"
         
         echo ""
         echo "RunWhen Local upgraded successfully"

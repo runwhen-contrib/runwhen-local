@@ -691,6 +691,47 @@ def generate_kubeconfig_for_eks(clusters, workspace_info):
         
         # Create user entry with AWS IAM authenticator
         user_name = f"{cluster_name}-user"
+        
+        # Build environment variables for the exec command
+        # Must pass AWS auth env vars so kubectl can authenticate
+        exec_env = []
+        
+        # Pass Pod Identity env vars
+        if os.environ.get('AWS_CONTAINER_CREDENTIALS_FULL_URI'):
+            exec_env.append({
+                'name': 'AWS_CONTAINER_CREDENTIALS_FULL_URI',
+                'value': os.environ.get('AWS_CONTAINER_CREDENTIALS_FULL_URI')
+            })
+        if os.environ.get('AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE'):
+            exec_env.append({
+                'name': 'AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE',
+                'value': os.environ.get('AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE')
+            })
+        
+        # Pass IRSA env vars
+        if os.environ.get('AWS_WEB_IDENTITY_TOKEN_FILE'):
+            exec_env.append({
+                'name': 'AWS_WEB_IDENTITY_TOKEN_FILE',
+                'value': os.environ.get('AWS_WEB_IDENTITY_TOKEN_FILE')
+            })
+        if os.environ.get('AWS_ROLE_ARN'):
+            exec_env.append({
+                'name': 'AWS_ROLE_ARN',
+                'value': os.environ.get('AWS_ROLE_ARN')
+            })
+        if os.environ.get('AWS_ROLE_SESSION_NAME'):
+            exec_env.append({
+                'name': 'AWS_ROLE_SESSION_NAME',
+                'value': os.environ.get('AWS_ROLE_SESSION_NAME')
+            })
+        
+        # Pass region
+        if cluster_region:
+            exec_env.append({
+                'name': 'AWS_DEFAULT_REGION',
+                'value': cluster_region
+            })
+        
         user_entry = {
             'name': user_name,
             'user': {
@@ -703,7 +744,7 @@ def generate_kubeconfig_for_eks(clusters, workspace_info):
                         '--cluster-name', cluster_name,
                         '--region', cluster_region
                     ],
-                    'env': None
+                    'env': exec_env if exec_env else None
                 }
             }
         }

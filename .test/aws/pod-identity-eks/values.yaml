@@ -38,7 +38,7 @@ runwhenLocal:
     registry: "us-docker.pkg.dev"
     repository: "runwhen-nonprod-shared/public-images/runwhen-local"
     pullPolicy: Always
-    tag: 780-merge-856f3ab1
+    tag: 780-merge-4c678fdf
   volumes: {}
   volumeMounts: {}
   tolerations: []
