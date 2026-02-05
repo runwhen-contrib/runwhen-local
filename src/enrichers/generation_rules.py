@@ -22,7 +22,7 @@ from component import (
 )
 from exceptions import WorkspaceBuilderException, WorkspaceBuilderUserException
 from indexers.kubetypes import KUBERNETES_PLATFORM
-from name_utils import shorten_name, make_qualified_slx_name, make_slx_name
+from name_utils import shorten_name, make_qualified_slx_name, make_slx_name, make_slx_name_and_qualified
 from .generation_rule_types import (
     PLATFORM_HANDLERS_PROPERTY_NAME,
     PlatformHandler,
@@ -932,12 +932,13 @@ def assign_slx_names(slxs: dict[str, SLXInfo], workspace_name):
             # count_chars = len(f"{count+1}")
             for i, slx_info in enumerate(slx_list):
                 indexed_base_name = f"{slx_info.base_name}{i+1}"
-                slx_info.qualified_name = make_qualified_slx_name(indexed_base_name, slx_info.qualifier_values)
-                slx_info.name = make_slx_name(workspace_name, slx_info.qualified_name)
+                initial_qualified_name = make_qualified_slx_name(indexed_base_name, slx_info.qualifier_values)
+                # Use make_slx_name_and_qualified to ensure directory name matches SLX name
+                slx_info.name, slx_info.qualified_name = make_slx_name_and_qualified(workspace_name, initial_qualified_name)
         else:
             slx_info = slx_list[0]
-            slx_info.qualified_name = shortened_name
-            slx_info.name = make_slx_name(workspace_name, shortened_name)
+            # Use make_slx_name_and_qualified to ensure directory name matches SLX name
+            slx_info.name, slx_info.qualified_name = make_slx_name_and_qualified(workspace_name, shortened_name)
 
 
 class SLXRelationship:

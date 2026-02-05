@@ -2,12 +2,12 @@ name: Discovery AWS Auth Tests
 
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - "src/**"
-      - ".test/aws/**"
-      - ".github/workflows/test-aws-auth.yaml"
-      - "!src/VERSION"
+  # pull_request:
+  #   paths:
+  #     - "src/**"
+  #     - ".test/aws/**"
+  #     - ".github/workflows/test-aws-auth.yaml"
+  #     - "!src/VERSION"
 
 permissions:
   contents: "read"

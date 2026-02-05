@@ -11,7 +11,7 @@ from exceptions import (
     WorkspaceBuilderUserException,
     INVALID_GIT_REPO_MESSAGE
 )
-from name_utils import make_qualified_slx_name, make_slx_name, shorten_name
+from name_utils import make_qualified_slx_name, make_slx_name, make_slx_name_and_qualified, shorten_name
 from git_utils import (
     get_repo_name,
     get_repo_url_with_auth,
@@ -162,6 +162,47 @@ class NameUtilsTest(TestCase):
         self.assertTrue(slx_name_1.endswith("1cf48ae4"), f"Hash suffix missing: {slx_name_1}")
         self.assertTrue(slx_name_2.endswith("295cdd39"), f"Hash suffix missing: {slx_name_2}")
         self.assertTrue(slx_name_3.endswith("84e6e0b6"), f"Hash suffix missing: {slx_name_3}")
+
+    def test_directory_name_matches_slx_name(self):
+        """Test that the directory name always matches the qualified portion of the SLX name."""
+        long_workspace = "wba-rpu-nprod-general"
+        
+        # Test case from user: directory was different from SLX name after truncation
+        original_qualified = "5f48c-cleanuprhelmigrge-azr-vm-cst-opt-5d24bd46"
+        
+        # Get both the full SLX name and the directory name
+        full_name, directory_name = make_slx_name_and_qualified(long_workspace, original_qualified)
+        
+        # The directory name MUST be the qualified portion of the full SLX name
+        expected_qualified_in_name = full_name.split('--')[1]
+        self.assertEqual(directory_name, expected_qualified_in_name,
+                        f"Directory name '{directory_name}' must match qualified portion of SLX name '{expected_qualified_in_name}'")
+        
+        # Both should preserve the hash suffix
+        self.assertTrue(full_name.endswith("5d24bd46"), f"Hash suffix missing from SLX name: {full_name}")
+        self.assertTrue(directory_name.endswith("5d24bd46"), f"Hash suffix missing from directory: {directory_name}")
+        
+        # SLX name must fit in 63 chars
+        self.assertLessEqual(len(full_name), 63, f"SLX name too long: {len(full_name)}")
+        
+        # Test multiple qualified names to ensure no collisions in directories
+        qualified_names = [
+            "5f48c-nprodbussvcshbaeastus0-azr-vm-cst-opt-1cf48ae4",
+            "5f48c-nprodbussvcshbaeastus0-azr-vm-cst-opt-295cdd39",
+            "5f48c-nprodbussvcshbaeastus0-azr-vm-cst-opt-84e6e0b6",
+        ]
+        
+        directory_names = []
+        for qn in qualified_names:
+            full_name, dir_name = make_slx_name_and_qualified(long_workspace, qn)
+            directory_names.append(dir_name)
+            # Verify consistency
+            self.assertEqual(dir_name, full_name.split('--')[1],
+                           f"Directory '{dir_name}' doesn't match SLX name qualified portion")
+        
+        # All directory names should be unique
+        self.assertEqual(len(directory_names), len(set(directory_names)),
+                        f"Directory names are not unique: {directory_names}")
 
 class RepoUtilsTest(TestCase):
 
