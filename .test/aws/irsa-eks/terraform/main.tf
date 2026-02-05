@@ -66,7 +66,7 @@ module "vpc" {
 #------------------------------------------------------------------------------
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "~> 19.0"
+  version = "~> 19.21"
 
   cluster_name    = local.cluster_name
   cluster_version = var.eks_version
@@ -76,8 +76,20 @@ module "eks" {
 
   cluster_endpoint_public_access = true
 
-  # Allow current IAM user/role to access the cluster
-  enable_cluster_creator_admin_permissions = true
+  # Grant CI/CD user admin access to cluster
+  access_entries = {
+    ci_admin = {
+      principal_arn = data.aws_caller_identity.current.arn
+      policy_associations = {
+        admin = {
+          policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+          access_scope = {
+            type = "cluster"
+          }
+        }
+      }
+    }
+  }
 
   # Enable IRSA
   enable_irsa = true
