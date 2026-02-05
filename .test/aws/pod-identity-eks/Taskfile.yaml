@@ -24,17 +24,7 @@ tasks:
     desc: Destroy AWS test infrastructure
     dir: terraform
     cmds:
-      - |
-        # Delete RBAC resources first (created via kubectl, not in Terraform anymore)
-        kubectl delete clusterrole runwhen-local-discovery --ignore-not-found=true
-        kubectl delete clusterrolebinding runwhen-local-discovery --ignore-not-found=true
-        
-        # Remove any orphaned Kubernetes resources from Terraform state
-        terraform state rm 'kubernetes_cluster_role.runwhen_local_discovery' 2>/dev/null || true
-        terraform state rm 'kubernetes_cluster_role_binding.runwhen_local_discovery' 2>/dev/null || true
-        
-        # Now destroy
-        terraform destroy -auto-approve
+      - terraform destroy -auto-approve
 
   check-terraform-infra:
     desc: Check if Terraform infrastructure exists
