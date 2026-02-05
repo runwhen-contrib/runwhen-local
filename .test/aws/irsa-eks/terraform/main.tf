@@ -76,21 +76,6 @@ module "eks" {
 
   cluster_endpoint_public_access = true
 
-  # Grant CI/CD user admin access to cluster
-  access_entries = {
-    ci_admin = {
-      principal_arn = data.aws_caller_identity.current.arn
-      policy_associations = {
-        admin = {
-          policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
-          access_scope = {
-            type = "cluster"
-          }
-        }
-      }
-    }
-  }
-
   # Enable IRSA
   enable_irsa = true
 
@@ -111,6 +96,34 @@ module "eks" {
   }
 
   tags = local.common_tags
+}
+
+#------------------------------------------------------------------------------
+# EKS Access Entry for CI/CD User
+# Grants the CI/CD IAM user/role admin access to the EKS cluster
+#------------------------------------------------------------------------------
+resource "aws_eks_access_entry" "ci_admin" {
+  cluster_name  = module.eks.cluster_name
+  principal_arn = data.aws_caller_identity.current.arn
+  type          = "STANDARD"
+
+  tags = merge(local.common_tags, {
+    Purpose = "ci-cd-cluster-access"
+  })
+
+  depends_on = [module.eks]
+}
+
+resource "aws_eks_access_policy_association" "ci_admin" {
+  cluster_name  = module.eks.cluster_name
+  principal_arn = data.aws_caller_identity.current.arn
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+
+  access_scope {
+    type = "cluster"
+  }
+
+  depends_on = [aws_eks_access_entry.ci_admin]
 }
 
 #------------------------------------------------------------------------------
