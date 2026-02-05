@@ -81,9 +81,20 @@ def make_slx_name(workspace_name: str, qualified_slx_name: str) -> str:
     max_k8s_name_length = 63
     combined_length = len(workspace_name) + 2 + len(qualified_slx_name)  # 2 for the "--" separator
     if combined_length > max_k8s_name_length:
-        # Truncate the qualified SLX name if necessary
+        # Truncate the qualified SLX name if necessary, but preserve the hash suffix
+        # The hash suffix is 8 characters preceded by a dash (9 chars total)
+        # We must preserve this to maintain uniqueness across SLXs
         excess_length = combined_length - max_k8s_name_length
-        qualified_slx_name = qualified_slx_name[:-excess_length]
+        hash_suffix_length = 9  # "-" + 8 hash characters
+        if len(qualified_slx_name) > hash_suffix_length + excess_length:
+            # Split off the hash suffix, truncate the prefix, then recombine
+            hash_suffix = qualified_slx_name[-hash_suffix_length:]
+            prefix = qualified_slx_name[:-hash_suffix_length]
+            truncated_prefix = prefix[:-excess_length].rstrip('-')
+            qualified_slx_name = truncated_prefix + hash_suffix
+        else:
+            # If we can't preserve the hash, fall back to truncating from end
+            qualified_slx_name = qualified_slx_name[:-excess_length]
     safe_qualified_slx_name = sanitize_name(qualified_slx_name)
     return f"{workspace_name}--{safe_qualified_slx_name}"
 
