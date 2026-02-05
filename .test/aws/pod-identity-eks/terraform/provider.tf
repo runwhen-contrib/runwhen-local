@@ -11,6 +11,8 @@ terraform {
       version = "~> 2.23"
     }
   }
+
+  backend "azurerm" {}
 }
 
 provider "aws" {

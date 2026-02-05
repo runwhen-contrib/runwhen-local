@@ -29,6 +29,16 @@
 {% elif cluster is defined and cluster.cluster_type | default('') == "eks" and cluster.auth_type | default('') == "aws_pod_identity" %}
     - name: kubeconfig
       workspaceKey: aws:workload_identity@kubeconfig:{{ cluster.region | default('us-east-1') }}/{{ cluster.cluster_name | default('undefined') }}
+{% elif cluster is defined and cluster.cluster_type | default('') == "eks" and cluster.auth_type | default('') == "aws_workload_identity_assume_role" %}
+    - name: kubeconfig
+      workspaceKey: aws:workload_identity@kubeconfig:{{ cluster.region | default('us-east-1') }}/{{ cluster.cluster_name | default('undefined') }}
+    - name: AWS_ROLE_ARN
+      value: "{{ cluster.assume_role_arn | default('undefined') }}"
+{% elif cluster is defined and cluster.cluster_type | default('') == "eks" and cluster.auth_type | default('') == "aws_pod_identity_assume_role" %}
+    - name: kubeconfig
+      workspaceKey: aws:workload_identity@kubeconfig:{{ cluster.region | default('us-east-1') }}/{{ cluster.cluster_name | default('undefined') }}
+    - name: AWS_ROLE_ARN
+      value: "{{ cluster.assume_role_arn | default('undefined') }}"
 {% elif cluster is defined and cluster.cluster_type | default('') == "eks" and cluster.auth_type | default('') == "aws_explicit" %}
     - name: kubeconfig
       workspaceKey: aws:cli@kubeconfig:{{ cluster.region | default('us-east-1') }}/{{ cluster.cluster_name | default('undefined') }}

@@ -15,6 +15,10 @@ permissions:
   security-events: "write"
   actions: "read"
 
+env:
+  AZ_RESOURCE_GROUP: "sandbox"
+  AZ_TF_STORAGE_CONTAINER: ${{ secrets.AZ_TF_STORAGE_CONTAINER }}
+
 jobs:
   build-image:
     runs-on: ubuntu-latest
@@ -67,12 +71,29 @@ jobs:
           aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws configure set default.region us-east-1
 
+      - name: Azure Login (for Terraform state)
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZ_SANDBOX_CREDS }}
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
       - name: Deploy Infrastructure
         working-directory: .test/aws/${{ matrix.auth }}
-        run: task build-terraform-infra
+        run: |
+          cd terraform
+          infra_desc=$(echo "$PWD" | awk -F'/' '{print $(NF-1)}')
+          
+          # Initialize with remote state in Azure Storage (same as AKS tests)
+          terraform init \
+            -backend-config="resource_group_name=${{ env.AZ_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ secrets.AZ_TF_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ secrets.AZ_TF_STORAGE_CONTAINER }}" \
+            -backend-config="key=terraform/$infra_desc/${{ github.job }}/${{ github.repository }}/${{ github.ref_name }}/${{ github.run_id }}/terraform.tfstate"
+          
+          # Use GitHub run ID for unique resource names
+          terraform apply -auto-approve -var="resource_suffix=${{ github.run_id }}"
 
   aws-auth-tests:
     needs:
@@ -109,12 +130,27 @@ jobs:
           aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws configure set default.region us-east-1
 
+      - name: Azure Login (for Terraform state)
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZ_SANDBOX_CREDS }}
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
       - name: Install RunWhen Local
         working-directory: .test/aws/${{ matrix.auth }}
         run: |
+          # Re-initialize with remote state
+          cd terraform
+          infra_desc=$(echo "$PWD" | awk -F'/' '{print $(NF-1)}')
+          terraform init \
+            -backend-config="resource_group_name=${{ env.AZ_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ secrets.AZ_TF_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ secrets.AZ_TF_STORAGE_CONTAINER }}" \
+            -backend-config="key=terraform/$infra_desc/aws-auth-infra-build/${{ github.repository }}/${{ github.ref_name }}/${{ github.run_id }}/terraform.tfstate"
+          cd ..
+          
           task configure-kubectl
           task generate-rwl-config
           task install-rwl-helm
@@ -133,9 +169,20 @@ jobs:
       - name: Verify Discovery & SLX Generation
         working-directory: .test/aws/${{ matrix.auth }}
         run: |
-          NAMESPACE=$(cd terraform && terraform output -raw k8s_namespace)
+          # Re-initialize with remote state
+          cd terraform
+          infra_desc=$(echo "$PWD" | awk -F'/' '{print $(NF-1)}')
+          terraform init \
+            -backend-config="resource_group_name=${{ env.AZ_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ secrets.AZ_TF_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ secrets.AZ_TF_STORAGE_CONTAINER }}" \
+            -backend-config="key=terraform/$infra_desc/aws-auth-infra-build/${{ github.repository }}/${{ github.ref_name }}/${{ github.run_id }}/terraform.tfstate"
+          
+          NAMESPACE=$(terraform output -raw k8s_namespace)
+          CLUSTER_NAME=$(terraform output -raw cluster_name)
+          cd ..
+          
           POD=$(kubectl get pods -n $NAMESPACE -l app.kubernetes.io/name=runwhen-local -o jsonpath='{.items[0].metadata.name}')
-          CLUSTER_NAME=$(cd terraform && terraform output -raw cluster_name)
           
           echo "=== Checking logs ==="
           kubectl logs -n $NAMESPACE $POD --tail=300 > /tmp/rwl-logs.txt
@@ -206,12 +253,28 @@ jobs:
           aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws configure set default.region us-east-1
 
+      - name: Azure Login (for Terraform state)
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZ_SANDBOX_CREDS }}
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
       - name: Clean up terraform infrastructure
         working-directory: .test/aws/${{ matrix.auth }}
-        run: task cleanup-terraform-infra
+        run: |
+          cd terraform
+          infra_desc=$(echo "$PWD" | awk -F'/' '{print $(NF-1)}')
+          
+          # Re-initialize with same remote state in Azure Storage
+          terraform init \
+            -backend-config="resource_group_name=${{ env.AZ_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ secrets.AZ_TF_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ secrets.AZ_TF_STORAGE_CONTAINER }}" \
+            -backend-config="key=terraform/$infra_desc/aws-auth-infra-build/${{ github.repository }}/${{ github.ref_name }}/${{ github.run_id }}/terraform.tfstate"
+          
+          terraform destroy -auto-approve -var="resource_suffix=${{ github.run_id }}"
 
   notify:
     runs-on: ubuntu-latest
