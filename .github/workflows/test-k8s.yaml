@@ -82,9 +82,25 @@ jobs:
         run: |-
           cd .test/k8s/basic
           echo "$KUBECONFIG_SECRET" > kubeconfig.secret
-          echo "Task Description:"
-          yq '.tasks.${{ matrix.test }}.desc' Taskfile.yaml
+          echo ""
+          echo "╔══════════════════════════════════════════════╗"
+          echo "║  Test: ${{ matrix.test }}"
+          echo "║  $(yq '.tasks.${{ matrix.test }}.desc' Taskfile.yaml)"
+          echo "╚══════════════════════════════════════════════╝"
+          echo ""
           task ${{ matrix.test }}
+
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs-${{ matrix.test }}
+          path: |
+            .test/k8s/basic/run_sh_output.log
+            .test/k8s/basic/container_logs.log
+            .test/k8s/basic/slx_count.txt
+          retention-days: 7
+          if-no-files-found: ignore
 
   notify:
     runs-on: ubuntu-latest

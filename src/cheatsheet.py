@@ -50,12 +50,31 @@ else:
 # ------------------------------------------------------------------
 # Shared git-mirror helpers (same semantics as code_collection.py)
 # ------------------------------------------------------------------
-USE_LOCAL_GIT = os.getenv("WB_USE_LOCAL_GIT", "false").lower() == "true"
+# ---------- resolve USE_LOCAL_GIT (precedence: env-var > workspaceInfo.yaml > default) ----------
+USE_LOCAL_GIT: bool = False          # 1) default
+
+# 2) workspaceInfo.yaml (lowest override)
+_ws_path = "/shared/workspaceInfo.yaml"
 try:
-    with open("/shared/workspaceInfo.yaml", "r") as f:
-        USE_LOCAL_GIT = yaml.safe_load(f).get("useLocalGit", USE_LOCAL_GIT)
+    with open(_ws_path, "r") as _f:
+        _cfg = yaml.safe_load(_f) or {}
+    _ws_val = _cfg.get("useLocalGit")
+    if isinstance(_ws_val, bool):
+        USE_LOCAL_GIT = _ws_val
+    elif isinstance(_ws_val, str):
+        USE_LOCAL_GIT = _ws_val.lower() == "true"
 except Exception:
     pass
+
+# 3) env-var override (highest precedence – wins over workspaceInfo)
+_env_val = os.getenv("WB_USE_LOCAL_GIT")
+if _env_val is not None:
+    USE_LOCAL_GIT = _env_val.lower() == "true"
+
+logger.info("USE_LOCAL_GIT resolved to %s (env=%s, yaml=%s)",
+            USE_LOCAL_GIT, os.getenv("WB_USE_LOCAL_GIT"),
+            _ws_path if os.path.isfile(_ws_path) else "<missing>")
+# ---------- end USE_LOCAL_GIT resolution ----------
 
 LOCAL_CACHE_ROOT = os.getenv("CODE_COLLECTION_CACHE_ROOT",
                              "/opt/runwhen/codecollection-cache")

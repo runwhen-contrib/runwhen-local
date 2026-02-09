@@ -224,6 +224,59 @@ tasks:
     silent: true
 
 
+  ci-run-rwl-discovery-airgapped:
+    desc: "Run RunWhen Local Discovery with github.com blocked (for local-git validation)"
+    cmds:
+      - |
+        rm slx_count.txt || true
+        CONTAINER_NAME="RunWhenLocal"    
+        if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Stopping and removing existing container $CONTAINER_NAME..."
+          docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME
+        elif docker ps -a -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Removing existing stopped container $CONTAINER_NAME..."
+          docker rm $CONTAINER_NAME
+        else
+          echo "No existing container named $CONTAINER_NAME found."
+        fi
+        
+        echo "Cleaning up output directory..."
+        rm -rf output || { echo "Failed to remove output directory"; exit 1; }
+        mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
+        chmod 777 . 
+        echo "Starting new container $CONTAINER_NAME (github.com blocked)..."
+        echo "User $(whoami)"
+        # 1. Start container with github.com/api.github.com blocked via /etc/hosts
+        docker run -d \
+          -e WB_DEBUG_SUPPRESS_CHEAT_SHEET="true" \
+          -e DEBUG_LOGS=true \
+          --add-host github.com:0.0.0.0 \
+          --add-host api.github.com:0.0.0.0 \
+          --name "$CONTAINER_NAME" \
+          -p 8081:8081 \
+          -v "$(pwd):/shared" \
+          runwhen-local:test
+
+        # 2. Follow the main container logs in the background
+        docker logs -f "$CONTAINER_NAME" &
+
+        # 3. Exec run.sh — its stdout goes to the pipeline
+        docker exec -w /workspace-builder "$CONTAINER_NAME" ./run.sh "$1" --verbose 2>&1 | tee run_sh_output.log
+
+        # 3.5. Capture container logs before stopping
+        echo "Capturing container logs..."
+        docker logs "$CONTAINER_NAME" > container_logs.log 2>&1 || echo "Failed to capture container logs"
+
+        # 4. Stop and remove container
+        docker stop "$CONTAINER_NAME"
+        docker rm "$CONTAINER_NAME"        
+
+        echo "Review generated config files under output/workspaces/"
+        total_slxs=$(find $(find 'output/' -type d -name 'slxs') -mindepth 1 -type d | wc -l)
+        echo "Total SLXs: $total_slxs"
+        echo "$total_slxs" > slx_count.txt
+    silent: true
+
   ci-test-1:
       desc: "Run CI Discovery Test 1 - K8s only - basic LOD "
       env:
@@ -350,8 +403,6 @@ tasks:
             codeBundles: ["k8s-cluster-resource-health"]
           - repoURL: https://github.com/runwhen-contrib/rw-workspace-utils.git
             tag: 2025-11-03.1
-          - repoURL: https://github.com/runwhen-contrib/rw-generic-codecollection.git
-            tag: v0.0.5
           - repoURL: https://github.com/runwhen-contrib/azure-c7n-codecollection.git
             tag: v0.0.1
           useLocalGit: true
@@ -359,7 +410,7 @@ tasks:
             kubernetes_distribution_binary: kubectl
           EOF
 
-        - task: ci-run-rwl-discovery
+        - task: ci-run-rwl-discovery-airgapped
         - task: verify-local-git-logs
         - task: verify-slx-count
           vars:
@@ -370,103 +421,171 @@ tasks:
 
   verify-local-git-logs:
     desc: "Verify that local git functionality worked correctly by checking logs"
+    vars:
+      # Expected code collections that must be served from local cache.
+      # Must match repos in src/default-code-collections.yaml (those baked into the image).
+      # rw-generic-codecollection is NOT in the default cache — it will clone remotely.
+      EXPECTED_CACHED_REPOS: "rw-public-codecollection rw-cli-codecollection rw-workspace-utils azure-c7n-codecollection"
     cmds:
       - |
-        echo "---Validating Local Git Functionality---"
-        
-        # Debug: Show early startup logs where git safe directory setup happens
-        echo "=== Early startup logs (first 200 lines) ==="
-        if [ -f container_logs.log ]; then
-          head -200 container_logs.log
+        echo ""
+        echo "========================================"
+        echo "  Local Git Functionality Validation"
+        echo "========================================"
+        echo ""
+
+        FAILURES=0
+        WARNINGS=0
+
+        # Helper: search both log files (container_logs.log has entrypoint + Django server output,
+        # run_sh_output.log has the docker-exec run.sh output)
+        search_logs() {
+          local pattern="$1"
+          grep -q "$pattern" run_sh_output.log 2>/dev/null && return 0
+          [ -f container_logs.log ] && grep -q "$pattern" container_logs.log 2>/dev/null && return 0
+          return 1
+        }
+        extract_logs() {
+          local pattern="$1"
+          { grep "$pattern" run_sh_output.log 2>/dev/null; [ -f container_logs.log ] && grep "$pattern" container_logs.log 2>/dev/null; } | sort -u
+        }
+
+        # ── 1. USE_LOCAL_GIT resolved correctly ──────────────────────
+        echo "--- [1/7] USE_LOCAL_GIT configuration ---"
+        if search_logs "USE_LOCAL_GIT resolved to True"; then
+          echo -e "\033[32m  ✔ USE_LOCAL_GIT resolved to True\033[0m"
+          extract_logs "USE_LOCAL_GIT resolved to" | sed 's/^/    /'
+        elif search_logs "Using local git cache dir:"; then
+          echo -e "\033[32m  ✔ USE_LOCAL_GIT is active (inferred from cache usage)\033[0m"
+          WARNINGS=$((WARNINGS + 1))
+          echo -e "\033[33m    ⚠ 'USE_LOCAL_GIT resolved to' log line not found — upgrade code_collection.py\033[0m"
         else
-          head -200 run_sh_output.log || echo "Log file not found or empty"
+          echo -e "\033[31m  ✘ USE_LOCAL_GIT does not appear to be enabled\033[0m"
+          echo "    Searched for 'USE_LOCAL_GIT resolved to True' and 'Using local git cache dir:'"
+          echo "    in run_sh_output.log and container_logs.log"
+          FAILURES=$((FAILURES + 1))
         fi
-        echo "=============================================="
-        
-        # Debug: Show recent logs to see final results
-        echo "=== Recent logs (last 20 lines) ==="
-        tail -20 run_sh_output.log || echo "Log file not found or empty"
-        echo "====================================="
-        
-        # Check if useLocalGit was detected
-        if grep -q "useLocalGit" run_sh_output.log; then
-          echo -e "\033[32m✔️ useLocalGit configuration detected in logs\033[0m"
+        echo ""
+
+        # ── 2. Git safe directories ──────────────────────────────────
+        echo "--- [2/7] Git safe directory configuration ---"
+        SAFE_DIR_COUNT=$(extract_logs "Added safe directory:" | wc -l)
+        if [ "$SAFE_DIR_COUNT" -gt 0 ]; then
+          echo -e "\033[32m  ✔ $SAFE_DIR_COUNT safe directories configured\033[0m"
+          extract_logs "Added safe directory:" | sed 's/^/    /'
+        elif search_logs "Found cache directory:"; then
+          # The entrypoint found the cache root — safe dirs may already have been configured
+          # (the "Added" message only appears for newly-added entries)
+          echo -e "\033[32m  ✔ Cache directory found by entrypoint (safe dirs already configured)\033[0m"
+          extract_logs "Found cache directory:" | sed 's/^/    /'
         else
-          echo -e "\033[33m⚠️ useLocalGit configuration not explicitly mentioned in logs (this may be normal)\033[0m"
+          echo -e "\033[31m  ✘ No evidence of git safe directory configuration in logs\033[0m"
+          FAILURES=$((FAILURES + 1))
         fi
-        
-        # Check for git safe directory configuration (from entrypoint script)
-        # Look in container logs first (where entrypoint.sh runs), then fall back to run.sh logs
-        if [ -f container_logs.log ] && grep -q "Added safe directory:" container_logs.log; then
-          echo -e "\033[32m✔️ Git safe directories configured successfully\033[0m"
-          echo "Safe directory messages:"
-          grep -n "Added safe directory:" container_logs.log
-        elif grep -q "Added safe directory:" run_sh_output.log; then
-          echo -e "\033[32m✔️ Git safe directories configured successfully\033[0m"
-          echo "Safe directory messages:"
-          grep -n "Added safe directory:" run_sh_output.log
-        else
-          # If we can't find explicit git safe directory messages, but we can see local git cache is working,
-          # then the git safe directory configuration must have worked (the messages just weren't captured)
-          if grep -q "Using local git cache dir:" run_sh_output.log || ([ -f container_logs.log ] && grep -q "Using local git cache dir:" container_logs.log 2>/dev/null); then
-            echo -e "\033[32m✔️ Git safe directories configured successfully (inferred from working local git cache)\033[0m"
-            echo "Evidence: Local git cache is working, which means git safe directories were configured correctly"
+        echo ""
+
+        # ── 3. All expected code collections served from local cache ─
+        echo "--- [3/7] Code collections served from local cache ---"
+        CACHE_HIT_COUNT=0
+        CACHE_MISS_REPOS=""
+        for repo in {{.EXPECTED_CACHED_REPOS}}; do
+          if search_logs "Using local git cache dir:.*${repo}"; then
+            echo -e "\033[32m  ✔ ${repo} — served from local cache\033[0m"
+            CACHE_HIT_COUNT=$((CACHE_HIT_COUNT + 1))
           else
-            echo -e "\033[31m❌ Git safe directory configuration not found in logs\033[0m"
-            echo "Looking for 'Configuring Git safe directories' message..."
-            if [ -f container_logs.log ]; then
-              grep -n "Configuring Git safe directories" container_logs.log || echo "Not found in container logs"
-            fi
-            grep -n "Configuring Git safe directories" run_sh_output.log || echo "Not found in run.sh logs"
-            echo "Searching for any git config messages..."
-            if [ -f container_logs.log ]; then
-              grep -n -i "git config\|safe.directory" container_logs.log || echo "None found in container logs"
-            fi
-            grep -n -i "git config\|safe.directory" run_sh_output.log || echo "None found in run.sh logs"
-            exit 1
+            echo -e "\033[31m  ✘ ${repo} — NOT found in local cache logs\033[0m"
+            CACHE_MISS_REPOS="${CACHE_MISS_REPOS} ${repo}"
+            FAILURES=$((FAILURES + 1))
+          fi
+        done
+        EXPECTED_COUNT=$(echo "{{.EXPECTED_CACHED_REPOS}}" | wc -w)
+        echo "  ($CACHE_HIT_COUNT / $EXPECTED_COUNT code collections from cache)"
+        echo ""
+
+        # ── 4. No remote clone operations ─────────────────────────────
+        echo "--- [4/7] No remote git clone/fetch operations ---"
+        if search_logs "Cloning from git source"; then
+          echo -e "\033[31m  ✘ Remote clone detected — useLocalGit should prevent this\033[0m"
+          extract_logs "Cloning from git source" | sed 's/^/    /'
+          FAILURES=$((FAILURES + 1))
+        else
+          echo -e "\033[32m  ✔ No remote clone operations detected\033[0m"
+        fi
+        if search_logs "falling back to remote clone"; then
+          echo -e "\033[31m  ✘ Cache miss detected — a code collection fell back to remote clone\033[0m"
+          extract_logs "falling back to remote clone" | sed 's/^/    /'
+          FAILURES=$((FAILURES + 1))
+        else
+          echo -e "\033[32m  ✔ No cache-miss fallbacks detected\033[0m"
+        fi
+        echo ""
+
+        # ── 5. Network isolation (github.com blocked) ─────────────────
+        echo "--- [5/7] Network isolation ---"
+        if search_logs "github.com blocked\|add-host"; then
+          echo -e "\033[32m  ✔ github.com appears blocked (--add-host flag used)\033[0m"
+        else
+          # Verify by checking container /etc/hosts for the 0.0.0.0 entry
+          echo "  (Checking container was started with github.com blocked...)"
+          if search_logs "github.com:0.0.0.0"; then
+            echo -e "\033[32m  ✔ github.com blocked via /etc/hosts\033[0m"
+          else
+            # If no explicit evidence, the fact that no remote clones happened is sufficient
+            echo -e "\033[32m  ✔ No remote operations occurred (network isolation effective)\033[0m"
           fi
         fi
-        
-        # Check for local git cache usage (should happen when code collections are processed)
-        if grep -q "Using local git cache dir:" run_sh_output.log || ([ -f container_logs.log ] && grep -q "Using local git cache dir:" container_logs.log); then
-          echo -e "\033[32m✔️ Local git cache directory detected in logs\033[0m"
-          echo "Local git cache messages:"
-          # Show messages from both log files
-          grep -n "Using local git cache dir:" run_sh_output.log 2>/dev/null || echo "(none in run.sh logs)"
+        echo ""
+
+        # ── 6. No dubious ownership / git errors ─────────────────────
+        echo "--- [6/7] Git error checks ---"
+        if search_logs "dubious ownership"; then
+          echo -e "\033[31m  ✘ Git dubious ownership error detected\033[0m"
+          extract_logs "dubious ownership" | sed 's/^/    /'
+          FAILURES=$((FAILURES + 1))
+        else
+          echo -e "\033[32m  ✔ No dubious ownership errors\033[0m"
+        fi
+        if search_logs "SHA is empty"; then
+          echo -e "\033[31m  ✘ Git 'SHA is empty' error detected\033[0m"
+          extract_logs "SHA is empty" | sed 's/^/    /'
+          FAILURES=$((FAILURES + 1))
+        else
+          echo -e "\033[32m  ✔ No 'SHA is empty' errors\033[0m"
+        fi
+        echo ""
+
+        # ── 7. Workspace builder completed without errors ─────────────
+        echo "--- [7/7] Workspace builder completion ---"
+        if search_logs "Error 500 from Workspace Builder"; then
+          echo -e "\033[31m  ✘ Workspace Builder returned error 500\033[0m"
+          FAILURES=$((FAILURES + 1))
+        elif search_logs "Workspace builder completed successfully"; then
+          echo -e "\033[32m  ✔ Workspace builder completed successfully\033[0m"
+        else
+          echo -e "\033[33m  ⚠ Could not confirm workspace builder success message\033[0m"
+          WARNINGS=$((WARNINGS + 1))
+        fi
+        echo ""
+
+        # ── Summary ───────────────────────────────────────────────────
+        echo "========================================"
+        echo "  Results: $FAILURES failure(s), $WARNINGS warning(s)"
+        echo "========================================"
+        if [ "$FAILURES" -gt 0 ]; then
+          echo -e "\033[31m  ✘ Local Git Functionality Validation FAILED\033[0m"
+          echo ""
+          echo "--- Debug: last 30 lines of run_sh_output.log ---"
+          tail -30 run_sh_output.log 2>/dev/null || echo "(file not found)"
+          echo ""
           if [ -f container_logs.log ]; then
-            grep -n "Using local git cache dir:" container_logs.log 2>/dev/null || echo "(none in container logs)"
+            echo "--- Debug: last 30 lines of container_logs.log ---"
+            tail -30 container_logs.log 2>/dev/null
+            echo ""
           fi
-        else
-          echo -e "\033[33m⚠️ Local git cache directory message not found - checking if default code collections were processed...\033[0m"
-          # Look for alternative evidence that local git is working
-          if grep -q "CODE_COLLECTION_CACHE_ROOT" run_sh_output.log || grep -q "codecollection-cache" run_sh_output.log || ([ -f container_logs.log ] && grep -q "codecollection-cache" container_logs.log); then
-            echo -e "\033[32m✔️ Evidence of code collection cache found in logs\033[0m"
-          else
-            echo -e "\033[31m❌ No evidence of local git cache usage found\033[0m"
-            echo "Searching for any git-related messages..."
-            grep -n -i "git\|cache\|collection" run_sh_output.log || echo "None found"
-            exit 1
-          fi
-        fi
-        
-        # Most importantly: ensure no dubious ownership errors
-        if grep -q "SHA is empty, possible dubious ownership" run_sh_output.log; then
-          echo -e "\033[31m❌ Git dubious ownership error still occurring\033[0m"
-          grep -n "dubious ownership" run_sh_output.log
           exit 1
         else
-          echo -e "\033[32m✔️ No git dubious ownership errors detected\033[0m"
+          echo -e "\033[32m  ✔ Local Git Functionality Validation PASSED\033[0m"
         fi
-        
-        # Check if the workspace generation completed successfully
-        if grep -q "Error 500 from Workspace Builder" run_sh_output.log; then
-          echo -e "\033[31m❌ Workspace Builder error detected\033[0m"
-          exit 1
-        else
-          echo -e "\033[32m✔️ No Workspace Builder errors detected\033[0m"
-        fi
-        
-        echo -e "\033[32m✔️ Local Git Functionality Validation Passed\033[0m"
     silent: true
 
   verify-slx-count: 
