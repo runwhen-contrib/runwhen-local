@@ -19,7 +19,6 @@
     - resource_group
 {% endif %}
 {% endif %}
-    - resource_type
 {% if match_resource.name %}
     - resource_name
 {% endif %}
