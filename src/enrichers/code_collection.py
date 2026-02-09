@@ -37,30 +37,33 @@ IGNORE_CASE_FIELD_VALUE = "ignoreCase"
 MATCH_MODE_FIELD_NAME = "matchMode"
 ACTION_FIELD_NAME = "action"
 
-# 1) default -> False
-USE_LOCAL_GIT: bool = False
+# ---------- resolve USE_LOCAL_GIT (precedence: env-var > workspaceInfo.yaml > default) ----------
+USE_LOCAL_GIT: bool = False          # 1) default
 
-# 2) env-var override (highest precedence)
-_env_val = os.getenv("WB_USE_LOCAL_GIT")
-if _env_val is not None:
-    USE_LOCAL_GIT = _env_val.lower() == "true"
-
-# 3) workspaceInfo.yaml override (if present)
+# 2) workspaceInfo.yaml (lowest override)
 _ws_path = "/shared/workspaceInfo.yaml"
 if os.path.isfile(_ws_path):
     try:
         with open(_ws_path, "r") as f:
             cfg = yaml.safe_load(f) or {}
-        val = cfg.get("useLocalGit")
-        if isinstance(val, bool):
-            USE_LOCAL_GIT = val
-        elif isinstance(val, str):
-            USE_LOCAL_GIT = val.lower() == "true"
+        _ws_val = cfg.get("useLocalGit")
+        if isinstance(_ws_val, bool):
+            USE_LOCAL_GIT = _ws_val
+        elif isinstance(_ws_val, str):
+            USE_LOCAL_GIT = _ws_val.lower() == "true"
     except Exception as exc:
         logger.warning(
             "Failed to parse %s; falling back to USE_LOCAL_GIT=%s: %s",
-            _ws_path, USE_LOCAL_GIT, exc
+            _ws_path, USE_LOCAL_GIT, exc,
         )
+
+# 3) env-var override (highest precedence – wins over workspaceInfo)
+_env_val = os.getenv("WB_USE_LOCAL_GIT")
+if _env_val is not None:
+    USE_LOCAL_GIT = _env_val.lower() == "true"
+
+logger.info("USE_LOCAL_GIT resolved to %s (env=%s, yaml=%s)",
+            USE_LOCAL_GIT, os.getenv("WB_USE_LOCAL_GIT"), _ws_path if os.path.isfile(_ws_path) else "<missing>")
 # ──────────────────────────────────────────────────────────
 
 # root of the bare-mirror cache (same path baked by Dockerfile)
@@ -257,8 +260,8 @@ class CodeCollection:
 
         if USE_LOCAL_GIT:
             local_path = local_repo_path(self.repo_url)
-            logger.info(f"Using local git cache dir: {local_path}")
             if os.path.isdir(local_path):
+                logger.info(f"Using local git cache dir: {local_path}")
                 try:
                     self.repo_directory_path = local_path
                     self.repo = Repo(local_path)
@@ -277,8 +280,11 @@ class CodeCollection:
                     else:
                         # Re-raise other git-related errors
                         raise
+            else:
+                logger.warning(f"Local git cache dir NOT found: {local_path} — falling back to remote clone")
 
         # fallback: online clone (mirror=True ensures tags)
+        logger.info(f"Cloning from git source: {self.repo_url}")
         if not self.repo_directory_path:
             repo_name = get_repo_name(self.repo_url)
             self.repo_directory_path = create_repo_directory(code_collection_cache_dir, repo_name)
@@ -288,7 +294,6 @@ class CodeCollection:
             mirror=True  # includes tags/branches
         )
         if not USE_LOCAL_GIT:
-            logger.info("Cloning from git source")
             self.repo.remote().fetch(ref_name, tags=True)
 
     @staticmethod

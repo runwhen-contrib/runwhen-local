@@ -22,9 +22,8 @@ from azure_utils import generate_kubeconfig_for_aks
 from aws_utils import generate_kubeconfig_for_eks
 
 
-debug_suppress_cheat_sheet = os.getenv("WB_DEBUG_SUPPRESS_CHEAT_SHEET")
-cheat_sheet_enabled = (debug_suppress_cheat_sheet is None or
-                      debug_suppress_cheat_sheet.lower() == 'false' or
+debug_suppress_cheat_sheet = os.getenv("WB_DEBUG_SUPPRESS_CHEAT_SHEET", "true")
+cheat_sheet_enabled = (debug_suppress_cheat_sheet.lower() == 'false' or
                       debug_suppress_cheat_sheet == '0')
 if cheat_sheet_enabled:
     import cheatsheet
