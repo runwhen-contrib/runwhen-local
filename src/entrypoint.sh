@@ -66,36 +66,30 @@ if [ -n "$WB_CODE_COLLECTION_CACHE_DIR" ]; then
 fi
 
 OUTPUT="/shared/output"
-# Run mkdocs in the background
-# Check if the directory exists
+# Check if the output directory exists
 if [ -d "$OUTPUT" ]; then
   echo "Directory $OUTPUT already exists."
 else
-  # Create the directory
   mkdir -p "$OUTPUT"
   echo "Directory $OUTPUT has been created."
 fi
 
-# Set mkdocs to run out of TMPDIR
 # Use TMPDIR if set, or fall back to /tmp
 TMPDIR="${TMPDIR:-/tmp}"
-MKDOCS_TMP="$TMPDIR/mkdocs-temp"
 
-# 1) Copy everything to a writable temp location
-rm -rf "$MKDOCS_TMP"
-mkdir -p "$MKDOCS_TMP"
-cp -r /workspace-builder/cheat-sheet-docs/* "$MKDOCS_TMP"
-
-# If your mkdocs.yml is in cheat-sheet-docs/, now it's in $MKDOCS_TMP/mkdocs.yml
-# If you store docs/ within cheat-sheet-docs/, it's also in $MKDOCS_TMP/docs/
-
-# 2) Start mkdocs serve from inside that writable directory
-cd "$MKDOCS_TMP"
-
-# Optionally set site_dir in mkdocs.yml or run with an alternate config that points site_dir somewhere in TMPDIR
-# For live reload on 0.0.0.0:8081 (configured in mkdocs.yml):
-mkdocs serve -f mkdocs.yml &
-echo "MkDocs serve started in the background, serving from $MKDOCS_TMP"
+# Only start mkdocs when cheat sheet is enabled (WB_DEBUG_SUPPRESS_CHEAT_SHEET defaults to "true")
+WB_SUPPRESS="${WB_DEBUG_SUPPRESS_CHEAT_SHEET:-true}"
+if [ "${WB_SUPPRESS,,}" = "false" ] || [ "$WB_SUPPRESS" = "0" ]; then
+  MKDOCS_TMP="$TMPDIR/mkdocs-temp"
+  rm -rf "$MKDOCS_TMP"
+  mkdir -p "$MKDOCS_TMP"
+  cp -r /workspace-builder/cheat-sheet-docs/* "$MKDOCS_TMP"
+  cd "$MKDOCS_TMP"
+  mkdocs serve -f mkdocs.yml &
+  echo "MkDocs serve started in the background, serving from $MKDOCS_TMP"
+else
+  echo "Cheat sheet disabled (WB_DEBUG_SUPPRESS_CHEAT_SHEET=${WB_SUPPRESS}) — skipping MkDocs server"
+fi
 
 ## Clean stale lock files
 rm $TMPDIR/.wb_lock || true
