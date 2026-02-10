@@ -1122,7 +1122,14 @@ def load(context: Context) -> None:
     for code_collection_config in code_collection_configs:
         code_collection = get_code_collection(code_collection_config)
         ref_name = code_collection_config.ref_name
-        code_collection.update_repo(ref_name)
+        try:
+            code_collection.update_repo(ref_name)
+        except Exception as e:
+            message = (f"Skipping code collection '{code_collection_config.repo_url}' "
+                       f"(ref={ref_name}): {e}")
+            logger.warning(message)
+            context.add_warning(message)
+            continue
         code_bundle_names = code_collection.get_code_bundle_names(ref_name, code_collection_config)
         for code_bundle_name in code_bundle_names:
             generation_rules_configs = code_collection.get_generation_rules_configs(ref_name, code_bundle_name)

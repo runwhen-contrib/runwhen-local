@@ -43,6 +43,10 @@
     - name: resource_name
       value: '{{ match_resource.name | string }}'
     {% endif %}
+{% if match_resource.resource_type %}
+    - name: resource_type
+      value: '{{ match_resource.resource_type.name | string }}'
+{% endif %}
 {% for cr in child_resource_names | default([]) %}
     - name: child_resource
       value: '{{ cr | string | replace(":", "_") | replace("/", "_") }}'

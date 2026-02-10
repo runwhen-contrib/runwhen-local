@@ -281,9 +281,19 @@ class CodeCollection:
                         # Re-raise other git-related errors
                         raise
             else:
-                logger.warning(f"Local git cache dir NOT found: {local_path} — falling back to remote clone")
+                # useLocalGit is true but the mirror is missing — do NOT silently
+                # fall back to a remote clone.  That would defeat the purpose of
+                # the setting and produce confusing network errors in air-gapped
+                # environments.
+                raise WorkspaceBuilderUserException(
+                    f"Local git mirror missing: {local_path}. "
+                    f"The code collection '{self.repo_url}' is not in the pre-built cache. "
+                    f"Either add it to default-code-collections.yaml and rebuild the image "
+                    f"with INCLUDE_CODE_COLLECTION_CACHE=true, remove it from your "
+                    f"workspaceInfo codeCollections list, or set useLocalGit: false."
+                )
 
-        # fallback: online clone (mirror=True ensures tags)
+        # online clone (only when USE_LOCAL_GIT is false)
         logger.info(f"Cloning from git source: {self.repo_url}")
         if not self.repo_directory_path:
             repo_name = get_repo_name(self.repo_url)
@@ -293,8 +303,7 @@ class CodeCollection:
             self.repo_directory_path,
             mirror=True  # includes tags/branches
         )
-        if not USE_LOCAL_GIT:
-            self.repo.remote().fetch(ref_name, tags=True)
+        self.repo.remote().fetch(ref_name, tags=True)
 
     @staticmethod
     def path_to_components(path: str) -> list[str]:
