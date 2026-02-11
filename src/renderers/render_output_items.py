@@ -88,13 +88,27 @@ def compute_resource_path_from_hierarchy(data: dict) -> None:
         if name and name not in tag_lookup and value is not None:
             tag_lookup[name] = str(value)
 
-    # Build resourcePath from the hierarchy entries in order,
-    # skipping consecutive duplicates (e.g. when resource_name
-    # equals its parent cluster name).
+    # Determine if 'resource_name' is redundant because the resource IS one
+    # of the organisational hierarchy levels.  For example a cluster-level SLX
+    # has resource_type=cluster and 'cluster' is already a hierarchy entry, so
+    # the trailing 'resource_name' would just duplicate the cluster value.
+    # We detect this by checking whether the resource_type tag matches any
+    # hierarchy entry other than 'resource_name' itself.
+    resource_type = tag_lookup.get('resource_type')
+    hierarchy_set = set(hierarchy)
+    skip_resource_name = (
+        resource_type is not None
+        and resource_type in hierarchy_set
+        and 'resource_name' in hierarchy_set
+    )
+
+    # Build resourcePath from the hierarchy entries in order
     path_parts: list[str] = []
     for entry in hierarchy:
+        if skip_resource_name and entry == 'resource_name':
+            continue
         value = tag_lookup.get(entry)
-        if value and (not path_parts or value != path_parts[-1]):
+        if value:
             path_parts.append(value)
 
     if path_parts:
