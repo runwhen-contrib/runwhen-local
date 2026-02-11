@@ -89,31 +89,46 @@ def compute_resource_path_from_hierarchy(data: dict) -> None:
             tag_lookup[name] = str(value)
 
     # Determine if 'resource_name' is redundant because the resource IS one
-    # of the organisational hierarchy levels.  For example a cluster-level SLX
-    # has resource_type=cluster and 'cluster' is already a hierarchy entry, so
-    # the trailing 'resource_name' would just duplicate the cluster value.
-    # We detect this by checking whether the resource_type tag matches any
-    # hierarchy entry other than 'resource_name' itself.
+    # of the organisational hierarchy levels.  Two detection methods:
     #
-    # Hierarchy entries sometimes carry a _id/_name suffix (e.g. "project_id")
-    # while resource_type values are bare names (e.g. "project").  We normalise
-    # by also checking the entry name with those suffixes stripped.
+    # 1. resource_type matches a hierarchy entry (with _id/_name suffix
+    #    normalisation).  E.g. resource_type=cluster and 'cluster' is a
+    #    hierarchy entry, or resource_type=project and 'project_id' is.
+    #
+    # 2. resource_name's resolved value is identical to its immediately
+    #    preceding hierarchy entry's value.  This catches scope-based
+    #    codebundles (e.g. an Azure compute-disks codebundle scoped to a
+    #    resource group, where the tag template sets resource_name to the
+    #    resource group name because there is no more specific leaf resource).
     resource_type = tag_lookup.get('resource_type')
     skip_resource_name = False
-    if resource_type and 'resource_name' in set(hierarchy):
-        for entry in hierarchy:
-            if entry == 'resource_name':
-                continue
-            # Match exact name or with _id / _name suffix stripped
-            if entry == resource_type:
-                skip_resource_name = True
-                break
-            for suffix in ('_id', '_name'):
-                if entry.endswith(suffix) and entry[:-len(suffix)] == resource_type:
+    resource_name_idx = None
+
+    if 'resource_name' in hierarchy:
+        resource_name_idx = hierarchy.index('resource_name')
+
+        # Method 1: resource_type matches a hierarchy entry
+        if resource_type:
+            for entry in hierarchy:
+                if entry == 'resource_name':
+                    continue
+                if entry == resource_type:
                     skip_resource_name = True
                     break
-            if skip_resource_name:
-                break
+                for suffix in ('_id', '_name'):
+                    if entry.endswith(suffix) and entry[:-len(suffix)] == resource_type:
+                        skip_resource_name = True
+                        break
+                if skip_resource_name:
+                    break
+
+        # Method 2: resource_name value duplicates its immediate parent
+        if not skip_resource_name and resource_name_idx > 0:
+            preceding_entry = hierarchy[resource_name_idx - 1]
+            preceding_value = tag_lookup.get(preceding_entry)
+            resource_name_value = tag_lookup.get('resource_name')
+            if preceding_value and resource_name_value and preceding_value == resource_name_value:
+                skip_resource_name = True
 
     # Build resourcePath from the hierarchy entries in order
     path_parts: list[str] = []
