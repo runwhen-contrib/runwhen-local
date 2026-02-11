@@ -577,17 +577,6 @@ class AzurePlatformHandler(PlatformHandler):
                 # Fallback: if somehow subscription_name wasn't set during parsing, get it now
                 template_variables['subscription_name'] = get_subscription_name(subscription_id)
         
-        # Generate resourcePath for Azure resources
-        resource_path_parts = ["azure"]
-        if subscription_id:
-            resource_path_parts.append(subscription_id)
-        if resource_group and resource_group.name:
-            resource_path_parts.append(resource_group.name)
-        # Only add resource name if it's not already represented as resource_group
-        if resource.name and resource != resource_group:
-            resource_path_parts.append(resource.name)
-        template_variables['resource_path'] = "/".join(resource_path_parts)
-        
         return template_variables
 
     def resolve_template_variable_value(self, resource: Resource, variable_name: str) -> Optional[Any]:

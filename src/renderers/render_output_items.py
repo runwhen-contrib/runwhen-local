@@ -51,9 +51,52 @@ def load(context: Context):
     context.set_property(OUTPUT_ITEMS_PROPERTY, dict())
 
 
+def compute_resource_path_from_hierarchy(data: dict) -> None:
+    """
+    Derive resourcePath from the hierarchy and tags in the parsed YAML data.
+    resourcePath is always the combination of the tag values for each hierarchy
+    entry, joined with '/', ensuring it stays in sync with the hierarchy definition.
+    This is called during post-render processing so that resourcePath is never
+    independently generated -- it is always a direct reflection of the hierarchy tags.
+
+    The hierarchy list lives at spec.additionalContext.hierarchy and the tags
+    live at spec.tags.  The computed resourcePath is written back into
+    spec.additionalContext.resourcePath.
+    """
+    spec = data.get('spec', {})
+    additional_context = spec.get('additionalContext', {})
+    hierarchy = additional_context.get('hierarchy')
+    tags = spec.get('tags')
+
+    if not hierarchy or not tags:
+        return
+
+    # Build a lookup from tag name to its first value
+    tag_lookup: dict[str, str] = {}
+    for tag in tags:
+        name = tag.get('name')
+        value = tag.get('value')
+        if name and name not in tag_lookup and value is not None:
+            tag_lookup[name] = str(value)
+
+    # Build resourcePath from the hierarchy entries in order,
+    # skipping consecutive duplicates (e.g. when resource_name
+    # equals its parent cluster name).
+    path_parts: list[str] = []
+    for entry in hierarchy:
+        value = tag_lookup.get(entry)
+        if value and (not path_parts or value != path_parts[-1]):
+            path_parts.append(value)
+
+    if path_parts:
+        additional_context['resourcePath'] = "/".join(path_parts)
+        logger.debug(f"Computed resourcePath from hierarchy: {additional_context['resourcePath']}")
+
+
 def deduplicate_secrets_provided(yaml_text: str) -> str:
     """
-    Deduplicates entries under 'secretsProvided' and 'tags' in a YAML document.
+    Post-processes rendered YAML: deduplicates secretsProvided and tags,
+    and computes resourcePath from hierarchy + tags.
     """
     data = yaml.safe_load(yaml_text)  # Load the YAML as a Python dictionary
     if 'secretsProvided' in data['spec']:
@@ -80,6 +123,9 @@ def deduplicate_secrets_provided(yaml_text: str) -> str:
         
         # Replace with deduplicated list
         data['spec']['tags'] = list(seen_tags.values())
+    
+    # Compute resourcePath from hierarchy + tags (always in sync)
+    compute_resource_path_from_hierarchy(data)
     
     # Use PyYAML to dump with proper YAML formatting
     return yaml.dump(data, sort_keys=False, default_flow_style=False, allow_unicode=True)
