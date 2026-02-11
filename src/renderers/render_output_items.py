@@ -63,8 +63,17 @@ def compute_resource_path_from_hierarchy(data: dict) -> None:
     live at spec.tags.  The computed resourcePath is written back into
     spec.additionalContext.resourcePath.
     """
+    if not data or not isinstance(data, dict):
+        return
+
     spec = data.get('spec', {})
+    if not isinstance(spec, dict):
+        return
+
     additional_context = spec.get('additionalContext', {})
+    if not isinstance(additional_context, dict):
+        return
+
     hierarchy = additional_context.get('hierarchy')
     tags = spec.get('tags')
 
