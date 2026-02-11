@@ -123,7 +123,7 @@ def compute_resource_path_from_hierarchy(data: dict) -> None:
                     break
 
         # Method 2: resource_name value duplicates its immediate parent
-        if not skip_resource_name and resource_name_idx and resource_name_idx > 0:
+        if not skip_resource_name and resource_name_idx > 0:
             preceding_entry = hierarchy[resource_name_idx - 1]
             preceding_value = tag_lookup.get(preceding_entry)
             resource_name_value = tag_lookup.get('resource_name')
