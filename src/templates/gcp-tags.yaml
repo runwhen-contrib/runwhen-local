@@ -1,5 +1,16 @@
     - name: platform
       value: gcp
+{% if project is defined and project.name is defined and not (match_resource.resource_type is defined and match_resource.resource_type.name == 'project') %}
+    - name: project_id
+      value: "{{ project.name }}"
+{% elif match_resource is defined and match_resource.project_id is defined %}
+    - name: project_id
+      value: "{{ match_resource.project_id }}"
+{% endif %}
+{% if match_resource is defined and match_resource.location is defined %}
+    - name: location
+      value: "{{ match_resource.location }}"
+{% endif %}
 {% if match_resource.name %}
     - name: resource_name
       value: '{{ match_resource.name | string }}'
@@ -58,4 +69,3 @@
       value: "{{ cluster.zone }}"
 {% endif %}
 {% endif %}
-

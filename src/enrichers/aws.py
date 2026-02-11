@@ -241,21 +241,6 @@ class AWSPlatformHandler(PlatformHandler):
             'auth_secret': str(self.get_resource_qualifier_value(resource, "auth_secret") or ""),
         }
         
-        # Generate resourcePath for AWS resources
-        resource_path_parts = ["aws"]
-        account_id = self.get_resource_qualifier_value(resource, "account_id")
-        if account_id:
-            resource_path_parts.append(account_id)
-        region = self.get_resource_qualifier_value(resource, "region")
-        if region:
-            resource_path_parts.append(region)
-        service = self.get_resource_qualifier_value(resource, "service")
-        if service:
-            resource_path_parts.append(service)
-        if resource.name:
-            resource_path_parts.append(resource.name)
-        template_variables['resource_path'] = "/".join(resource_path_parts)
-        
         # Add tags as template variables
         tags = getattr(resource, "tags", {})
         template_variables.update({f"tag_{key}": value for key, value in tags.items()})

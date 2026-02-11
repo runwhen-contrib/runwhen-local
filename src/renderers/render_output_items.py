@@ -51,9 +51,88 @@ def load(context: Context):
     context.set_property(OUTPUT_ITEMS_PROPERTY, dict())
 
 
+def compute_resource_path_from_hierarchy(data: dict) -> None:
+    """
+    Derive resourcePath from the hierarchy and tags in the parsed YAML data.
+    resourcePath is always the combination of the tag values for each hierarchy
+    entry, joined with '/', ensuring it stays in sync with the hierarchy definition.
+    This is called during post-render processing so that resourcePath is never
+    independently generated -- it is always a direct reflection of the hierarchy tags.
+
+    The hierarchy list lives at spec.additionalContext.hierarchy and the tags
+    live at spec.tags.  The computed resourcePath is written back into
+    spec.additionalContext.resourcePath.
+    """
+    if not data or not isinstance(data, dict):
+        return
+
+    spec = data.get('spec', {})
+    if not isinstance(spec, dict):
+        return
+
+    additional_context = spec.get('additionalContext', {})
+    if not isinstance(additional_context, dict):
+        return
+
+    hierarchy = additional_context.get('hierarchy')
+    tags = spec.get('tags')
+
+    if not hierarchy or not tags:
+        return
+
+    # Build a lookup from tag name to its first value
+    tag_lookup: dict[str, str] = {}
+    for tag in tags:
+        name = tag.get('name')
+        value = tag.get('value')
+        if name and name not in tag_lookup and value is not None:
+            tag_lookup[name] = str(value)
+
+    # Determine if 'resource_name' is redundant because the resource IS one
+    # of the organisational hierarchy levels.  For example a cluster-level SLX
+    # has resource_type=cluster and 'cluster' is already a hierarchy entry, so
+    # the trailing 'resource_name' would just duplicate the cluster value.
+    # We detect this by checking whether the resource_type tag matches any
+    # hierarchy entry other than 'resource_name' itself.
+    #
+    # Hierarchy entries sometimes carry a _id/_name suffix (e.g. "project_id")
+    # while resource_type values are bare names (e.g. "project").  We normalise
+    # by also checking the entry name with those suffixes stripped.
+    resource_type = tag_lookup.get('resource_type')
+    skip_resource_name = False
+    if resource_type and 'resource_name' in set(hierarchy):
+        for entry in hierarchy:
+            if entry == 'resource_name':
+                continue
+            # Match exact name or with _id / _name suffix stripped
+            if entry == resource_type:
+                skip_resource_name = True
+                break
+            for suffix in ('_id', '_name'):
+                if entry.endswith(suffix) and entry[:-len(suffix)] == resource_type:
+                    skip_resource_name = True
+                    break
+            if skip_resource_name:
+                break
+
+    # Build resourcePath from the hierarchy entries in order
+    path_parts: list[str] = []
+    for entry in hierarchy:
+        if skip_resource_name and entry == 'resource_name':
+            continue
+        value = tag_lookup.get(entry)
+        if value:
+            path_parts.append(value)
+
+    if path_parts:
+        additional_context['resourcePath'] = "/".join(path_parts)
+        logger.debug(f"Computed resourcePath from hierarchy: {additional_context['resourcePath']}")
+
+
 def deduplicate_secrets_provided(yaml_text: str) -> str:
     """
-    Deduplicates entries under 'secretsProvided' and 'tags' in a YAML document.
+    Post-processes rendered YAML: deduplicates secretsProvided and tags,
+    and computes resourcePath from hierarchy + tags.
     """
     data = yaml.safe_load(yaml_text)  # Load the YAML as a Python dictionary
     if 'secretsProvided' in data['spec']:
@@ -80,6 +159,9 @@ def deduplicate_secrets_provided(yaml_text: str) -> str:
         
         # Replace with deduplicated list
         data['spec']['tags'] = list(seen_tags.values())
+    
+    # Compute resourcePath from hierarchy + tags (always in sync)
+    compute_resource_path_from_hierarchy(data)
     
     # Use PyYAML to dump with proper YAML formatting
     return yaml.dump(data, sort_keys=False, default_flow_style=False, allow_unicode=True)

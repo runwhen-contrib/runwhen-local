@@ -7,3 +7,4 @@
 	directory = /opt/runwhen/codecollection-cache/rw-workspace-utils.git
 	directory = /tmp/*
 	directory = /tmp/tmp*
+	directory = /opt/runwhen/codecollection-cache/rw-generic-codecollection.git
