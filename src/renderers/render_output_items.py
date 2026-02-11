@@ -94,13 +94,26 @@ def compute_resource_path_from_hierarchy(data: dict) -> None:
     # the trailing 'resource_name' would just duplicate the cluster value.
     # We detect this by checking whether the resource_type tag matches any
     # hierarchy entry other than 'resource_name' itself.
+    #
+    # Hierarchy entries sometimes carry a _id/_name suffix (e.g. "project_id")
+    # while resource_type values are bare names (e.g. "project").  We normalise
+    # by also checking the entry name with those suffixes stripped.
     resource_type = tag_lookup.get('resource_type')
-    hierarchy_set = set(hierarchy)
-    skip_resource_name = (
-        resource_type is not None
-        and resource_type in hierarchy_set
-        and 'resource_name' in hierarchy_set
-    )
+    skip_resource_name = False
+    if resource_type and 'resource_name' in set(hierarchy):
+        for entry in hierarchy:
+            if entry == 'resource_name':
+                continue
+            # Match exact name or with _id / _name suffix stripped
+            if entry == resource_type:
+                skip_resource_name = True
+                break
+            for suffix in ('_id', '_name'):
+                if entry.endswith(suffix) and entry[:-len(suffix)] == resource_type:
+                    skip_resource_name = True
+                    break
+            if skip_resource_name:
+                break
 
     # Build resourcePath from the hierarchy entries in order
     path_parts: list[str] = []
