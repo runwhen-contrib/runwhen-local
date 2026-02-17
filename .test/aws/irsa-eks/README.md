@@ -59,6 +59,31 @@ task run-rwl-discovery
 task destroy-terraform-infra
 ```
 
+### Recovering from "AlreadyExistsException" / "ResourceAlreadyExistsException"
+
+If you see errors like **KMS Alias already exists** or **log group already exists**, Terraform is trying to create resources that already exist in AWS (e.g. after switching to local state or losing state). You can either:
+
+**Option A – Import existing resources and continue**
+
+```bash
+cd .test/aws/irsa-eks
+task import-orphaned-eks-resources   # imports KMS alias, log group, IRSA role + policy
+cd terraform && terraform apply -auto-approve
+# If more "already exists" errors appear, import those resources too, then apply again.
+```
+
+If you see **kms:UpdateAlias** or **kms:DescribeKey AccessDeniedException**: the KMS key’s resource policy doesn’t allow your IAM user/role. In AWS Console → KMS → the key → Key policy, add your identity with `kms:DescribeKey`, `kms:GetKeyPolicy`, `kms:UpdateAlias`, and `kms:PutKeyPolicy` (or use a key policy that allows your role).
+
+If you use a non-default `resource_suffix`, run:
+
+```bash
+task import-orphaned-eks-resources -- RESOURCE_SUFFIX=your-suffix
+```
+
+**Option B – Remove leftovers in AWS and re-apply**
+
+Delete the existing EKS cluster and related resources in the AWS console (or CLI), then run `task build-terraform-infra` again. Remove in this order: EKS cluster (wait for deletion) → CloudWatch log group `/aws/eks/runwhen-irsa-test-test/cluster` → KMS alias `alias/eks/runwhen-irsa-test-test` (and key if unused).
+
 ## What Gets Created
 
 ### AWS Resources
@@ -71,6 +96,8 @@ task destroy-terraform-infra
   - Discovery permissions (EC2, S3, IAM, EKS)
   - Trust policy allowing OIDC federation
 - Test S3 bucket
+- Additional S3 bucket for discovery testing (`runwhen-irsa-discovery-*`)
+- Test Lambda (`runwhen-discovery-test-*`) with access to the discovery bucket, for Lambda discovery testing
 
 ### Kubernetes Resources
 - Namespace: `runwhen-local`
