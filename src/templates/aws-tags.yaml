@@ -18,9 +18,6 @@
 {% elif qualifiers and qualifiers.resource_group is defined %}
     - name: resource_name
       value: '{{ qualifiers.resource_group }}'
-{% else %}
-    - name: resource_name
-      value: '{{ match_resource.resource.name }}'
 {% endif %}
 {% for cr in child_resource_names | default([]) %}
     - name: child_resource

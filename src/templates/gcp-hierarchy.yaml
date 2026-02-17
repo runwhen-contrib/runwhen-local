@@ -4,7 +4,7 @@
     {% if match_resource.location is defined %}
     - location
     {% endif %}
-    {% if match_resource.name %}
+    {% if qualifiers and qualifiers.resource is defined %}
     - resource_name
     {% endif %}
 

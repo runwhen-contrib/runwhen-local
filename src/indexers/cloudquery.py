@@ -867,9 +867,12 @@ def init_cloudquery_config(
                     platform_cfg["_account_alias"] = account_alias
                 
                 # Resolve human-readable account name (alias -> org name -> account_id)
-                account_name = get_account_name(session, account_id=account_id, account_alias=account_alias)
+                account_name = get_account_name(
+                    session,
+                    account_id=account_id,
+                    account_alias=account_alias,
+                )
                 logger.info(f"AWS account name resolved to: {account_name}")
-                platform_cfg["_account_name"] = account_name
                 
                 # Update enrichers.aws module with credentials
                 try:

@@ -5,7 +5,7 @@
     - account_name
     {% endif %}
     - region
-    {% if match_resource.name %}
+    {% if qualifiers and qualifiers.resource is defined %}
     - resource_name
     {% endif %}
 

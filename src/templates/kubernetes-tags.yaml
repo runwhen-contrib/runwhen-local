@@ -32,22 +32,17 @@
     - name: kind
       value: '{{ match_resource.kind | string }}'
 {% endif %}
-{% if match_resource.name %}
-    {% if qualifiers and qualifiers.resource is defined %}
+{% if qualifiers and qualifiers.resource is defined %}
     - name: resource_name
       value: '{{ qualifiers.resource | string }}'
-    {% elif qualifiers and qualifiers.resource_group is defined %}
+{% elif qualifiers and qualifiers.resource_group is defined %}
     - name: resource_name
       value: '{{ qualifiers.resource_group | string }}'
-    {% else %}
-    - name: resource_name
-      value: '{{ match_resource.name | string }}'
-    {% endif %}
-    {% for cr in child_resource_names | default([]) %}
+{% endif %}
+{% for cr in child_resource_names | default([]) %}
     - name: child_resource
       value: '{{ cr | string | replace(":", "_") | replace("/", "_") }}'
-    {% endfor %}
-{% endif %}
+{% endfor %}
 {% if match_resource.resource_type %}
     - name: resource_type
       value: '{{ match_resource.resource_type.name | string }}'
