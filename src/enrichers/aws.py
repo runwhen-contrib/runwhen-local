@@ -161,9 +161,13 @@ class AWSPlatformHandler(PlatformHandler):
         # Resolve account_name from the map built at init (stored on platform_config_data)
         resource_account_id = resource_attributes.get('account_id', '')
         account_names = platform_config_data.get("_account_names", {})
+        if not account_names:
+            logger.warning(f"[account_name] _account_names map is EMPTY or MISSING from platform_config_data. "
+                           f"Available keys: {[k for k in platform_config_data.keys() if k.startswith('_')]}")
         resolved_account_name = account_names.get(resource_account_id, resource_account_id)
         resource_attributes['account_name'] = resolved_account_name
-        logger.info(f"[account_name] Resource '{name}' in account {resource_account_id} -> account_name='{resolved_account_name}'")
+        logger.info(f"[account_name] Resource '{name}': account_id={resource_account_id}, "
+                     f"account_name='{resolved_account_name}', map_size={len(account_names)}")
         
         # Add assume role ARN if available (for assume role auth types)
         assume_role_arn = get_cached_assume_role_arn()

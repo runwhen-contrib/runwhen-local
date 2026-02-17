@@ -889,7 +889,10 @@ def init_cloudquery_config(
                         logger.info(f"[account_name] Mapped configured account: {extra_id} -> {extra_name}")
                 
                 platform_cfg["_account_names"] = account_names
-                logger.info(f"[account_name] Built account names map with {len(account_names)} entries: {account_names}")
+                logger.info(f"[account_name] Stored _account_names on platform_cfg: {account_names}")
+                # Verify it's readable back
+                verify = platform_cfg.get("_account_names", {})
+                logger.info(f"[account_name] Verify readback from platform_cfg: {verify}")
                 
                 # Update enrichers.aws module with credentials
                 try:
@@ -1085,6 +1088,9 @@ def index(context: Context):
                 for cq_platform_spec, cq_resource_type_specs in cq_platform_infos:
                     platform_name = cq_platform_spec.name
                     platform_config_data = cloud_config.get(platform_name, dict())
+                    if platform_name == "aws":
+                        logger.info(f"[account_name] Processing AWS resources. "
+                                     f"_account_names in platform_config_data: {platform_config_data.get('_account_names', 'MISSING')}")
                     platform_handler = platform_handlers[platform_name]
 
                     include_tags = platform_config_data.get("includeTags", {})
