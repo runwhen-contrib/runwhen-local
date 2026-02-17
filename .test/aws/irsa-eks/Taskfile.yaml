@@ -26,6 +26,27 @@ tasks:
     cmds:
       - terraform destroy -auto-approve
 
+  # Import EKS/KMS/CloudWatch/IRSA resources that already exist in AWS (e.g. after state was lost).
+  # Use after "AlreadyExistsException" / "EntityAlreadyExists" on apply.
+  # Set RESOURCE_SUFFIX if you did not use the default "test". Imports skip resources already in state.
+  import-orphaned-eks-resources:
+    desc: Import existing EKS-related resources into state (fix apply after lost state)
+    dir: terraform
+    vars:
+      RESOURCE_SUFFIX: '{{default "test" .RESOURCE_SUFFIX}}'
+      CLUSTER_NAME: "runwhen-irsa-test-{{.RESOURCE_SUFFIX}}"
+      IRSA_ROLE_NAME: "runwhen-irsa-{{.RESOURCE_SUFFIX}}"
+    cmds:
+      - |
+        set -e
+        echo "Importing cluster resources for: {{.CLUSTER_NAME}}"
+        terraform import 'module.eks.module.kms.aws_kms_alias.this["cluster"]' "alias/eks/{{.CLUSTER_NAME}}" || true
+        terraform import 'module.eks.aws_cloudwatch_log_group.this[0]' "/aws/eks/{{.CLUSTER_NAME}}/cluster" || true
+        echo "Importing IRSA role: {{.IRSA_ROLE_NAME}}"
+        terraform import aws_iam_role.runwhen_irsa "{{.IRSA_ROLE_NAME}}" || true
+        terraform import 'aws_iam_role_policy.runwhen_irsa_policy' "{{.IRSA_ROLE_NAME}}:runwhen-discovery-policy" || true
+        echo "Done. Run 'task build-terraform-infra' again or 'terraform apply -auto-approve' in terraform/."
+
   check-terraform-infra:
     desc: Check if Terraform infrastructure exists
     dir: terraform

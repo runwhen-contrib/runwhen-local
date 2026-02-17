@@ -39,6 +39,26 @@ output "test_bucket_arn" {
   value       = aws_s3_bucket.test_bucket.arn
 }
 
+output "discovery_test_bucket_name" {
+  description = "Name of the additional S3 bucket for discovery testing"
+  value       = aws_s3_bucket.discovery_test_bucket.id
+}
+
+output "discovery_test_bucket_arn" {
+  description = "ARN of the discovery test S3 bucket"
+  value       = aws_s3_bucket.discovery_test_bucket.arn
+}
+
+output "discovery_test_lambda_name" {
+  description = "Name of the test Lambda for discovery testing"
+  value       = aws_lambda_function.discovery_test.function_name
+}
+
+output "discovery_test_lambda_arn" {
+  description = "ARN of the discovery test Lambda"
+  value       = aws_lambda_function.discovery_test.arn
+}
+
 output "account_id" {
   description = "AWS account ID"
   value       = data.aws_caller_identity.current.account_id

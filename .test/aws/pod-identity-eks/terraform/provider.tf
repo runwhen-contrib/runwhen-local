@@ -11,9 +11,7 @@ terraform {
       version = "~> 2.23"
     }
   }
-
-  # Backend configured via CLI flags in CI, uses local state when flags not provided
-  backend "azurerm" {}
+  # No backend block = local state (terraform.tfstate). CI can add backend config if needed.
 }
 
 provider "aws" {

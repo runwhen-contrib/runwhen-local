@@ -186,5 +186,99 @@ resource "aws_s3_bucket_public_access_block" "test_bucket" {
   restrict_public_buckets = true
 }
 
+#------------------------------------------------------------------------------
+# Additional S3 Bucket for discovery testing
+#------------------------------------------------------------------------------
+resource "aws_s3_bucket" "discovery_test_bucket" {
+  bucket = "runwhen-irsa-discovery-${var.resource_suffix}-${data.aws_caller_identity.current.account_id}"
+  tags   = merge(local.common_tags, { Purpose = "discovery-testing" })
+}
+
+resource "aws_s3_bucket_public_access_block" "discovery_test_bucket" {
+  bucket = aws_s3_bucket.discovery_test_bucket.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+#------------------------------------------------------------------------------
+# Test Lambda for discovery testing
+#------------------------------------------------------------------------------
+data "archive_file" "lambda_zip" {
+  type        = "zip"
+  source_file = "${path.module}/lambda/main.py"
+  output_path = "${path.module}/lambda/main.zip"
+}
+
+resource "aws_iam_role" "discovery_lambda" {
+  name = "runwhen-discovery-lambda-${var.resource_suffix}"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+
+  tags = local.common_tags
+}
+
+resource "aws_iam_role_policy" "discovery_lambda" {
+  name = "discovery-lambda-policy"
+  role = aws_iam_role.discovery_lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:ListBucket",
+          "s3:GetObject",
+          "s3:GetBucketLocation"
+        ]
+        Resource = [
+          aws_s3_bucket.discovery_test_bucket.arn,
+          "${aws_s3_bucket.discovery_test_bucket.arn}/*"
+        ]
+      }
+    ]
+  })
+}
+
+resource "aws_lambda_function" "discovery_test" {
+  filename         = data.archive_file.lambda_zip.output_path
+  function_name    = "runwhen-discovery-test-${var.resource_suffix}"
+  role             = aws_iam_role.discovery_lambda.arn
+  handler          = "main.handler"
+  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
+  runtime          = "python3.12"
+
+  environment {
+    variables = {
+      DISCOVERY_BUCKET = aws_s3_bucket.discovery_test_bucket.id
+    }
+  }
+
+  tags = merge(local.common_tags, { Purpose = "discovery-testing" })
+}
+
 # Note: Kubernetes RBAC is created via kubectl in the Taskfile after Helm install
 # This avoids Terraform dependency issues with Helm-managed resources
