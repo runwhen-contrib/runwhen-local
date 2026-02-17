@@ -452,29 +452,36 @@ def get_account_name(
     Returns:
         Human-readable account name string (never None)
     """
+    logger.info(f"Resolving account name: account_id={account_id}, account_alias={account_alias}")
+    
     # 1. Use IAM alias if already fetched
     if account_alias:
-        logger.info(f"Using IAM account alias as account name: {account_alias}")
+        logger.info(f"[account_name] Using IAM account alias: {account_alias}")
         return account_alias
     
     # 2. Try AWS Account Management API (account:GetAccountInformation)
     target_account_id = account_id or get_account_id(session)
+    logger.info(f"[account_name] No IAM alias available, trying Account Management API for account {target_account_id}")
     try:
         account_client = session.client('account')
         response = account_client.get_account_information()
-        account_name = response.get('AccountInformation', {}).get('AccountName')
+        logger.info(f"[account_name] Account Management API raw response keys: {list(response.keys())}")
+        account_name = response.get('AccountName')
+        logger.info(f"[account_name] AccountName from response: {account_name}")
         if account_name:
-            logger.info(f"Found account name from Account Management API: {account_name}")
+            logger.info(f"[account_name] Resolved account name from Account Management API: {target_account_id} -> {account_name}")
             return account_name
+        else:
+            logger.warning(f"[account_name] Account Management API returned no AccountName. Full response: {response}")
     except Exception as e:
         logger.warning(
-            f"account:GetAccountInformation failed for account {target_account_id}: {e}. "
+            f"[account_name] account:GetAccountInformation failed for account {target_account_id}: {type(e).__name__}: {e}. "
             f"Ensure the credentials have account:GetAccountInformation permission."
         )
     
     # 3. Fall back to account_id
     fallback = target_account_id or "unknown-account"
-    logger.warning(f"Could not resolve account name for {fallback}, using account_id as fallback")
+    logger.warning(f"[account_name] Could not resolve account name, falling back to account_id: {fallback}")
     return fallback
 
 

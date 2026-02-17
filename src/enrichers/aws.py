@@ -66,9 +66,11 @@ def set_aws_credentials(
     # Seed the account names cache with the authenticated account
     if account_id and account_name:
         account_names_cache[account_id] = account_name
-        logger.info(f"Seeded account names cache: {account_id} -> {account_name}")
+        logger.info(f"[account_name] Seeded account names cache: {account_id} -> {account_name}")
+    elif account_id:
+        logger.warning(f"[account_name] No account_name provided for account_id {account_id}, cache not seeded")
     
-    logger.info(f"Set AWS enricher credentials with auth type: {auth_type}")
+    logger.info(f"Set AWS enricher credentials: auth_type={auth_type}, account_id={account_id}, account_name={account_name}, account_alias={account_alias}")
 
 
 def get_aws_session() -> boto3.Session:
@@ -120,11 +122,16 @@ def get_account_name(account_id: str) -> str:
     falls back to organizations:DescribeAccount, then to account_id.
     """
     if not account_id:
+        logger.warning("[account_name] get_account_name called with empty account_id")
         return "Unknown Account"
     
     # Return cached name if available
     if account_id in account_names_cache:
-        return account_names_cache[account_id]
+        cached = account_names_cache[account_id]
+        logger.debug(f"[account_name] Cache hit: {account_id} -> {cached}")
+        return cached
+    
+    logger.info(f"[account_name] Cache miss for account_id {account_id}, attempting Organizations API lookup")
     
     # Cache miss — this account differs from the authenticated one.
     # Try Organizations API (requires organizations:DescribeAccount permission).
@@ -209,7 +216,9 @@ class AWSPlatformHandler(PlatformHandler):
         
         # Add account_name per resource account_id (supports multi-account discovery)
         resource_account_id = resource_attributes.get('account_id', '')
-        resource_attributes['account_name'] = get_account_name(resource_account_id)
+        resolved_account_name = get_account_name(resource_account_id)
+        resource_attributes['account_name'] = resolved_account_name
+        logger.info(f"[account_name] Resource '{name}' in account {resource_account_id} -> account_name='{resolved_account_name}'")
         
         # Add assume role ARN if available (for assume role auth types)
         assume_role_arn = get_cached_assume_role_arn()
