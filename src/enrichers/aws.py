@@ -18,6 +18,7 @@ _aws_credentials = {
     "auth_type": None,
     "account_id": None,
     "account_alias": None,
+    "account_name": None,
     "assume_role_arn": None,
     "auth_secret": None,
 }
@@ -28,6 +29,7 @@ def set_aws_credentials(
     auth_type: str = None,
     account_id: str = None,
     account_alias: str = None,
+    account_name: str = None,
     assume_role_arn: str = None,
     auth_secret: str = None
 ):
@@ -40,6 +42,7 @@ def set_aws_credentials(
         auth_type: Type of authentication used (aws_explicit, aws_secret, etc.)
         account_id: AWS account ID
         account_alias: AWS account alias
+        account_name: Human-readable account name (alias, org name, or account_id fallback)
         assume_role_arn: ARN of assumed role (if using assume role)
         auth_secret: Name of Kubernetes secret containing credentials (if applicable)
     """
@@ -52,6 +55,8 @@ def set_aws_credentials(
         _aws_credentials["account_id"] = account_id
     if account_alias:
         _aws_credentials["account_alias"] = account_alias
+    if account_name:
+        _aws_credentials["account_name"] = account_name
     if assume_role_arn:
         _aws_credentials["assume_role_arn"] = assume_role_arn
     if auth_secret:
@@ -86,6 +91,11 @@ def get_cached_account_id() -> Optional[str]:
 def get_cached_account_alias() -> Optional[str]:
     """Get the cached AWS account alias."""
     return _aws_credentials.get("account_alias")
+
+
+def get_cached_account_name() -> Optional[str]:
+    """Get the cached AWS account name (human-readable name, similar to Azure subscription_name)."""
+    return _aws_credentials.get("account_name")
 
 
 def get_cached_assume_role_arn() -> Optional[str]:
@@ -157,6 +167,15 @@ class AWSPlatformHandler(PlatformHandler):
         if account_alias:
             resource_attributes['account_alias'] = account_alias
         
+        # Add account_name (human-readable name, similar to Azure subscription_name)
+        # Always set this attribute, falling back to account_id if no friendly name exists
+        account_name = get_cached_account_name()
+        if account_name:
+            resource_attributes['account_name'] = account_name
+        else:
+            # Fallback: use alias if available, otherwise account_id
+            resource_attributes['account_name'] = account_alias or resource_attributes.get('account_id', '')
+        
         # Add assume role ARN if available (for assume role auth types)
         assume_role_arn = get_cached_assume_role_arn()
         if assume_role_arn:
@@ -200,6 +219,8 @@ class AWSPlatformHandler(PlatformHandler):
             value = getattr(resource, "auth_type", None)
         elif qualifier_name == "account_alias":
             value = getattr(resource, "account_alias", None)
+        elif qualifier_name == "account_name":
+            value = getattr(resource, "account_name", None)
         elif qualifier_name == "assume_role_arn":
             value = getattr(resource, "assume_role_arn", None)
         elif qualifier_name == "auth_secret":
@@ -221,7 +242,7 @@ class AWSPlatformHandler(PlatformHandler):
             return list(tags.keys())
         elif property_name == "tag-values":
             return list(tags.values())
-        elif property_name in ("account_id", "region", "service", "arn", "is_public", "auth_type", "account_alias", "assume_role_arn", "auth_secret"):
+        elif property_name in ("account_id", "region", "service", "arn", "is_public", "auth_type", "account_alias", "account_name", "assume_role_arn", "auth_secret"):
             return [self.get_resource_qualifier_value(resource, property_name)]
         else:
             logger.warning(f"Unknown property requested: {property_name}")
@@ -237,6 +258,7 @@ class AWSPlatformHandler(PlatformHandler):
             'arn': str(self.get_resource_qualifier_value(resource, "arn") or ""),
             'auth_type': str(self.get_resource_qualifier_value(resource, "auth_type") or ""),
             'account_alias': str(self.get_resource_qualifier_value(resource, "account_alias") or ""),
+            'account_name': str(self.get_resource_qualifier_value(resource, "account_name") or ""),
             'assume_role_arn': str(self.get_resource_qualifier_value(resource, "assume_role_arn") or ""),
             'auth_secret': str(self.get_resource_qualifier_value(resource, "auth_secret") or ""),
         }

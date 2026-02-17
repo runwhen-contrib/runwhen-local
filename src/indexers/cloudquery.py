@@ -34,7 +34,7 @@ from .airgap_support import get_airgap_manager
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from k8s_utils import get_secret
 from gcp_utils import get_gcp_credential, authenticate_gcloud, validate_gcp_credentials
-from aws_utils import get_aws_credential, set_aws_credentials, get_aws_environment_vars, get_account_id, get_account_alias
+from aws_utils import get_aws_credential, set_aws_credentials, get_aws_environment_vars, get_account_id, get_account_alias, get_account_name
 
 logger = logging.getLogger(__name__)
 tmpdir_value = os.getenv("TMPDIR", "/tmp")  # fallback to /tmp if TMPDIR not set
@@ -866,6 +866,11 @@ def init_cloudquery_config(
                     logger.info(f"AWS account alias: {account_alias}")
                     platform_cfg["_account_alias"] = account_alias
                 
+                # Resolve human-readable account name (alias -> org name -> account_id)
+                account_name = get_account_name(session, account_id=account_id, account_alias=account_alias)
+                logger.info(f"AWS account name resolved to: {account_name}")
+                platform_cfg["_account_name"] = account_name
+                
                 # Update enrichers.aws module with credentials
                 try:
                     from enrichers.aws import set_aws_credentials as set_enricher_aws_credentials
@@ -875,6 +880,7 @@ def init_cloudquery_config(
                         auth_type=auth_type,
                         account_id=account_id,
                         account_alias=account_alias,
+                        account_name=account_name,
                         assume_role_arn=assume_role_arn,
                         auth_secret=auth_secret
                     )
