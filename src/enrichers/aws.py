@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 import boto3
 
@@ -18,10 +18,13 @@ _aws_credentials = {
     "auth_type": None,
     "account_id": None,
     "account_alias": None,
-    "account_name": None,
     "assume_role_arn": None,
     "auth_secret": None,
 }
+
+# Cache account names keyed by account_id to support multi-account discovery.
+# Similar to Azure's subscription_names_cache pattern.
+account_names_cache: Dict[str, str] = {}
 
 
 def set_aws_credentials(
@@ -42,7 +45,7 @@ def set_aws_credentials(
         auth_type: Type of authentication used (aws_explicit, aws_secret, etc.)
         account_id: AWS account ID
         account_alias: AWS account alias
-        account_name: Human-readable account name (alias, org name, or account_id fallback)
+        account_name: Human-readable account name for the authenticated account
         assume_role_arn: ARN of assumed role (if using assume role)
         auth_secret: Name of Kubernetes secret containing credentials (if applicable)
     """
@@ -55,12 +58,16 @@ def set_aws_credentials(
         _aws_credentials["account_id"] = account_id
     if account_alias:
         _aws_credentials["account_alias"] = account_alias
-    if account_name:
-        _aws_credentials["account_name"] = account_name
     if assume_role_arn:
         _aws_credentials["assume_role_arn"] = assume_role_arn
     if auth_secret:
         _aws_credentials["auth_secret"] = auth_secret
+    
+    # Seed the account names cache with the authenticated account
+    if account_id and account_name:
+        account_names_cache[account_id] = account_name
+        logger.info(f"Seeded account names cache: {account_id} -> {account_name}")
+    
     logger.info(f"Set AWS enricher credentials with auth type: {auth_type}")
 
 
@@ -93,11 +100,6 @@ def get_cached_account_alias() -> Optional[str]:
     return _aws_credentials.get("account_alias")
 
 
-def get_cached_account_name() -> Optional[str]:
-    """Get the cached AWS account name (human-readable name, similar to Azure subscription_name)."""
-    return _aws_credentials.get("account_name")
-
-
 def get_cached_assume_role_arn() -> Optional[str]:
     """Get the cached AWS assume role ARN."""
     return _aws_credentials.get("assume_role_arn")
@@ -106,6 +108,44 @@ def get_cached_assume_role_arn() -> Optional[str]:
 def get_cached_auth_secret() -> Optional[str]:
     """Get the cached AWS auth secret name."""
     return _aws_credentials.get("auth_secret")
+
+
+def get_account_name(account_id: str) -> str:
+    """
+    Get the display name of an AWS account by ID.
+    Uses a cache to avoid repeated API calls, similar to Azure's get_subscription_name().
+    
+    For the authenticated account, the cache is seeded during init via
+    account:GetAccountInformation. For other accounts (multi-account discovery),
+    falls back to organizations:DescribeAccount, then to account_id.
+    """
+    if not account_id:
+        return "Unknown Account"
+    
+    # Return cached name if available
+    if account_id in account_names_cache:
+        return account_names_cache[account_id]
+    
+    # Cache miss — this account differs from the authenticated one.
+    # Try Organizations API (requires organizations:DescribeAccount permission).
+    session = get_aws_session()
+    try:
+        org_client = session.client('organizations')
+        response = org_client.describe_account(AccountId=account_id)
+        org_name = response.get('Account', {}).get('Name')
+        if org_name:
+            logger.info(f"Resolved account name from Organizations API: {account_id} -> {org_name}")
+            account_names_cache[account_id] = org_name
+            return org_name
+    except Exception as e:
+        logger.warning(
+            f"Could not resolve account name for {account_id} via Organizations API: {e}. "
+            f"Using account_id as fallback. Grant organizations:DescribeAccount for cross-account name resolution."
+        )
+    
+    # Fall back to account_id
+    account_names_cache[account_id] = account_id
+    return account_id
 
 class ARN:
     def __init__(self, arn_string: str):
@@ -167,14 +207,9 @@ class AWSPlatformHandler(PlatformHandler):
         if account_alias:
             resource_attributes['account_alias'] = account_alias
         
-        # Add account_name (human-readable name, similar to Azure subscription_name)
-        # Always set this attribute, falling back to account_id if no friendly name exists
-        account_name = get_cached_account_name()
-        if account_name:
-            resource_attributes['account_name'] = account_name
-        else:
-            # Fallback: use alias if available, otherwise account_id
-            resource_attributes['account_name'] = account_alias or resource_attributes.get('account_id', '')
+        # Add account_name per resource account_id (supports multi-account discovery)
+        resource_account_id = resource_attributes.get('account_id', '')
+        resource_attributes['account_name'] = get_account_name(resource_account_id)
         
         # Add assume role ARN if available (for assume role auth types)
         assume_role_arn = get_cached_assume_role_arn()

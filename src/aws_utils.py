@@ -441,13 +441,12 @@ def get_account_name(
     
     Resolution order:
     1. IAM account alias (if already provided)
-    2. AWS Organizations account name via DescribeAccount
-    3. AWS Organizations account name via ListAccounts (broader fallback)
-    4. Falls back to account_id (similar to Azure falling back to subscription_id)
+    2. AWS Account Management API (account:GetAccountInformation) - works for own account
+    3. Falls back to account_id (similar to Azure falling back to subscription_id)
     
     Args:
         session: boto3 session
-        account_id: AWS account ID (used as fallback and for org lookup)
+        account_id: AWS account ID (used as fallback)
         account_alias: Pre-fetched IAM account alias (avoids redundant API call)
         
     Returns:
@@ -458,40 +457,19 @@ def get_account_name(
         logger.info(f"Using IAM account alias as account name: {account_alias}")
         return account_alias
     
-    # 2. Try AWS Organizations API to get the account name
+    # 2. Try AWS Account Management API (account:GetAccountInformation)
     target_account_id = account_id or get_account_id(session)
-    
-    # 2a. Try DescribeAccount first (direct lookup)
     try:
-        org_client = session.client('organizations')
-        if target_account_id:
-            response = org_client.describe_account(AccountId=target_account_id)
-            org_name = response.get('Account', {}).get('Name')
-            if org_name:
-                logger.info(f"Found account name from Organizations DescribeAccount: {org_name}")
-                return org_name
+        account_client = session.client('account')
+        response = account_client.get_account_information()
+        account_name = response.get('AccountInformation', {}).get('AccountName')
+        if account_name:
+            logger.info(f"Found account name from Account Management API: {account_name}")
+            return account_name
     except Exception as e:
         logger.warning(
-            f"organizations:DescribeAccount failed for account {target_account_id}: {e}"
-        )
-    
-    # 2b. Try ListAccounts as fallback (may succeed with different permission scope)
-    try:
-        org_client = session.client('organizations')
-        if target_account_id:
-            paginator = org_client.get_paginator('list_accounts')
-            for page in paginator.paginate():
-                for account in page.get('Accounts', []):
-                    if account.get('Id') == target_account_id:
-                        org_name = account.get('Name')
-                        if org_name:
-                            logger.info(f"Found account name from Organizations ListAccounts: {org_name}")
-                            return org_name
-    except Exception as e:
-        logger.warning(
-            f"organizations:ListAccounts also failed for account {target_account_id}: {e}. "
-            f"Ensure the credentials have organizations:DescribeAccount or organizations:ListAccounts permission, "
-            f"or set an IAM account alias."
+            f"account:GetAccountInformation failed for account {target_account_id}: {e}. "
+            f"Ensure the credentials have account:GetAccountInformation permission."
         )
     
     # 3. Fall back to account_id
