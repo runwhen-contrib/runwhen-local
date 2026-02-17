@@ -866,13 +866,30 @@ def init_cloudquery_config(
                     logger.info(f"AWS account alias: {account_alias}")
                     platform_cfg["_account_alias"] = account_alias
                 
-                # Resolve human-readable account name (alias -> org name -> account_id)
+                # Build account_names map up front — resolves names once and
+                # persists through platform_config_data into parse_resource_data.
+                account_names: dict[str, str] = {}
+                
+                # Resolve the authenticated account name
                 account_name = get_account_name(
                     session,
                     account_id=account_id,
                     account_alias=account_alias,
                 )
-                logger.info(f"AWS account name resolved to: {account_name}")
+                if account_id:
+                    account_names[account_id] = account_name
+                    logger.info(f"[account_name] Mapped authenticated account: {account_id} -> {account_name}")
+                
+                # If multi-account is configured, resolve names for each account
+                for acct_cfg in platform_cfg.get("accounts", []):
+                    extra_id = acct_cfg.get("id") or acct_cfg.get("accountId")
+                    if extra_id and extra_id not in account_names:
+                        extra_name = get_account_name(session, account_id=extra_id)
+                        account_names[extra_id] = extra_name
+                        logger.info(f"[account_name] Mapped configured account: {extra_id} -> {extra_name}")
+                
+                platform_cfg["_account_names"] = account_names
+                logger.info(f"[account_name] Built account names map with {len(account_names)} entries: {account_names}")
                 
                 # Update enrichers.aws module with credentials
                 try:
@@ -883,7 +900,6 @@ def init_cloudquery_config(
                         auth_type=auth_type,
                         account_id=account_id,
                         account_alias=account_alias,
-                        account_name=account_name,
                         assume_role_arn=assume_role_arn,
                         auth_secret=auth_secret
                     )
