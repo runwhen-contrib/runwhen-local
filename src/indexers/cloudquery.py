@@ -902,12 +902,12 @@ def init_cloudquery_config(
                     account_alias=account_alias,
                 )
                 if account_id:
-                    account_names[account_id] = account_name
+                    account_names[str(account_id)] = account_name
                     logger.info(f"[account_name] Mapped authenticated account: {account_id} -> {account_name}")
                 
                 # If multi-account is configured, resolve names for each account
                 for acct_cfg in platform_cfg.get("accounts", []):
-                    extra_id = acct_cfg.get("id") or acct_cfg.get("accountId")
+                    extra_id = str(acct_cfg.get("id") or acct_cfg.get("accountId") or "")
                     if extra_id and extra_id not in account_names:
                         extra_name = get_account_name(session, account_id=extra_id)
                         account_names[extra_id] = extra_name

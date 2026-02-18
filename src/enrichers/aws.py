@@ -168,8 +168,8 @@ class AWSPlatformHandler(PlatformHandler):
                            f"Available keys: {[k for k in platform_config_data.keys() if k.startswith('_')]}")
         resolved_account_name = account_names.get(resource_account_id, resource_account_id)
         resource_attributes['account_name'] = resolved_account_name
-        logger.info(f"[account_name] Resource '{name}': account_id={resource_account_id}, "
-                     f"account_name='{resolved_account_name}', map_size={len(account_names)}")
+        logger.debug(f"[account_name] Resource '{name}': account_id={resource_account_id}, "
+                      f"account_name='{resolved_account_name}', map_size={len(account_names)}")
         
         # Add assume role ARN if available (for assume role auth types)
         assume_role_arn = get_cached_assume_role_arn()

@@ -4,5 +4,7 @@
     - region
     {% if qualifiers and qualifiers.resource is defined %}
     - resource_name
+    {% elif qualifiers and qualifiers.resource_group is defined %}
+    - resource_name
     {% endif %}
 

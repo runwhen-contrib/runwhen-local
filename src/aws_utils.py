@@ -461,10 +461,18 @@ def get_account_name(
     
     # 2. Try AWS Account Management API (account:GetAccountInformation)
     target_account_id = account_id or get_account_id(session)
-    logger.info(f"[account_name] No IAM alias available, trying Account Management API for account {target_account_id}")
+    caller_account_id = get_account_id(session)
+    is_cross_account = target_account_id and caller_account_id and target_account_id != caller_account_id
+    logger.info(f"[account_name] No IAM alias available, trying Account Management API for account {target_account_id} "
+                 f"(caller={caller_account_id}, cross_account={is_cross_account})")
     try:
         account_client = session.client('account')
-        response = account_client.get_account_information()
+        # For cross-account lookups, pass AccountId explicitly.
+        # For the caller's own account, omit it (AWS requires this for management accounts).
+        api_params = {}
+        if is_cross_account:
+            api_params['AccountId'] = target_account_id
+        response = account_client.get_account_information(**api_params)
         logger.info(f"[account_name] Account Management API raw response keys: {list(response.keys())}")
         account_name = response.get('AccountName')
         logger.info(f"[account_name] AccountName from response: {account_name}")
