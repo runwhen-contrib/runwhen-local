@@ -1,14 +1,14 @@
 # Build CloudQuery SQLite destination plugin from source (provides native arm64 + amd64).
-# Uses --platform=$BUILDPLATFORM so Go runs natively on the build host and
-# cross-compiles for the target via GOOS/GOARCH (no QEMU overhead).
-# CGO is disabled: v2.5.1+ uses a pure-Go SQLite driver by default.
-FROM --platform=$BUILDPLATFORM golang:1.22-bookworm AS sqlite-builder
-ARG TARGETOS TARGETARCH
+# CGO is required because the mattn/go-sqlite3 driver is a C binding.
+# No --platform=$BUILDPLATFORM: the Go image must match the target arch so
+# the C compiler produces a native binary. CI builds each arch on native
+# runners (ubuntu-latest for amd64, ubuntu-24.04-arm for arm64) so this is fast.
+FROM golang:1.22-bookworm AS sqlite-builder
 WORKDIR /build
 RUN git clone --depth 1 --branch plugins-destination-sqlite-v2.5.1 \
         https://github.com/cloudquery/cloudquery.git .
 WORKDIR /build/plugins/destination/sqlite
-RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -o /sqlite-plugin .
+RUN CGO_ENABLED=1 go build -o /sqlite-plugin .
 
 # renovate: datasource=docker depName=python
 FROM python:3.14-slim AS node-base
