@@ -56,6 +56,31 @@ else:
     logging.getLogger("azure.identity").setLevel(logging.WARNING)
     logging.getLogger("azure.mgmt").setLevel(logging.WARNING)
 
+DOCKER_PLUGINS_DIR = "/opt/cloudquery/plugins"
+
+
+def _sqlite_template_vars(database_path: str) -> dict:
+    """Build Jinja2 variables for the sqlite-config.yaml template.
+
+    When a pre-installed SQLite plugin binary is available (airgap / Docker
+    build), the config uses ``registry: local`` so CloudQuery uses the binary
+    directly instead of downloading from the hub.
+    """
+    local_binary = os.path.join(DOCKER_PLUGINS_DIR, "sqlite")
+    if os.path.isfile(local_binary):
+        logger.info(f"Using pre-installed SQLite plugin at {local_binary}")
+        return {
+            "database_path": database_path,
+            "sqlite_plugin_path": local_binary,
+            "sqlite_registry": "local",
+        }
+    return {
+        "database_path": database_path,
+        "sqlite_plugin_path": "cloudquery/sqlite",
+        "sqlite_registry": "cloudquery",
+    }
+
+
 DOCUMENTATION = "Index resources using CloudQuery"
 
 SETTINGS = (
@@ -453,7 +478,7 @@ def init_cloudquery_table_info():
 
         sqlite_config_path = os.path.join(cq_config_dir, "sqlite.yaml")
         db_file_path = os.path.join(cq_temp_dir, "db.sql")
-        template_variables = {"database_path": db_file_path}
+        template_variables = _sqlite_template_vars(db_file_path)
         sqlite_config_text = render_template_file("sqlite-config.yaml", template_variables, template_loader_func)
         write_file(sqlite_config_path, sqlite_config_text)
 
@@ -714,7 +739,7 @@ def init_cloudquery_config(
     )
     write_file(
         os.path.join(cloud_config_dir, "sqlite.yaml"),
-        render("sqlite-config.yaml", {"database_path": db_file_path}),
+        render("sqlite-config.yaml", _sqlite_template_vars(db_file_path)),
     )
 
     platform_tables: list[
