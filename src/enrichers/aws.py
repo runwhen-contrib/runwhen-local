@@ -159,7 +159,9 @@ class AWSPlatformHandler(PlatformHandler):
             resource_attributes['account_alias'] = account_alias
         
         # Resolve account_name from the map built at init (stored on platform_config_data)
-        resource_account_id = resource_attributes.get('account_id', '')
+        # str() is required because CloudQuery data passes through yaml.safe_load()
+        # which converts numeric strings like "982534371594" to int
+        resource_account_id = str(resource_attributes.get('account_id', ''))
         account_names = platform_config_data.get("_account_names", {})
         if not account_names:
             logger.warning(f"[account_name] _account_names map is EMPTY or MISSING from platform_config_data. "
