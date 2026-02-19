@@ -431,6 +431,68 @@ def get_account_alias(session: boto3.Session) -> Optional[str]:
         return None
 
 
+def get_account_name(
+    session: boto3.Session,
+    account_id: str = None,
+    account_alias: str = None,
+) -> str:
+    """
+    Get a human-readable AWS account name, similar to Azure's subscription_name.
+    
+    Resolution order:
+    1. IAM account alias (if already provided)
+    2. AWS Account Management API (account:GetAccountInformation) - works for own account
+    3. Falls back to account_id (similar to Azure falling back to subscription_id)
+    
+    Args:
+        session: boto3 session
+        account_id: AWS account ID (used as fallback)
+        account_alias: Pre-fetched IAM account alias (avoids redundant API call)
+        
+    Returns:
+        Human-readable account name string (never None)
+    """
+    logger.info(f"Resolving account name: account_id={account_id}, account_alias={account_alias}")
+    
+    # 1. Use IAM alias if already fetched
+    if account_alias:
+        logger.info(f"[account_name] Using IAM account alias: {account_alias}")
+        return account_alias
+    
+    # 2. Try AWS Account Management API (account:GetAccountInformation)
+    target_account_id = account_id or get_account_id(session)
+    caller_account_id = get_account_id(session)
+    is_cross_account = target_account_id and caller_account_id and target_account_id != caller_account_id
+    logger.info(f"[account_name] No IAM alias available, trying Account Management API for account {target_account_id} "
+                 f"(caller={caller_account_id}, cross_account={is_cross_account})")
+    try:
+        account_client = session.client('account')
+        # For cross-account lookups, pass AccountId explicitly.
+        # For the caller's own account, omit it (AWS requires this for management accounts).
+        api_params = {}
+        if is_cross_account:
+            api_params['AccountId'] = target_account_id
+        response = account_client.get_account_information(**api_params)
+        logger.info(f"[account_name] Account Management API raw response keys: {list(response.keys())}")
+        account_name = response.get('AccountName')
+        logger.info(f"[account_name] AccountName from response: {account_name}")
+        if account_name:
+            logger.info(f"[account_name] Resolved account name from Account Management API: {target_account_id} -> {account_name}")
+            return account_name
+        else:
+            logger.warning(f"[account_name] Account Management API returned no AccountName. Full response: {response}")
+    except Exception as e:
+        logger.warning(
+            f"[account_name] account:GetAccountInformation failed for account {target_account_id}: {type(e).__name__}: {e}. "
+            f"Ensure the credentials have account:GetAccountInformation permission."
+        )
+    
+    # 3. Fall back to account_id
+    fallback = target_account_id or "unknown-account"
+    logger.warning(f"[account_name] Could not resolve account name, falling back to account_id: {fallback}")
+    return fallback
+
+
 def enumerate_regions(session: boto3.Session, service: str = 'ec2') -> list:
     """
     Enumerate all available AWS regions for a service.

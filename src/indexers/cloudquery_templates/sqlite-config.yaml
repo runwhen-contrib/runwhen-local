@@ -1,7 +1,8 @@
 kind: destination
 spec:
   name: sqlite
-  path: cloudquery/sqlite
+  path: {{sqlite_plugin_path}}
+  registry: {{sqlite_registry}}
   # NOTE: Version is centrally managed in src/cloudquery-plugins.yaml
   version: "v2.5.1"
   spec:

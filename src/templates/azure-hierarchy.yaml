@@ -19,7 +19,9 @@
     - resource_group
 {% endif %}
 {% endif %}
-{% if match_resource.name %}
+{% if qualifiers and qualifiers.resource is defined %}
+    - resource_name
+{% elif match_resource.name is defined %}
     - resource_name
 {% endif %}
 

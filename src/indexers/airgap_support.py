@@ -325,10 +325,8 @@ def _download_plugin(plugin_name: str, version: str, output_dir: str, temp_dir: 
     
     # CloudQuery plugin download URL pattern
     if plugin_name == "sqlite":
-        # Destination plugins have different URL pattern
         url = f"https://github.com/cloudquery/cloudquery/releases/download/plugins-destination-{plugin_name}-{version}/cloudquery_destination_{plugin_name}_{version}_linux_{arch}"
     else:
-        # Source plugins
         url = f"https://github.com/cloudquery/cloudquery/releases/download/plugins-source-{plugin_name}-{version}/cloudquery_source_{plugin_name}_{version}_linux_{arch}"
     
     output_file = os.path.join(output_dir, f"{plugin_name}_{version}_{arch}")

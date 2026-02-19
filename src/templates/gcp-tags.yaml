@@ -11,7 +11,13 @@
     - name: location
       value: "{{ match_resource.location }}"
 {% endif %}
-{% if match_resource.name %}
+{% if qualifiers and qualifiers.resource is defined %}
+    - name: resource_name
+      value: '{{ qualifiers.resource | string }}'
+{% elif qualifiers and qualifiers.resource_group is defined %}
+    - name: resource_name
+      value: '{{ qualifiers.resource_group | string }}'
+{% elif match_resource.name is defined %}
     - name: resource_name
       value: '{{ match_resource.name | string }}'
 {% endif %}

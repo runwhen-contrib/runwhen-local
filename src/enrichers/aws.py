@@ -56,7 +56,8 @@ def set_aws_credentials(
         _aws_credentials["assume_role_arn"] = assume_role_arn
     if auth_secret:
         _aws_credentials["auth_secret"] = auth_secret
-    logger.info(f"Set AWS enricher credentials with auth type: {auth_type}")
+    
+    logger.info(f"Set AWS enricher credentials: auth_type={auth_type}, account_id={account_id}, account_alias={account_alias}")
 
 
 def get_aws_session() -> boto3.Session:
@@ -157,6 +158,19 @@ class AWSPlatformHandler(PlatformHandler):
         if account_alias:
             resource_attributes['account_alias'] = account_alias
         
+        # Resolve account_name from the map built at init (stored on platform_config_data)
+        # str() is required because CloudQuery data passes through yaml.safe_load()
+        # which converts numeric strings like "982534371594" to int
+        resource_account_id = str(resource_attributes.get('account_id', ''))
+        account_names = platform_config_data.get("_account_names", {})
+        if not account_names:
+            logger.warning(f"[account_name] _account_names map is EMPTY or MISSING from platform_config_data. "
+                           f"Available keys: {[k for k in platform_config_data.keys() if k.startswith('_')]}")
+        resolved_account_name = account_names.get(resource_account_id, resource_account_id)
+        resource_attributes['account_name'] = resolved_account_name
+        logger.debug(f"[account_name] Resource '{name}': account_id={resource_account_id}, "
+                      f"account_name='{resolved_account_name}', map_size={len(account_names)}")
+        
         # Add assume role ARN if available (for assume role auth types)
         assume_role_arn = get_cached_assume_role_arn()
         if assume_role_arn:
@@ -200,6 +214,8 @@ class AWSPlatformHandler(PlatformHandler):
             value = getattr(resource, "auth_type", None)
         elif qualifier_name == "account_alias":
             value = getattr(resource, "account_alias", None)
+        elif qualifier_name == "account_name":
+            value = getattr(resource, "account_name", None)
         elif qualifier_name == "assume_role_arn":
             value = getattr(resource, "assume_role_arn", None)
         elif qualifier_name == "auth_secret":
@@ -221,7 +237,7 @@ class AWSPlatformHandler(PlatformHandler):
             return list(tags.keys())
         elif property_name == "tag-values":
             return list(tags.values())
-        elif property_name in ("account_id", "region", "service", "arn", "is_public", "auth_type", "account_alias", "assume_role_arn", "auth_secret"):
+        elif property_name in ("account_id", "region", "service", "arn", "is_public", "auth_type", "account_alias", "account_name", "assume_role_arn", "auth_secret"):
             return [self.get_resource_qualifier_value(resource, property_name)]
         else:
             logger.warning(f"Unknown property requested: {property_name}")
@@ -237,6 +253,7 @@ class AWSPlatformHandler(PlatformHandler):
             'arn': str(self.get_resource_qualifier_value(resource, "arn") or ""),
             'auth_type': str(self.get_resource_qualifier_value(resource, "auth_type") or ""),
             'account_alias': str(self.get_resource_qualifier_value(resource, "account_alias") or ""),
+            'account_name': str(self.get_resource_qualifier_value(resource, "account_name") or ""),
             'assume_role_arn': str(self.get_resource_qualifier_value(resource, "assume_role_arn") or ""),
             'auth_secret': str(self.get_resource_qualifier_value(resource, "auth_secret") or ""),
         }

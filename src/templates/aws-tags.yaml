@@ -2,10 +2,8 @@
       value: aws
     - name: account_id
       value: '{{ match_resource.account_id | string }}'
-{% if match_resource.account_name is defined %}
     - name: account_name
       value: '{{ match_resource.account_name | string }}'
-{% endif %}
     - name: region
       value: '{{ match_resource.region | string }}'
     - name: service
@@ -20,7 +18,7 @@
       value: '{{ qualifiers.resource_group }}'
 {% else %}
     - name: resource_name
-      value: '{{ match_resource.resource.name }}'
+      value: '{{ match_resource.name }}'
 {% endif %}
 {% for cr in child_resource_names | default([]) %}
     - name: child_resource

@@ -16,6 +16,8 @@
 {% if match_resource.namespace %}
     - namespace
 {% endif %}
-{% if match_resource.name %}
+{% if qualifiers and qualifiers.resource is defined %}
+    - resource_name
+{% elif match_resource.name is defined %}
     - resource_name
 {% endif %}

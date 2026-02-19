@@ -34,7 +34,7 @@ from .airgap_support import get_airgap_manager
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from k8s_utils import get_secret
 from gcp_utils import get_gcp_credential, authenticate_gcloud, validate_gcp_credentials
-from aws_utils import get_aws_credential, set_aws_credentials, get_aws_environment_vars, get_account_id, get_account_alias
+from aws_utils import get_aws_credential, set_aws_credentials, get_aws_environment_vars, get_account_id, get_account_alias, get_account_name
 
 logger = logging.getLogger(__name__)
 tmpdir_value = os.getenv("TMPDIR", "/tmp")  # fallback to /tmp if TMPDIR not set
@@ -55,6 +55,31 @@ else:
     logging.getLogger("azure").setLevel(logging.WARNING)
     logging.getLogger("azure.identity").setLevel(logging.WARNING)
     logging.getLogger("azure.mgmt").setLevel(logging.WARNING)
+
+DOCKER_PLUGINS_DIR = "/opt/cloudquery/plugins"
+
+
+def _sqlite_template_vars(database_path: str) -> dict:
+    """Build Jinja2 variables for the sqlite-config.yaml template.
+
+    When a pre-installed SQLite plugin binary is available (airgap / Docker
+    build), the config uses ``registry: local`` so CloudQuery uses the binary
+    directly instead of downloading from the hub.
+    """
+    local_binary = os.path.join(DOCKER_PLUGINS_DIR, "sqlite")
+    if os.path.isfile(local_binary):
+        logger.info(f"Using pre-installed SQLite plugin at {local_binary}")
+        return {
+            "database_path": database_path,
+            "sqlite_plugin_path": local_binary,
+            "sqlite_registry": "local",
+        }
+    return {
+        "database_path": database_path,
+        "sqlite_plugin_path": "cloudquery/sqlite",
+        "sqlite_registry": "cloudquery",
+    }
+
 
 DOCUMENTATION = "Index resources using CloudQuery"
 
@@ -453,7 +478,7 @@ def init_cloudquery_table_info():
 
         sqlite_config_path = os.path.join(cq_config_dir, "sqlite.yaml")
         db_file_path = os.path.join(cq_temp_dir, "db.sql")
-        template_variables = {"database_path": db_file_path}
+        template_variables = _sqlite_template_vars(db_file_path)
         sqlite_config_text = render_template_file("sqlite-config.yaml", template_variables, template_loader_func)
         write_file(sqlite_config_path, sqlite_config_text)
 
@@ -714,7 +739,7 @@ def init_cloudquery_config(
     )
     write_file(
         os.path.join(cloud_config_dir, "sqlite.yaml"),
-        render("sqlite-config.yaml", {"database_path": db_file_path}),
+        render("sqlite-config.yaml", _sqlite_template_vars(db_file_path)),
     )
 
     platform_tables: list[
@@ -865,6 +890,34 @@ def init_cloudquery_config(
                 if account_alias:
                     logger.info(f"AWS account alias: {account_alias}")
                     platform_cfg["_account_alias"] = account_alias
+                
+                # Build account_names map up front — resolves names once and
+                # persists through platform_config_data into parse_resource_data.
+                account_names: dict[str, str] = {}
+                
+                # Resolve the authenticated account name
+                account_name = get_account_name(
+                    session,
+                    account_id=account_id,
+                    account_alias=account_alias,
+                )
+                if account_id:
+                    account_names[str(account_id)] = account_name
+                    logger.info(f"[account_name] Mapped authenticated account: {account_id} -> {account_name}")
+                
+                # If multi-account is configured, resolve names for each account
+                for acct_cfg in platform_cfg.get("accounts", []):
+                    extra_id = str(acct_cfg.get("id") or acct_cfg.get("accountId") or "")
+                    if extra_id and extra_id not in account_names:
+                        extra_name = get_account_name(session, account_id=extra_id)
+                        account_names[extra_id] = extra_name
+                        logger.info(f"[account_name] Mapped configured account: {extra_id} -> {extra_name}")
+                
+                platform_cfg["_account_names"] = account_names
+                logger.info(f"[account_name] Stored _account_names on platform_cfg: {account_names}")
+                # Verify it's readable back
+                verify = platform_cfg.get("_account_names", {})
+                logger.info(f"[account_name] Verify readback from platform_cfg: {verify}")
                 
                 # Update enrichers.aws module with credentials
                 try:
@@ -1060,6 +1113,9 @@ def index(context: Context):
                 for cq_platform_spec, cq_resource_type_specs in cq_platform_infos:
                     platform_name = cq_platform_spec.name
                     platform_config_data = cloud_config.get(platform_name, dict())
+                    if platform_name == "aws":
+                        logger.info(f"[account_name] Processing AWS resources. "
+                                     f"_account_names in platform_config_data: {platform_config_data.get('_account_names', 'MISSING')}")
                     platform_handler = platform_handlers[platform_name]
 
                     include_tags = platform_config_data.get("includeTags", {})

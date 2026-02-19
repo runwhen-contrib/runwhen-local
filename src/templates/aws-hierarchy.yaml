@@ -1,11 +1,10 @@
     hierarchy: 
     - platform
-    - account_id
-    {% if match_resource.account_name is defined %}
     - account_name
-    {% endif %}
     - region
-    {% if match_resource.name %}
+    {% if qualifiers and qualifiers.resource is defined %}
+    - resource_name
+    {% elif match_resource.name is defined %}
     - resource_name
     {% endif %}
 

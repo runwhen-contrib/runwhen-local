@@ -1,3 +1,15 @@
+# Build CloudQuery SQLite destination plugin from source (provides native arm64 + amd64).
+# CGO is required because the mattn/go-sqlite3 driver is a C binding.
+# No --platform=$BUILDPLATFORM: the Go image must match the target arch so
+# the C compiler produces a native binary. CI builds each arch on native
+# runners (ubuntu-latest for amd64, ubuntu-24.04-arm for arm64) so this is fast.
+FROM golang:1.22-bookworm AS sqlite-builder
+WORKDIR /build
+RUN git clone --depth 1 --branch plugins-destination-sqlite-v2.5.1 \
+        https://github.com/cloudquery/cloudquery.git .
+WORKDIR /build/plugins/destination/sqlite
+RUN CGO_ENABLED=1 go build -o /sqlite-plugin .
+
 # renovate: datasource=docker depName=python
 FROM python:3.14-slim AS node-base
 
@@ -133,16 +145,17 @@ RUN CQ_ARCH=$(if [ "$(uname -m)" = "x86_64" ]; then echo "amd64"; else echo "arm
     # Download GCP plugin (v9.9.2)
     curl -L "https://github.com/cloudquery/cloudquery/releases/download/plugins-source-gcp-v9.9.2/gcp_linux_${CQ_ARCH}.zip" -o gcp.zip && \
     mkdir gcp_temp && unzip gcp.zip -d gcp_temp && mv gcp_temp/plugins/source/gcp gcp && rm gcp.zip && rm -rf gcp_temp && \
-    chmod +x gcp && \
-    # Download SQLite destination plugin (v2.5.1) - use amd64 version for all architectures
-    curl -L "https://github.com/cloudquery/cloudquery/releases/download/plugins-destination-sqlite-v2.5.1/sqlite_linux_amd64.zip" -o sqlite.zip && \
-    mkdir sqlite_temp && unzip sqlite.zip -d sqlite_temp && mv sqlite_temp/plugins/destination/sqlite sqlite && rm sqlite.zip && rm -rf sqlite_temp && \
-    chmod +x sqlite
+    chmod +x gcp
+
+# Copy SQLite destination plugin compiled from source (supports all architectures)
+COPY --from=sqlite-builder /sqlite-plugin /opt/cloudquery/plugins/sqlite
+RUN chmod +x /opt/cloudquery/plugins/sqlite
 
 # Install kubelogin for Azure
-RUN curl -Lo kubelogin.zip https://github.com/Azure/kubelogin/releases/latest/download/kubelogin-linux-amd64.zip \
+RUN KL_ARCH=$(if [ "$(uname -m)" = "x86_64" ]; then echo "amd64"; else echo "arm64"; fi) && \
+    curl -Lo kubelogin.zip "https://github.com/Azure/kubelogin/releases/latest/download/kubelogin-linux-${KL_ARCH}.zip" \
     && unzip kubelogin.zip \
-    && mv bin/linux_amd64/kubelogin /usr/local/bin/kubelogin \
+    && mv "bin/linux_${KL_ARCH}/kubelogin" /usr/local/bin/kubelogin \
     && rm kubelogin.zip \
     && rm -rf bin \
     && chmod +x /usr/local/bin/kubelogin
