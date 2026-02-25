@@ -717,6 +717,27 @@ def az_get_credentials_and_subscription_id(platform_config_data: dict[str, Any])
     if tenant_id:     result["AZURE_TENANT_ID"]     = tenant_id
     return result
 
+
+def _azure_has_only_devops_config(platform_cfg: dict) -> bool:
+    """Return True when the azure config block has no cloud discovery credentials.
+
+    This happens when the user only configures ``azure.devops`` (for the ADO
+    indexer) without providing a subscriptionId or service-principal /
+    managed-identity credentials needed for Azure resource discovery.
+    """
+    has_sub = bool(
+        platform_cfg.get("subscriptionId")
+        or platform_cfg.get("subscriptions")
+        or os.getenv("AZURE_SUBSCRIPTION_ID")
+    )
+    has_sp = bool(
+        platform_cfg.get("spSecretName")
+        or (platform_cfg.get("clientId") and platform_cfg.get("clientSecret"))
+    )
+    has_devops = bool(platform_cfg.get("devops"))
+    return has_devops and not has_sub and not has_sp
+
+
 def init_cloudquery_config(
     context: Context,
     cloud_config_data: dict[str, Any],
@@ -751,6 +772,13 @@ def init_cloudquery_config(
         platform_name = platform_spec.name
         platform_cfg  = cloud_config_data.get(platform_name)
         if platform_cfg is None:
+            continue
+
+        if platform_name == "azure" and _azure_has_only_devops_config(platform_cfg):
+            logger.info(
+                "Azure config contains only DevOps settings (no subscriptionId or cloud credentials). "
+                "Skipping Azure CloudQuery discovery; Azure DevOps indexer will handle ADO resources."
+            )
             continue
 
         # ---------- mandatory specs/tables ----------

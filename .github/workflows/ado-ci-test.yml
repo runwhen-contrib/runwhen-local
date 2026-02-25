@@ -1,0 +1,62 @@
+name: Azure DevOps CI Test
+
+on:
+  pull_request:
+    paths:
+      - "src/indexers/azure_devops.py"
+      - "src/enrichers/azure_devops.py"
+      - "src/templates/azure-devops-auth.yaml"
+      - "src/indexers/cloudquery.py"
+      - ".test/azure/ado/**"
+      - ".github/workflows/ado-ci-test.yml"
+  workflow_dispatch:
+
+env:
+  AZ_DEVOPS_ORGANIZATION_URL: ${{ secrets.AZ_DEVOPS_ORGANIZATION_URL }}
+  ADO_PAT: ${{ secrets.ADO_PAT }}
+
+jobs:
+  ado-ci-test:
+    name: ADO Indexer Integration Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: network=host
+
+      - name: Create buildx builder
+        run: |
+          docker buildx create --name mybuilder --use || docker buildx use mybuilder
+          docker buildx inspect --bootstrap
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+
+      - name: Generate workspaceInfo
+        working-directory: .test/azure/ado
+        run: task generate-rwl-config
+
+      - name: Build RunWhen Local image
+        working-directory: .test/azure/ado
+        run: task build-rwl
+
+      - name: Run CI test
+        working-directory: .test/azure/ado
+        run: task ci-test
+
+      - name: Upload output on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ado-ci-test-output
+          path: |
+            .test/azure/ado/output/
+            .test/azure/ado/workspaceInfo.yaml
+          retention-days: 7

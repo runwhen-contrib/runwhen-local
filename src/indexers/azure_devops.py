@@ -7,6 +7,7 @@ from msrest.authentication import BasicAuthentication
 from azure.identity import DefaultAzureCredential, ClientSecretCredential
 import logging
 import os
+import re
 import requests
 import base64
 from typing import Any, Dict, List, Optional
@@ -26,11 +27,81 @@ SETTINGS = (
 
 AZURE_DEVOPS_PLATFORM = "azure_devops"
 
+ALL_RESOURCE_TYPES = {"repositories", "pipelines", "releases"}
+
+
+def _compile_patterns(patterns: List[str]) -> List[re.Pattern]:
+    compiled = []
+    for p in patterns:
+        try:
+            compiled.append(re.compile(p))
+        except re.error as e:
+            logger.warning(f"Invalid regex pattern '{p}', treating as literal: {e}")
+            compiled.append(re.compile(re.escape(p)))
+    return compiled
+
+
+def _matches_any(name: str, compiled_patterns: List[re.Pattern]) -> bool:
+    return any(pat.fullmatch(name) for pat in compiled_patterns)
+
+
+class DiscoveryScope:
+    """Encapsulates the scope configuration that controls what gets discovered."""
+
+    def __init__(self, scope_config: Optional[Dict] = None):
+        scope_config = scope_config or {}
+
+        include_raw = scope_config.get("includeProjects") or []
+        exclude_raw = scope_config.get("excludeProjects") or []
+        self._include_patterns = _compile_patterns(include_raw) if include_raw else []
+        self._exclude_patterns = _compile_patterns(exclude_raw) if exclude_raw else []
+
+        rt_config = scope_config.get("resourceTypes") or {}
+        self._global_resource_types: Dict[str, bool] = {
+            rt: rt_config.get(rt, True) for rt in ALL_RESOURCE_TYPES
+        }
+
+        self._project_overrides: Dict[str, Dict] = {}
+        for override in scope_config.get("projectOverrides") or []:
+            names = override.get("projects") or []
+            override_rt = override.get("resourceTypes") or {}
+            for name in names:
+                self._project_overrides[name] = override_rt
+
+        self._log_effective_scope()
+
+    def _log_effective_scope(self):
+        if self._include_patterns:
+            logger.info(f"Discovery scope: include projects matching {[p.pattern for p in self._include_patterns]}")
+        if self._exclude_patterns:
+            logger.info(f"Discovery scope: exclude projects matching {[p.pattern for p in self._exclude_patterns]}")
+        disabled = [rt for rt, enabled in self._global_resource_types.items() if not enabled]
+        if disabled:
+            logger.info(f"Discovery scope: globally disabled resource types: {disabled}")
+        if self._project_overrides:
+            logger.info(f"Discovery scope: project-level overrides for {list(self._project_overrides.keys())}")
+        if not (self._include_patterns or self._exclude_patterns or disabled or self._project_overrides):
+            logger.info("Discovery scope: no restrictions (full org discovery)")
+
+    def should_include_project(self, project_name: str) -> bool:
+        if self._include_patterns and not _matches_any(project_name, self._include_patterns):
+            return False
+        if self._exclude_patterns and _matches_any(project_name, self._exclude_patterns):
+            return False
+        return True
+
+    def should_index_resource_type(self, resource_type: str, project_name: str) -> bool:
+        if project_name in self._project_overrides:
+            override_rt = self._project_overrides[project_name]
+            if resource_type in override_rt:
+                return bool(override_rt[resource_type])
+        return self._global_resource_types.get(resource_type, True)
+
+
 def get_azure_devops_access_token_from_service_principal(tenant_id: str, client_id: str, client_secret: str) -> str:
     """Get an Azure DevOps access token using service principal credentials."""
     try:
         credential = ClientSecretCredential(tenant_id, client_id, client_secret)
-        # Azure DevOps scope for service principal authentication
         token = credential.get_token("499b84ac-1321-427f-aa17-267ca6975798/.default")
         return token.token
     except Exception as e:
@@ -52,21 +123,19 @@ def get_pat_from_secret(secret_name: str) -> str:
     try:
         logger.info(f"Attempting to retrieve PAT from Kubernetes secret: {secret_name}")
         secret_data = get_secret(secret_name)
-        
-        # Try different possible key names for the PAT
+
         pat_keys = ['personalAccessToken', 'pat', 'token', 'access_token']
         for key in pat_keys:
             if key in secret_data:
                 pat = base64.b64decode(secret_data[key]).decode('utf-8')
                 logger.info(f"Successfully retrieved PAT from secret key: {key}")
                 return pat
-        
-        # If no standard keys found, list available keys for debugging
+
         available_keys = list(secret_data.keys())
         logger.error(f"PAT not found in secret '{secret_name}'. Available keys: {available_keys}")
         logger.error("Expected one of: personalAccessToken, pat, token, access_token")
         raise ValueError(f"PAT not found in secret '{secret_name}'. Available keys: {available_keys}")
-        
+
     except Exception as e:
         logger.error(f"Failed to retrieve PAT from Kubernetes secret '{secret_name}': {e}")
         raise
@@ -126,9 +195,13 @@ def index(context: Context) -> None:
     except Exception as e:
         logger.warning(f"Could not extract organization name from Azure DevOps URL: {e}")
 
-    # Try multiple authentication methods in order of preference
+    # Try multiple authentication methods in order of preference.
+    # auth_type is stamped on every resource so templates can select the
+    # right secretsProvided block.
     connection = None
-    
+    auth_type = None
+    auth_secret = None
+
     # Method 1: Personal Access Token from Kubernetes secret
     pat_secret_name = azure_devops_config.get("patSecretName")
     if pat_secret_name:
@@ -136,9 +209,11 @@ def index(context: Context) -> None:
         try:
             personal_access_token = get_pat_from_secret(pat_secret_name)
             connection = get_azure_devops_connection_with_pat(organization_url, personal_access_token)
+            auth_type = "ado_pat_secret"
+            auth_secret = pat_secret_name
         except Exception as e:
             logger.warning(f"Failed to authenticate with PAT from Kubernetes secret: {e}")
-    
+
     # Method 2: Personal Access Token (from config or environment)
     if not connection:
         personal_access_token = azure_devops_config.get("personalAccessToken") or os.environ.get("AZURE_DEVOPS_PAT")
@@ -146,23 +221,25 @@ def index(context: Context) -> None:
             logger.info("Using Personal Access Token for Azure DevOps authentication")
             try:
                 connection = get_azure_devops_connection_with_pat(organization_url, personal_access_token)
+                auth_type = "ado_pat"
             except Exception as e:
                 logger.warning(f"Failed to authenticate with Personal Access Token: {e}")
-    
+
     # Method 3: Service Principal (from Azure config or environment variables)
     if not connection:
         tenant_id = azure_config.get("tenantId") or os.environ.get("AZURE_TENANT_ID")
         client_id = azure_config.get("clientId") or os.environ.get("AZURE_CLIENT_ID")
         client_secret = azure_config.get("clientSecret") or os.environ.get("AZURE_CLIENT_SECRET")
-        
+
         if tenant_id and client_id and client_secret:
             logger.info("Using Service Principal for Azure DevOps authentication")
             try:
                 access_token = get_azure_devops_access_token_from_service_principal(tenant_id, client_id, client_secret)
                 connection = get_azure_devops_connection_with_service_principal(organization_url, access_token)
+                auth_type = "ado_service_principal"
             except Exception as e:
                 logger.warning(f"Failed to authenticate with Service Principal: {e}")
-    
+
     # Method 4: Default Azure Credential (for managed identity, Azure CLI, etc.)
     if not connection:
         logger.info("Trying DefaultAzureCredential for Azure DevOps authentication")
@@ -170,9 +247,10 @@ def index(context: Context) -> None:
             credential = DefaultAzureCredential()
             token = credential.get_token("499b84ac-1321-427f-aa17-267ca6975798/.default")
             connection = get_azure_devops_connection_with_service_principal(organization_url, token.token)
+            auth_type = "ado_managed_identity"
         except Exception as e:
             logger.warning(f"Failed to authenticate with DefaultAzureCredential: {e}")
-    
+
     if not connection:
         logger.error("Failed to authenticate to Azure DevOps. Please provide either:")
         logger.error("1. Personal Access Token from Kubernetes secret (patSecretName in config)")
@@ -180,30 +258,42 @@ def index(context: Context) -> None:
         logger.error("3. Service Principal credentials (tenantId, clientId, clientSecret in config or environment variables)")
         logger.error("4. Azure CLI login or managed identity")
         return
-    
+
+    logger.info(f"Azure DevOps authentication method: {auth_type}")
+
+    scope = DiscoveryScope(azure_devops_config.get("scope"))
+
     try:
-        
-        # Get registry
         registry: Registry = context.get_property(REGISTRY_PROPERTY_NAME)
 
-        # Index the organization itself as a resource
+        # Common auth attributes stamped on every resource
+        _auth_attrs = {"auth_type": auth_type}
+        if auth_secret:
+            _auth_attrs["auth_secret"] = auth_secret
+
         if organization_name:
             organization_attributes = {
                 "name": organization_name,
                 "platform": "azure_devops",
-                "organization": organization_name  # Self-reference for consistency
+                "organization": organization_name,
+                **_auth_attrs,
             }
-            
-            organization_resource = registry.add_resource(
+            registry.add_resource(
                 AZURE_DEVOPS_PLATFORM,
                 "organization",
                 organization_name,
-                organization_name,  # Qualified name is just the org name
-                organization_attributes
+                organization_name,
+                organization_attributes,
             )
 
-        # Index projects
-        projects = index_projects(connection)
+        all_projects = index_projects(connection)
+        projects = [p for p in all_projects if scope.should_include_project(p.name)]
+        skipped = len(all_projects) - len(projects)
+        if skipped:
+            logger.info(f"Scope filter: indexing {len(projects)}/{len(all_projects)} projects ({skipped} excluded)")
+
+        counts = {"projects": 0, "repositories": 0, "pipelines": 0, "releases": 0}
+
         for project in projects:
             project_attributes = {
                 "id": project.id,
@@ -212,101 +302,121 @@ def index(context: Context) -> None:
                 "state": project.state,
                 "revision": project.revision,
                 "url": project.url,
-                "visibility": project.visibility
+                "visibility": project.visibility,
+                **_auth_attrs,
             }
             if organization_name:
                 project_attributes["organization"] = organization_name
 
-            # Create hierarchical qualified name for project
             project_qualified_name = f"{organization_name}/{project.name}" if organization_name else project.name
 
             project_resource = registry.add_resource(
                 AZURE_DEVOPS_PLATFORM,
-                "project", 
+                "project",
                 project.name,
                 project_qualified_name,
-                project_attributes
+                project_attributes,
             )
+            counts["projects"] += 1
 
-            # Index repositories for this project
-            repositories = index_repositories(connection, project)
-            for repo in repositories:
-                repo_attributes = {
-                    "id": repo.id,
-                    "name": repo.name,
-                    "url": repo.url,
-                    "default_branch": repo.default_branch,
-                    "size": repo.size,
-                    "remote_url": repo.remote_url,
-                    "project": project_resource
-                }
-                if organization_name:
-                    repo_attributes["organization"] = organization_name
+            if scope.should_index_resource_type("repositories", project.name):
+                repositories = index_repositories(connection, project)
+                for repo in repositories:
+                    repo_attributes = {
+                        "id": repo.id,
+                        "name": repo.name,
+                        "url": repo.url,
+                        "default_branch": repo.default_branch,
+                        "size": repo.size,
+                        "remote_url": repo.remote_url,
+                        "project": project_resource,
+                        **_auth_attrs,
+                    }
+                    if organization_name:
+                        repo_attributes["organization"] = organization_name
 
-                # Create hierarchical qualified name for repository
-                repo_qualified_name = f"{organization_name}/{project.name}/{repo.name}" if organization_name else f"{project.name}/{repo.name}"
+                    repo_qualified_name = (
+                        f"{organization_name}/{project.name}/{repo.name}"
+                        if organization_name
+                        else f"{project.name}/{repo.name}"
+                    )
+                    registry.add_resource(
+                        AZURE_DEVOPS_PLATFORM,
+                        "repository",
+                        repo.name,
+                        repo_qualified_name,
+                        repo_attributes,
+                    )
+                    counts["repositories"] += 1
+            else:
+                logger.debug(f"Skipping repositories for project '{project.name}' (disabled by scope)")
 
-                repo_resource = registry.add_resource(
-                    AZURE_DEVOPS_PLATFORM,
-                    "repository",
-                    repo.name,
-                    repo_qualified_name,
-                    repo_attributes
-                )
+            if scope.should_index_resource_type("pipelines", project.name):
+                pipelines = index_pipelines(connection, project)
+                for pipeline in pipelines:
+                    pipeline_attributes = {
+                        "id": pipeline.id,
+                        "name": pipeline.name,
+                        "url": pipeline.url,
+                        "revision": pipeline.revision,
+                        "project": project_resource,
+                        **_auth_attrs,
+                    }
+                    if organization_name:
+                        pipeline_attributes["organization"] = organization_name
 
-            # Index pipelines for this project
-            pipelines = index_pipelines(connection, project)
-            for pipeline in pipelines:
-                pipeline_attributes = {
-                    "id": pipeline.id,
-                    "name": pipeline.name,
-                    "url": pipeline.url,
-                    "revision": pipeline.revision,
-                    "project": project_resource
-                }
-                if organization_name:
-                    pipeline_attributes["organization"] = organization_name
+                    pipeline_qualified_name = (
+                        f"{organization_name}/{project.name}/{pipeline.name}"
+                        if organization_name
+                        else f"{project.name}/{pipeline.name}"
+                    )
+                    registry.add_resource(
+                        AZURE_DEVOPS_PLATFORM,
+                        "pipeline",
+                        pipeline.name,
+                        pipeline_qualified_name,
+                        pipeline_attributes,
+                    )
+                    counts["pipelines"] += 1
+            else:
+                logger.debug(f"Skipping pipelines for project '{project.name}' (disabled by scope)")
 
-                # Create hierarchical qualified name for pipeline
-                pipeline_qualified_name = f"{organization_name}/{project.name}/{pipeline.name}" if organization_name else f"{project.name}/{pipeline.name}"
+            if scope.should_index_resource_type("releases", project.name):
+                releases = index_releases(connection, project)
+                for release in releases:
+                    release_attributes = {
+                        "id": release.id,
+                        "name": release.name,
+                        "url": release.url,
+                        "revision": release.revision,
+                        "project": project_resource,
+                        **_auth_attrs,
+                    }
+                    if organization_name:
+                        release_attributes["organization"] = organization_name
 
-                pipeline_resource = registry.add_resource(
-                    AZURE_DEVOPS_PLATFORM,
-                    "pipeline",
-                    pipeline.name,
-                    pipeline_qualified_name,
-                    pipeline_attributes
-                )
+                    release_qualified_name = (
+                        f"{organization_name}/{project.name}/{release.name}"
+                        if organization_name
+                        else f"{project.name}/{release.name}"
+                    )
+                    registry.add_resource(
+                        AZURE_DEVOPS_PLATFORM,
+                        "release",
+                        release.name,
+                        release_qualified_name,
+                        release_attributes,
+                    )
+                    counts["releases"] += 1
+            else:
+                logger.debug(f"Skipping releases for project '{project.name}' (disabled by scope)")
 
-            # Index releases for this project
-            releases = index_releases(connection, project)
-            for release in releases:
-                release_attributes = {
-                    "id": release.id,
-                    "name": release.name,
-                    "url": release.url,
-                    "revision": release.revision,
-                    "project": project_resource
-                }
-                if organization_name:
-                    release_attributes["organization"] = organization_name
-
-                # Create hierarchical qualified name for release
-                release_qualified_name = f"{organization_name}/{project.name}/{release.name}" if organization_name else f"{project.name}/{release.name}"
-
-                release_resource = registry.add_resource(
-                    AZURE_DEVOPS_PLATFORM,
-                    "release",
-                    release.name,
-                    release_qualified_name,
-                    release_attributes
-                )
-
-        logger.info("Successfully indexed Azure DevOps resources")
-        logger.info(f"Found {len(projects)} projects, {sum(len(index_repositories(connection, p)) for p in projects)} repositories, "
-                   f"{sum(len(index_pipelines(connection, p)) for p in projects)} pipelines, and "
-                   f"{sum(len(index_releases(connection, p)) for p in projects)} releases")
+        logger.info(
+            f"Azure DevOps indexing complete: {counts['projects']} projects, "
+            f"{counts['repositories']} repositories, {counts['pipelines']} pipelines, "
+            f"{counts['releases']} releases"
+        )
 
     except Exception as e:
         logger.error(f"Error indexing Azure DevOps resources: {str(e)}")
-        raise 
+        raise

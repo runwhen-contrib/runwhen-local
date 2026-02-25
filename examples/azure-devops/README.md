@@ -110,6 +110,216 @@ No additional configuration needed. Uses:
 - Visual Studio authentication
 - Azure PowerShell authentication
 
+## Runtime Secrets (Generated SLX/Runbook Authentication)
+
+The sections above describe how the **indexer** authenticates to Azure DevOps during discovery. This section describes how the **generated SLXs and runbooks** reference credentials at runtime via `secretsProvided`.
+
+The `azure-devops-auth.yaml` template resolves secrets in the following priority order. The first matching condition wins.
+
+### Auto-Detected Auth (from indexer)
+
+When the indexer authenticates, it stamps an `auth_type` on every discovered resource. Generated templates use this to automatically select the right secret reference — no manual configuration needed.
+
+| `auth_type` | Indexer used | Generated `secretsProvided` |
+|---|---|---|
+| `ado_pat_secret` | `patSecretName` in config | `k8s:file@secret/<secret-name>:token` |
+| `ado_service_principal` | Service principal credentials | `azure:sp@cli` |
+| `ado_managed_identity` | DefaultAzureCredential / managed identity | `azure:identity@cli` |
+| `ado_pat` | Direct PAT or env var | Falls through to `custom`/`secrets` options below |
+
+### Custom Variables (passthrough)
+
+When auto-detection doesn't apply (e.g., PAT was provided directly in config), use `custom` variables to tell generated runbooks where to find credentials at runtime. Values are passed through as-is to `workspaceKey`.
+
+#### `custom.ado_pat_secret_name`
+
+Reference a PAT stored in a Kubernetes secret:
+
+```yaml
+custom:
+  ado_pat_secret_name: "k8s:file@secret/ado-pat:token"
+```
+
+Generates:
+```yaml
+secretsProvided:
+  - name: ADO_PAT
+    workspaceKey: k8s:file@secret/ado-pat:token
+```
+
+#### `custom.azure_devops_credentials_key`
+
+Generic ADO credential reference (any workspace key format):
+
+```yaml
+custom:
+  azure_devops_credentials_key: "azure:sp@cli"
+```
+
+Generates:
+```yaml
+secretsProvided:
+  - name: azure_credentials
+    workspaceKey: azure:sp@cli
+```
+
+#### `custom.azure_credentials_key`
+
+Fallback to the generic Azure credentials key (shared with other Azure code bundles):
+
+```yaml
+custom:
+  azure_credentials_key: "azure:sp@cli"
+```
+
+### Secrets Config (passthrough)
+
+Alternatively, define secrets in the `secrets` section of `workspaceInfo.yaml`. These are also passed through as-is.
+
+#### `secrets.azure_devops_pat`
+
+```yaml
+secrets:
+  azure_devops_pat: "k8s:file@secret/ado-pat:token"
+```
+
+#### `secrets.azure_service_principal`
+
+```yaml
+secrets:
+  azure_service_principal: "azure:sp@cli"
+```
+
+### Fallback
+
+If none of the above are configured, the generated output will contain:
+
+```yaml
+secretsProvided:
+  - name: azure_credentials
+    workspaceKey: AUTH DETAILS NOT FOUND
+```
+
+### Common Workspace Key Patterns
+
+| Pattern | Description |
+|---|---|
+| `k8s:file@secret/<secret-name>:<key>` | Read a key from a Kubernetes secret |
+| `azure:sp@cli` | Azure service principal via CLI |
+| `azure:identity@cli` | Azure managed identity via CLI |
+
+### Examples
+
+**PAT in a Kubernetes secret (most common):**
+```yaml
+# Create the secret
+# kubectl create secret generic ado-pat --from-literal=token=your-pat -n your-namespace
+
+custom:
+  ado_pat_secret_name: "k8s:file@secret/ado-pat:token"
+```
+
+**Service principal (shared with Azure cloud resources):**
+```yaml
+custom:
+  azure_devops_credentials_key: "azure:sp@cli"
+```
+
+**Separate PAT for ADO, SP for Azure cloud:**
+```yaml
+custom:
+  ado_pat_secret_name: "k8s:file@secret/ado-pat:token"
+  azure_credentials_key: "azure:sp@cli"
+```
+
+## Discovery Scope
+
+By default the indexer discovers **every project** in the organization and **all resource types** (repositories, pipelines, releases) inside each project. Use the `scope` block under `azure.devops` to narrow discovery so only the projects and resource types you care about are indexed.
+
+Omit the `scope` block entirely for full org-wide discovery.
+
+### Project Filtering
+
+Use `includeProjects` (allowlist) and `excludeProjects` (denylist). Both accept exact names **and** regex patterns (matched with `re.fullmatch`). When both are set, the include list is applied first, then excludes are removed from the result.
+
+```yaml
+cloudConfig:
+  azure:
+    devops:
+      organizationUrl: "https://dev.azure.com/your-organization"
+      scope:
+        includeProjects:
+          - "my-team-project"         # exact name
+          - "platform-.*"             # regex: anything starting with "platform-"
+        excludeProjects:
+          - "platform-sandbox"        # remove this one even though it matched the include pattern
+```
+
+### Resource Type Toggles
+
+Control which child resource types are discovered inside each project. All default to `true`.
+
+```yaml
+scope:
+  resourceTypes:
+    repositories: true
+    pipelines: true
+    releases: false               # skip release definitions entirely
+```
+
+### Per-Project Overrides
+
+Override the global `resourceTypes` setting for specific projects. For example, discover only pipelines in an infrastructure project:
+
+```yaml
+scope:
+  includeProjects:
+    - "app-project"
+    - "infra-project"
+  resourceTypes:
+    repositories: true
+    pipelines: true
+    releases: true
+  projectOverrides:
+    - projects: ["infra-project"]
+      resourceTypes:
+        repositories: false
+        pipelines: true
+        releases: false
+```
+
+### Full Scope Example
+
+```yaml
+cloudConfig:
+  azure:
+    devops:
+      organizationUrl: "https://dev.azure.com/your-organization"
+      patSecretName: "azure-devops-pat"
+      scope:
+        includeProjects:
+          - "team-alpha-.*"
+          - "shared-services"
+        excludeProjects:
+          - ".*-sandbox"
+        resourceTypes:
+          repositories: true
+          pipelines: true
+          releases: false
+        projectOverrides:
+          - projects: ["shared-services"]
+            resourceTypes:
+              repositories: true
+              pipelines: false
+              releases: false
+```
+
+In this example:
+- Only projects whose name fully matches `team-alpha-.*` or equals `shared-services` are discovered.
+- Any matching project whose name ends in `-sandbox` is excluded.
+- Repositories and pipelines are indexed for most projects; releases are skipped globally.
+- For `shared-services`, only repositories are indexed (pipelines and releases are both disabled by the override).
+
 ## Indexed Resources and Hierarchical Structure
 
 The Azure DevOps indexer discovers and indexes resources with a clear hierarchical structure:

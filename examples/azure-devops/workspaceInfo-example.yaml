@@ -29,35 +29,124 @@ spec:
         # Authentication Method 3: DefaultAzureCredential (Automatic Fallback)
         # No additional configuration needed - uses Azure CLI login, managed identity, etc.
         # This is automatically tried if neither PAT nor service principal work
-        
+
+        # Discovery scope (optional - omit entirely for full org discovery)
+        scope:
+          # Include only projects matching these names or regex patterns.
+          # Omit to include all projects in the org.
+          includeProjects:
+            - "my-team-project"
+            - "platform-.*"           # regex: all projects starting with "platform-"
+
+          # Exclude projects matching these names or regex patterns.
+          # Applied after includeProjects. Omit to exclude nothing.
+          # excludeProjects:
+          #   - "sandbox-.*"
+          #   - "archived-project"
+
+          # Globally enable/disable resource types (all default to true).
+          resourceTypes:
+            repositories: true
+            pipelines: true
+            releases: true
+
+          # Per-project overrides for resource types.
+          # Overrides the global resourceTypes setting for the listed projects.
+          # projectOverrides:
+          #   - projects: ["infra-project"]
+          #     resourceTypes:
+          #       pipelines: true
+          #       repositories: false
+          #       releases: false
+
         # Optional: Code collections for indexing specific repositories
         codeCollections:
           - repositoryUrl: "https://dev.azure.com/your-org/your-project/_git/your-repo"
             branch: "main"
   
-  # Custom variables for use in generation rules
+  # ---------------------------------------------------------------------------
+  # Runtime Secrets - how generated SLXs/runbooks reference credentials
+  # ---------------------------------------------------------------------------
+  #
+  # When the indexer uses patSecretName or service principal, auth_type is
+  # auto-detected and templates resolve secrets automatically.  The custom
+  # and secrets options below are for cases where you need to explicitly
+  # tell generated runbooks where to find credentials at runtime.
+  #
+  # All custom/secrets values are passed through as-is to workspaceKey.
+
+  # --- Option A: PAT stored in a Kubernetes secret (most common) ---
+  #
+  # kubectl create secret generic ado-pat \
+  #   --from-literal=token=your-pat -n your-namespace
+  #
   custom:
-    azure_devops:
-      environment: "production"
-      organization: "your-organization"
-      critical_project: "your-main-project"
-      repository_size_threshold: "1000"
-      pipeline_type: "infrastructure"
-      monitoring_level: "detailed"
-      team: "platform-engineering"
+    ado_pat_secret_name: "k8s:file@secret/ado-pat:token"
 
-# Authentication Priority:
-# 1. Personal Access Token (if specified)
-# 2. Service Principal (if Azure credentials available)
-# 3. DefaultAzureCredential (Azure CLI, managed identity, etc.)
+  # --- Option B: Generic ADO credential reference ---
+  #
+  # custom:
+  #   azure_devops_credentials_key: "azure:sp@cli"
 
-# Environment Variables (alternative to config file):
-# AZURE_DEVOPS_PAT=your-personal-access-token
-# AZURE_TENANT_ID=your-tenant-id
-# AZURE_CLIENT_ID=your-client-id
-# AZURE_CLIENT_SECRET=your-client-secret
+  # --- Option C: Shared Azure credentials (used by both ADO and Azure cloud bundles) ---
+  #
+  # custom:
+  #   azure_credentials_key: "azure:sp@cli"
 
+  # --- Option D: Secrets config section (alternative to custom) ---
+  #
+  # secrets:
+  #   azure_devops_pat: "k8s:file@secret/ado-pat:token"
+
+  # --- Option E: Service principal via secrets config ---
+  #
+  # secrets:
+  #   azure_service_principal: "azure:sp@cli"
+
+  # --- Option F: Separate credentials for ADO and Azure cloud ---
+  #
+  # custom:
+  #   ado_pat_secret_name: "k8s:file@secret/ado-pat:token"
+  #   azure_credentials_key: "azure:sp@cli"
+
+  # ---------------------------------------------------------------------------
+  # Custom variables for generation rules (optional)
+  # ---------------------------------------------------------------------------
+  #
+  # custom:
+  #   azure_devops:
+  #     environment: "production"
+  #     organization: "your-organization"
+  #     critical_project: "your-main-project"
+  #     repository_size_threshold: "1000"
+  #     pipeline_type: "infrastructure"
+  #     monitoring_level: "detailed"
+  #     team: "platform-engineering"
+
+# ============================================================================
+# Discovery Authentication Priority (indexer -> auto-detected auth_type):
+#   1. patSecretName in config         -> auth_type: ado_pat_secret
+#   2. personalAccessToken / env var   -> auth_type: ado_pat
+#   3. Service Principal credentials   -> auth_type: ado_service_principal
+#   4. DefaultAzureCredential          -> auth_type: ado_managed_identity
+#
+# Runtime Secrets Resolution Priority (azure-devops-auth.yaml template):
+#   1. Auto-detected auth_type (from indexer, see above)
+#   2. custom.ado_pat_secret_name            -> passthrough
+#   3. custom.azure_devops_credentials_key   -> passthrough
+#   4. custom.azure_credentials_key          -> passthrough
+#   5. secrets.azure_devops_pat              -> passthrough
+#   6. secrets.azure_service_principal       -> passthrough
+#   7. Fallback: AUTH DETAILS NOT FOUND
+#
+# Environment Variables (alternative to config for indexer auth):
+#   AZURE_DEVOPS_PAT=your-personal-access-token
+#   AZURE_TENANT_ID=your-tenant-id
+#   AZURE_CLIENT_ID=your-client-id
+#   AZURE_CLIENT_SECRET=your-client-secret
+#
 # Kubernetes Secret for PAT (create with):
-# kubectl create secret generic azure-devops-pat \
-#   --from-literal=personalAccessToken=your-personal-access-token \
-#   --namespace=your-namespace
+#   kubectl create secret generic ado-pat \
+#     --from-literal=token=your-pat \
+#     --namespace=your-namespace
+# ============================================================================
