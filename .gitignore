@@ -58,3 +58,5 @@ src/rw-cli-codecollection-cache
 .test/k8s/basic/current_sync_status.json
 .test/k8s/upload/.gitconfig
 .test/k8s/upload/gitlab_sas.json
+.test/azure/ado/run_sh_output.log
+.test/azure/ado/container_logs.log

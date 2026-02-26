@@ -16,39 +16,39 @@ tasks:
 
 
   generate-rwl-config:
-    desc: "Generate RunWhen Local configuration (workspaceInfo.yaml)"
+    desc: "Generate RunWhen Local configuration (workspaceInfo.yaml) from tf.secret vars"
     env:
-      ARM_SUBSCRIPTION_ID: "{{.TF_VAR_subscription_id}}"
-      AZ_TENANT_ID: "{{.AZ_TENANT_ID}}"
-      AZ_CLIENT_SECRET: "{{.AZ_CLIENT_SECRET}}"
-      AZ_CLIENT_ID: "{{.AZ_CLIENT_ID}}"
       RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
-      AZ_DEVOPS_ORGANIZATION_URL: '{{.AZ_DEVOPS_ORGANIZATION_URL | default "https://dev.azure.com/your-organization"}}'
     cmds:
       - |
-        # Generate workspaceInfo.yaml with fetched cluster details
-        cat <<EOF > workspaceInfo.yaml
-        workspaceName: "$RW_WORKSPACE"
+        cat > workspaceInfo.yaml <<EOF
+        workspaceName: "${RW_WORKSPACE}"
         workspaceOwnerEmail: authors@runwhen.com
         defaultLocation: location-01
         defaultLOD: none
         cloudConfig:
           azure:
-            subscriptionId: "$ARM_SUBSCRIPTION_ID"
-            tenantId: "$AZ_TENANT_ID"
-            clientId: "$AZ_CLIENT_ID"
-            clientSecret: "$AZ_CLIENT_SECRET"
             devops:
-              organizationUrl: "$AZ_DEVOPS_ORGANIZATION_URL"          
-        # codeCollections: []
+              organizationUrl: "${AZ_DEVOPS_ORGANIZATION_URL}"
+              personalAccessToken: "${ADO_PAT}"
+              scope:
+                includeProjects:
+                  - "rwl-test-.*"
+                resourceTypes:
+                  repositories: true
+                  pipelines: true
+                  releases: true
         codeCollections:
-        - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection"
-          branch: "ado"
-          codeBundles: ["azure-devops-triage"]
+          - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection"
+            branch: "ado"
+            codeBundles:
+              - azure-devops-organization-health
+              - azure-devops-project-health
+              - azure-devops-repository-health
         custom:
-          devops_org: runwhen-labs
-          devops_project: DevOps-Triage-Test
+          ado_pat_secret_name: k8s:file@secret/ado-pat:token
         EOF
+        echo "Generated workspaceInfo.yaml"
     silent: true
 
   build-rwl:
@@ -79,7 +79,7 @@ tasks:
     desc: "Run RunWhen Local Discovery on test infrastructure"
     cmds:
       - |
-        rm slx_count.txt || true
+        rm -f slx_count.txt
         CONTAINER_NAME="RunWhenLocal"    
         if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
           echo "Stopping and removing existing container $CONTAINER_NAME..."
@@ -97,7 +97,11 @@ tasks:
 
         echo "Starting new container $CONTAINER_NAME..."
 
-        docker run -e DEBUG_LOGS=true --name $CONTAINER_NAME -p 8081:8081 -v $(pwd):/shared -d runwhen-local:test || {
+        docker run \
+          -e DEBUG_LOGGING=true \
+          -e CQ_DEBUG=true \
+          --name $CONTAINER_NAME -p 8081:8081 \
+          -v $(pwd):/shared -d runwhen-local:test || {
           echo "Failed to start container"; exit 1;
         }
 
@@ -107,9 +111,248 @@ tasks:
         }
 
         echo "Review generated config files under output/workspaces/"
-        total_slxs=$(find $(find 'output/' -type d -name 'slxs') -mindepth 1 -type d | wc -l)
+        slxs_dir=$(find 'output/' -type d -name 'slxs' 2>/dev/null | head -1)
+        if [ -n "$slxs_dir" ] && [ -d "$slxs_dir" ]; then
+          total_slxs=$(find "$slxs_dir" -mindepth 1 -maxdepth 1 -type d | wc -l)
+        else
+          total_slxs=0
+        fi
         echo "Total SLXs: $total_slxs"
         echo "$total_slxs" > slx_count.txt
+    silent: true
+
+  ci-run-rwl-discovery:
+    desc: "Run RunWhen Local Discovery with log capture for CI"
+    cmds:
+      - |
+        rm -f slx_count.txt run_sh_output.log container_logs.log
+        CONTAINER_NAME="RunWhenLocal"
+        if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Stopping and removing existing container $CONTAINER_NAME..."
+          docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME
+        elif docker ps -a -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Removing existing stopped container $CONTAINER_NAME..."
+          docker rm $CONTAINER_NAME
+        else
+          echo "No existing container named $CONTAINER_NAME found."
+        fi
+
+        echo "Cleaning up output directory..."
+        rm -rf output || { echo "Failed to remove output directory"; exit 1; }
+        mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
+        chmod 777 .
+
+        echo "Starting new container $CONTAINER_NAME..."
+        docker run -d \
+          -e DEBUG_LOGGING=true \
+          -e CQ_DEBUG=true \
+          --name "$CONTAINER_NAME" -p 8081:8081 \
+          -v "$(pwd):/shared" \
+          runwhen-local:test || {
+          echo "Failed to start container"; exit 1;
+        }
+
+        docker logs -f "$CONTAINER_NAME" &
+
+        docker exec -w /workspace-builder "$CONTAINER_NAME" ./run.sh "$1" --verbose 2>&1 | tee run_sh_output.log
+
+        echo "Capturing container logs..."
+        docker logs "$CONTAINER_NAME" > container_logs.log 2>&1 || echo "Failed to capture container logs"
+
+        docker stop "$CONTAINER_NAME"
+        docker rm "$CONTAINER_NAME"
+
+        echo "Review generated config files under output/workspaces/"
+        slxs_dir=$(find 'output/' -type d -name 'slxs' 2>/dev/null | head -1)
+        if [ -n "$slxs_dir" ] && [ -d "$slxs_dir" ]; then
+          total_slxs=$(find "$slxs_dir" -mindepth 1 -maxdepth 1 -type d | wc -l)
+        else
+          total_slxs=0
+        fi
+        echo "Total SLXs: $total_slxs"
+        echo "$total_slxs" > slx_count.txt
+    silent: true
+
+  ci-test:
+    desc: "Full CI test: generate config, build image, run discovery, validate output"
+    env:
+      RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
+    cmds:
+      - |
+        echo "=== Generating workspaceInfo.yaml ==="
+        if [ -z "$AZ_DEVOPS_ORGANIZATION_URL" ]; then
+          echo "ERROR: AZ_DEVOPS_ORGANIZATION_URL is not set"; exit 1
+        fi
+        if [ -z "$ADO_PAT" ]; then
+          echo "ERROR: ADO_PAT is not set"; exit 1
+        fi
+        cat <<EOF > workspaceInfo.yaml
+        workspaceName: "$RW_WORKSPACE"
+        workspaceOwnerEmail: authors@runwhen.com
+        defaultLocation: location-01
+        defaultLOD: none
+        cloudConfig:
+          azure:
+            devops:
+              organizationUrl: "${AZ_DEVOPS_ORGANIZATION_URL}"
+              personalAccessToken: "${ADO_PAT}"
+              scope:
+                includeProjects:
+                  - "rwl-test-.*"
+                resourceTypes:
+                  repositories: true
+                  pipelines: true
+                  releases: true
+        codeCollections:
+          - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection"
+            branch: "main"
+            codeBundles:
+              - azure-devops-organization-health
+              - azure-devops-project-health
+              - azure-devops-repository-health
+        custom:
+          ado_pat_secret_name: k8s:file@secret/ado-pat:token
+        EOF
+        echo "Generated workspaceInfo.yaml with workspace: $RW_WORKSPACE"
+      - task: build-rwl
+      - task: ci-run-rwl-discovery
+      - |
+        echo "=== CI Validation ==="
+        PASS=true
+        WORKSPACE="${RW_WORKSPACE}"
+        SLXS_DIR="output/workspaces/${WORKSPACE}/slxs"
+        WORKSPACE_YAML="output/workspaces/${WORKSPACE}/workspace.yaml"
+        SKIPPED_REPORT="output/workspaces/skipped_templates_report.md"
+
+        # 1. workspace.yaml must exist
+        if [ ! -f "$WORKSPACE_YAML" ]; then
+          echo "FAIL: $WORKSPACE_YAML not found"
+          PASS=false
+        else
+          echo "PASS: workspace.yaml exists"
+        fi
+
+        # 2. SLX directories must exist (expect at least 1 org + 2 projects = 3)
+        if [ ! -d "$SLXS_DIR" ]; then
+          echo "FAIL: slxs directory not found"
+          PASS=false
+        else
+          SLX_COUNT=$(find "$SLXS_DIR" -mindepth 1 -maxdepth 1 -type d | wc -l)
+          echo "INFO: Found $SLX_COUNT SLX directories"
+          if [ "$SLX_COUNT" -lt 3 ]; then
+            echo "FAIL: Expected at least 3 SLXs (1 org + 2 projects), got $SLX_COUNT"
+            PASS=false
+          else
+            echo "PASS: SLX count >= 3"
+          fi
+        fi
+
+        # 3. Each SLX directory must have slx.yaml
+        MISSING_SLX=0
+        for dir in "$SLXS_DIR"/*/; do
+          [ -d "$dir" ] || continue
+          if [ ! -f "${dir}slx.yaml" ]; then
+            echo "FAIL: Missing slx.yaml in $(basename $dir)"
+            MISSING_SLX=$((MISSING_SLX + 1))
+          fi
+        done
+        if [ "$MISSING_SLX" -eq 0 ]; then
+          echo "PASS: All SLX directories contain slx.yaml"
+        else
+          PASS=false
+        fi
+
+        # 4. Each SLX directory must have a runbook.yaml
+        MISSING_RB=0
+        for dir in "$SLXS_DIR"/*/; do
+          [ -d "$dir" ] || continue
+          if [ ! -f "${dir}runbook.yaml" ]; then
+            echo "FAIL: Missing runbook.yaml in $(basename $dir)"
+            MISSING_RB=$((MISSING_RB + 1))
+          fi
+        done
+        if [ "$MISSING_RB" -eq 0 ]; then
+          echo "PASS: All SLX directories contain runbook.yaml"
+        else
+          PASS=false
+        fi
+
+        # 5. No "AUTH DETAILS NOT FOUND" in any generated YAML
+        AUTH_FAIL=$(grep -rl "AUTH DETAILS NOT FOUND" "$SLXS_DIR" 2>/dev/null || true)
+        if [ -n "$AUTH_FAIL" ]; then
+          echo "FAIL: AUTH DETAILS NOT FOUND in:"
+          echo "$AUTH_FAIL" | while read f; do echo "  - $f"; done
+          PASS=false
+        else
+          echo "PASS: No AUTH DETAILS NOT FOUND in output"
+        fi
+
+        # 6. No "missing_workspaceInfo_custom_variable" in any generated YAML
+        MISSING_VAR=$(grep -rl "missing_workspaceInfo_custom_variable" "$SLXS_DIR" 2>/dev/null || true)
+        if [ -n "$MISSING_VAR" ]; then
+          echo "FAIL: Unresolved template variables in:"
+          echo "$MISSING_VAR" | while read f; do echo "  - $f"; done
+          PASS=false
+        else
+          echo "PASS: No unresolved template variables"
+        fi
+
+        # 7. No "undefined" in workspaceKey values
+        UNDEF=$(grep -rl "workspaceKey:.*undefined" "$SLXS_DIR" 2>/dev/null || true)
+        if [ -n "$UNDEF" ]; then
+          echo "FAIL: 'undefined' in workspaceKey in:"
+          echo "$UNDEF" | while read f; do echo "  - $f"; done
+          PASS=false
+        else
+          echo "PASS: No undefined workspaceKey values"
+        fi
+
+        # 8. secretsProvided uses correct secret names
+        BAD_SECRETS=$(grep -rn "name:" "$SLXS_DIR" 2>/dev/null \
+          | grep "secretsProvided" -A1 2>/dev/null || true)
+        VALID_NAMES=$(grep -rh "- name:" "$SLXS_DIR"/**/runbook.yaml 2>/dev/null \
+          | grep -v "azure_credentials\|azure_devops_pat\|AZURE_DEVOPS\|DURATION\|QUEUE\|AGENT\|LICENSE\|CRON\|TARGET\|DRY\|REPO_SIZE\|STALE\|MIN_CODE\|SLX_PLACEHOLDER" \
+          | grep -v "^$" || true)
+        if [ -n "$VALID_NAMES" ]; then
+          echo "WARN: Unexpected secret/config names found:"
+          echo "$VALID_NAMES"
+        fi
+
+        # 9. Check skipped templates report
+        if [ -f "$SKIPPED_REPORT" ]; then
+          SKIPPED=$(grep -c "^## " "$SKIPPED_REPORT" 2>/dev/null || echo 0)
+          if [ "$SKIPPED" -gt 0 ]; then
+            echo "FAIL: $SKIPPED templates were skipped (see $SKIPPED_REPORT)"
+            PASS=false
+          else
+            echo "PASS: No skipped templates"
+          fi
+        else
+          echo "PASS: No skipped templates report (all templates rendered)"
+        fi
+
+        # 10. All YAML files must be valid YAML
+        YAML_ERRORS=0
+        for f in $(find "$SLXS_DIR" -name '*.yaml' 2>/dev/null); do
+          if ! python3 -c "import yaml,sys; yaml.safe_load(open(sys.argv[1]))" "$f" 2>/dev/null; then
+            echo "FAIL: Invalid YAML: $f"
+            YAML_ERRORS=$((YAML_ERRORS + 1))
+          fi
+        done
+        if [ "$YAML_ERRORS" -eq 0 ]; then
+          echo "PASS: All YAML files are valid"
+        else
+          PASS=false
+        fi
+
+        echo ""
+        if [ "$PASS" = true ]; then
+          echo "=== ALL CI CHECKS PASSED ==="
+          exit 0
+        else
+          echo "=== CI CHECKS FAILED ==="
+          exit 1
+        fi
     silent: true
 
   install-deployment: 
@@ -137,10 +380,139 @@ tasks:
         helm repo update
         helm install runwhen-local runwhen-contrib/runwhen-local -n $namespace
 
+  tf-setup-test-projects:
+    desc: "Create 2 ADO test projects with sample code and pipelines via Terraform"
+    dir: terraform
+    env:
+      TF_VAR_ado_org_url: "{{.AZ_DEVOPS_ORGANIZATION_URL}}"
+    cmds:
+      - terraform init -upgrade
+      - terraform apply -auto-approve
+      - echo "---- Test projects created ----"
+      - terraform output
+
+  tf-destroy-test-projects:
+    desc: "Destroy the ADO test projects created by Terraform"
+    dir: terraform
+    env:
+      TF_VAR_ado_org_url: "{{.AZ_DEVOPS_ORGANIZATION_URL}}"
+    cmds:
+      - terraform destroy -auto-approve
+      - echo "---- Test projects destroyed ----"
+
+  check-and-cleanup-terraform:
+    desc: "Destroy Terraform resources if state exists"
+    dir: terraform
+    env:
+      TF_VAR_ado_org_url: "{{.AZ_DEVOPS_ORGANIZATION_URL}}"
+    cmds:
+      - |
+        if [ -f terraform.tfstate ] && [ "$(terraform show -json terraform.tfstate | python3 -c 'import sys,json; print(len(json.load(sys.stdin).get("values",{}).get("root_module",{}).get("resources",[])))')" -gt 0 ]; then
+          echo "Terraform state has resources, destroying..."
+          terraform destroy -auto-approve
+        else
+          echo "No Terraform resources to clean up."
+        fi
+    silent: true
+
+  check-rwp-config:
+    desc: "Verify RunWhen Platform config vars are set"
+    cmds:
+      - |
+        MISSING=false
+        for var in RW_WORKSPACE RW_API_URL RW_PAT; do
+          if [ -z "${!var}" ]; then
+            echo "ERROR: $var is not set"
+            MISSING=true
+          fi
+        done
+        if [ "$MISSING" = true ]; then
+          echo "Set RW_WORKSPACE, RW_API (or RW_API_URL), and RW_PAT before running upload/delete tasks."
+          exit 1
+        fi
+    silent: true
+
+  upload-slxs:
+    desc: "Upload generated SLX files to RunWhen Platform"
+    env:
+      RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
+      RW_API_URL: "{{.RW_API}}"
+      RW_PAT: "{{.RW_PAT}}"
+    cmds:
+      - task: check-rwp-config
+      - |
+        BASE_DIR="output/workspaces/${RW_WORKSPACE}/slxs"
+        if [ ! -d "$BASE_DIR" ]; then
+          echo "Directory $BASE_DIR does not exist. Upload aborted."
+          exit 1
+        fi
+
+        for dir in "$BASE_DIR"/*; do
+          if [ -d "$dir" ]; then
+            SLX_NAME=$(basename "$dir")
+            PAYLOAD=$(jq -n --arg commitMsg "Creating new SLX $SLX_NAME" '{ commitMsg: $commitMsg, files: {} }')
+            for file in slx.yaml runbook.yaml sli.yaml; do
+              if [ -f "$dir/$file" ]; then
+                CONTENT=$(cat "$dir/$file")
+                PAYLOAD=$(echo "$PAYLOAD" | jq --arg fileContent "$CONTENT" --arg fileName "$file" '.files[$fileName] = $fileContent')
+              fi
+            done
+
+            URL="https://${RW_API_URL}/api/v3/workspaces/${RW_WORKSPACE}/branches/main/slxs/${SLX_NAME}"
+            echo "Uploading SLX: $SLX_NAME to $URL"
+            response=$(curl -v -X POST "$URL" \
+              -H "Authorization: Bearer $RW_PAT" \
+              -H "Content-Type: application/json" \
+              -d "$PAYLOAD" -w "%{http_code}" -o /dev/null -s 2>&1)
+
+            if [[ "$response" =~ 200|201 ]]; then
+              echo "Successfully uploaded SLX: $SLX_NAME"
+            else
+              echo "Failed to upload SLX: $SLX_NAME. Response:"
+              echo "$response"
+            fi
+          fi
+        done
+    silent: true
+
+  delete-slxs:
+    desc: "Delete generated SLX objects from RunWhen Platform"
+    env:
+      RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
+      RW_API_URL: "{{.RW_API}}"
+      RW_PAT: "{{.RW_PAT}}"
+    cmds:
+      - task: check-rwp-config
+      - |
+        BASE_DIR="output/workspaces/${RW_WORKSPACE}/slxs"
+        if [ ! -d "$BASE_DIR" ]; then
+          echo "Directory $BASE_DIR does not exist. Deletion aborted."
+          exit 1
+        fi
+
+        for dir in "$BASE_DIR"/*; do
+          if [ -d "$dir" ]; then
+            SLX_NAME=$(basename "$dir")
+            URL="https://${RW_API_URL}/api/v3/workspaces/${RW_WORKSPACE}/branches/main/slxs/${SLX_NAME}"
+            echo "Deleting SLX: $SLX_NAME from $URL"
+            response=$(curl -v -X DELETE "$URL" \
+              -H "Authorization: Bearer $RW_PAT" \
+              -H "Content-Type: application/json" -w "%{http_code}" -o /dev/null -s 2>&1)
+
+            if [[ "$response" =~ 200|204 ]]; then
+              echo "Successfully deleted SLX: $SLX_NAME"
+            else
+              echo "Failed to delete SLX: $SLX_NAME. Response:"
+              echo "$response"
+            fi
+          fi
+        done
+    silent: true
+
   clean-rwl-discovery:
     desc: "Check and clean up RunWhen Local discovery output"
     cmds:
       - |
         rm -rf output
-        rm workspaceInfo.yaml
+        rm -f workspaceInfo.yaml
     silent: true

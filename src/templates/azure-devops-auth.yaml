@@ -1,0 +1,28 @@
+{% if match_resource is defined and match_resource.auth_type | default('') == "ado_pat_secret" %}
+    - name: azure_devops_pat
+      workspaceKey: k8s:file@secret/{{ match_resource.auth_secret | default('undefined') }}:token
+{% elif match_resource is defined and match_resource.auth_type | default('') == "ado_service_principal" %}
+    - name: azure_credentials
+      workspaceKey: azure:sp@cli
+{% elif match_resource is defined and match_resource.auth_type | default('') == "ado_managed_identity" %}
+    - name: azure_credentials
+      workspaceKey: azure:identity@cli
+{% elif custom is defined and custom.ado_pat_secret_name is defined %}
+    - name: azure_devops_pat
+      workspaceKey: "{{ custom.ado_pat_secret_name }}"
+{% elif custom is defined and custom.azure_devops_credentials_key is defined %}
+    - name: azure_credentials
+      workspaceKey: "{{ custom.azure_devops_credentials_key }}"
+{% elif custom is defined and custom.azure_credentials_key is defined %}
+    - name: azure_credentials
+      workspaceKey: "{{ custom.azure_credentials_key }}"
+{% elif secrets is defined and secrets.azure_devops_pat is defined %}
+    - name: azure_devops_pat
+      workspaceKey: "{{ secrets.azure_devops_pat }}"
+{% elif secrets is defined and secrets.azure_service_principal is defined %}
+    - name: azure_credentials
+      workspaceKey: "{{ secrets.azure_service_principal }}"
+{% else %}
+    - name: azure_credentials
+      workspaceKey: AUTH DETAILS NOT FOUND
+{% endif %}
