@@ -122,13 +122,45 @@ tasks:
     silent: true
 
   ci-test:
-    desc: "CI validation: run discovery and validate generated SLX output"
+    desc: "CI validation: generate config, build, run discovery, and validate generated SLX output"
+    env:
+      RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
     cmds:
+      - |
+        cat <<EOF > workspaceInfo.yaml
+        workspaceName: "$RW_WORKSPACE"
+        workspaceOwnerEmail: authors@runwhen.com
+        defaultLocation: location-01
+        defaultLOD: none
+        cloudConfig:
+          azure:
+            devops:
+              organizationUrl: "${AZ_DEVOPS_ORGANIZATION_URL}"
+              personalAccessToken: "${ADO_PAT}"
+              scope:
+                includeProjects:
+                  - "rwl-test-.*"
+                resourceTypes:
+                  repositories: true
+                  pipelines: true
+                  releases: true
+        codeCollections:
+          - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection"
+            branch: "main"
+            codeBundles:
+              - azure-devops-organization-health
+              - azure-devops-project-health
+              - azure-devops-repository-health
+        custom:
+          ado_pat_secret_name: k8s:file@secret/ado-pat:token
+        EOF
+        echo "Generated workspaceInfo.yaml with workspace: $RW_WORKSPACE"
+      - task: build-rwl
       - task: run-rwl-discovery
       - |
         echo "=== CI Validation ==="
         PASS=true
-        WORKSPACE="my-workspace"
+        WORKSPACE="${RW_WORKSPACE}"
         SLXS_DIR="output/workspaces/${WORKSPACE}/slxs"
         WORKSPACE_YAML="output/workspaces/${WORKSPACE}/workspace.yaml"
         SKIPPED_REPORT="output/workspaces/skipped_templates_report.md"
