@@ -121,12 +121,71 @@ tasks:
         echo "$total_slxs" > slx_count.txt
     silent: true
 
+  ci-run-rwl-discovery:
+    desc: "Run RunWhen Local Discovery with log capture for CI"
+    cmds:
+      - |
+        rm -f slx_count.txt run_sh_output.log container_logs.log
+        CONTAINER_NAME="RunWhenLocal"
+        if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Stopping and removing existing container $CONTAINER_NAME..."
+          docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME
+        elif docker ps -a -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Removing existing stopped container $CONTAINER_NAME..."
+          docker rm $CONTAINER_NAME
+        else
+          echo "No existing container named $CONTAINER_NAME found."
+        fi
+
+        echo "Cleaning up output directory..."
+        rm -rf output || { echo "Failed to remove output directory"; exit 1; }
+        mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
+        chmod 777 .
+
+        echo "Starting new container $CONTAINER_NAME..."
+        docker run -d \
+          -e DEBUG_LOGGING=true \
+          -e CQ_DEBUG=true \
+          --name "$CONTAINER_NAME" -p 8081:8081 \
+          -v "$(pwd):/shared" \
+          runwhen-local:test || {
+          echo "Failed to start container"; exit 1;
+        }
+
+        docker logs -f "$CONTAINER_NAME" &
+
+        docker exec -w /workspace-builder "$CONTAINER_NAME" ./run.sh "$1" --verbose 2>&1 | tee run_sh_output.log
+
+        echo "Capturing container logs..."
+        docker logs "$CONTAINER_NAME" > container_logs.log 2>&1 || echo "Failed to capture container logs"
+
+        docker stop "$CONTAINER_NAME"
+        docker rm "$CONTAINER_NAME"
+
+        echo "Review generated config files under output/workspaces/"
+        slxs_dir=$(find 'output/' -type d -name 'slxs' 2>/dev/null | head -1)
+        if [ -n "$slxs_dir" ] && [ -d "$slxs_dir" ]; then
+          total_slxs=$(find "$slxs_dir" -mindepth 1 -maxdepth 1 -type d | wc -l)
+        else
+          total_slxs=0
+        fi
+        echo "Total SLXs: $total_slxs"
+        echo "$total_slxs" > slx_count.txt
+    silent: true
+
   ci-test:
-    desc: "CI validation: generate config, build, run discovery, and validate generated SLX output"
+    desc: "Full CI test: generate config, build image, run discovery, validate output"
     env:
       RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
     cmds:
       - |
+        echo "=== Generating workspaceInfo.yaml ==="
+        if [ -z "$AZ_DEVOPS_ORGANIZATION_URL" ]; then
+          echo "ERROR: AZ_DEVOPS_ORGANIZATION_URL is not set"; exit 1
+        fi
+        if [ -z "$ADO_PAT" ]; then
+          echo "ERROR: ADO_PAT is not set"; exit 1
+        fi
         cat <<EOF > workspaceInfo.yaml
         workspaceName: "$RW_WORKSPACE"
         workspaceOwnerEmail: authors@runwhen.com
@@ -156,7 +215,7 @@ tasks:
         EOF
         echo "Generated workspaceInfo.yaml with workspace: $RW_WORKSPACE"
       - task: build-rwl
-      - task: run-rwl-discovery
+      - task: ci-run-rwl-discovery
       - |
         echo "=== CI Validation ==="
         PASS=true

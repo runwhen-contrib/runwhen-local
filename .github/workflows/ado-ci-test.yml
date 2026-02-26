@@ -39,19 +39,11 @@ jobs:
         with:
           version: 3.x
 
-      - name: Generate workspaceInfo
-        working-directory: .test/azure/ado
-        run: task generate-rwl-config
-
-      - name: Build RunWhen Local image
-        working-directory: .test/azure/ado
-        run: task build-rwl
-
       - name: Run CI test
         working-directory: .test/azure/ado
         run: task ci-test
 
-      - name: Upload output on failure
+      - name: Upload test artifacts on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
@@ -59,4 +51,7 @@ jobs:
           path: |
             .test/azure/ado/output/
             .test/azure/ado/workspaceInfo.yaml
+            .test/azure/ado/run_sh_output.log
+            .test/azure/ado/container_logs.log
+            .test/azure/ado/slx_count.txt
           retention-days: 7
