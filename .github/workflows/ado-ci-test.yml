@@ -50,7 +50,6 @@ jobs:
           name: ado-ci-test-output
           path: |
             .test/azure/ado/output/
-            .test/azure/ado/workspaceInfo.yaml
             .test/azure/ado/run_sh_output.log
             .test/azure/ado/container_logs.log
             .test/azure/ado/slx_count.txt
