@@ -1040,7 +1040,12 @@ def index(component_context: Context):
                                 else:
                                     group_version_info = group_version_infos.get(group)
                                     if group_version_info:
-                                        versions = [group_version_info.preferred_version] if group_version_info.preferred_version else group_version_info.versions
+                                        preferred = group_version_info.preferred_version
+                                        if preferred:
+                                            preferred_str = preferred.version if hasattr(preferred, 'version') else str(preferred)
+                                            versions = [preferred_str]
+                                        else:
+                                            versions = group_version_info.versions
                                     else:
                                         versions = list()
                                 try:
