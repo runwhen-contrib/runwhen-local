@@ -1,0 +1,99 @@
+---
+description: Conventions for platform tag and hierarchy Jinja templates (src/templates/*-tags.yaml, *-hierarchy.yaml)
+globs: src/templates/*-tags.yaml,src/templates/*-hierarchy.yaml
+alwaysApply: false
+---
+
+# Tag & Hierarchy Template Contract
+
+All platform templates (`gcp`, `aws`, `azure`, `kubernetes`) follow the same
+structural rules. When adding a new provider or modifying an existing one,
+enforce every rule below.
+
+## Hierarchy template (*-hierarchy.yaml)
+
+The hierarchy defines the resourcePath segments. Every entry MUST have a
+corresponding tag of the same name in the tags template.
+
+### Leaf entry rule
+
+```jinja
+{% if qualifiers and qualifiers.resource is defined %}
+    - resource_name
+{% elif match_resource.resource_type is defined %}
+    - resource_type
+{% endif %}
+```
+
+- **Resource-scoped** (qualifiers include `resource`): leaf is `resource_name`.
+- **Group-scoped** (qualifiers do NOT include `resource`): leaf is `resource_type`.
+- NEVER fall back to `resource_name` via `match_resource.name` for group-scoped
+  SLXs — that picks one arbitrary child and produces a misleading path.
+
+## Tags template (*-tags.yaml)
+
+### Required tags (all platforms)
+
+Every tags template MUST emit these tags when values are available:
+
+| Tag | When emitted |
+|-----|-------------|
+| `platform` | Always |
+| `resource_type` | Always (from `match_resource.resource_type.name`) |
+| `resource_name` | Only when `qualifiers.resource` or `qualifiers.resource_group` is defined |
+| `child_resource` | For each entry in `child_resource_names`, unless it equals `resource_name` |
+
+### resource_name emission rule
+
+Emit `resource_name` ONLY when the SLX is scoped to a specific resource:
+
+```jinja
+{% if qualifiers and qualifiers.resource is defined %}
+    - name: resource_name
+      value: '{{ qualifiers.resource | string }}'
+{% elif qualifiers and qualifiers.resource_group is defined %}
+    - name: resource_name
+      value: '{{ qualifiers.resource_group | string }}'
+{% endif %}
+```
+
+Do NOT add an `else` / `elif match_resource.name` fallback for group-scoped
+SLXs. The individual resources appear as `child_resource` tags instead.
+
+### child_resource deduplication
+
+Always normalize BOTH sides of the comparison identically before comparing:
+
+```jinja
+{% set _resource_name_value = (...) | default('') | string | replace(":", "_") | replace("/", "_") %}
+{% for cr in child_resource_names | default([]) %}
+{% set _cr_value = cr | string | replace(":", "_") | replace("/", "_") %}
+{% if _cr_value != _resource_name_value %}
+    - name: child_resource
+      value: '{{ _cr_value }}'
+{% endif %}
+{% endfor %}
+```
+
+Both `_resource_name_value` and `_cr_value` MUST apply the same `replace`
+filters. Asymmetric normalization defeats deduplication.
+
+### Platform-specific tags
+
+Provider-specific tags (e.g. `[aws]key`, `[k8s]label`, `[azure]tag`,
+`gcp_label_*`) are appended AFTER the standard tags above.
+
+## resourcePath (computed at render time)
+
+`resourcePath` is NEVER set in templates. It is always derived from
+`hierarchy + tags` by `compute_resource_path_from_hierarchy()` in
+`src/renderers/render_output_items.py`. Do not add `resourcePath` or
+`qualified_name` logic to tag/hierarchy templates.
+
+## Adding a new platform
+
+1. Create `src/templates/<platform>-hierarchy.yaml` following the leaf rule.
+2. Create `src/templates/<platform>-tags.yaml` emitting all required tags.
+3. Ensure `resource_type` is always emitted as a tag.
+4. Include the `child_resource` deduplication loop.
+5. Add platform-specific enrichment tags after the standard block.
