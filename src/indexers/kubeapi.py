@@ -1039,7 +1039,10 @@ def index(component_context: Context):
                                     versions = [version]
                                 else:
                                     group_version_info = group_version_infos.get(group)
-                                    versions = group_version_info.versions if group_version_info else list()
+                                    if group_version_info:
+                                        versions = [group_version_info.preferred_version] if group_version_info.preferred_version else group_version_info.versions
+                                    else:
+                                        versions = list()
                                 try:
                                     for version in versions:
                                         ret = custom_objects_api_client.list_namespaced_custom_object(group=group,
@@ -1065,7 +1068,7 @@ def index(component_context: Context):
                                                 custom_attributes['owner'] = owner_name
                                             custom_resource = registry.add_resource(KUBERNETES_PLATFORM,
                                                                                     KubernetesResourceType.CUSTOM.value,
-                                                                                    custom_name,
+                                                                                    resource_name,
                                                                                     custom_qualified_name,
                                                                                     custom_attributes)
                                 except ApiException as e:

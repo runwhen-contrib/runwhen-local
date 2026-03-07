@@ -50,7 +50,10 @@
       value: '{{ _cr_value }}'
 {% endif %}
 {% endfor %}
-{% if match_resource.resource_type %}
+{% if match_resource.resource_type.name == "custom" and match_resource.kind is defined %}
+    - name: resource_type
+      value: '{{ match_resource.kind | lower | string }}'
+{% elif match_resource.resource_type %}
     - name: resource_type
       value: '{{ match_resource.resource_type.name | string }}'
 {% endif %}

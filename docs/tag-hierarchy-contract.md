@@ -64,6 +64,8 @@ a misleading path.
 | Resource | `["resource"]` | `gcp/my-project/us-central1/my-bucket` |
 | Project | `["project"]` | `gcp/my-project/us-central1/gcp_storage_buckets` |
 | Namespace | `["namespace"]` | `kubernetes/prod-cluster/default/deployment` |
+| Namespace (CRD) | `["namespace"]` | `kubernetes/prod-cluster/default/kustomization` |
+| Resource (CRD) | `["resource"]` | `kubernetes/prod-cluster/default/online-boutique-prod` |
 | Resource Group | `["resource_group"]` | `azure/my-sub/my-rg/azure_compute_disks` |
 
 ---
@@ -77,7 +79,7 @@ Every tags template **must** emit these tags (when values are available):
 | Tag name | Required | Notes |
 |----------|----------|-------|
 | `platform` | Always | Static value: `gcp`, `aws`, `azure`, `azure_devops`, `kubernetes` |
-| `resource_type` | Always | From `match_resource.resource_type.name` |
+| `resource_type` | Always | From `match_resource.resource_type.name`; for K8s CRDs use `kind \| lower` (see 3.4) |
 | `resource_name` | Resource-scoped only | Only when `qualifiers.resource` or `qualifiers.resource_group` is defined |
 | `child_resource` | Group-scoped | One tag per entry in `child_resource_names`, deduplicated against `resource_name` |
 
@@ -117,7 +119,39 @@ When a child resource name is identical to the `resource_name` value, skip it.
 Asymmetric normalization (applying `replace` to one side but not the other)
 defeats deduplication when names contain `:` or `/`.
 
-### 3.4 Platform-Specific Tags
+### 3.4 Kubernetes CRD Conventions
+
+Kubernetes custom resources (CRDs) require special handling because they are
+all registered under a single internal `ResourceType` named `"custom"`.
+
+**resource_type tag:** The kubernetes tags template must use the resource's
+`kind` (lowercased) instead of the generic `"custom"`:
+
+```jinja
+{% if match_resource.resource_type.name == "custom" and match_resource.kind is defined %}
+    - name: resource_type
+      value: '{{ match_resource.kind | lower | string }}'
+{% elif match_resource.resource_type %}
+    - name: resource_type
+      value: '{{ match_resource.resource_type.name | string }}'
+{% endif %}
+```
+
+This produces values like `kustomization`, `helmrelease` — lowercase to be
+consistent with built-in types (`deployment`, `statefulset`).
+
+**resource_name:** CRD resources are indexed with their simple Kubernetes
+metadata name (e.g. `online-boutique-prod`), not the composite
+`plural_group_version_name` format. The composite is only used internally
+for the `qualified_name` registry key. Templates, `child_resource_names`,
+and qualifier values all receive the simple name.
+
+**API version deduplication:** When a generation rule references a CRD
+without pinning a version, the indexer queries only the **preferred** API
+version (not all versions). This prevents the same physical resource from
+appearing multiple times under different API versions.
+
+### 3.5 Platform-Specific Tags
 
 After the standard tags above, each platform appends its own enrichment tags:
 
@@ -174,3 +208,5 @@ When adding support for a new cloud platform:
 - [ ] Append platform-specific enrichment tags after the standard block
 - [ ] Verify `resourcePath` is computed correctly (not set manually)
 - [ ] Test with both resource-scoped and group-scoped generation rules
+- [ ] For Kubernetes: verify CRD `resource_type` shows `kind | lower`, not `custom`
+- [ ] For Kubernetes: verify CRD `resource_name` shows simple K8s name, not composite

@@ -78,6 +78,29 @@ Always normalize BOTH sides of the comparison identically before comparing:
 Both `_resource_name_value` and `_cr_value` MUST apply the same `replace`
 filters. Asymmetric normalization defeats deduplication.
 
+### Kubernetes CRD resource_type
+
+For Kubernetes custom resources, `match_resource.resource_type.name` is the
+generic `"custom"`. The tags template MUST use `match_resource.kind | lower`
+instead to produce a meaningful type (e.g. `kustomization`, `helmrelease`):
+
+```jinja
+{% if match_resource.resource_type.name == "custom" and match_resource.kind is defined %}
+    - name: resource_type
+      value: '{{ match_resource.kind | lower | string }}'
+{% elif match_resource.resource_type %}
+    - name: resource_type
+      value: '{{ match_resource.resource_type.name | string }}'
+{% endif %}
+```
+
+### Kubernetes CRD resource_name
+
+CRD resources are registered with their simple K8s metadata name (e.g.
+`online-boutique-prod`), NOT the composite `plural_group_version_name`.
+The composite is only used for the internal `qualified_name` registry key.
+Do NOT construct or expect composite CRD names in templates.
+
 ### Platform-specific tags
 
 Provider-specific tags (e.g. `[aws]key`, `[k8s]label`, `[azure]tag`,
