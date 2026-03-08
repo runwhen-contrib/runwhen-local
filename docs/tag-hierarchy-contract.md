@@ -210,7 +210,7 @@ When adding support for a new cloud platform:
 - [ ] Create `src/templates/<platform>-hierarchy.yaml` following the leaf rule (Section 2.2)
 - [ ] Create `src/templates/<platform>-tags.yaml` emitting all required standard tags (Section 3.1)
 - [ ] Ensure `resource_type` is always emitted as a tag
-- [ ] Emit `resource_name` only when resource-scoped (Section 3.2)
+- [ ] Emit `resource_name` always, with `match_resource.name` fallback (Section 3.2)
 - [ ] Include the `child_resource` deduplication loop (Section 3.3)
 - [ ] Append platform-specific enrichment tags after the standard block
 - [ ] Verify `resourcePath` is computed correctly (not set manually)
