@@ -39,13 +39,14 @@ Every tags template MUST emit these tags when values are available:
 | Tag | When emitted |
 |-----|-------------|
 | `platform` | Always |
-| `resource_type` | Always (from `match_resource.resource_type.name`) |
-| `resource_name` | Only when `qualifiers.resource` or `qualifiers.resource_group` is defined |
+| `resource_type` | Always (from `match_resource.resource_type.name`; for K8s CRDs use `kind \| lower`) |
+| `resource_name` | Always (from qualifiers or `match_resource.name` fallback) |
 | `child_resource` | For each entry in `child_resource_names`, unless it equals `resource_name` |
 
 ### resource_name emission rule
 
-Emit `resource_name` ONLY when the SLX is scoped to a specific resource:
+Always emit `resource_name` as a tag. Prefer qualifier values, fall back to
+`match_resource.name`:
 
 ```jinja
 {% if qualifiers and qualifiers.resource is defined %}
@@ -54,11 +55,16 @@ Emit `resource_name` ONLY when the SLX is scoped to a specific resource:
 {% elif qualifiers and qualifiers.resource_group is defined %}
     - name: resource_name
       value: '{{ qualifiers.resource_group | string }}'
+{% elif match_resource.name is defined %}
+    - name: resource_name
+      value: '{{ match_resource.name | string }}'
 {% endif %}
 ```
 
-Do NOT add an `else` / `elif match_resource.name` fallback for group-scoped
-SLXs. The individual resources appear as `child_resource` tags instead.
+The `match_resource.name` fallback ensures group-scoped SLXs still have a
+representative resource_name tag. The child_resource dedup logic filters
+out the matching child so it is not listed twice. The HIERARCHY (not the
+tag) controls whether resource_name or resource_type appears in the path.
 
 ### child_resource deduplication
 

@@ -80,12 +80,13 @@ Every tags template **must** emit these tags (when values are available):
 |----------|----------|-------|
 | `platform` | Always | Static value: `gcp`, `aws`, `azure`, `azure_devops`, `kubernetes` |
 | `resource_type` | Always | From `match_resource.resource_type.name`; for K8s CRDs use `kind \| lower` (see 3.4) |
-| `resource_name` | Resource-scoped only | Only when `qualifiers.resource` or `qualifiers.resource_group` is defined |
+| `resource_name` | Always | From qualifiers or `match_resource.name` fallback; dedup filters the matching child |
 | `child_resource` | Group-scoped | One tag per entry in `child_resource_names`, deduplicated against `resource_name` |
 
 ### 3.2 resource_name Emission
 
-Emit `resource_name` **only** when the SLX is scoped to a specific resource:
+Always emit `resource_name` as a tag. Prefer qualifier values, fall back to
+`match_resource.name`:
 
 ```jinja
 {% if qualifiers and qualifiers.resource is defined %}
@@ -94,11 +95,17 @@ Emit `resource_name` **only** when the SLX is scoped to a specific resource:
 {% elif qualifiers and qualifiers.resource_group is defined %}
     - name: resource_name
       value: '{{ qualifiers.resource_group | string }}'
+{% elif match_resource.name is defined %}
+    - name: resource_name
+      value: '{{ match_resource.name | string }}'
 {% endif %}
 ```
 
-Do **not** add an `else` or `elif match_resource.name` fallback. For
-group-scoped SLXs, the individual resources appear as `child_resource` tags.
+The `match_resource.name` fallback ensures group-scoped SLXs still have a
+representative `resource_name` tag. The child_resource dedup logic (Section
+3.3) filters out the matching child so it is not duplicated. The
+**hierarchy** (not the tag) controls whether `resource_name` or
+`resource_type` appears in the resourcePath.
 
 ### 3.3 child_resource Deduplication
 
@@ -187,8 +194,8 @@ directly controls which tags and hierarchy entries appear:
 
 | Qualifier includes | SLX scope | Hierarchy leaf | resource_name tag | child_resource tags |
 |-------------------|-----------|---------------|-------------------|-------------------|
-| `resource` | Individual resource | `resource_name` | Yes | No (empty list) |
-| Not `resource` | Group | `resource_type` | No | Yes (all children) |
+| `resource` | Individual resource | `resource_name` | Yes (from qualifier) | No (empty list) |
+| Not `resource` | Group | `resource_type` | Yes (from `match_resource.name`) | Yes (all children except the one matching `resource_name`) |
 
 The `child_resource_names` template variable is populated only when
 `resource` is **not** in the qualifier list. It contains the names of all
