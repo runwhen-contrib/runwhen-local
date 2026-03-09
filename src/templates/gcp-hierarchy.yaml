@@ -1,12 +1,7 @@
     hierarchy: 
     - platform
-    - project_id
-    {% if match_resource.location is defined %}
-    - location
-    {% endif %}
     {% if qualifiers and qualifiers.resource is defined %}
-    - resource_name
-    {% elif match_resource.resource_type is defined %}
-    - resource_type
+    - project_id
     {% endif %}
+    - resource_name
 

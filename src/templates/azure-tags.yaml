@@ -11,17 +11,15 @@
     - name: organization
       value: '{{ organization | default(match_resource.organization) | string }}'
 {% endif %}
-{% if qualifiers and qualifiers.resource is defined %}
+{% if qualifiers and qualifiers.values() | list | length > 0 %}
+{% set _first_qual = qualifiers.values() | list | first %}
     - name: resource_name
-      value: '{{ qualifiers.resource | string }}'
-{% elif match_resource.name is defined and (child_resource_names | default([]) | length) <= 1 %}
+      value: '{{ _first_qual | string }}'
+{% elif match_resource.name is defined %}
     - name: resource_name
       value: '{{ match_resource.name | string }}'
-{% elif match_resource.resource_type is defined %}
-    - name: resource_name
-      value: '{{ match_resource.resource_type.name | string }}'
 {% endif %}
-{% set _resource_name_value = (qualifiers.resource if qualifiers and qualifiers.resource is defined else (match_resource.name if (child_resource_names | default([]) | length) <= 1 else '')) | default('') | string | replace(":", "_") | replace("/", "_") %}
+{% set _resource_name_value = ((qualifiers.values() | list | first) if qualifiers and qualifiers.values() | list | length > 0 else (match_resource.name if match_resource.name is defined else '')) | default('') | string | replace(":", "_") | replace("/", "_") %}
     - name: resource_type
       value: '{{ match_resource.resource_type.name | string }}'
 {% for cr in child_resource_names | default([]) %}
@@ -42,20 +40,15 @@
     - name: resource_group
       value: '{{ resource_group.name | default(match_resource.resource_group.name) | string }}'
 {% endif %}
-    {% if qualifiers and qualifiers.resource is defined and qualifiers.resource %}
+{% if qualifiers and qualifiers.values() | list | length > 0 %}
+{% set _first_qual = qualifiers.values() | list | first %}
     - name: resource_name
-      value: '{{ qualifiers.resource | string }}'
-    {% elif qualifiers and qualifiers.resource_group is defined and qualifiers.resource_group %}
-    - name: resource_name
-      value: '{{ qualifiers.resource_group | string }}'
-    {% elif match_resource.name is defined and (child_resource_names | default([]) | length) <= 1 %}
+      value: '{{ _first_qual | string }}'
+{% elif match_resource.name is defined %}
     - name: resource_name
       value: '{{ match_resource.name | string }}'
-    {% elif match_resource.resource_type is defined %}
-    - name: resource_name
-      value: '{{ match_resource.resource_type.name | string }}'
-    {% endif %}
-{% set _resource_name_value = (qualifiers.resource if qualifiers and qualifiers.resource is defined and qualifiers.resource else (qualifiers.resource_group if qualifiers and qualifiers.resource_group is defined and qualifiers.resource_group else (match_resource.name if (child_resource_names | default([]) | length) <= 1 else ''))) | default('') | string | replace(":", "_") | replace("/", "_") %}
+{% endif %}
+{% set _resource_name_value = ((qualifiers.values() | list | first) if qualifiers and qualifiers.values() | list | length > 0 else (match_resource.name if match_resource.name is defined else '')) | default('') | string | replace(":", "_") | replace("/", "_") %}
 {% if match_resource.resource_type %}
     - name: resource_type
       value: '{{ match_resource.resource_type.name | string }}'
