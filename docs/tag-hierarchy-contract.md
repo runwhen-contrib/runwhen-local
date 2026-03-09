@@ -80,13 +80,12 @@ Every tags template **must** emit these tags (when values are available):
 |----------|----------|-------|
 | `platform` | Always | Static value: `gcp`, `aws`, `azure`, `azure_devops`, `kubernetes` |
 | `resource_type` | Always | From `match_resource.resource_type.name`; for K8s CRDs use `kind \| lower` (see 3.4) |
-| `resource_name` | Always | From qualifiers or `match_resource.name` fallback; dedup filters the matching child |
+| `resource_name` | Always | From qualifiers, `match_resource.name` (<=1 child), or `resource_type` (many children) |
 | `child_resource` | Group-scoped | One tag per entry in `child_resource_names`, deduplicated against `resource_name` |
 
 ### 3.2 resource_name Emission
 
-Always emit `resource_name` as a tag. Prefer qualifier values, fall back to
-`match_resource.name`:
+`resource_name` is **always** emitted. The value depends on context:
 
 ```jinja
 {% if qualifiers and qualifiers.resource is defined %}
@@ -95,16 +94,26 @@ Always emit `resource_name` as a tag. Prefer qualifier values, fall back to
 {% elif qualifiers and qualifiers.resource_group is defined %}
     - name: resource_name
       value: '{{ qualifiers.resource_group | string }}'
-{% elif match_resource.name is defined %}
+{% elif match_resource.name is defined and (child_resource_names | default([]) | length) <= 1 %}
     - name: resource_name
       value: '{{ match_resource.name | string }}'
+{% elif match_resource.resource_type is defined %}
+    - name: resource_name
+      value: '{{ match_resource.resource_type.name | string }}'
 {% endif %}
 ```
 
-The `match_resource.name` fallback ensures group-scoped SLXs still have a
-representative `resource_name` tag. The child_resource dedup logic (Section
-3.3) filters out the matching child so it is not duplicated. The
-**hierarchy** (not the tag) controls whether `resource_name` or
+- **Resource-scoped**: from qualifier value (specific instance name).
+- **Group-scoped, 1 child**: from `match_resource.name` (the resource IS
+  the scope); the matching child is deduplicated (Section 3.3).
+- **Group-scoped, many children**: from `resource_type` (matches the last
+  hierarchy segment); all children appear as `child_resource` tags.
+
+For Kubernetes CRDs with multiple children, use `match_resource.kind | lower`
+instead of `match_resource.resource_type.name` (which is the generic
+`"custom"`).
+
+The **hierarchy** (not the tag) controls whether `resource_name` or
 `resource_type` appears in the resourcePath.
 
 ### 3.3 child_resource Deduplication
@@ -195,7 +204,8 @@ directly controls which tags and hierarchy entries appear:
 | Qualifier includes | SLX scope | Hierarchy leaf | resource_name tag | child_resource tags |
 |-------------------|-----------|---------------|-------------------|-------------------|
 | `resource` | Individual resource | `resource_name` | Yes (from qualifier) | No (empty list) |
-| Not `resource` | Group | `resource_type` | Yes (from `match_resource.name`) | Yes (all children except the one matching `resource_name`) |
+| Not `resource`, 1 child | Single resource as scope | `resource_type` | Yes (from `match_resource.name`) | None (deduped against resource_name) |
+| Not `resource`, many children | Group | `resource_type` | Yes (from `resource_type`) | Yes (all children) |
 
 The `child_resource_names` template variable is populated only when
 `resource` is **not** in the qualifier list. It contains the names of all
@@ -210,7 +220,7 @@ When adding support for a new cloud platform:
 - [ ] Create `src/templates/<platform>-hierarchy.yaml` following the leaf rule (Section 2.2)
 - [ ] Create `src/templates/<platform>-tags.yaml` emitting all required standard tags (Section 3.1)
 - [ ] Ensure `resource_type` is always emitted as a tag
-- [ ] Emit `resource_name` always, with `match_resource.name` fallback (Section 3.2)
+- [ ] Emit `resource_name` always: from qualifiers, `match_resource.name` (<=1 child), or `resource_type` (many children) (Section 3.2)
 - [ ] Include the `child_resource` deduplication loop (Section 3.3)
 - [ ] Append platform-specific enrichment tags after the standard block
 - [ ] Verify `resourcePath` is computed correctly (not set manually)
