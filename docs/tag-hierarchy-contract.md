@@ -13,7 +13,7 @@ templates **must** follow. It applies to every file under
 | **Hierarchy** | Ordered list of tag names that define the `resourcePath` segments for an SLX. Always ends with `resource_name`. |
 | **Tags** | Key/value metadata attached to each SLX. Every hierarchy entry must have a corresponding tag. |
 | **Qualifiers** | Fields from the generation rule that determine the SLX's scope (e.g. `["project"]`, `["resource"]`, `["namespace", "cluster"]`). Ordered from most-specific to broadest. |
-| **resource_name** | Always the value of the **first (most-specific) qualifier**. Represents the primary scope of the SLX. |
+| **resource_name** | Always the value of the **most-specific qualifier present**. Falls back to `match_resource.name` when no qualifier matches. Represents the primary scope of the SLX. |
 | **Resource-scoped** | The generation rule includes `resource` in its qualifiers list — one SLX per individual resource. |
 | **Group-scoped** | The generation rule does NOT include `resource` — one SLX per grouping (project, account, namespace, etc.) covering many child resources. |
 
@@ -83,7 +83,7 @@ Every tags template **must** emit these tags (when values are available):
 |----------|----------|-------|
 | `platform` | Always | Static value: `gcp`, `aws`, `azure`, `azure_devops`, `kubernetes` |
 | `resource_type` | Always | From `match_resource.resource_type.name`; for K8s CRDs use `kind \| lower` (see 3.4) |
-| `resource_name` | Always | From the first qualifier value, or `match_resource.name` as fallback |
+| `resource_name` | Always | From the most-specific qualifier value, or `match_resource.name` as fallback |
 | `child_resource` | Group-scoped | One tag per entry in `child_resource_names`, deduplicated against `resource_name` |
 
 ### 3.2 resource_name Emission
@@ -234,7 +234,36 @@ resources that matched the generation rule within that group scope.
 
 ---
 
-## 6. Checklist for New Providers
+## 6. Render-Time Validation
+
+After each template is rendered and parsed as YAML, `validate_rendered_yaml()`
+in `src/renderers/render_output_items.py` checks structural invariants before
+any post-processing (deduplication, resourcePath computation):
+
+| Check | What it prevents |
+|-------|-----------------|
+| Every `hierarchy` entry is a `str` | Dict entries caused by missing trailing newlines in included hierarchy templates |
+| Every tag entry is a mapping (`dict`) | Malformed YAML producing scalar or list tag entries |
+| Tag `name` is a `str` | Non-string keys breaking deduplication lookups |
+| Tag `value` is a scalar (not `dict`/`list`) | Complex values that break tag hashing |
+
+If validation fails, the SLX is skipped and a `WorkspaceBuilderException` is
+raised with an actionable message pointing to the likely root cause.
+
+### Directory-level skip on SLX failure
+
+Output items are sorted so that `slx.yaml` is always rendered **before** its
+siblings (runbooks, SLIs, etc.) in the same directory. When `slx.yaml` fails
+to render, all remaining files in that directory are skipped — you cannot
+upload a runbook or SLI without its parent SLX.
+
+A failure in a non-SLX file (e.g. a runbook template error) does **not** skip
+its siblings. Only the `slx.yaml` primary file acts as the gate for the
+directory.
+
+---
+
+## 7. Checklist for New Providers
 
 When adding support for a new cloud platform:
 

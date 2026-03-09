@@ -43,7 +43,7 @@ Every tags template MUST emit these tags when values are available:
 |-----|-------------|
 | `platform` | Always |
 | `resource_type` | Always (from `match_resource.resource_type.name`; for K8s CRDs use `kind \| lower`) |
-| `resource_name` | Always (from first qualifier value, or `match_resource.name` fallback) |
+| `resource_name` | Always (from most-specific qualifier, or `match_resource.name` fallback) |
 | `child_resource` | For each entry in `child_resource_names`, unless it equals `resource_name` |
 
 ### resource_name emission rule

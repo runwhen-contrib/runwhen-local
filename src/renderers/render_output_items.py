@@ -305,12 +305,12 @@ def render(context: Context):
 
         if slx_dir in failed_slx_dirs:
             logger.warning(
-                f"Skipping {output_item.path}: a sibling in the same SLX directory failed to render"
+                f"Skipping {output_item.path}: slx.yaml in the same directory failed to render"
             )
             skipped_templates.append({
                 "path": output_item.path,
                 "template": output_item.template_name,
-                "error": f"Skipped: sibling file in {slx_dir} failed to render"
+                "error": f"Skipped: slx.yaml in {slx_dir} failed to render"
             })
             render_stats['skipped'] += 1
             continue
@@ -342,7 +342,8 @@ def render(context: Context):
                 "error": str(e)
             })
             render_stats['skipped'] += 1
-            failed_slx_dirs.add(slx_dir)
+            if os.path.basename(output_item.path) == 'slx.yaml':
+                failed_slx_dirs.add(slx_dir)
         except Exception as e:
             logger.warning(f"Unexpected error rendering {output_item.template_name} for {output_item.path}: {str(e)}")
             skipped_templates.append({
@@ -351,7 +352,8 @@ def render(context: Context):
                 "error": str(e)
             })
             render_stats['skipped'] += 1
-            failed_slx_dirs.add(slx_dir)
+            if os.path.basename(output_item.path) == 'slx.yaml':
+                failed_slx_dirs.add(slx_dir)
 
     if failed_slx_dirs:
         logger.warning(f"SLX directories skipped due to errors: {sorted(failed_slx_dirs)}")
