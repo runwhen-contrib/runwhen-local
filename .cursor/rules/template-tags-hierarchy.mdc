@@ -40,13 +40,12 @@ Every tags template MUST emit these tags when values are available:
 |-----|-------------|
 | `platform` | Always |
 | `resource_type` | Always (from `match_resource.resource_type.name`; for K8s CRDs use `kind \| lower`) |
-| `resource_name` | Always (from qualifiers or `match_resource.name` fallback) |
+| `resource_name` | Always (from qualifiers, `match_resource.name` if <= 1 child, or `resource_type` if many) |
 | `child_resource` | For each entry in `child_resource_names`, unless it equals `resource_name` |
 
 ### resource_name emission rule
 
-Always emit `resource_name` as a tag. Prefer qualifier values, fall back to
-`match_resource.name`:
+`resource_name` is ALWAYS emitted. The value depends on context:
 
 ```jinja
 {% if qualifiers and qualifiers.resource is defined %}
@@ -55,16 +54,23 @@ Always emit `resource_name` as a tag. Prefer qualifier values, fall back to
 {% elif qualifiers and qualifiers.resource_group is defined %}
     - name: resource_name
       value: '{{ qualifiers.resource_group | string }}'
-{% elif match_resource.name is defined %}
+{% elif match_resource.name is defined and (child_resource_names | default([]) | length) <= 1 %}
     - name: resource_name
       value: '{{ match_resource.name | string }}'
+{% elif match_resource.resource_type is defined %}
+    - name: resource_name
+      value: '{{ match_resource.resource_type.name | string }}'
 {% endif %}
 ```
 
-The `match_resource.name` fallback ensures group-scoped SLXs still have a
-representative resource_name tag. The child_resource dedup logic filters
-out the matching child so it is not listed twice. The HIERARCHY (not the
-tag) controls whether resource_name or resource_type appears in the path.
+- **Resource-scoped**: from qualifier value (specific instance name).
+- **Group-scoped, 1 child**: from `match_resource.name` (the resource IS
+  the scope); the matching child is deduplicated.
+- **Group-scoped, many children**: from `resource_type` (matches the last
+  hierarchy segment); all children appear as `child_resource` tags.
+
+For Kubernetes CRDs with multiple children, use `match_resource.kind | lower`
+instead of `match_resource.resource_type.name` (which is the generic `custom`).
 
 ### child_resource deduplication
 

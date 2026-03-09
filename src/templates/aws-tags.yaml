@@ -16,11 +16,14 @@
 {% elif qualifiers and qualifiers.resource_group is defined %}
     - name: resource_name
       value: '{{ qualifiers.resource_group }}'
-{% else %}
+{% elif (child_resource_names | default([]) | length) <= 1 %}
     - name: resource_name
       value: '{{ match_resource.name }}'
+{% else %}
+    - name: resource_name
+      value: '{{ match_resource.resource_type.name | string }}'
 {% endif %}
-{% set _resource_name_value = (qualifiers.resource if qualifiers and qualifiers.resource is defined else (qualifiers.resource_group if qualifiers and qualifiers.resource_group is defined else match_resource.name)) | default('') | string | replace(":", "_") | replace("/", "_") %}
+{% set _resource_name_value = (qualifiers.resource if qualifiers and qualifiers.resource is defined else (qualifiers.resource_group if qualifiers and qualifiers.resource_group is defined else (match_resource.name if (child_resource_names | default([]) | length) <= 1 else ''))) | default('') | string | replace(":", "_") | replace("/", "_") %}
 {% for cr in child_resource_names | default([]) %}
 {% set _cr_value = cr | string | replace(":", "_") | replace("/", "_") %}
 {% if _cr_value != _resource_name_value %}
