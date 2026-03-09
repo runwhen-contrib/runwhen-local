@@ -214,7 +214,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [publish-manifest]
     env:
-      SANDBOX_DEPLOYMENT_NAME: runwhen-local
+      SANDBOX_DEPLOYMENT_NAME: runwhen-local-workspace-builder
       SANDBOX_DEPLOYMENT_NAMESPACE: runwhen-local
     steps:
       - name: Rollout new image in sandbox
