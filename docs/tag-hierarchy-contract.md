@@ -10,9 +10,10 @@ templates **must** follow. It applies to every file under
 
 | Concept | Definition |
 |---------|-----------|
-| **Hierarchy** | Ordered list of tag names that define the `resourcePath` segments for an SLX. |
+| **Hierarchy** | Ordered list of tag names that define the `resourcePath` segments for an SLX. Always ends with `resource_name`. |
 | **Tags** | Key/value metadata attached to each SLX. Every hierarchy entry must have a corresponding tag. |
-| **Qualifiers** | Fields from the generation rule that determine the SLX's scope (e.g. `["project"]`, `["resource"]`). |
+| **Qualifiers** | Fields from the generation rule that determine the SLX's scope (e.g. `["project"]`, `["resource"]`, `["namespace", "cluster"]`). Ordered from most-specific to broadest. |
+| **resource_name** | Always the value of the **most-specific qualifier present**. Falls back to `match_resource.name` when no qualifier matches. Represents the primary scope of the SLX. |
 | **Resource-scoped** | The generation rule includes `resource` in its qualifiers list — one SLX per individual resource. |
 | **Group-scoped** | The generation rule does NOT include `resource` — one SLX per grouping (project, account, namespace, etc.) covering many child resources. |
 
@@ -25,48 +26,50 @@ templates **must** follow. It applies to every file under
 Each hierarchy template produces an ordered YAML list:
 
 ```
-platform → organisational scopes → leaf
+platform → parent scopes → resource_name
 ```
+
+The hierarchy **always** ends with `resource_name`. The parent scopes are
+qualifier-derived context tags (cluster, namespace, project_id, etc.).
+Non-qualifier details like `location` or `region` are **not** included in the
+hierarchy — they exist only as informational tags.
 
 **Examples by platform:**
 
-| Platform | Organisational scopes | Leaf (resource-scoped) | Leaf (group-scoped) |
-|----------|----------------------|----------------------|-------------------|
-| GCP | `project_id`, `location` | `resource_name` | `resource_type` |
-| AWS | `account_name`, `region` | `resource_name` | `resource_type` |
-| Azure ARM | `subscription_name`, `resource_group` | `resource_name` | `resource_type` |
-| Azure DevOps | `organization`, `project` | `resource_name` | `resource_type` |
-| Kubernetes | `cluster`, `namespace` | `resource_name` | `resource_type` |
+| Platform | Parent scopes | Leaf |
+|----------|--------------|------|
+| GCP | `project_id` (only when resource-scoped) | `resource_name` |
+| AWS | `account_name`, `region` | `resource_name` |
+| Azure ARM | `subscription_name`, `resource_group` | `resource_name` |
+| Azure DevOps | `organization`, `project` | `resource_name` |
+| Kubernetes | `cluster`, `namespace` | `resource_name` |
 
 ### 2.2 Leaf Entry Rule
 
-The last entry in the hierarchy is determined by the SLX scope:
+The last entry in the hierarchy is **always** `resource_name`:
 
 ```jinja
-{% if qualifiers and qualifiers.resource is defined %}
     - resource_name
-{% elif match_resource.resource_type is defined %}
-    - resource_type
-{% endif %}
 ```
 
-- **Resource-scoped** → `resource_name` (identifies a specific instance).
-- **Group-scoped** → `resource_type` (identifies the category of resources).
-
-**Never** fall back to `resource_name` via `match_resource.name` for
-group-scoped SLXs. That would pick one arbitrary child resource and produce
-a misleading path.
+There is no conditional — `resource_name` is unconditionally the leaf of
+every hierarchy. `resource_type` never appears in the hierarchy.
 
 ### 2.3 Resulting Paths
 
-| Scope | Example qualifiers | resourcePath |
-|-------|-------------------|-------------|
-| Resource | `["resource"]` | `gcp/my-project/us-central1/my-bucket` |
-| Project | `["project"]` | `gcp/my-project/us-central1/gcp_storage_buckets` |
-| Namespace | `["namespace"]` | `kubernetes/prod-cluster/default/deployment` |
-| Namespace (CRD) | `["namespace"]` | `kubernetes/prod-cluster/default/kustomization` |
-| Resource (CRD) | `["resource"]` | `kubernetes/prod-cluster/default/online-boutique-prod` |
-| Resource Group | `["resource_group"]` | `azure/my-sub/my-rg/azure_compute_disks` |
+| Scope | Example qualifiers | resource_name value | resourcePath |
+|-------|-------------------|-------------------|-------------|
+| Resource (GCP) | `["resource", "project"]` | `my-bucket` | `gcp/my-project/my-bucket` |
+| Project (GCP) | `["project"]` | `my-project` | `gcp/my-project` |
+| Namespace (K8s) | `["namespace", "cluster"]` | `online-boutique-dev` | `kubernetes/sandbox-cluster-1/online-boutique-dev/online-boutique-dev` |
+| Cluster (K8s) | `["cluster"]` | `sandbox-cluster-1` | `kubernetes/sandbox-cluster-1/sandbox-cluster-1` |
+| Resource (K8s) | `["resource", "namespace", "cluster"]` | `my-pod` | `kubernetes/my-cluster/default/my-pod` |
+| Resource Group (Azure) | `["resource_group", "subscription_name"]` | `my-rg` | `azure/my-sub/my-rg` |
+| Resource (Azure) | `["resource", "resource_group", "subscription_name"]` | `my-vm` | `azure/my-sub/my-rg/my-vm` |
+
+**Note:** Duplication in the path is expected and intentional. For example,
+a namespace-scoped K8s SLX has `online-boutique-dev` appearing twice — once
+as the `namespace` parent and once as `resource_name`. This is by design.
 
 ---
 
@@ -80,41 +83,48 @@ Every tags template **must** emit these tags (when values are available):
 |----------|----------|-------|
 | `platform` | Always | Static value: `gcp`, `aws`, `azure`, `azure_devops`, `kubernetes` |
 | `resource_type` | Always | From `match_resource.resource_type.name`; for K8s CRDs use `kind \| lower` (see 3.4) |
-| `resource_name` | Always | From qualifiers, `match_resource.name` (<=1 child), or `resource_type` (many children) |
+| `resource_name` | Always | From the most-specific qualifier value, or `match_resource.name` as fallback |
 | `child_resource` | Group-scoped | One tag per entry in `child_resource_names`, deduplicated against `resource_name` |
 
 ### 3.2 resource_name Emission
 
-`resource_name` is **always** emitted. The value depends on context:
+`resource_name` is **always** the value of the **most-specific qualifier
+present**, determined by a fixed specificity chain per platform. The order
+qualifiers appear in the generation rule does **not** affect the output.
+
+Each platform template checks qualifiers from most-specific to broadest and
+picks the first one that is defined:
+
+| Platform | Specificity chain (most → least) |
+|----------|----------------------------------|
+| GCP | `resource` > `project` |
+| Kubernetes | `resource` > `namespace` > `cluster` |
+| AWS | `resource` > `region` > `account_name` > `account_id` |
+| Azure ARM | `resource` > `resource_group` > `subscription_name` > `subscription_id` |
+| Azure DevOps | `resource` > `project` > `organization` |
+
+**Example (GCP):**
 
 ```jinja
-{% if qualifiers and qualifiers.resource is defined %}
+{% set _rn_val = qualifiers.resource if qualifiers and qualifiers.resource is defined else (qualifiers.project if qualifiers and qualifiers.project is defined else (match_resource.name if match_resource.name is defined else '')) %}
+{% if _rn_val %}
     - name: resource_name
-      value: '{{ qualifiers.resource | string }}'
-{% elif qualifiers and qualifiers.resource_group is defined %}
-    - name: resource_name
-      value: '{{ qualifiers.resource_group | string }}'
-{% elif match_resource.name is defined and (child_resource_names | default([]) | length) <= 1 %}
-    - name: resource_name
-      value: '{{ match_resource.name | string }}'
-{% elif match_resource.resource_type is defined %}
-    - name: resource_name
-      value: '{{ match_resource.resource_type.name | string }}'
+      value: '{{ _rn_val | string }}'
 {% endif %}
 ```
 
-- **Resource-scoped**: from qualifier value (specific instance name).
-- **Group-scoped, 1 child**: from `match_resource.name` (the resource IS
-  the scope); the matching child is deduplicated (Section 3.3).
-- **Group-scoped, many children**: from `resource_type` (matches the last
-  hierarchy segment); all children appear as `child_resource` tags.
+**How it works:**
 
-For Kubernetes CRDs with multiple children, use `match_resource.kind | lower`
-instead of `match_resource.resource_type.name` (which is the generic
-`"custom"`).
+- **Qualifier `resource`** → `resource_name` = the resource's own name.
+- **Qualifier `project`** → `resource_name` = the project name.
+- **Qualifier `namespace`** → `resource_name` = the namespace name.
+- **Qualifier `cluster`** → `resource_name` = the cluster name.
+- **Qualifier `resource_group`** → `resource_name` = the resource group name.
+- **Qualifier `subscription_name`** → `resource_name` = the subscription name.
+- **No qualifiers** → falls back to `match_resource.name`.
 
-The **hierarchy** (not the tag) controls whether `resource_name` or
-`resource_type` appears in the resourcePath.
+The `resource_name` always represents the scope of the SLX — what is being
+monitored. It is **never** set to `resource_type`.
 
 ### 3.3 child_resource Deduplication
 
@@ -130,6 +140,13 @@ When a child resource name is identical to the `resource_name` value, skip it.
       value: '{{ _cr_value }}'
 {% endif %}
 {% endfor %}
+```
+
+The `_resource_name_value` follows the same specificity-chain logic, reusing
+`_rn_val` which was already computed:
+
+```jinja
+{% set _resource_name_value = _rn_val | default('') | string | replace(":", "_") | replace("/", "_") %}
 ```
 
 Asymmetric normalization (applying `replace` to one side but not the other)
@@ -188,9 +205,11 @@ time by `compute_resource_path_from_hierarchy()` in
 
 1. Read the `hierarchy` list from `spec.additionalContext.hierarchy`.
 2. Build a lookup from `spec.tags` (tag name → first value).
-3. If `resource_name` is in the hierarchy and is redundant (its value
-   duplicates an organisational scope entry), skip it.
-4. Join the remaining tag values with `/` to form `resourcePath`.
+3. Walk the hierarchy in order, collecting each tag's value.
+4. Join values with `/` to form `resourcePath`.
+
+`resource_name` is **always** included in the path, even when its value
+duplicates a parent entry. The hierarchy is the single source of truth.
 
 **Do not** add `resourcePath` or `qualified_name` logic to templates.
 
@@ -201,11 +220,13 @@ time by `compute_resource_path_from_hierarchy()` in
 The `qualifiers` list in a generation rule determines the SLX scope and
 directly controls which tags and hierarchy entries appear:
 
-| Qualifier includes | SLX scope | Hierarchy leaf | resource_name tag | child_resource tags |
-|-------------------|-----------|---------------|-------------------|-------------------|
-| `resource` | Individual resource | `resource_name` | Yes (from qualifier) | No (empty list) |
-| Not `resource`, 1 child | Single resource as scope | `resource_type` | Yes (from `match_resource.name`) | None (deduped against resource_name) |
-| Not `resource`, many children | Group | `resource_type` | Yes (from `resource_type`) | Yes (all children) |
+| Qualifier includes | SLX scope | resource_name value | child_resource tags |
+|-------------------|-----------|-------------------|-------------------|
+| `resource` | Individual resource | Resource's own name | No (empty list) |
+| `project` only | GCP project | Project name | Yes (all matched resources) |
+| `namespace`, `cluster` | K8s namespace | Namespace name | Yes (all matched resources) |
+| `cluster` only | K8s cluster | Cluster name | Yes (all matched resources) |
+| `resource_group` | Azure RG | Resource group name | Yes (all matched resources) |
 
 The `child_resource_names` template variable is populated only when
 `resource` is **not** in the qualifier list. It contains the names of all
@@ -213,14 +234,43 @@ resources that matched the generation rule within that group scope.
 
 ---
 
-## 6. Checklist for New Providers
+## 6. Render-Time Validation
+
+After each template is rendered and parsed as YAML, `validate_rendered_yaml()`
+in `src/renderers/render_output_items.py` checks structural invariants before
+any post-processing (deduplication, resourcePath computation):
+
+| Check | What it prevents |
+|-------|-----------------|
+| Every `hierarchy` entry is a `str` | Dict entries caused by missing trailing newlines in included hierarchy templates |
+| Every tag entry is a mapping (`dict`) | Malformed YAML producing scalar or list tag entries |
+| Tag `name` is a `str` | Non-string keys breaking deduplication lookups |
+| Tag `value` is a scalar (not `dict`/`list`) | Complex values that break tag hashing |
+
+If validation fails, the SLX is skipped and a `WorkspaceBuilderException` is
+raised with an actionable message pointing to the likely root cause.
+
+### Directory-level skip on SLX failure
+
+Output items are sorted so that `slx.yaml` is always rendered **before** its
+siblings (runbooks, SLIs, etc.) in the same directory. When `slx.yaml` fails
+to render, all remaining files in that directory are skipped — you cannot
+upload a runbook or SLI without its parent SLX.
+
+A failure in a non-SLX file (e.g. a runbook template error) does **not** skip
+its siblings. Only the `slx.yaml` primary file acts as the gate for the
+directory.
+
+---
+
+## 7. Checklist for New Providers
 
 When adding support for a new cloud platform:
 
-- [ ] Create `src/templates/<platform>-hierarchy.yaml` following the leaf rule (Section 2.2)
+- [ ] Create `src/templates/<platform>-hierarchy.yaml` ending with `- resource_name`
 - [ ] Create `src/templates/<platform>-tags.yaml` emitting all required standard tags (Section 3.1)
-- [ ] Ensure `resource_type` is always emitted as a tag
-- [ ] Emit `resource_name` always: from qualifiers, `match_resource.name` (<=1 child), or `resource_type` (many children) (Section 3.2)
+- [ ] Ensure `resource_type` is always emitted as a tag (but never in hierarchy)
+- [ ] Emit `resource_name` from the most-specific qualifier per the platform's specificity chain (Section 3.2)
 - [ ] Include the `child_resource` deduplication loop (Section 3.3)
 - [ ] Append platform-specific enrichment tags after the standard block
 - [ ] Verify `resourcePath` is computed correctly (not set manually)

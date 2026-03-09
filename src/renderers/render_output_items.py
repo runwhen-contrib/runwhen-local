@@ -88,53 +88,11 @@ def compute_resource_path_from_hierarchy(data: dict) -> None:
         if name and name not in tag_lookup and value is not None:
             tag_lookup[name] = str(value)
 
-    # Determine if 'resource_name' is redundant because the resource IS one
-    # of the organisational hierarchy levels.  Two detection methods:
-    #
-    # 1. resource_type matches a hierarchy entry (with _id/_name suffix
-    #    normalisation).  E.g. resource_type=cluster and 'cluster' is a
-    #    hierarchy entry, or resource_type=project and 'project_id' is.
-    #
-    # 2. resource_name's resolved value is identical to its immediately
-    #    preceding hierarchy entry's value.  This catches scope-based
-    #    codebundles (e.g. an Azure compute-disks codebundle scoped to a
-    #    resource group, where the tag template sets resource_name to the
-    #    resource group name because there is no more specific leaf resource).
-    resource_type = tag_lookup.get('resource_type')
-    skip_resource_name = False
-    resource_name_idx = None
-
-    if 'resource_name' in hierarchy:
-        resource_name_idx = hierarchy.index('resource_name')
-
-        # Method 1: resource_type matches a hierarchy entry
-        if resource_type:
-            for entry in hierarchy:
-                if entry == 'resource_name':
-                    continue
-                if entry == resource_type:
-                    skip_resource_name = True
-                    break
-                for suffix in ('_id', '_name'):
-                    if entry.endswith(suffix) and entry[:-len(suffix)] == resource_type:
-                        skip_resource_name = True
-                        break
-                if skip_resource_name:
-                    break
-
-        # Method 2: resource_name value duplicates its immediate parent
-        if not skip_resource_name and resource_name_idx > 0:
-            preceding_entry = hierarchy[resource_name_idx - 1]
-            preceding_value = tag_lookup.get(preceding_entry)
-            resource_name_value = tag_lookup.get('resource_name')
-            if preceding_value and resource_name_value and preceding_value == resource_name_value:
-                skip_resource_name = True
-
-    # Build resourcePath from the hierarchy entries in order
+    # Build resourcePath from the hierarchy entries in order.
+    # resource_name always appears in the path even when its value duplicates
+    # a parent entry — the hierarchy is the single source of truth.
     path_parts: list[str] = []
     for entry in hierarchy:
-        if skip_resource_name and entry == 'resource_name':
-            continue
         value = tag_lookup.get(entry)
         if value:
             path_parts.append(value)
@@ -144,12 +102,59 @@ def compute_resource_path_from_hierarchy(data: dict) -> None:
         logger.debug(f"Computed resourcePath from hierarchy: {additional_context['resourcePath']}")
 
 
+def validate_rendered_yaml(data: dict, yaml_text: str) -> None:
+    """
+    Validate structural invariants of a rendered SLX YAML before post-processing.
+    Raises WorkspaceBuilderException with an actionable message on failure.
+    """
+    if not data or not isinstance(data, dict):
+        return
+
+    spec = data.get('spec')
+    if not spec or not isinstance(spec, dict):
+        return
+
+    additional_context = spec.get('additionalContext', {})
+    hierarchy = additional_context.get('hierarchy') if isinstance(additional_context, dict) else None
+    if hierarchy and isinstance(hierarchy, list):
+        for i, entry in enumerate(hierarchy):
+            if not isinstance(entry, str):
+                snippet = yaml_text[max(0, yaml_text.find('hierarchy')):][:200]
+                raise WorkspaceBuilderException(
+                    f"Hierarchy entry {i} is {type(entry).__name__} instead of str: {entry!r}. "
+                    f"This usually means a template's hierarchy include is missing a trailing newline. "
+                    f"Rendered snippet: {snippet}"
+                )
+
+    tags = spec.get('tags')
+    if tags and isinstance(tags, list):
+        for i, tag in enumerate(tags):
+            if not isinstance(tag, dict):
+                raise WorkspaceBuilderException(
+                    f"Tag entry {i} is {type(tag).__name__} instead of a mapping: {tag!r}"
+                )
+            name = tag.get('name')
+            value = tag.get('value')
+            if name is not None and not isinstance(name, str):
+                raise WorkspaceBuilderException(
+                    f"Tag {i} 'name' is {type(name).__name__} instead of str: {name!r}"
+                )
+            if value is not None and isinstance(value, (dict, list)):
+                raise WorkspaceBuilderException(
+                    f"Tag '{name}' value is {type(value).__name__} instead of scalar: {value!r}. "
+                    f"Check that the template wraps the value in quotes."
+                )
+
+
 def deduplicate_secrets_provided(yaml_text: str) -> str:
     """
     Post-processes rendered YAML: deduplicates secretsProvided and tags,
     and computes resourcePath from hierarchy + tags.
     """
     data = yaml.safe_load(yaml_text)  # Load the YAML as a Python dictionary
+
+    validate_rendered_yaml(data, yaml_text)
+
     if 'secretsProvided' in data['spec']:
         secrets = data['spec']['secretsProvided']
         # Deduplicate based on the 'name' key
@@ -270,9 +275,19 @@ def apply_config_provided_overrides(context: Context, output_text: str, output_i
         logger.warning(f"Error in post-render configProvided override processing: {e}")
         return output_text
 
+def _slx_first_sort_key(item: OutputItem) -> tuple:
+    """Sort key that ensures slx.yaml is rendered before its siblings in the
+    same directory.  This lets us detect SLX failures early and skip the
+    remaining files (runbooks, SLIs, etc.) that depend on a valid SLX."""
+    dirname = os.path.dirname(item.path)
+    basename = os.path.basename(item.path)
+    return (dirname, 0 if basename == 'slx.yaml' else 1, basename)
+
+
 def render(context: Context):
     output_items: dict[str, OutputItem] = context.get_property(OUTPUT_ITEMS_PROPERTY, {})
     skipped_templates: List[dict] = []
+    failed_slx_dirs: set = set()
     
     # Initialize render statistics tracking
     render_stats = {
@@ -282,8 +297,24 @@ def render(context: Context):
         'start_time': time.time()
     }
     context.set_property("RENDER_STATS", render_stats)
-    
-    for output_item in output_items.values():
+
+    sorted_items = sorted(output_items.values(), key=_slx_first_sort_key)
+
+    for output_item in sorted_items:
+        slx_dir = os.path.dirname(output_item.path)
+
+        if slx_dir in failed_slx_dirs:
+            logger.warning(
+                f"Skipping {output_item.path}: slx.yaml in the same directory failed to render"
+            )
+            skipped_templates.append({
+                "path": output_item.path,
+                "template": output_item.template_name,
+                "error": f"Skipped: slx.yaml in {slx_dir} failed to render"
+            })
+            render_stats['skipped'] += 1
+            continue
+
         logger.info(f"Rendering output item: {output_item.path}")
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f"Template variables for {output_item.path}: {output_item.template_variables}")
@@ -294,7 +325,7 @@ def render(context: Context):
                                               output_item.template_variables,
                                               output_item.template_loader_func)
 
-            # Deduplicate 'secretsProvided'
+            # Validate + deduplicate 'secretsProvided'
             deduplicated_output = deduplicate_secrets_provided(output_text)
 
             # Apply configProvided overrides
@@ -304,7 +335,6 @@ def render(context: Context):
             context.write_file(output_item.path, deduplicated_output)
             render_stats['successfully_rendered'] += 1
         except WorkspaceBuilderException as e:
-            # Log the error but don't fail
             logger.warning(f"Skipping template {output_item.template_name} for {output_item.path}: {str(e)}")
             skipped_templates.append({
                 "path": output_item.path,
@@ -312,8 +342,9 @@ def render(context: Context):
                 "error": str(e)
             })
             render_stats['skipped'] += 1
+            if os.path.basename(output_item.path) == 'slx.yaml':
+                failed_slx_dirs.add(slx_dir)
         except Exception as e:
-            # Catch any other exceptions during rendering
             logger.warning(f"Unexpected error rendering {output_item.template_name} for {output_item.path}: {str(e)}")
             skipped_templates.append({
                 "path": output_item.path,
@@ -321,6 +352,12 @@ def render(context: Context):
                 "error": str(e)
             })
             render_stats['skipped'] += 1
+            if os.path.basename(output_item.path) == 'slx.yaml':
+                failed_slx_dirs.add(slx_dir)
+
+    if failed_slx_dirs:
+        logger.warning(f"SLX directories skipped due to errors: {sorted(failed_slx_dirs)}")
+        context.set_property("FAILED_SLX_DIRS", failed_slx_dirs)
     
     # Generate report of skipped templates if any
     if skipped_templates:
