@@ -17,3 +17,4 @@
     - namespace
 {% endif %}
     - resource_name
+
