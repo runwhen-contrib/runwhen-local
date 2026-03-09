@@ -48,26 +48,25 @@ Every tags template MUST emit these tags when values are available:
 
 ### resource_name emission rule
 
-`resource_name` is ALWAYS the value of the FIRST (most-specific) qualifier.
-The `qualifiers` dict preserves insertion order (most-specific first).
+`resource_name` is ALWAYS the value of the most-specific qualifier present,
+determined by a fixed specificity chain per platform. The order qualifiers
+appear in the generation rule does NOT affect the output.
 
+Specificity chains (most → least specific):
+- GCP: `resource` > `project`
+- Kubernetes: `resource` > `namespace` > `cluster`
+- AWS: `resource` > `region` > `account_name` > `account_id`
+- Azure ARM: `resource` > `resource_group` > `subscription_name` > `subscription_id`
+- Azure DevOps: `resource` > `project` > `organization`
+
+Example (GCP):
 ```jinja
-{% if qualifiers and qualifiers.values() | list | length > 0 %}
-{% set _first_qual = qualifiers.values() | list | first %}
+{% set _rn_val = qualifiers.resource if qualifiers and qualifiers.resource is defined else (qualifiers.project if qualifiers and qualifiers.project is defined else (match_resource.name if match_resource.name is defined else '')) %}
+{% if _rn_val %}
     - name: resource_name
-      value: '{{ _first_qual | string }}'
-{% elif match_resource.name is defined %}
-    - name: resource_name
-      value: '{{ match_resource.name | string }}'
+      value: '{{ _rn_val | string }}'
 {% endif %}
 ```
-
-- `resource` qualifier → resource_name = resource's own name
-- `project` qualifier → resource_name = project name
-- `namespace` qualifier → resource_name = namespace name
-- `cluster` qualifier → resource_name = cluster name
-- `resource_group` qualifier → resource_name = resource group name
-- No qualifiers → fallback to `match_resource.name`
 
 resource_name is NEVER set to `resource_type`. It always represents the
 scope of the SLX — what is being monitored.
@@ -77,7 +76,7 @@ scope of the SLX — what is being monitored.
 Always normalize BOTH sides of the comparison identically before comparing:
 
 ```jinja
-{% set _resource_name_value = ((qualifiers.values() | list | first) if qualifiers and qualifiers.values() | list | length > 0 else (match_resource.name if match_resource.name is defined else '')) | default('') | string | replace(":", "_") | replace("/", "_") %}
+{% set _resource_name_value = _rn_val | default('') | string | replace(":", "_") | replace("/", "_") %}
 {% for cr in child_resource_names | default([]) %}
 {% set _cr_value = cr | string | replace(":", "_") | replace("/", "_") %}
 {% if _cr_value != _resource_name_value %}

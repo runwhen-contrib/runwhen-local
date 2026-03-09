@@ -32,15 +32,12 @@
     - name: kind
       value: '{{ match_resource.kind | string }}'
 {% endif %}
-{% if qualifiers and qualifiers.values() | list | length > 0 %}
-{% set _first_qual = qualifiers.values() | list | first %}
+{% set _rn_val = qualifiers.resource if qualifiers and qualifiers.resource is defined else (qualifiers.namespace if qualifiers and qualifiers.namespace is defined else (qualifiers.cluster if qualifiers and qualifiers.cluster is defined else (match_resource.name if match_resource.name is defined else ''))) %}
+{% if _rn_val %}
     - name: resource_name
-      value: '{{ _first_qual | string }}'
-{% elif match_resource.name is defined %}
-    - name: resource_name
-      value: '{{ match_resource.name | string }}'
+      value: '{{ _rn_val | string }}'
 {% endif %}
-{% set _resource_name_value = ((qualifiers.values() | list | first) if qualifiers and qualifiers.values() | list | length > 0 else (match_resource.name if match_resource.name is defined else '')) | default('') | string | replace(":", "_") | replace("/", "_") %}
+{% set _resource_name_value = _rn_val | default('') | string | replace(":", "_") | replace("/", "_") %}
 {% for cr in child_resource_names | default([]) %}
 {% set _cr_value = cr | string | replace(":", "_") | replace("/", "_") %}
 {% if _cr_value != _resource_name_value %}

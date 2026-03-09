@@ -88,18 +88,28 @@ Every tags template **must** emit these tags (when values are available):
 
 ### 3.2 resource_name Emission
 
-`resource_name` is **always** the value of the **first (most-specific)
-qualifier**. The `qualifiers` dict preserves insertion order (most-specific
-first), so the first value is always correct.
+`resource_name` is **always** the value of the **most-specific qualifier
+present**, determined by a fixed specificity chain per platform. The order
+qualifiers appear in the generation rule does **not** affect the output.
+
+Each platform template checks qualifiers from most-specific to broadest and
+picks the first one that is defined:
+
+| Platform | Specificity chain (most → least) |
+|----------|----------------------------------|
+| GCP | `resource` > `project` |
+| Kubernetes | `resource` > `namespace` > `cluster` |
+| AWS | `resource` > `region` > `account_name` > `account_id` |
+| Azure ARM | `resource` > `resource_group` > `subscription_name` > `subscription_id` |
+| Azure DevOps | `resource` > `project` > `organization` |
+
+**Example (GCP):**
 
 ```jinja
-{% if qualifiers and qualifiers.values() | list | length > 0 %}
-{% set _first_qual = qualifiers.values() | list | first %}
+{% set _rn_val = qualifiers.resource if qualifiers and qualifiers.resource is defined else (qualifiers.project if qualifiers and qualifiers.project is defined else (match_resource.name if match_resource.name is defined else '')) %}
+{% if _rn_val %}
     - name: resource_name
-      value: '{{ _first_qual | string }}'
-{% elif match_resource.name is defined %}
-    - name: resource_name
-      value: '{{ match_resource.name | string }}'
+      value: '{{ _rn_val | string }}'
 {% endif %}
 ```
 
@@ -132,10 +142,11 @@ When a child resource name is identical to the `resource_name` value, skip it.
 {% endfor %}
 ```
 
-The `_resource_name_value` follows the same first-qualifier logic:
+The `_resource_name_value` follows the same specificity-chain logic, reusing
+`_rn_val` which was already computed:
 
 ```jinja
-{% set _resource_name_value = ((qualifiers.values() | list | first) if qualifiers and qualifiers.values() | list | length > 0 else (match_resource.name if match_resource.name is defined else '')) | default('') | string | replace(":", "_") | replace("/", "_") %}
+{% set _resource_name_value = _rn_val | default('') | string | replace(":", "_") | replace("/", "_") %}
 ```
 
 Asymmetric normalization (applying `replace` to one side but not the other)
@@ -230,7 +241,7 @@ When adding support for a new cloud platform:
 - [ ] Create `src/templates/<platform>-hierarchy.yaml` ending with `- resource_name`
 - [ ] Create `src/templates/<platform>-tags.yaml` emitting all required standard tags (Section 3.1)
 - [ ] Ensure `resource_type` is always emitted as a tag (but never in hierarchy)
-- [ ] Emit `resource_name` from the first qualifier value (Section 3.2)
+- [ ] Emit `resource_name` from the most-specific qualifier per the platform's specificity chain (Section 3.2)
 - [ ] Include the `child_resource` deduplication loop (Section 3.3)
 - [ ] Append platform-specific enrichment tags after the standard block
 - [ ] Verify `resourcePath` is computed correctly (not set manually)
