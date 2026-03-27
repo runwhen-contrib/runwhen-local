@@ -1,6 +1,10 @@
     hierarchy: 
     - platform
+{% if qualifiers and (qualifiers.resource is defined or qualifiers.region is defined) %}
     - account_name
+{% endif %}
+{% if qualifiers and qualifiers.resource is defined %}
     - region
+{% endif %}
     - resource_name
 

@@ -1,6 +1,6 @@
     hierarchy: 
     - platform
-{% if cluster.cluster_type | default('') == "aks" %}
+{% if cluster.cluster_type | default('') == "aks" and qualifiers and (qualifiers.resource is defined or qualifiers.namespace is defined or qualifiers.cluster is defined) %}
 {% if subscription_name is defined %}
     - subscription_name
 {% else %}
@@ -10,10 +10,10 @@
     - resource_group
 {% endif %}
 {% endif %}
-{% if cluster.name %}
+{% if cluster.name and qualifiers and (qualifiers.resource is defined or qualifiers.namespace is defined) %}
     - cluster
 {% endif %}
-{% if match_resource.namespace %}
+{% if match_resource.namespace and qualifiers and qualifiers.resource is defined %}
     - namespace
 {% endif %}
     - resource_name

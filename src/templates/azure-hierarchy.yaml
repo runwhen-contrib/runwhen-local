@@ -1,22 +1,30 @@
     hierarchy: 
     - platform
 {% if organization is defined %}
-    {# Azure DevOps resources #}
+    {# Azure DevOps resources — mirror azure-tags.yaml: do not emit organization
+       as parent when the match IS an organization; do not emit project as parent
+       when the match IS organization or project (avoids duplicating resource_name). #}
 {% if qualifiers and qualifiers.project is defined %}
     - organization
-    - project
-{% elif qualifiers and qualifiers.resource and match_resource.resource_type.name != 'organization' %}
+{% elif qualifiers and qualifiers.resource is defined and match_resource.resource_type.name != 'organization' %}
     - organization
+{% endif %}
+{% if qualifiers and qualifiers.resource is defined and match_resource.resource_type.name not in ('organization', 'project') %}
+    - project
 {% endif %}
 {% else %}
     {# Azure ARM resources #}
+{% if qualifiers and (qualifiers.resource is defined or qualifiers.resource_group is defined) %}
 {% if subscription_name is defined %}
     - subscription_name
 {% else %}
     - subscription_id
 {% endif %}
+{% endif %}
+{% if qualifiers and qualifiers.resource is defined %}
 {% if resource_group is defined or (match_resource.resource_group is defined and match_resource.resource_group.name is defined) %}
     - resource_group
+{% endif %}
 {% endif %}
 {% endif %}
     - resource_name
