@@ -25,6 +25,16 @@ The hierarchy ALWAYS ends with `resource_name`. `resource_type` NEVER appears
 in the hierarchy. Non-qualifier details (like `location`) are tags only, not
 hierarchy entries.
 
+### Parent inclusion rule
+
+A scope entry appears in the hierarchy ONLY when a more-specific qualifier
+exists. This prevents a parent from duplicating `resource_name`:
+- GCP: `project_id` only when `qualifiers.resource is defined`
+- K8s: `cluster` when `resource` or `namespace` exists; `namespace` only when `resource` exists
+- AWS: `account_name` when `resource` or `region` exists; `region` only when `resource` exists
+- Azure ARM: `subscription_name` when `resource` or `resource_group` exists; `resource_group` only when `resource` exists
+- Azure DevOps: `organization` when `resource` or `project` exists; `project` only when `resource` exists
+
 ### Leaf entry rule
 
 ```jinja

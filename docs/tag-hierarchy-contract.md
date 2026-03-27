@@ -29,22 +29,30 @@ Each hierarchy template produces an ordered YAML list:
 platform → parent scopes → resource_name
 ```
 
-The hierarchy **always** ends with `resource_name`. The parent scopes are
-qualifier-derived context tags (cluster, namespace, project_id, etc.).
-Non-qualifier details like `location` or `region` are **not** included in the
-hierarchy — they exist only as informational tags.
+The hierarchy **always** ends with `resource_name`. Parent scopes appear
+**only when a more-specific qualifier exists** — a scope is never both a
+parent entry and the `resource_name`. Non-qualifier details like `location`
+are **not** included in the hierarchy — they exist only as informational tags.
 
-**Examples by platform:**
+### 2.2 Parent Inclusion Rule
 
-| Platform | Parent scopes | Leaf |
-|----------|--------------|------|
-| GCP | `project_id` (only when resource-scoped) | `resource_name` |
-| AWS | `account_name`, `region` | `resource_name` |
-| Azure ARM | `subscription_name`, `resource_group` | `resource_name` |
-| Azure DevOps | `organization`, `project` | `resource_name` |
-| Kubernetes | `cluster`, `namespace` | `resource_name` |
+A scope entry appears in the hierarchy **only** when there is a qualifier
+more specific than it. This prevents duplication between a parent entry and
+`resource_name`:
 
-### 2.2 Leaf Entry Rule
+| Platform | Parent scope | Included when qualifier exists |
+|----------|-------------|-------------------------------|
+| GCP | `project_id` | `resource` |
+| AWS | `account_name` | `resource` or `region` |
+| AWS | `region` | `resource` |
+| Azure ARM | `subscription_name` | `resource` or `resource_group` |
+| Azure ARM | `resource_group` | `resource` |
+| Azure DevOps | `organization` | `resource` or `project` |
+| Azure DevOps | `project` | `resource` |
+| Kubernetes | `cluster` | `resource` or `namespace` |
+| Kubernetes | `namespace` | `resource` |
+
+### 2.3 Leaf Entry Rule
 
 The last entry in the hierarchy is **always** `resource_name`:
 
@@ -55,21 +63,21 @@ The last entry in the hierarchy is **always** `resource_name`:
 There is no conditional — `resource_name` is unconditionally the leaf of
 every hierarchy. `resource_type` never appears in the hierarchy.
 
-### 2.3 Resulting Paths
+### 2.4 Resulting Paths
 
 | Scope | Example qualifiers | resource_name value | resourcePath |
 |-------|-------------------|-------------------|-------------|
 | Resource (GCP) | `["resource", "project"]` | `my-bucket` | `gcp/my-project/my-bucket` |
 | Project (GCP) | `["project"]` | `my-project` | `gcp/my-project` |
-| Namespace (K8s) | `["namespace", "cluster"]` | `online-boutique-dev` | `kubernetes/sandbox-cluster-1/online-boutique-dev/online-boutique-dev` |
-| Cluster (K8s) | `["cluster"]` | `sandbox-cluster-1` | `kubernetes/sandbox-cluster-1/sandbox-cluster-1` |
 | Resource (K8s) | `["resource", "namespace", "cluster"]` | `my-pod` | `kubernetes/my-cluster/default/my-pod` |
-| Resource Group (Azure) | `["resource_group", "subscription_name"]` | `my-rg` | `azure/my-sub/my-rg` |
+| Namespace (K8s) | `["namespace", "cluster"]` | `online-boutique-dev` | `kubernetes/sandbox-cluster-1/online-boutique-dev` |
+| Cluster (K8s) | `["cluster"]` | `sandbox-cluster-1` | `kubernetes/sandbox-cluster-1` |
+| Resource (AWS) | `["resource", "region", "account_name"]` | `my-bucket` | `aws/my-account/us-east-1/my-bucket` |
+| Region (AWS) | `["region", "account_name"]` | `us-east-1` | `aws/my-account/us-east-1` |
+| Account (AWS) | `["account_name"]` | `my-account` | `aws/my-account` |
 | Resource (Azure) | `["resource", "resource_group", "subscription_name"]` | `my-vm` | `azure/my-sub/my-rg/my-vm` |
-
-**Note:** Duplication in the path is expected and intentional. For example,
-a namespace-scoped K8s SLX has `online-boutique-dev` appearing twice — once
-as the `namespace` parent and once as `resource_name`. This is by design.
+| Resource Group (Azure) | `["resource_group", "subscription_name"]` | `my-rg` | `azure/my-sub/my-rg` |
+| Subscription (Azure) | `["subscription_name"]` | `my-sub` | `azure/my-sub` |
 
 ---
 

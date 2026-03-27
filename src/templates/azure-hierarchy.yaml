@@ -2,21 +2,25 @@
     - platform
 {% if organization is defined %}
     {# Azure DevOps resources #}
-{% if qualifiers and qualifiers.project is defined %}
+{% if qualifiers and (qualifiers.resource is defined or qualifiers.project is defined) %}
     - organization
+{% endif %}
+{% if qualifiers and qualifiers.resource is defined %}
     - project
-{% elif qualifiers and qualifiers.resource and match_resource.resource_type.name != 'organization' %}
-    - organization
 {% endif %}
 {% else %}
     {# Azure ARM resources #}
+{% if qualifiers and (qualifiers.resource is defined or qualifiers.resource_group is defined) %}
 {% if subscription_name is defined %}
     - subscription_name
 {% else %}
     - subscription_id
 {% endif %}
+{% endif %}
+{% if qualifiers and qualifiers.resource is defined %}
 {% if resource_group is defined or (match_resource.resource_group is defined and match_resource.resource_group.name is defined) %}
     - resource_group
+{% endif %}
 {% endif %}
 {% endif %}
     - resource_name
