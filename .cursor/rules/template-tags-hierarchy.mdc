@@ -33,7 +33,7 @@ exists. This prevents a parent from duplicating `resource_name`:
 - K8s: `cluster` when `resource` or `namespace` exists; `namespace` only when `resource` exists
 - AWS: `account_name` when `resource` or `region` exists; `region` only when `resource` exists
 - Azure ARM: `subscription_name` when `resource` or `resource_group` exists; `resource_group` only when `resource` exists
-- Azure DevOps: `organization` when `resource` or `project` exists; `project` only when `resource` exists
+- Azure DevOps: `organization` when `project` qualifier exists, or when `resource` exists and the match is not `organization`; `project` only when `resource` exists and the match is neither `organization` nor `project` (mirrors `azure-tags.yaml`)
 
 ### Leaf entry rule
 

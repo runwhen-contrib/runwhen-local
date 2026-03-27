@@ -1,11 +1,15 @@
     hierarchy: 
     - platform
 {% if organization is defined %}
-    {# Azure DevOps resources #}
-{% if qualifiers and (qualifiers.resource is defined or qualifiers.project is defined) %}
+    {# Azure DevOps resources — mirror azure-tags.yaml: do not emit organization
+       as parent when the match IS an organization; do not emit project as parent
+       when the match IS organization or project (avoids duplicating resource_name). #}
+{% if qualifiers and qualifiers.project is defined %}
+    - organization
+{% elif qualifiers and qualifiers.resource is defined and match_resource.resource_type.name != 'organization' %}
     - organization
 {% endif %}
-{% if qualifiers and qualifiers.resource is defined %}
+{% if qualifiers and qualifiers.resource is defined and match_resource.resource_type.name not in ('organization', 'project') %}
     - project
 {% endif %}
 {% else %}

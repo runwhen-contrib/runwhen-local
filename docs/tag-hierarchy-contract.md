@@ -47,8 +47,13 @@ more specific than it. This prevents duplication between a parent entry and
 | AWS | `region` | `resource` |
 | Azure ARM | `subscription_name` | `resource` or `resource_group` |
 | Azure ARM | `resource_group` | `resource` |
-| Azure DevOps | `organization` | `resource` or `project` |
-| Azure DevOps | `project` | `resource` |
+| Azure DevOps | `organization` | `project`, or `resource` when the match is **not** `organization` |
+| Azure DevOps | `project` | `resource` when the match is **not** `organization` or `project` |
+
+For Azure DevOps, `match_resource.resource_type.name` gates parents so an
+organization-scoped SLX does not list `organization` twice, and a project-
+scoped SLX does not list `project` when `resource_name` is already the
+project (see `azure-tags.yaml` for the same `organization` guard).
 | Kubernetes | `cluster` | `resource` or `namespace` |
 | Kubernetes | `namespace` | `resource` |
 
