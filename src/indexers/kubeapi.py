@@ -1,7 +1,7 @@
 """
 Index assets that we can find by querying K8s API servers
 to fetch live clusters, Namespaces, Ingresses, Services,
-Deployments, StatefulSets, etc.
+Deployments, StatefulSets, Jobs, CronJobs, etc.
 
 Recently updated to support anotations/label discovery, readded robvs comments
 where possible. 
@@ -887,6 +887,38 @@ def index(component_context: Context):
                                                                     app_attributes)
                                 except ApiException as e:
                                     logger.debug(f"Error scanning for deployment instances; skipping and continuing; error: {e}")
+
+                            #
+                            # Index Jobs and CronJobs (batch/v1)
+                            #
+                            batch_api_client = client.BatchV1Api(api_client=api_client)
+                            batch_info = (
+                                ('Job', batch_api_client.list_namespaced_job, KubernetesResourceType.JOB, kubeapi_parsers.parse_app),
+                                ('CronJob', batch_api_client.list_namespaced_cron_job, KubernetesResourceType.CRON_JOB, kubeapi_parsers.parse_cronjob),
+                            )
+                            for batch_kind, batch_list_method, batch_resource_type, parse_batch_resource in batch_info:
+                                try:
+                                    ret = batch_list_method(namespace_name)
+                                    for raw_resource in ret.items:
+                                        if (include_annotations or include_labels) and not has_included_annotations_or_labels(raw_resource, include_annotations, include_labels):
+                                            continue
+                                        if has_excluded_annotations_or_labels(raw_resource, exclude_annotations, exclude_labels):
+                                            continue
+                                        owner_name = extract_owner_name(raw_resource)
+                                        batch_name = raw_resource.metadata.name
+                                        batch_qualified_name = get_qualified_name(namespace_qualified_name, batch_name)
+                                        batch_attributes = parse_batch_resource(raw_resource)
+                                        batch_attributes['kind'] = batch_kind
+                                        batch_attributes['namespace'] = namespace
+                                        if owner_name:
+                                            batch_attributes['owner'] = owner_name
+                                        registry.add_resource(KUBERNETES_PLATFORM,
+                                                              batch_resource_type.value,
+                                                              batch_name,
+                                                              batch_qualified_name,
+                                                              batch_attributes)
+                                except ApiException as e:
+                                    logger.debug(f"Error scanning for {batch_kind} instances; skipping and continuing; error: {e}")
 
                             #
                             # Index the namespace ingresses
