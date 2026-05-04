@@ -24,6 +24,8 @@ class KubernetesResourceType(Enum):
     DEPLOYMENT = "deployment"
     DAEMON_SET = "daemonset"
     STATEFUL_SET = "statefulset"
+    JOB = "job"
+    CRON_JOB = "cronjob"
     INGRESS = "ingress"
     SERVICE = "service"
     POD = "pod"

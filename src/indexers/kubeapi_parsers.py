@@ -77,9 +77,25 @@ def parse_namespace(resource):
 
 
 def parse_app(resource):
-    """ Used for Deployments, StatefulSets, DaemonSets and Jobs"""
+    """Used for Deployments, StatefulSets, DaemonSets, and Jobs (pod template under spec.template)."""
     ret = parse_namespaced_resource(resource)
-    template_labels = resource.spec.template.metadata.labels
+    meta = resource.spec.template.metadata
+    template_labels = meta.labels if meta and meta.labels else {}
+    for k, v in template_labels.items():
+        fqk = f"template/{k}"
+        ret[f"{kube_escape(fqk)}"] = v
+    return ret
+
+
+def parse_cronjob(resource):
+    """CronJob pod template lives under spec.job_template.spec.template."""
+    ret = parse_namespaced_resource(resource)
+    try:
+        tmpl = resource.spec.job_template.spec.template
+        meta = tmpl.metadata
+        template_labels = meta.labels if meta and meta.labels else {}
+    except (AttributeError, TypeError):
+        template_labels = {}
     for k, v in template_labels.items():
         fqk = f"template/{k}"
         ret[f"{kube_escape(fqk)}"] = v
