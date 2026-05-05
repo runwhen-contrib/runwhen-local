@@ -192,3 +192,73 @@ class SimulatorRunbookRenderTestCase(TestCase):
         # runbook subdict from test config should appear in spec.
         spec = runbook_doc["spec"]
         self.assertEqual(spec["commands"], ["echo hello"])
+
+
+TEST_CONFIG_YAML_RUNBOOK_ONLY = """
+slxs:
+  bare-slx:
+    levelOfDetail: basic
+    codeCollection: rw-cli-codecollection
+    codeBundle: k8s-deployment-ops
+    runbook:
+      commands: []
+"""
+
+TEST_CONFIG_YAML_FULL = """
+slxs:
+  full-slx:
+    levelOfDetail: detailed
+    codeCollection: rw-cli-codecollection
+    codeBundle: k8s-deployment-ops
+    runbook: { commands: [] }
+    sli: { threshold: 0.99 }
+    slo: { target: 99.5 }
+"""
+
+
+class ConditionalOutputItemTestCase(TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.codecollection_repo_path = _materialize_simulator_codecollection_repo(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _post(self, test_config_yaml: str, workspace_name: str) -> set[str]:
+        request_data = {
+            "components": "test_synth,generation_rules,render_output_items",
+            "workspaceName": workspace_name,
+            "workspaceOwnerEmail": "test@example.com",
+            "papiURL": "http://papi.local",
+            "locationId": "loc-1",
+            "testConfig": test_config_yaml,
+            "codeCollections": [
+                {"repoURL": self.codecollection_repo_path, "ref": "main"},
+            ],
+        }
+        response = self.client.post(
+            "/run/", data=request_data, content_type="application/json"
+        )
+        self.assertEqual(HTTPStatus.OK, response.status_code)
+        from base64 import b64decode
+        import io, tarfile
+        archive_bytes = b64decode(json.loads(response.content)["output"])
+        archive = tarfile.open(fileobj=io.BytesIO(archive_bytes), mode="r")
+        # Group filenames by basename in the SLX dir.
+        by_basename: set[str] = set()
+        for m in archive.getmembers():
+            if "/slxs/" in m.name and not m.isdir():
+                by_basename.add(os.path.basename(m.name))
+        return by_basename
+
+    def test_runbook_only_omits_sli_and_slo(self):
+        files = self._post(TEST_CONFIG_YAML_RUNBOOK_ONLY, "ws-bare")
+        self.assertIn("runbook.yaml", files)
+        self.assertNotIn("sli.yaml", files)
+        self.assertNotIn("slo.yaml", files)
+
+    def test_full_slx_renders_runbook_sli_slo(self):
+        files = self._post(TEST_CONFIG_YAML_FULL, "ws-full")
+        self.assertIn("runbook.yaml", files)
+        self.assertIn("sli.yaml", files)
+        self.assertIn("slo.yaml", files)

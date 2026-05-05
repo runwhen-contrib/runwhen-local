@@ -34,14 +34,22 @@ SETTINGS = (
 
 def _resource_attrs_from_slx_entry(slug: str, entry: dict) -> dict:
     """Project a test config SLX entry into the attribute dict for a synthesized resource."""
+    sli = entry.get("sli") or None
+    slo = entry.get("slo") or None
     return {
         "slx_slug": slug,
         "level_of_detail": entry.get("levelOfDetail", "basic"),
         "code_collection": entry["codeCollection"],
         "code_bundle": entry["codeBundle"],
         "runbook": entry.get("runbook") or {},
-        "sli": entry.get("sli") or None,
-        "slo": entry.get("slo") or None,
+        "sli": sli,
+        "slo": slo,
+        # Diagnostic flags; the SLI/SLO templates gate themselves at render
+        # time on the truthiness of the sli / slo attributes themselves
+        # (the gen-rule engine de-duplicates SLXs by full_name across rules,
+        # so we can't emit conditionally via separate match predicates).
+        "has_sli": "yes" if sli else "no",
+        "has_slo": "yes" if slo else "no",
     }
 
 
