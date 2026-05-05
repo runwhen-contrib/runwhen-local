@@ -1,12 +1,24 @@
 import yaml
 
 from component import Context, Setting, SettingDependency
+from indexers.kubetypes import KUBERNETES_PLATFORM, KubernetesResourceType
 from resources import Registry, REGISTRY_PROPERTY_NAME
+from enrichers.generation_rule_types import LevelOfDetail
 
 DOCUMENTATION = "Synthesize deterministic test resources for E2E upload tests"
 
-TEST_PLATFORM_NAME = "test"
-TEST_RESOURCE_TYPE_NAME = "test_resource"
+# Resources are registered under the existing kubernetes platform so that the
+# already-registered KubernetesPlatformHandler picks them up. The simulator's
+# inventory effectively pretends to be a kubernetes inventory.
+TEST_PLATFORM_NAME = KUBERNETES_PLATFORM
+TEST_RESOURCE_TYPE_NAME = KubernetesResourceType.DEPLOYMENT.value
+
+# Synthetic cluster/namespace identity. Real pipelines use real cluster/namespace
+# resources; the simulator just needs *something* attached so that the kubernetes
+# platform handler's get_level_of_detail/get_namespace traversal doesn't blow up.
+SYNTH_CLUSTER_NAME = "simulator-cluster"
+SYNTH_NAMESPACE_NAME = "simulator"
+SYNTH_NAMESPACE_QUALIFIED_NAME = f"{SYNTH_CLUSTER_NAME}/{SYNTH_NAMESPACE_NAME}"
 
 TEST_CONFIG_SETTING = Setting(
     "TEST_CONFIG",
@@ -21,7 +33,7 @@ SETTINGS = (
 
 
 def _resource_attrs_from_slx_entry(slug: str, entry: dict) -> dict:
-    """Project a test config SLX entry into the attribute dict for a TestResource."""
+    """Project a test config SLX entry into the attribute dict for a synthesized resource."""
     return {
         "slx_slug": slug,
         "level_of_detail": entry.get("levelOfDetail", "basic"),
@@ -31,6 +43,45 @@ def _resource_attrs_from_slx_entry(slug: str, entry: dict) -> dict:
         "sli": entry.get("sli") or None,
         "slo": entry.get("slo") or None,
     }
+
+
+def _ensure_synthetic_namespace(registry: Registry):
+    """Create (or reuse) a synthetic kubernetes cluster + namespace pair so the
+    synthesized deployment resources have the cluster/namespace traversal that the
+    kubernetes platform handler expects."""
+    cluster = registry.lookup_resource(
+        KUBERNETES_PLATFORM, KubernetesResourceType.CLUSTER.value, SYNTH_CLUSTER_NAME
+    )
+    if cluster is None:
+        cluster = registry.add_resource(
+            platform_name=KUBERNETES_PLATFORM,
+            resource_type_name=KubernetesResourceType.CLUSTER.value,
+            resource_name=SYNTH_CLUSTER_NAME,
+            resource_qualified_name=SYNTH_CLUSTER_NAME,
+            resource_attributes={
+                "context": SYNTH_CLUSTER_NAME,
+                "namespaces": {},
+            },
+        )
+    namespace = registry.lookup_resource(
+        KUBERNETES_PLATFORM,
+        KubernetesResourceType.NAMESPACE.value,
+        SYNTH_NAMESPACE_QUALIFIED_NAME,
+    )
+    if namespace is None:
+        namespace = registry.add_resource(
+            platform_name=KUBERNETES_PLATFORM,
+            resource_type_name=KubernetesResourceType.NAMESPACE.value,
+            resource_name=SYNTH_NAMESPACE_NAME,
+            resource_qualified_name=SYNTH_NAMESPACE_QUALIFIED_NAME,
+            resource_attributes={
+                "cluster": cluster,
+                "lod": LevelOfDetail.DETAILED,
+                "labels": {},
+                "annotations": {},
+            },
+        )
+    return namespace
 
 
 def index(context: Context):
@@ -46,12 +97,21 @@ def index(context: Context):
         registry = Registry()
         context.set_property(REGISTRY_PROPERTY_NAME, registry)
 
+    namespace = _ensure_synthetic_namespace(registry) if slxs else None
+
     for slug, entry in slxs.items():
         attrs = _resource_attrs_from_slx_entry(slug, entry)
+        # Standard kubernetes deployment fields expected by the kubernetes platform
+        # handler and downstream enrichers.
+        attrs["namespace"] = namespace
+        attrs["kind"] = "Deployment"
+        attrs["labels"] = {}
+        attrs["annotations"] = {}
+        qualified_name = f"{SYNTH_NAMESPACE_QUALIFIED_NAME}/{slug}"
         registry.add_resource(
             platform_name=TEST_PLATFORM_NAME,
             resource_type_name=TEST_RESOURCE_TYPE_NAME,
             resource_name=slug,
-            resource_qualified_name=slug,
+            resource_qualified_name=qualified_name,
             resource_attributes=attrs,
         )

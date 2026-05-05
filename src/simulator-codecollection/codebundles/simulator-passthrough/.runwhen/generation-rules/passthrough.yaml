@@ -1,0 +1,21 @@
+# Passthrough generation rule for the simulator. Matches synthesized
+# resources under the kubernetes platform with type deployment, and emits
+# one SLX per resource. Loaded via the existing code-collection mechanism.
+apiVersion: runwhen.com/v1
+kind: GenerationRules
+spec:
+  platform: kubernetes
+  generationRules:
+    - resourceTypes:
+        - deployment
+      matchRules:
+        - type: pattern
+          pattern: ".+"
+          properties: ["name"]
+          mode: substring
+      slxs:
+        - baseName: "test"
+          qualifiers: ["resource"]
+          outputItems:
+            - type: runbook
+              templateName: test-runbook.yaml
