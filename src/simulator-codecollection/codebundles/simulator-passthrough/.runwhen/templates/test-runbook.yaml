@@ -1,0 +1,8 @@
+apiVersion: runwhen.com/v1
+kind: Runbook
+metadata:
+  name: {{ full_slx_name }}
+  labels:
+    codeCollection: {{ match_resource.code_collection }}
+    codeBundle: {{ match_resource.code_bundle }}
+spec: {{ match_resource.runbook | tojson }}

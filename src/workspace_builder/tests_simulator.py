@@ -137,3 +137,58 @@ class PassthroughGenerationRuleTestCase(TestCase):
             len(slx_dirs), 1,
             f"Expected exactly 1 SLX dir, got: {slx_dirs}; archive members: {all_members}"
         )
+
+
+class SimulatorRunbookRenderTestCase(TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.codecollection_repo_path = _materialize_simulator_codecollection_repo(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_runbook_yaml_is_rendered_with_expected_labels_and_spec(self):
+        request_data = {
+            "components": "test_synth,generation_rules,render_output_items",
+            "workspaceName": "ws-render",
+            "workspaceOwnerEmail": "test@example.com",
+            "papiURL": "http://papi.local",
+            "locationId": "loc-1",
+            "testConfig": TEST_CONFIG_YAML_BASIC,
+            "codeCollections": [
+                {"repoURL": self.codecollection_repo_path, "ref": "main"},
+            ],
+        }
+        response = self.client.post(
+            "/run/", data=request_data, content_type="application/json"
+        )
+        self.assertEqual(HTTPStatus.OK, response.status_code)
+
+        from base64 import b64decode
+        import io, tarfile, yaml
+        archive_bytes = b64decode(json.loads(response.content)["output"])
+        archive = tarfile.open(fileobj=io.BytesIO(archive_bytes), mode="r")
+
+        # Find the rendered runbook.yaml. SLX dir name comes from
+        # baseName + qualifier resolution and is not hard-coded.
+        runbook_members = [
+            m for m in archive.getmembers()
+            if m.name.endswith("/runbook.yaml") and "/slxs/" in m.name
+        ]
+        all_members = [m.name for m in archive.getmembers()]
+        self.assertEqual(
+            len(runbook_members), 1,
+            f"Expected exactly 1 runbook.yaml; got {len(runbook_members)}. Members: {all_members}",
+        )
+
+        runbook_text = archive.extractfile(runbook_members[0]).read().decode("utf-8")
+        runbook_doc = yaml.safe_load(runbook_text)
+
+        self.assertEqual(runbook_doc["kind"], "Runbook")
+        # codeCollection/codeBundle should be populated from the test config.
+        labels = runbook_doc["metadata"]["labels"]
+        self.assertEqual(labels["codeCollection"], "rw-cli-codecollection")
+        self.assertEqual(labels["codeBundle"], "k8s-deployment-ops")
+        # runbook subdict from test config should appear in spec.
+        spec = runbook_doc["spec"]
+        self.assertEqual(spec["commands"], ["echo hello"])
