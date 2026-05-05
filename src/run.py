@@ -200,6 +200,17 @@ def coalesce(*vals):
     return next((v for v in vals if v not in (None, "")), None)
 
 
+def build_simulate_envelope(papi_response_data: dict, workspace_name: str) -> str:
+    """Construct the JSON envelope printed on stdout by the simulate subcommand
+    after a successful upload. Pure function — no I/O.
+    """
+    envelope = {
+        "task_id": papi_response_data.get("task_id"),
+        "workspace_name": workspace_name,
+    }
+    return json.dumps(envelope)
+
+
 def main():
     parser = ArgumentParser(description="Run onboarding script to generate initial workspace and SLX info")
     parser.add_argument('command', action='store',
@@ -882,6 +893,13 @@ def main():
                       f"status={response.status_code}; Response body: {response.text[:500]}")
 
         print("Workspace builder data uploaded successfully.")
+
+        if _original_command == SIMULATE_COMMAND:
+            try:
+                response_data = response.json()
+            except (ValueError, requests.exceptions.JSONDecodeError):
+                response_data = {}
+            print(build_simulate_envelope(response_data, workspace_name))
 
     # Cleanup the temp git repo materialized for the simulate subcommand.
     if _simulator_temp_dir:
