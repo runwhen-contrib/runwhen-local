@@ -67,17 +67,10 @@ SIMULATOR_CODECOLLECTION_PATH = os.path.abspath(
 
 
 def _materialize_simulator_codecollection_repo(target_dir: str) -> str:
-    """Copy the simulator codecollection into a temp directory and `git init` it,
-    so the codecollection loader (which uses git clone_from) can consume it.
-    Returns the path to the throwaway repo."""
-    import shutil
-    import git
-    repo_path = os.path.join(target_dir, "simulator-codecollection")
-    shutil.copytree(SIMULATOR_CODECOLLECTION_PATH, repo_path)
-    repo = git.Repo.init(repo_path, initial_branch="main")
-    repo.git.add(all=True)
-    repo.index.commit("Initial commit")
-    return repo_path
+    """Thin wrapper around the shared helper for backwards compatibility within
+    this test module."""
+    from utils import materialize_simulator_codecollection_repo
+    return materialize_simulator_codecollection_repo(SIMULATOR_CODECOLLECTION_PATH, target_dir)
 
 
 class PassthroughGenerationRuleTestCase(TestCase):

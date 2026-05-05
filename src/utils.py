@@ -222,6 +222,22 @@ def get_request_verify():
         return False
     return None
 
+def materialize_simulator_codecollection_repo(source_dir: str, target_dir: str) -> str:
+    """Copy a simulator codecollection directory into target_dir and `git init` it
+    so the codecollection loader (which uses git.Repo.clone_from) can consume it.
+    Returns the path to the created repo directory."""
+    import shutil
+    import git
+    repo_path = os.path.join(target_dir, "simulator-codecollection")
+    if os.path.exists(repo_path):
+        shutil.rmtree(repo_path)
+    shutil.copytree(source_dir, repo_path)
+    repo = git.Repo.init(repo_path, initial_branch="main")
+    repo.git.add(all=True)
+    repo.index.commit("Initial commit")
+    return repo_path
+
+
 def mask_string(input_string: str, start_visible: int = 2, end_visible: int = 2, mask_char: str = '*') -> str:
     """
     Mask a string by keeping the first and last few characters visible and replacing 

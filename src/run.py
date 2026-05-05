@@ -38,6 +38,7 @@ REST_SERVICE_PORT_DEFAULT = 8000
 INFO_COMMAND = 'info'
 RUN_COMMAND = 'run'
 UPLOAD_COMMAND = 'upload'
+SIMULATE_COMMAND = 'simulate'
 
 
 CUSTOMIZATION_RULES_DEFAULT = "map-customization-rules"
@@ -201,10 +202,15 @@ def coalesce(*vals):
 
 def main():
     parser = ArgumentParser(description="Run onboarding script to generate initial workspace and SLX info")
-    parser.add_argument('command', action='store', choices=[INFO_COMMAND, RUN_COMMAND, UPLOAD_COMMAND],
+    parser.add_argument('command', action='store',
+                        choices=[INFO_COMMAND, RUN_COMMAND, UPLOAD_COMMAND, SIMULATE_COMMAND],
                         help=f'{SERVICE_NAME} action to perform. '
                              '"info" returns info about the available components. '
-                             '"run" runs the {SERVICE_NAME} components to generate workspace/SLX files.')
+                             '"run" runs the {SERVICE_NAME} components to generate workspace/SLX files. '
+                             '"upload" uploads previously generated workspace data to PAPI. '
+                             '"simulate" drives the simulator pipeline end-to-end against a YAML test '
+                             'config (uses the bundled simulator codecollection); add --upload to '
+                             'POST the resulting archive to PAPI.')
     parser.add_argument('-v', '--verbose', action='store_true',
                         help="Print more detailed output.")
     parser.add_argument('-k', '--kubeconfig', action='store', dest='kubeconfig', default='kubeconfig',
@@ -221,6 +227,9 @@ def main():
     parser.add_argument('--upload-info', action='store', dest="upload_info", default="uploadInfo.yaml",
                         help="Location of the uploadInfo.yaml file that was downloaded from the RunWhen GUI "
                              "after creating a new workspace. The path is relative to the base directory.")
+    parser.add_argument('--config', action='store', dest='simulate_config',
+                        help="Path to the YAML test config file (simulate subcommand only). "
+                             "Path is relative to the base directory if not absolute.")
     parser.add_argument('--rest-service-host', action='store', dest="rest_service_host",
                         default="localhost:8000",
                         help=f'Host/port info for where the {SERVICE_NAME} REST service is running. '
@@ -619,6 +628,40 @@ def main():
     output_path = os.path.join(base_directory, args.output_path)
     status_file_path = os.path.join(output_path, ".status")
 
+    _original_command = args.command
+    _SIMULATE_REQUEST_OVERRIDES = {}
+    _simulator_temp_dir = None
+    if args.command == SIMULATE_COMMAND:
+        if not args.simulate_config:
+            fatal("simulate requires --config <path-to-test-yaml>")
+        config_path = args.simulate_config
+        if not os.path.isabs(config_path):
+            config_path = os.path.join(base_directory, config_path)
+        if not os.path.exists(config_path):
+            fatal(f"Test config file not found: {config_path}")
+        test_config_text = read_file(config_path, "r")
+
+        # Materialize the bundled simulator codecollection as a temp git repo
+        # because the codecollection loader requires git.Repo.clone_from(...).
+        from utils import materialize_simulator_codecollection_repo
+        simulator_cc_dir = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "simulator-codecollection"
+        )
+        _simulator_temp_dir = tempfile.mkdtemp(prefix="wb-simulator-")
+        simulator_repo_path = materialize_simulator_codecollection_repo(
+            simulator_cc_dir, _simulator_temp_dir
+        )
+
+        args.components = "test_synth,generation_rules,render_output_items"
+        # args.upload_data already reflects whether --upload was passed; preserve it.
+        args.command = RUN_COMMAND
+        _SIMULATE_REQUEST_OVERRIDES = {
+            "testConfig": test_config_text,
+            "codeCollections": [
+                {"repoURL": simulator_repo_path, "ref": "main"},
+            ],
+        }
+
     if args.command == RUN_COMMAND:
         request_data = dict()
 
@@ -651,6 +694,7 @@ def main():
         if not args.components:
             fatal("Error: at least one component must be specified to run")
         request_data['components'] = args.components
+        request_data.update(_SIMULATE_REQUEST_OVERRIDES)
         if final_kubeconfig_path and os.path.exists(final_kubeconfig_path):
             print(f"Indexing Kubernetes with kubeconfig from {final_kubeconfig_path}")
             kubeconfig_data = read_file(final_kubeconfig_path, "rb")
@@ -838,6 +882,10 @@ def main():
                       f"status={response.status_code}; Response body: {response.text[:500]}")
 
         print("Workspace builder data uploaded successfully.")
+
+    # Cleanup the temp git repo materialized for the simulate subcommand.
+    if _simulator_temp_dir:
+        shutil.rmtree(_simulator_temp_dir, ignore_errors=True)
 
     # Add cheat-sheet integration, which points at the output items and
     # generates the list of local commands that exist in the TaskSet.
