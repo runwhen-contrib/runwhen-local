@@ -47,8 +47,11 @@ class SimulateCliTestCase(TestCase):
             env["REST_SERVICE_PORT"] = "1"
 
             src_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+            # Use the same Python interpreter as the test runner so we share
+            # the project's installed dependencies (requests, etc.).
+            import sys
             result = subprocess.run(
-                ["python3", "run.py", "simulate",
+                [sys.executable, "run.py", "simulate",
                  "--config", test_config_path,
                  "--upload-info", upload_info_path,
                  "--base-directory", tmpdir,
