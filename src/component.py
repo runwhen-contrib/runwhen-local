@@ -248,7 +248,7 @@ def init_components():
     # be added here, which is less than ideal, although practically may not be
     # a huge deal.
     component_stages_init = (
-        (Stage.INDEXER, ["load_resources", "kubeapi", "cloudquery", "azure_devops"]),
+        (Stage.INDEXER, ["load_resources", "kubeapi", "cloudquery", "azure_devops", "test_synth"]),
         (Stage.ENRICHER, ["generation_rules"]),
         (Stage.RENDERER, ["render_output_items", "dump_resources"])
     )
