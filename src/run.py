@@ -867,7 +867,7 @@ def main():
         try:
             response = requests.post(upload_url, data=upload_request_text, headers=headers, verify=get_request_verify())
         except requests.exceptions.ConnectionError as e:
-            fatal("Upload of map builder data failed, because the PAPI upload URL is invalid or unavailable; {e}")
+            fatal(f"Upload of map builder data failed, because the PAPI upload URL is invalid or unavailable; {e}")
             # NB: The fatal call will already have exited, so this return call isn't really
             # necessary, but it makes the linting code happy so that it doesn't complain
             # about possibly uninitialized variables, e.g. response
