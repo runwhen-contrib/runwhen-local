@@ -33,7 +33,15 @@ SETTINGS = (
 
 
 def _resource_attrs_from_slx_entry(slug: str, entry: dict) -> dict:
-    """Project a test config SLX entry into the attribute dict for a synthesized resource."""
+    """Project a test config SLX entry into the attribute dict for a synthesized resource.
+
+    Captures both the codecollection identity (used to render
+    `spec.codeBundle.{repoUrl, ref, pathToRobot}` on runbook/sli/slo) and the
+    optional SLX manifest metadata (alias, statement, owners, ...) needed to
+    produce a workspace upload archive that matches the schema the platform
+    expects. Anything not provided in the test config falls back to a sensible
+    default so the templates don't have to guard every field.
+    """
     sli = entry.get("sli") or None
     slo = entry.get("slo") or None
     return {
@@ -41,15 +49,26 @@ def _resource_attrs_from_slx_entry(slug: str, entry: dict) -> dict:
         "level_of_detail": entry.get("levelOfDetail", "basic"),
         "code_collection": entry["codeCollection"],
         "code_bundle": entry["codeBundle"],
+        # Source codecollection identity (rendered into spec.codeBundle on
+        # runbook/sli/slo). Defaults are placeholder values so absent fields
+        # produce a structurally-valid (but non-runnable) reference.
+        "repo_url": entry.get("repoURL", ""),
+        "ref": entry.get("ref", "main"),
+        # SLX manifest fields (rendered into slx.yaml's spec). All optional;
+        # defaults match the empty/zero shape produced by real workspace
+        # builder runs when the source generation rule omits them.
+        "alias": entry.get("alias", slug),
+        "statement": entry.get("statement", ""),
+        "as_measured_by": entry.get("asMeasuredBy", ""),
+        "image_url": entry.get("imageURL", ""),
+        "owners": entry.get("owners", []),
+        "config_provided": entry.get("configProvided", []),
+        "tags": entry.get("tags", []),
+        "additional_context": entry.get("additionalContext", {}),
+        # Output-item subdicts (passed through into runbook/sli/slo .spec).
         "runbook": entry.get("runbook") or {},
         "sli": sli,
         "slo": slo,
-        # Diagnostic flags; the SLI/SLO templates gate themselves at render
-        # time on the truthiness of the sli / slo attributes themselves
-        # (the gen-rule engine de-duplicates SLXs by full_name across rules,
-        # so we can't emit conditionally via separate match predicates).
-        "has_sli": "yes" if sli else "no",
-        "has_slo": "yes" if slo else "no",
     }
 
 

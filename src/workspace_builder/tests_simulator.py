@@ -26,8 +26,16 @@ slxs:
     levelOfDetail: detailed
     codeCollection: rw-cli-codecollection
     codeBundle: k8s-deployment-ops
+    repoURL: https://github.com/runwhen-contrib/rw-cli-codecollection.git
+    ref: main
+    alias: My App Operations
+    statement: Operational tasks for my-app
     runbook:
-      commands: ["echo hello"]
+      pathToRobot: codebundles/k8s-deployment-ops/runbook.robot
+      configProvided:
+        - {name: NAMESPACE, value: demo}
+      secretsProvided:
+        - {name: kubeconfig, workspaceKey: kubeconfig}
 """
 
 
@@ -178,13 +186,26 @@ class SimulatorRunbookRenderTestCase(TestCase):
         runbook_doc = yaml.safe_load(runbook_text)
 
         self.assertEqual(runbook_doc["kind"], "Runbook")
-        # codeCollection/codeBundle should be populated from the test config.
+        # metadata.name has the workspace-prefixed format produced by real runs.
+        self.assertTrue(
+            runbook_doc["metadata"]["name"].startswith("ws-render--"),
+            f"Expected metadata.name to start with 'ws-render--'; got {runbook_doc['metadata']['name']}",
+        )
+        # Standard labels from common-labels.yaml should be present.
         labels = runbook_doc["metadata"]["labels"]
-        self.assertEqual(labels["codeCollection"], "rw-cli-codecollection")
-        self.assertEqual(labels["codeBundle"], "k8s-deployment-ops")
-        # runbook subdict from test config should appear in spec.
+        self.assertEqual(labels["workspace"], "ws-render")
+        self.assertEqual(labels["locationId"], "loc-1")
+        # spec.codeBundle assembled from test config repoURL/ref + runbook.pathToRobot.
         spec = runbook_doc["spec"]
-        self.assertEqual(spec["commands"], ["echo hello"])
+        self.assertEqual(spec["codeBundle"]["repoUrl"],
+                         "https://github.com/runwhen-contrib/rw-cli-codecollection.git")
+        self.assertEqual(spec["codeBundle"]["ref"], "main")
+        self.assertEqual(spec["codeBundle"]["pathToRobot"],
+                         "codebundles/k8s-deployment-ops/runbook.robot")
+        # configProvided/secretsProvided pass through from the test config.
+        self.assertEqual(spec["configProvided"], [{"name": "NAMESPACE", "value": "demo"}])
+        self.assertEqual(spec["secretsProvided"],
+                         [{"name": "kubeconfig", "workspaceKey": "kubeconfig"}])
 
 
 TEST_CONFIG_YAML_RUNBOOK_ONLY = """

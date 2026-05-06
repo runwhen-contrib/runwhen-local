@@ -1,0 +1,22 @@
+apiVersion: runwhen.com/v1
+kind: ServiceLevelX
+metadata:
+  name: {{ slx_name }}
+  labels:
+{% include "common-labels.yaml" %}
+  annotations:
+    fullSlxName: {{ full_slx_name }}
+    sourceGenerationRuleRepoURL: {{ repo_url }}
+    sourceGenerationRuleRepoRef: {{ ref }}
+    sourceGenerationRulePath: {{ generation_rule_file_path }}
+    qualifiers: '{{ qualifiers | tojson }}'
+    internal.runwhen.com/generated-by: {{ generated_by }}
+spec:
+  alias: {{ match_resource.alias | tojson }}
+  asMeasuredBy: {{ match_resource.as_measured_by | tojson }}
+  imageURL: {{ match_resource.image_url | tojson }}
+  statement: {{ match_resource.statement | tojson }}
+  owners: {{ match_resource.owners | tojson }}
+  configProvided: {{ match_resource.config_provided | tojson }}
+  tags: {{ match_resource.tags | tojson }}
+  additionalContext: {{ match_resource.additional_context | tojson }}

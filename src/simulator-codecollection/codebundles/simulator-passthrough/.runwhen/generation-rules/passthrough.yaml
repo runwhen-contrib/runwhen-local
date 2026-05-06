@@ -28,6 +28,8 @@ spec:
         - baseName: "test"
           qualifiers: ["resource"]
           outputItems:
+            - type: slx
+              templateName: test-slx.yaml
             - type: runbook
               templateName: test-runbook.yaml
             - type: sli
