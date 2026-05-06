@@ -470,7 +470,13 @@ def main():
     )
 
     if cloud_config is None:
-        raise ValueError("'cloudConfig' section is missing; discovery configuration must be explicit.")
+        if args.command == SIMULATE_COMMAND:
+            # The simulator doesn't do live discovery, so it doesn't need a real
+            # cloudConfig. Default to an empty dict so the rest of the pipeline
+            # treats discovery as a no-op.
+            cloud_config = {}
+        else:
+            raise ValueError("'cloudConfig' section is missing; discovery configuration must be explicit.")
 
 
     azure_config = None
