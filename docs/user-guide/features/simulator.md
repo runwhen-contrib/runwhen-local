@@ -20,44 +20,117 @@ python3 run.py simulate \
 
 ## Test config schema
 
+The full schema below; all top-level sections except `slxs` are optional. A
+minimal config has only `slxs` (one entry per SLX) and inherits sensible
+defaults for everything else.
+
 ```yaml
+# OPTIONAL. Declares clusters, namespaces, and synthetic K8s resources that
+# SLX entries can bind to. If omitted, each SLX is backed by a synthetic
+# Deployment under simulator-cluster/simulator (current default).
+inventory:
+  clusters:
+    - name: <cluster-name>
+      namespaces:
+        - name: <namespace-name>
+          labels: {}            # optional
+          annotations: {}       # optional
+  resources:
+    - id: <resource-id>          # referenced from slxs[*].resources
+      kind: Deployment           # any K8s kind: Deployment, StatefulSet,
+                                 # Service, Ingress, Pod, CronJob, ...
+      name: <resource-name>
+      cluster: <cluster-name>
+      namespace: <namespace-name>
+      labels:                    # become [k8s]<key> tags on the SLX
+        <key>: <value>
+      annotations: {}
+
+# OPTIONAL. Workspace-level groupings rendered into workspace.yaml's
+# slxGroups. SLX references use the dict keys from slxs (slugs); the
+# simulator translates them to workspace-prefixed full names automatically.
+slxGroups:
+  - name: <group-name>
+    slxs: [<slug>, <slug>, ...]
+    dependsOn: [<other-group-name>]   # optional
+
+# OPTIONAL. Workspace-level SLX-to-SLX dependencies rendered into
+# workspace.yaml's slxRelationships.
+slxRelationships:
+  - subject: <slug>
+    verb: dependent-on | depended-on-by
+    object: <slug>
+
+# REQUIRED. One entry per SLX.
 slxs:
   <slx-slug>:
-    levelOfDetail: basic|detailed|none   # optional, default: basic
-    codeCollection: <name>                # required (label only — not loaded)
-    codeBundle: <path>                    # required (label only)
-    runbook: { ... }                      # required, passthrough vars
-    sli: { ... }                          # optional
-    slo: { ... }                          # optional
+    levelOfDetail: basic|detailed|none      # optional, default: basic
+    codeCollection: <name>                  # required (label only)
+    codeBundle: <path>                      # required (path within codeCollection)
+    repoURL: <git-url>                      # rendered into spec.codeBundle.repoUrl
+    ref: <branch-or-tag>                    # rendered into spec.codeBundle.ref
+
+    # OPTIONAL list of inventory.resources ids this SLX targets.
+    # 1:1 — one entry, one resource. (default behavior when omitted)
+    # 1:N — multiple SLX entries reference the same resource.
+    # N:1 — list multiple ids; extras become additionalContext.childResources.
+    resources: [<resource-id>, ...]
+
+    # OPTIONAL SLX manifest fields (with sensible defaults).
+    alias: <human-readable-name>
+    statement: <description>
+    asMeasuredBy: <description>
+    imageURL: <url>
+    owners: [<email>, ...]
+    configProvided: [{name, value}]
+    tags: [{name, value}]                   # overrides auto-derived tags
+    additionalContext: {}                   # merged with auto-derived
+
+    # REQUIRED. Renders into runbook.yaml's spec.
+    runbook:
+      pathToRobot: <path>                   # rendered into spec.codeBundle.pathToRobot
+      configProvided: [{name, value}]
+      secretsProvided: [{name, workspaceKey}]
+
+    # OPTIONAL. Renders into sli.yaml's spec when non-empty.
+    sli:
+      pathToRobot: <path>
+      description: <text>
+      displayUnitsLong: <text>
+      displayUnitsShort: <text>
+      intervalStrategy: <strategy>          # default: intermezzo
+      intervalSeconds: <int>                # default: 60
+      configProvided: [...]
+      secretsProvided: [...]
+      alertConfig: {}                       # optional
+
+    # OPTIONAL. Renders into slo.yaml's spec when non-empty.
+    slo:
+      pathToRobot: <path>
+      target: <number>                      # default: 99.0
+      configProvided: [...]
+      secretsProvided: [...]
 ```
 
-The `codeCollection` and `codeBundle` values are stored as label strings on
-the rendered SLX YAMLs. The simulator does not require the named codecollection
-to exist on disk — the platform validates them as references but does not
-require local files.
+### Auto-derived SLX fields (when `resources` is set)
 
-The `runbook`, `sli`, and `slo` subdicts are passed as Jinja context to the
-corresponding template; their structure is whatever the platform expects in
-the `spec` of each kind. SLI and SLO files are emitted only when their
-respective subdicts are present and non-empty.
+When an SLX has `resources: [<id>]`, the simulator pulls the bound inventory
+resource(s) and auto-fills:
 
-## How it works (architecture)
+- `metadata.annotations.qualifiers` — `{"namespace": "...", "cluster": "..."}`
+- `spec.tags`:
+  - `platform: kubernetes`
+  - `cluster: <cluster-name>`
+  - `namespace: <namespace-name>`
+  - `kind: <Kind>` (e.g., StatefulSet, Ingress)
+  - `resource_name: <resource-name>`
+  - `resource_type: <kind-lowercase>`
+  - For each k8s label on the resource: `[k8s]<key>: <value>`
+- `spec.additionalContext.{hierarchy, qualified_name, resourcePath}`
+- For N:1, `spec.additionalContext.childResources` listing the extra resources
 
-1. The CLI subcommand reads the test config + `uploadInfo.yaml` and POSTs to
-   the workspace builder REST service at `/run/`.
-2. A bundled simulator codecollection at `src/simulator-codecollection/` is
-   materialized as a temp git repo at runtime and passed via the
-   `codeCollections` request setting.
-3. The pipeline runs `test_synth → generation_rules → render_output_items`:
-   - `test_synth` (an INDEXER) parses the test config and synthesizes
-     deterministic resources under the `kubernetes` platform.
-   - `generation_rules` matches the synthesized resources against the
-     passthrough rule in the bundled codecollection and emits one SLX per
-     resource.
-   - `render_output_items` writes the runbook/sli/slo YAML files into the
-     workspace output directory using the bundled simulator templates.
-4. The CLI then reuses the existing upload code path to POST the resulting
-   archive to PAPI.
+Test config can override any auto-derived field by supplying it explicitly
+on the SLX entry (e.g., `tags: [...]` overrides the entire derived tag list).
 
 ## Output
 
@@ -69,6 +142,27 @@ On a successful upload, the CLI prints a single JSON line on stdout:
 
 Callers should capture stdout and use `task_id` to poll PAPI for the upload
 task's terminal status.
+
+## How it works (architecture)
+
+1. The CLI subcommand reads the test config + `uploadInfo.yaml` and POSTs to
+   the workspace builder REST service at `/run/`.
+2. A bundled simulator codecollection at `src/simulator-codecollection/` is
+   materialized as a temp git repo at runtime and passed via the
+   `codeCollections` request setting.
+3. The pipeline runs `test_synth → generation_rules → test_groups → render_output_items`:
+   - `test_synth` (INDEXER) parses the test config, materializes the
+     inventory topology (clusters, namespaces, resources), and synthesizes
+     one anchor deployment per SLX entry under the `kubernetes` platform.
+   - `generation_rules` (ENRICHER) matches anchors against the passthrough
+     rule in the bundled codecollection and emits one SLX per anchor.
+   - `test_groups` (ENRICHER) reads `slxGroups` and `slxRelationships` from
+     the test config and populates the workspace-level group / relationship
+     state, translating slugs to qualified SLX names.
+   - `render_output_items` (RENDERER) writes the workspace.yaml, slx.yaml,
+     runbook.yaml, sli.yaml, slo.yaml files using the simulator templates.
+4. The CLI then reuses the existing upload code path to POST the resulting
+   archive to PAPI.
 
 ## What it does NOT do
 
@@ -83,13 +177,20 @@ simulator:
 
 - SLX directory names are derived from the rule's `baseName` + qualifiers
   with internal name-shortening; they do not match the input slug verbatim.
-  Tests should not hard-code the on-disk SLX directory name.
+  Tests should not hard-code on-disk SLX directory names — they will look
+  like `dm-ap-op-test-de45f97a` for an SLX slug `demo-app-ops`.
 - The simulator codecollection's SLI and SLO templates use a deliberate
   exception (`{% if not match_resource.sli %}{% set _x = (1/0) %}{% endif %}`)
   to skip rendering when the corresponding subdict is absent. This produces
   a `division by zero` entry in the workspace's `skipped_templates_report.md`
   per skipped output item; this is expected and does not indicate failure.
-- The simulator pretends its inventory is a Kubernetes inventory: synthesized
-  resources are registered under platform `kubernetes` with type `deployment`.
-  This is an internal implementation choice that lets the simulator reuse the
+- The simulator pretends its inventory is a Kubernetes inventory: anchor
+  resources are registered under platform `kubernetes` with type `deployment`,
+  regardless of the user-facing `kind` from inventory. The `kind` flows into
+  the rendered SLX's tags / additionalContext but does not change the
+  underlying synthesized resource type. This lets the simulator reuse the
   existing kubernetes platform handler without registering a new one.
+- SSL verification: if the target PAPI presents a self-signed or internal-CA
+  cert that the local Python's CA store doesn't trust, set the env var
+  `REQUESTS_CA_BUNDLE` to any value (e.g., `REQUESTS_CA_BUNDLE=skip`) before
+  running. The workspace builder treats this env var as "skip verification."

@@ -276,3 +276,229 @@ class ConditionalOutputItemTestCase(TestCase):
         self.assertIn("runbook.yaml", files)
         self.assertIn("sli.yaml", files)
         self.assertIn("slo.yaml", files)
+
+
+# ----------------------------------------------------------------------
+# Inventory + cardinality + groups + relationships tests
+# ----------------------------------------------------------------------
+
+INVENTORY_TEST_CONFIG = """
+inventory:
+  clusters:
+    - name: prod-cluster
+      namespaces:
+        - name: prod-app
+        - name: prod-cache
+    - name: edge-cluster
+      namespaces:
+        - name: ingress
+
+  resources:
+    - id: deploy-app
+      kind: Deployment
+      name: my-app
+      cluster: prod-cluster
+      namespace: prod-app
+      labels:
+        app.kubernetes.io/name: my-app
+        tier: backend
+    - id: sts-cache
+      kind: StatefulSet
+      name: my-cache
+      cluster: prod-cluster
+      namespace: prod-cache
+    - id: ingress-public
+      kind: Ingress
+      name: public-api
+      cluster: edge-cluster
+      namespace: ingress
+
+slxGroups:
+  - name: My App
+    slxs: [app-ops, app-health]
+  - name: Edge Ingress
+    slxs: [ingress-health]
+    dependsOn: [My App]
+
+slxRelationships:
+  - subject: ingress-health
+    verb: dependent-on
+    object: app-health
+
+slxs:
+  app-ops:
+    levelOfDetail: detailed
+    codeCollection: rw-cli-codecollection
+    codeBundle: k8s-deployment-ops
+    repoURL: https://github.com/runwhen-contrib/rw-cli-codecollection.git
+    ref: main
+    resources: [deploy-app]
+    runbook:
+      pathToRobot: codebundles/k8s-deployment-ops/runbook.robot
+
+  app-health:
+    levelOfDetail: detailed
+    codeCollection: rw-cli-codecollection
+    codeBundle: k8s-deployment-healthcheck
+    repoURL: https://github.com/runwhen-contrib/rw-cli-codecollection.git
+    ref: main
+    resources: [deploy-app]    # 1:N — same resource, different SLX
+    runbook:
+      pathToRobot: codebundles/k8s-deployment-healthcheck/runbook.robot
+    sli:
+      pathToRobot: codebundles/k8s-deployment-healthcheck/sli.robot
+
+  ingress-health:
+    levelOfDetail: basic
+    codeCollection: rw-cli-codecollection
+    codeBundle: k8s-ingress-healthcheck
+    repoURL: https://github.com/runwhen-contrib/rw-cli-codecollection.git
+    ref: main
+    resources: [ingress-public]
+    runbook:
+      pathToRobot: codebundles/k8s-ingress-healthcheck/runbook.robot
+
+  prod-aggregate:
+    levelOfDetail: basic
+    codeCollection: rw-cli-codecollection
+    codeBundle: k8s-aggregate-health
+    repoURL: https://github.com/runwhen-contrib/rw-cli-codecollection.git
+    ref: main
+    resources: [deploy-app, sts-cache]   # N:1 — multiple resources, one SLX
+    runbook:
+      pathToRobot: codebundles/k8s-aggregate-health/runbook.robot
+"""
+
+
+class InventoryAndGroupsTestCase(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls._tmp = tempfile.TemporaryDirectory()
+        cls.codecollection_repo_path = _materialize_simulator_codecollection_repo(cls._tmp.name)
+
+        request_data = {
+            "components": "test_synth,generation_rules,test_groups,render_output_items",
+            "workspaceName": "ws-inv",
+            "workspaceOwnerEmail": "test@example.com",
+            "papiURL": "http://papi.local",
+            "locationId": "loc-1",
+            "testConfig": INVENTORY_TEST_CONFIG,
+            "codeCollections": [
+                {"repoURL": cls.codecollection_repo_path, "ref": "main"},
+            ],
+        }
+        response = cls.client_class().post(
+            "/run/", data=request_data, content_type="application/json"
+        )
+        if response.status_code != HTTPStatus.OK:
+            cls._tmp.cleanup()
+            raise AssertionError(
+                f"/run/ failed: {response.status_code} {response.content[:500]}"
+            )
+
+        from base64 import b64decode
+        import io, tarfile
+        archive_bytes = b64decode(json.loads(response.content)["output"])
+        archive = tarfile.open(fileobj=io.BytesIO(archive_bytes), mode="r")
+        cls._archive_members: dict[str, bytes] = {}
+        for m in archive.getmembers():
+            if not m.isdir():
+                cls._archive_members[m.name] = archive.extractfile(m).read()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._tmp.cleanup()
+        super().tearDownClass()
+
+    def _read_yaml(self, path: str) -> dict:
+        import yaml
+        for member_name, content in self._archive_members.items():
+            if member_name.endswith(path):
+                return yaml.safe_load(content.decode("utf-8"))
+        raise AssertionError(
+            f"No archive member ending in {path}; members: {sorted(self._archive_members.keys())}"
+        )
+
+    def _slx_dirs_with_basename(self, basename: str) -> list[str]:
+        out = []
+        for member_name in self._archive_members:
+            if member_name.endswith(f"/{basename}") and "/slxs/" in member_name:
+                out.append(member_name.split("/slxs/", 1)[1].split("/", 1)[0])
+        return out
+
+    def test_four_slxs_produced_from_test_config(self):
+        slx_dirs = self._slx_dirs_with_basename("slx.yaml")
+        self.assertEqual(len(slx_dirs), 4,
+                         f"Expected 4 SLX dirs, got {len(slx_dirs)}: {slx_dirs}")
+
+    def test_kind_and_cluster_tags_auto_derived_from_inventory(self):
+        # Find the ingress SLX (its kind tag should be Ingress).
+        for member_name, content in self._archive_members.items():
+            if member_name.endswith("/slx.yaml") and "/slxs/" in member_name:
+                import yaml
+                doc = yaml.safe_load(content.decode("utf-8"))
+                tags = {t["name"]: t["value"] for t in doc["spec"]["tags"]}
+                if tags.get("kind") == "Ingress":
+                    self.assertEqual(tags["cluster"], "edge-cluster")
+                    self.assertEqual(tags["namespace"], "ingress")
+                    self.assertEqual(tags["resource_name"], "public-api")
+                    self.assertEqual(tags["resource_type"], "ingress")
+                    self.assertEqual(tags["platform"], "kubernetes")
+                    return
+        self.fail("No SLX with kind=Ingress found in archive")
+
+    def test_k8s_labels_become_prefixed_tags(self):
+        # The deploy-app inventory resource has app.kubernetes.io/name and tier
+        # labels; these should appear as [k8s]<key> tags on its SLXs.
+        found = False
+        for member_name, content in self._archive_members.items():
+            if member_name.endswith("/slx.yaml") and "/slxs/" in member_name:
+                import yaml
+                doc = yaml.safe_load(content.decode("utf-8"))
+                tag_dict = {t["name"]: t["value"] for t in doc["spec"]["tags"]}
+                if tag_dict.get("kind") == "Deployment" and tag_dict.get("resource_name") == "my-app":
+                    # Note: the same resource backs two SLXs (1:N), so we'll
+                    # match the first one we find.
+                    self.assertEqual(tag_dict.get("[k8s]app.kubernetes.io/name"), "my-app")
+                    self.assertEqual(tag_dict.get("[k8s]tier"), "backend")
+                    found = True
+                    break
+        self.assertTrue(found, "No Deployment SLX with my-app name found")
+
+    def test_n_to_1_aggregate_slx_has_child_resources(self):
+        # The prod-aggregate SLX is bound to two inventory resources;
+        # the second (sts-cache) should appear in additionalContext.childResources.
+        for member_name, content in self._archive_members.items():
+            if member_name.endswith("/slx.yaml") and "/slxs/" in member_name:
+                import yaml
+                doc = yaml.safe_load(content.decode("utf-8"))
+                ctx = doc["spec"].get("additionalContext", {})
+                children = ctx.get("childResources")
+                if children:
+                    self.assertEqual(len(children), 1)
+                    self.assertEqual(children[0]["kind"], "StatefulSet")
+                    self.assertEqual(children[0]["name"], "my-cache")
+                    return
+        self.fail("No SLX with childResources found")
+
+    def test_workspace_yaml_includes_slx_groups(self):
+        ws = self._read_yaml("workspaces/ws-inv/workspace.yaml")
+        groups = {g["name"]: g for g in ws["spec"].get("slxGroups", [])}
+        self.assertIn("My App", groups)
+        self.assertIn("Edge Ingress", groups)
+        # My App group should reference both app-ops and app-health (full SLX names).
+        my_app_slxs = groups["My App"]["slxs"]
+        self.assertEqual(len(my_app_slxs), 2)
+        for slx_name in my_app_slxs:
+            self.assertTrue(slx_name.startswith("ws-inv--"),
+                            f"SLX name in group should be workspace-prefixed: {slx_name}")
+
+    def test_workspace_yaml_includes_slx_relationships(self):
+        ws = self._read_yaml("workspaces/ws-inv/workspace.yaml")
+        relationships = ws["spec"].get("slxRelationships", [])
+        self.assertEqual(len(relationships), 1)
+        rel = relationships[0]
+        # Both subject and object resolve to workspace-prefixed full SLX names.
+        self.assertTrue(rel["subject"].startswith("ws-inv--"))
+        self.assertTrue(rel["directObject"].startswith("ws-inv--"))

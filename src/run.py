@@ -669,7 +669,7 @@ def main():
             simulator_cc_dir, _simulator_temp_dir
         )
 
-        args.components = "test_synth,generation_rules,render_output_items"
+        args.components = "test_synth,generation_rules,test_groups,render_output_items"
         # args.upload_data already reflects whether --upload was passed; preserve it.
         args.command = RUN_COMMAND
         _SIMULATE_REQUEST_OVERRIDES = {
