@@ -18,6 +18,8 @@ python3 run.py simulate \
   [--prune-stale-resources]
 ```
 
+A complete working example is at [`examples/simulator/test.yaml`](../../../examples/simulator/test.yaml).
+
 ## Test config schema
 
 The full schema below; all top-level sections except `slxs` are optional. A
