@@ -502,3 +502,88 @@ class InventoryAndGroupsTestCase(TestCase):
         # Both subject and object resolve to workspace-prefixed full SLX names.
         self.assertTrue(rel["subject"].startswith("ws-inv--"))
         self.assertTrue(rel["directObject"].startswith("ws-inv--"))
+
+
+# ----------------------------------------------------------------------
+# Defaults inheritance + auto-derived pathToRobot
+# ----------------------------------------------------------------------
+
+DEFAULTS_TEST_CONFIG = """
+defaults:
+  repoURL: https://github.com/runwhen-contrib/rw-cli-codecollection.git
+  ref: main
+  codeCollection: rw-cli-codecollection
+  runbook:
+    secretsProvided:
+      - {name: kubeconfig, workspaceKey: kubeconfig}
+
+slxs:
+  brief-slx:
+    codeBundle: k8s-deployment-ops
+    runbook:
+      configProvided:
+        - {name: NAMESPACE, value: brief}
+"""
+
+
+class DefaultsAndAutoDeriveTestCase(TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.codecollection_repo_path = _materialize_simulator_codecollection_repo(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _post_and_load_runbook(self) -> dict:
+        request_data = {
+            "components": "test_synth,generation_rules,test_groups,render_output_items",
+            "workspaceName": "ws-defaults",
+            "workspaceOwnerEmail": "test@example.com",
+            "papiURL": "http://papi.local",
+            "locationId": "loc-1",
+            "testConfig": DEFAULTS_TEST_CONFIG,
+            "codeCollections": [
+                {"repoURL": self.codecollection_repo_path, "ref": "main"},
+            ],
+        }
+        response = self.client.post(
+            "/run/", data=request_data, content_type="application/json"
+        )
+        self.assertEqual(HTTPStatus.OK, response.status_code)
+        from base64 import b64decode
+        import io, tarfile, yaml
+        archive_bytes = b64decode(json.loads(response.content)["output"])
+        archive = tarfile.open(fileobj=io.BytesIO(archive_bytes), mode="r")
+        runbook_member = next(
+            m for m in archive.getmembers()
+            if m.name.endswith("/runbook.yaml") and "/slxs/" in m.name
+        )
+        return yaml.safe_load(archive.extractfile(runbook_member).read().decode("utf-8"))
+
+    def test_defaults_supply_repoURL_ref_and_codeCollection(self):
+        runbook = self._post_and_load_runbook()
+        self.assertEqual(
+            runbook["spec"]["codeBundle"]["repoUrl"],
+            "https://github.com/runwhen-contrib/rw-cli-codecollection.git",
+        )
+        self.assertEqual(runbook["spec"]["codeBundle"]["ref"], "main")
+
+    def test_pathToRobot_auto_derived_from_codeBundle(self):
+        runbook = self._post_and_load_runbook()
+        self.assertEqual(
+            runbook["spec"]["codeBundle"]["pathToRobot"],
+            "codebundles/k8s-deployment-ops/runbook.robot",
+        )
+
+    def test_runbook_subdict_merges_defaults_secretsProvided_and_slx_configProvided(self):
+        runbook = self._post_and_load_runbook()
+        # secretsProvided inherited from defaults
+        self.assertEqual(
+            runbook["spec"]["secretsProvided"],
+            [{"name": "kubeconfig", "workspaceKey": "kubeconfig"}],
+        )
+        # configProvided supplied per-SLX
+        self.assertEqual(
+            runbook["spec"]["configProvided"],
+            [{"name": "NAMESPACE", "value": "brief"}],
+        )

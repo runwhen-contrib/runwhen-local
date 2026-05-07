@@ -27,6 +27,22 @@ minimal config has only `slxs` (one entry per SLX) and inherits sensible
 defaults for everything else.
 
 ```yaml
+# OPTIONAL. Per-SLX field defaults. Top-level scalars are inherited when the
+# SLX entry doesn't supply the field. Output-item subdicts (runbook/sli/slo)
+# are deep-merged: per-SLX keys win, missing keys inherit from the default.
+# Defaults alone do NOT trigger sli/slo rendering — the SLX must opt in by
+# having an `sli:` (or `slo:`) key.
+defaults:
+  codeCollection: <name>
+  repoURL: <git-url>
+  ref: <branch-or-tag>
+  runbook:
+    secretsProvided: [...]
+  sli:
+    secretsProvided: [...]
+    intervalStrategy: intermezzo
+    intervalSeconds: 180
+
 # OPTIONAL. Declares clusters, namespaces, and synthetic K8s resources that
 # SLX entries can bind to. If omitted, each SLX is backed by a synthetic
 # Deployment under simulator-cluster/simulator (current default).
@@ -90,13 +106,13 @@ slxs:
 
     # REQUIRED. Renders into runbook.yaml's spec.
     runbook:
-      pathToRobot: <path>                   # rendered into spec.codeBundle.pathToRobot
+      pathToRobot: <path>                   # optional, default: codebundles/<codeBundle>/runbook.robot
       configProvided: [{name, value}]
       secretsProvided: [{name, workspaceKey}]
 
     # OPTIONAL. Renders into sli.yaml's spec when non-empty.
     sli:
-      pathToRobot: <path>
+      pathToRobot: <path>                   # optional, default: codebundles/<codeBundle>/sli.robot
       description: <text>
       displayUnitsLong: <text>
       displayUnitsShort: <text>
@@ -108,7 +124,7 @@ slxs:
 
     # OPTIONAL. Renders into slo.yaml's spec when non-empty.
     slo:
-      pathToRobot: <path>
+      pathToRobot: <path>                   # optional, default: codebundles/<codeBundle>/slo.robot
       target: <number>                      # default: 99.0
       configProvided: [...]
       secretsProvided: [...]

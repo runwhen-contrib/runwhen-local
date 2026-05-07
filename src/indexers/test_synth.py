@@ -179,6 +179,57 @@ def _auto_derived_attrs_from_inventory(primary: dict, children: list[dict]) -> d
     }
 
 
+_OUTPUT_ITEM_KEYS = ("runbook", "sli", "slo")
+
+
+def _merge_with_defaults(entry: dict, defaults: dict) -> dict:
+    """Merge a per-SLX entry on top of the test config's `defaults` block.
+
+    Top-level scalar/list fields: per-SLX value wins; if absent, default is
+    used. Output-item subdicts (runbook/sli/slo): if the SLX has the key,
+    deep-merge with the matching default subdict (per-SLX keys win); if the
+    SLX doesn't have the key, the output item is NOT rendered (defaults
+    alone don't trigger rendering — the SLX must opt in).
+    """
+    if not defaults:
+        return dict(entry)
+
+    merged = {}
+    # Top-level fields from defaults first
+    for key, value in defaults.items():
+        if key in _OUTPUT_ITEM_KEYS:
+            continue
+        merged[key] = value
+    # Top-level fields from entry override
+    for key, value in entry.items():
+        if key in _OUTPUT_ITEM_KEYS:
+            continue
+        merged[key] = value
+    # Output items: merge only when the SLX has opted in by setting the key
+    for output_key in _OUTPUT_ITEM_KEYS:
+        if output_key not in entry:
+            continue
+        default_sub = defaults.get(output_key) or {}
+        entry_sub = entry.get(output_key) or {}
+        # Per-SLX keys win over defaults at this nested level too.
+        merged_sub = dict(default_sub)
+        merged_sub.update(entry_sub)
+        merged[output_key] = merged_sub
+    return merged
+
+
+def _autoderive_path_to_robot(subdict: dict, code_bundle: str, item_kind: str) -> dict:
+    """If a runbook/sli/slo subdict is non-empty but lacks pathToRobot, fill
+    it in with the conventional codebundles/<bundle>/<item_kind>.robot path."""
+    if not subdict:
+        return subdict
+    if "pathToRobot" in subdict and subdict["pathToRobot"]:
+        return subdict
+    result = dict(subdict)
+    result["pathToRobot"] = f"codebundles/{code_bundle}/{item_kind}.robot"
+    return result
+
+
 def _resource_attrs_from_slx_entry(
     slug: str, entry: dict, inventory_index: dict
 ) -> tuple[dict, str, str]:
@@ -193,14 +244,20 @@ def _resource_attrs_from_slx_entry(
       - User-supplied tags/additionalContext on the entry override auto-derived
         ones (merged at top level).
     """
+    code_bundle = entry["codeBundle"]
+    runbook = _autoderive_path_to_robot(entry.get("runbook") or {}, code_bundle, "runbook")
     sli = entry.get("sli") or None
+    if sli:
+        sli = _autoderive_path_to_robot(sli, code_bundle, "sli")
     slo = entry.get("slo") or None
+    if slo:
+        slo = _autoderive_path_to_robot(slo, code_bundle, "slo")
 
     base_attrs = {
         "slx_slug": slug,
         "level_of_detail": entry.get("levelOfDetail", "basic"),
         "code_collection": entry["codeCollection"],
-        "code_bundle": entry["codeBundle"],
+        "code_bundle": code_bundle,
         "repo_url": entry.get("repoURL", ""),
         "ref": entry.get("ref", "main"),
         "alias": entry.get("alias", slug),
@@ -209,7 +266,7 @@ def _resource_attrs_from_slx_entry(
         "image_url": entry.get("imageURL", ""),
         "owners": entry.get("owners", []),
         "config_provided": entry.get("configProvided", []),
-        "runbook": entry.get("runbook") or {},
+        "runbook": runbook,
         "sli": sli,
         "slo": slo,
     }
@@ -268,6 +325,7 @@ def index(context: Context):
 
     config = yaml.safe_load(config_text) or {}
     inventory_config = config.get("inventory") or {}
+    defaults_config = config.get("defaults") or {}
     slxs = config.get("slxs") or {}
 
     registry: Registry = context.get_property(REGISTRY_PROPERTY_NAME)
@@ -283,8 +341,9 @@ def index(context: Context):
     _ensure_namespace(registry, default_cluster, DEFAULT_NAMESPACE_NAME, {}, {})
 
     for slug, entry in slxs.items():
+        merged_entry = _merge_with_defaults(entry, defaults_config)
         attrs, cluster_name, namespace_name = _resource_attrs_from_slx_entry(
-            slug, entry, inventory_index
+            slug, merged_entry, inventory_index
         )
         # Anchor resource attached to its (cluster, namespace).
         anchor_namespace = registry.lookup_resource(
