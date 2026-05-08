@@ -5,6 +5,57 @@ from a deterministic YAML test config and uploads it to PAPI. It is intended
 for use by an external test suite that verifies platform-side ingestion
 behavior; it is not for end-user use.
 
+## Prerequisites
+
+`run.py simulate` is a CLI client. It POSTs to the workspace builder's
+Django REST service at `http://<host>:<port>/run/`, which is where the
+indexer/enricher/renderer components actually execute. **The REST service
+must be running before you invoke `simulate`.** Two ways to get that
+service running:
+
+### Option A — Local dev (Django dev server)
+
+In one terminal, start the workspace builder service:
+
+```
+cd src
+python3 manage.py runserver 0.0.0.0:8000
+```
+
+Leave it running. In a second terminal, run the simulate command. By
+default the CLI talks to `localhost:8000` — override with
+`--rest-service-host <host>:<port>` if needed.
+
+This shape is good for developing or iterating on the simulator itself.
+
+### Option B — Containerized (production-style)
+
+The existing `runwhen-local` Docker image starts the REST service on
+container boot. Pull or build it, run the container, and exec the
+simulate command inside:
+
+```
+# 1. Run the runwhen-local container (REST service starts automatically)
+docker run -d --name runwhen-local \
+  -v "$PWD/test-fixtures:/shared" \
+  ghcr.io/runwhen-contrib/runwhen-local:<tag>
+
+# 2. Exec the simulate command inside the container
+docker exec -w /workspace-builder runwhen-local \
+  python3 run.py simulate \
+    --config /shared/test.yaml \
+    --upload-info /shared/uploadInfo.yaml \
+    --base-directory /shared \
+    --upload
+```
+
+This is the shape an external test suite repo should use: pin a specific
+runwhen-local image tag, mount your test fixtures into `/shared`, and exec
+simulate inside the container. The REST service host is `localhost` from
+the container's perspective, so no `--rest-service-host` override is
+needed. See `.test/k8s/upload/Taskfile.yaml` for a concrete reference of
+this pattern in CI.
+
 ## Invocation
 
 ```
@@ -15,8 +66,12 @@ python3 run.py simulate \
   --upload \
   [--upload-merge-mode keep-existing | keep-uploaded] \
   [--prune-stale-slxs] \
-  [--prune-stale-resources]
+  [--prune-stale-resources] \
+  [--rest-service-host <host>:<port>]
 ```
+
+Paths in `--config` and `--upload-info` are resolved relative to
+`--base-directory` if not absolute.
 
 A complete working example is at [`examples/simulator/test.yaml`](../../../examples/simulator/test.yaml).
 
