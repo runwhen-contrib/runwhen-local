@@ -7,28 +7,48 @@ behavior; it is not for end-user use.
 
 ## Prerequisites
 
-`run.py simulate` is a CLI client. It POSTs to the workspace builder's
+`run.py simulate` is a CLI client; it POSTs to the workspace builder's
 Django REST service at `http://<host>:<port>/run/`, which is where the
-indexer/enricher/renderer components actually execute. **The REST service
-must be running before you invoke `simulate`.** Two ways to get that
-service running:
+indexer/enricher/renderer components actually execute.
 
-### Option A — Local dev (Django dev server)
+**The simulate subcommand is self-contained.** When invoked, it probes
+`localhost:8000` for an existing REST service and:
 
-In one terminal, start the workspace builder service:
+- if one is reachable (e.g. a dev server you started in another terminal,
+  or the bundled service inside a runwhen-local container), uses it
+  directly;
+- if not, automatically starts an embedded Django subprocess on a free
+  port, waits for it to become reachable, runs the request, and shuts it
+  down on exit.
+
+You can override the auto-detection by explicitly pointing the CLI at a
+remote service with `--rest-service-host <host>:<port>` — when supplied,
+no embedding occurs.
+
+### Option A — Standalone (default; embedded service)
+
+The simplest invocation. Just run `simulate`; the CLI handles the REST
+service for you:
 
 ```
-cd src
-python3 manage.py runserver 0.0.0.0:8000
+python3 run.py simulate \
+  --config test.yaml \
+  --upload-info uploadInfo.yaml \
+  --base-directory <dir> \
+  --upload
 ```
 
-Leave it running. In a second terminal, run the simulate command. By
-default the CLI talks to `localhost:8000` — override with
-`--rest-service-host <host>:<port>` if needed.
+On a cold invocation, expect a one-time message like:
 
-This shape is good for developing or iterating on the simulator itself.
+```
+No REST service detected at localhost:8000; starting embedded workspace-builder service on localhost:54321
+```
 
-### Option B — Containerized (production-style)
+Embedded boot adds ~3 seconds to the first invocation. Subsequent
+invocations within the same shell don't share the embedded process —
+each `simulate` call boots its own and tears it down at exit.
+
+### Option B — Containerized (production-style for an external test suite)
 
 The existing `runwhen-local` Docker image starts the REST service on
 container boot. Pull or build it, run the container, and exec the

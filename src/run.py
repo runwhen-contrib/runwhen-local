@@ -35,6 +35,81 @@ SERVICE_NAME = "Workspace Builder"
 REST_SERVICE_HOST_DEFAULT = "localhost"
 REST_SERVICE_PORT_DEFAULT = 8000
 
+# Maximum seconds to wait for an embedded REST service subprocess to become
+# reachable after we spawn it. Empirically the Django dev server takes ~3s
+# to bind on a typical dev machine.
+EMBEDDED_REST_SERVICE_BOOT_TIMEOUT_SECONDS = 30.0
+
+
+def _is_rest_service_reachable(host: str, port, timeout: float = 0.5) -> bool:
+    """Return True if a TCP connection to host:port succeeds within timeout."""
+    import socket
+    try:
+        with socket.create_connection((host, int(port)), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+def _pick_free_localhost_port() -> int:
+    """Bind to port 0 on localhost to discover a free port, then release it."""
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind(("127.0.0.1", 0))
+    port = s.getsockname()[1]
+    s.close()
+    return port
+
+
+def _terminate_subprocess(proc):
+    """Best-effort terminate then kill of a subprocess.Popen handle."""
+    try:
+        proc.terminate()
+        proc.wait(timeout=5.0)
+    except Exception:
+        try:
+            proc.kill()
+        except Exception:
+            pass
+
+
+def _start_embedded_rest_service(port: int):
+    """Start the workspace builder Django dev server as a subprocess on the
+    given port and wait for it to be reachable. Returns the Popen handle.
+
+    Used by the `simulate` subcommand to make itself self-contained when no
+    REST service is already running. The subprocess is terminated via
+    atexit so it cleans up even on fatal() / unexpected exits.
+    """
+    import atexit
+    import subprocess
+    import sys
+    import time
+
+    manage_py_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "manage.py")
+    proc = subprocess.Popen(
+        [sys.executable, manage_py_path, "runserver", f"127.0.0.1:{port}", "--noreload"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    atexit.register(_terminate_subprocess, proc)
+
+    deadline = time.time() + EMBEDDED_REST_SERVICE_BOOT_TIMEOUT_SECONDS
+    while time.time() < deadline:
+        if proc.poll() is not None:
+            raise RuntimeError(
+                f"Embedded REST service subprocess exited prematurely "
+                f"(rc={proc.returncode})"
+            )
+        if _is_rest_service_reachable("127.0.0.1", port, timeout=0.5):
+            return proc
+        time.sleep(0.2)
+    _terminate_subprocess(proc)
+    raise RuntimeError(
+        f"Embedded REST service did not become reachable within "
+        f"{EMBEDDED_REST_SERVICE_BOOT_TIMEOUT_SECONDS} seconds"
+    )
+
 INFO_COMMAND = 'info'
 RUN_COMMAND = 'run'
 UPLOAD_COMMAND = 'upload'
@@ -303,6 +378,35 @@ def main():
     else:
         rest_service_host = REST_SERVICE_HOST_DEFAULT
         rest_service_port = REST_SERVICE_PORT_DEFAULT
+
+    # When invoked as `simulate`, auto-start an embedded REST service
+    # subprocess if (a) the user didn't explicitly point at an existing one
+    # via --rest-service-host, and (b) nothing is already listening on the
+    # default host:port (e.g. a Django runserver in another terminal, or a
+    # runwhen-local container's bundled service). This makes `simulate`
+    # self-contained for standalone consumers without disturbing the
+    # existing run/upload flows.
+    # The --rest-service-host argument has a string default ("localhost:8000"),
+    # so args.rest_service_host is always truthy. Treat the default as "user
+    # did not explicitly point at a service"; only skip embedding when the
+    # user supplied a custom value.
+    user_supplied_rest_host = (
+        args.rest_service_host
+        and args.rest_service_host != f"{REST_SERVICE_HOST_DEFAULT}:{REST_SERVICE_PORT_DEFAULT}"
+    )
+    if args.command == SIMULATE_COMMAND and not user_supplied_rest_host:
+        if not _is_rest_service_reachable(rest_service_host, rest_service_port, timeout=0.5):
+            embedded_port = _pick_free_localhost_port()
+            print(
+                f"No REST service detected at {rest_service_host}:{rest_service_port}; "
+                f"starting embedded workspace-builder service on localhost:{embedded_port}"
+            )
+            # Bind on 127.0.0.1 (loopback only) but route subsequent client
+            # requests through "localhost" so Django's ALLOWED_HOSTS=["localhost"]
+            # accepts them. Both resolve to the same socket on the same host.
+            _start_embedded_rest_service(embedded_port)
+            rest_service_host = "localhost"
+            rest_service_port = embedded_port
 
     if args.command == INFO_COMMAND:
         info_url = f"http://{rest_service_host}:{rest_service_port}/info/"
