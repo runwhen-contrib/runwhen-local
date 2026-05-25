@@ -1,0 +1,38 @@
+# Passthrough generation rule for the simulator. Matches synthesized
+# resources under the kubernetes platform with type deployment, and emits
+# one SLX per resource with three output items: runbook, sli, slo.
+#
+# Conditional rendering: the rule unconditionally schedules all three
+# output items, but the SLI/SLO templates raise a Jinja error (and are
+# therefore skipped by render_output_items) when match_resource.sli or
+# match_resource.slo is empty/None. Only runbook is always rendered.
+#
+# We don't gate via separate generation rules because collect_emitted_slxs
+# de-duplicates SLXs by full_name. Two rules emitting an SLX with the same
+# baseName + qualifiers collide and only the first set of output items
+# is retained, so per-rule predicate gating wouldn't accumulate output
+# items the way the simulator needs.
+apiVersion: runwhen.com/v1
+kind: GenerationRules
+spec:
+  platform: kubernetes
+  generationRules:
+    - resourceTypes:
+        - deployment
+      matchRules:
+        - type: pattern
+          pattern: ".+"
+          properties: ["name"]
+          mode: substring
+      slxs:
+        - baseName: "test"
+          qualifiers: ["resource"]
+          outputItems:
+            - type: slx
+              templateName: test-slx.yaml
+            - type: runbook
+              templateName: test-runbook.yaml
+            - type: sli
+              templateName: test-sli.yaml
+            - type: slo
+              templateName: test-slo.yaml

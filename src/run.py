@@ -35,9 +35,85 @@ SERVICE_NAME = "Workspace Builder"
 REST_SERVICE_HOST_DEFAULT = "localhost"
 REST_SERVICE_PORT_DEFAULT = 8000
 
+# Maximum seconds to wait for an embedded REST service subprocess to become
+# reachable after we spawn it. Empirically the Django dev server takes ~3s
+# to bind on a typical dev machine.
+EMBEDDED_REST_SERVICE_BOOT_TIMEOUT_SECONDS = 30.0
+
+
+def _is_rest_service_reachable(host: str, port, timeout: float = 0.5) -> bool:
+    """Return True if a TCP connection to host:port succeeds within timeout."""
+    import socket
+    try:
+        with socket.create_connection((host, int(port)), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+def _pick_free_localhost_port() -> int:
+    """Bind to port 0 on localhost to discover a free port, then release it."""
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind(("127.0.0.1", 0))
+    port = s.getsockname()[1]
+    s.close()
+    return port
+
+
+def _terminate_subprocess(proc):
+    """Best-effort terminate then kill of a subprocess.Popen handle."""
+    try:
+        proc.terminate()
+        proc.wait(timeout=5.0)
+    except Exception:
+        try:
+            proc.kill()
+        except Exception:
+            pass
+
+
+def _start_embedded_rest_service(port: int):
+    """Start the workspace builder Django dev server as a subprocess on the
+    given port and wait for it to be reachable. Returns the Popen handle.
+
+    Used by the `simulate` subcommand to make itself self-contained when no
+    REST service is already running. The subprocess is terminated via
+    atexit so it cleans up even on fatal() / unexpected exits.
+    """
+    import atexit
+    import subprocess
+    import sys
+    import time
+
+    manage_py_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "manage.py")
+    proc = subprocess.Popen(
+        [sys.executable, manage_py_path, "runserver", f"127.0.0.1:{port}", "--noreload"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    atexit.register(_terminate_subprocess, proc)
+
+    deadline = time.time() + EMBEDDED_REST_SERVICE_BOOT_TIMEOUT_SECONDS
+    while time.time() < deadline:
+        if proc.poll() is not None:
+            raise RuntimeError(
+                f"Embedded REST service subprocess exited prematurely "
+                f"(rc={proc.returncode})"
+            )
+        if _is_rest_service_reachable("127.0.0.1", port, timeout=0.5):
+            return proc
+        time.sleep(0.2)
+    _terminate_subprocess(proc)
+    raise RuntimeError(
+        f"Embedded REST service did not become reachable within "
+        f"{EMBEDDED_REST_SERVICE_BOOT_TIMEOUT_SECONDS} seconds"
+    )
+
 INFO_COMMAND = 'info'
 RUN_COMMAND = 'run'
 UPLOAD_COMMAND = 'upload'
+SIMULATE_COMMAND = 'simulate'
 
 
 CUSTOMIZATION_RULES_DEFAULT = "map-customization-rules"
@@ -199,12 +275,28 @@ def coalesce(*vals):
     return next((v for v in vals if v not in (None, "")), None)
 
 
+def build_simulate_envelope(papi_response_data: dict, workspace_name: str) -> str:
+    """Construct the JSON envelope printed on stdout by the simulate subcommand
+    after a successful upload. Pure function — no I/O.
+    """
+    envelope = {
+        "task_id": papi_response_data.get("task_id"),
+        "workspace_name": workspace_name,
+    }
+    return json.dumps(envelope)
+
+
 def main():
     parser = ArgumentParser(description="Run onboarding script to generate initial workspace and SLX info")
-    parser.add_argument('command', action='store', choices=[INFO_COMMAND, RUN_COMMAND, UPLOAD_COMMAND],
+    parser.add_argument('command', action='store',
+                        choices=[INFO_COMMAND, RUN_COMMAND, UPLOAD_COMMAND, SIMULATE_COMMAND],
                         help=f'{SERVICE_NAME} action to perform. '
                              '"info" returns info about the available components. '
-                             '"run" runs the {SERVICE_NAME} components to generate workspace/SLX files.')
+                             '"run" runs the {SERVICE_NAME} components to generate workspace/SLX files. '
+                             '"upload" uploads previously generated workspace data to PAPI. '
+                             '"simulate" drives the simulator pipeline end-to-end against a YAML test '
+                             'config (uses the bundled simulator codecollection); add --upload to '
+                             'POST the resulting archive to PAPI.')
     parser.add_argument('-v', '--verbose', action='store_true',
                         help="Print more detailed output.")
     parser.add_argument('-k', '--kubeconfig', action='store', dest='kubeconfig', default='kubeconfig',
@@ -221,6 +313,9 @@ def main():
     parser.add_argument('--upload-info', action='store', dest="upload_info", default="uploadInfo.yaml",
                         help="Location of the uploadInfo.yaml file that was downloaded from the RunWhen GUI "
                              "after creating a new workspace. The path is relative to the base directory.")
+    parser.add_argument('--config', action='store', dest='simulate_config',
+                        help="Path to the YAML test config file (simulate subcommand only). "
+                             "Path is relative to the base directory if not absolute.")
     parser.add_argument('--rest-service-host', action='store', dest="rest_service_host",
                         default="localhost:8000",
                         help=f'Host/port info for where the {SERVICE_NAME} REST service is running. '
@@ -283,6 +378,35 @@ def main():
     else:
         rest_service_host = REST_SERVICE_HOST_DEFAULT
         rest_service_port = REST_SERVICE_PORT_DEFAULT
+
+    # When invoked as `simulate`, auto-start an embedded REST service
+    # subprocess if (a) the user didn't explicitly point at an existing one
+    # via --rest-service-host, and (b) nothing is already listening on the
+    # default host:port (e.g. a Django runserver in another terminal, or a
+    # runwhen-local container's bundled service). This makes `simulate`
+    # self-contained for standalone consumers without disturbing the
+    # existing run/upload flows.
+    # The --rest-service-host argument has a string default ("localhost:8000"),
+    # so args.rest_service_host is always truthy. Treat the default as "user
+    # did not explicitly point at a service"; only skip embedding when the
+    # user supplied a custom value.
+    user_supplied_rest_host = (
+        args.rest_service_host
+        and args.rest_service_host != f"{REST_SERVICE_HOST_DEFAULT}:{REST_SERVICE_PORT_DEFAULT}"
+    )
+    if args.command == SIMULATE_COMMAND and not user_supplied_rest_host:
+        if not _is_rest_service_reachable(rest_service_host, rest_service_port, timeout=0.5):
+            embedded_port = _pick_free_localhost_port()
+            print(
+                f"No REST service detected at {rest_service_host}:{rest_service_port}; "
+                f"starting embedded workspace-builder service on localhost:{embedded_port}"
+            )
+            # Bind on 127.0.0.1 (loopback only) but route subsequent client
+            # requests through "localhost" so Django's ALLOWED_HOSTS=["localhost"]
+            # accepts them. Both resolve to the same socket on the same host.
+            _start_embedded_rest_service(embedded_port)
+            rest_service_host = "localhost"
+            rest_service_port = embedded_port
 
     if args.command == INFO_COMMAND:
         info_url = f"http://{rest_service_host}:{rest_service_port}/info/"
@@ -450,7 +574,13 @@ def main():
     )
 
     if cloud_config is None:
-        raise ValueError("'cloudConfig' section is missing; discovery configuration must be explicit.")
+        if args.command == SIMULATE_COMMAND:
+            # The simulator doesn't do live discovery, so it doesn't need a real
+            # cloudConfig. Default to an empty dict so the rest of the pipeline
+            # treats discovery as a no-op.
+            cloud_config = {}
+        else:
+            raise ValueError("'cloudConfig' section is missing; discovery configuration must be explicit.")
 
 
     azure_config = None
@@ -619,6 +749,40 @@ def main():
     output_path = os.path.join(base_directory, args.output_path)
     status_file_path = os.path.join(output_path, ".status")
 
+    _original_command = args.command
+    _SIMULATE_REQUEST_OVERRIDES = {}
+    _simulator_temp_dir = None
+    if args.command == SIMULATE_COMMAND:
+        if not args.simulate_config:
+            fatal("simulate requires --config <path-to-test-yaml>")
+        config_path = args.simulate_config
+        if not os.path.isabs(config_path):
+            config_path = os.path.join(base_directory, config_path)
+        if not os.path.exists(config_path):
+            fatal(f"Test config file not found: {config_path}")
+        test_config_text = read_file(config_path, "r")
+
+        # Materialize the bundled simulator codecollection as a temp git repo
+        # because the codecollection loader requires git.Repo.clone_from(...).
+        from utils import materialize_simulator_codecollection_repo
+        simulator_cc_dir = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "simulator-codecollection"
+        )
+        _simulator_temp_dir = tempfile.mkdtemp(prefix="wb-simulator-")
+        simulator_repo_path = materialize_simulator_codecollection_repo(
+            simulator_cc_dir, _simulator_temp_dir
+        )
+
+        args.components = "test_synth,generation_rules,test_groups,render_output_items"
+        # args.upload_data already reflects whether --upload was passed; preserve it.
+        args.command = RUN_COMMAND
+        _SIMULATE_REQUEST_OVERRIDES = {
+            "testConfig": test_config_text,
+            "codeCollections": [
+                {"repoURL": simulator_repo_path, "ref": "main"},
+            ],
+        }
+
     if args.command == RUN_COMMAND:
         request_data = dict()
 
@@ -651,6 +815,7 @@ def main():
         if not args.components:
             fatal("Error: at least one component must be specified to run")
         request_data['components'] = args.components
+        request_data.update(_SIMULATE_REQUEST_OVERRIDES)
         if final_kubeconfig_path and os.path.exists(final_kubeconfig_path):
             print(f"Indexing Kubernetes with kubeconfig from {final_kubeconfig_path}")
             kubeconfig_data = read_file(final_kubeconfig_path, "rb")
@@ -806,7 +971,7 @@ def main():
         try:
             response = requests.post(upload_url, data=upload_request_text, headers=headers, verify=get_request_verify())
         except requests.exceptions.ConnectionError as e:
-            fatal("Upload of map builder data failed, because the PAPI upload URL is invalid or unavailable; {e}")
+            fatal(f"Upload of map builder data failed, because the PAPI upload URL is invalid or unavailable; {e}")
             # NB: The fatal call will already have exited, so this return call isn't really
             # necessary, but it makes the linting code happy so that it doesn't complain
             # about possibly uninitialized variables, e.g. response
@@ -838,6 +1003,17 @@ def main():
                       f"status={response.status_code}; Response body: {response.text[:500]}")
 
         print("Workspace builder data uploaded successfully.")
+
+        if _original_command == SIMULATE_COMMAND:
+            try:
+                response_data = response.json()
+            except (ValueError, requests.exceptions.JSONDecodeError):
+                response_data = {}
+            print(build_simulate_envelope(response_data, workspace_name))
+
+    # Cleanup the temp git repo materialized for the simulate subcommand.
+    if _simulator_temp_dir:
+        shutil.rmtree(_simulator_temp_dir, ignore_errors=True)
 
     # Add cheat-sheet integration, which points at the output items and
     # generates the list of local commands that exist in the TaskSet.

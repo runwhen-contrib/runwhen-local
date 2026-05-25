@@ -1,0 +1,141 @@
+# Example test config for the simulate subcommand. See
+# docs/user-guide/features/simulator.md for the full schema.
+#
+# Demonstrates: defaults inheritance, multi-cluster inventory, multiple K8s
+# kinds (Deployment, StatefulSet, Ingress), 1:N cardinality (demo-app-ops +
+# demo-app-health share the same backing resource), N:1 cardinality
+# (demo-prod-aggregate spans two resources), slxGroups, and slxRelationships.
+#
+# Invocation:
+#   python3 run.py simulate \
+#     --config examples/simulator/test.yaml \
+#     --upload-info <path-to-uploadInfo.yaml> \
+#     --base-directory <working-dir> \
+#     --upload
+#
+# To use, supply a real uploadInfo.yaml from a workspace on the target
+# platform; the simulator reads workspaceName, papiURL, locationId,
+# locationName, and token from it.
+
+# Per-SLX fields default to these unless explicitly overridden on the SLX.
+# Top-level scalars are simple replacement; runbook/sli/slo subdicts deep-
+# merge (per-SLX keys win, missing keys inherit from the default).
+defaults:
+  codeCollection: rw-cli-codecollection
+  repoURL: https://github.com/runwhen-contrib/rw-cli-codecollection.git
+  ref: main
+  runbook:
+    secretsProvided:
+      - {name: kubeconfig, workspaceKey: kubeconfig}
+  sli:
+    secretsProvided:
+      - {name: kubeconfig, workspaceKey: kubeconfig}
+    intervalStrategy: intermezzo
+    intervalSeconds: 180
+
+inventory:
+  clusters:
+    - name: prod-cluster
+      namespaces:
+        - name: demo
+        - name: demo-cache
+    - name: edge-cluster
+      namespaces:
+        - name: ingress
+
+  resources:
+    - id: deploy-demo-app
+      kind: Deployment
+      name: demo-app
+      cluster: prod-cluster
+      namespace: demo
+      labels:
+        app.kubernetes.io/name: demo-app
+        tier: backend
+    - id: sts-demo-cache
+      kind: StatefulSet
+      name: demo-cache
+      cluster: prod-cluster
+      namespace: demo-cache
+      labels:
+        app.kubernetes.io/name: demo-cache
+    - id: ingress-demo
+      kind: Ingress
+      name: demo-public
+      cluster: edge-cluster
+      namespace: ingress
+
+slxGroups:
+  - name: Demo App
+    slxs: [demo-app-ops, demo-app-health]
+  - name: Demo Cache
+    slxs: [demo-cache-ops]
+  - name: Edge Ingress
+    slxs: [demo-ingress-health]
+    dependsOn: [Demo App]
+
+slxRelationships:
+  - subject: demo-ingress-health
+    verb: dependent-on
+    object: demo-app-health
+
+slxs:
+  demo-app-ops:
+    codeBundle: k8s-deployment-ops
+    resources: [deploy-demo-app]
+    alias: Demo App Operations
+    statement: Operational tasks for demo-app deployment
+    owners: [demo@example.com]
+    runbook:
+      # pathToRobot auto-derived to codebundles/k8s-deployment-ops/runbook.robot
+      configProvided:
+        - {name: NAMESPACE, value: demo}
+        - {name: DEPLOYMENT_NAME, value: demo-app}
+        - {name: KUBERNETES_DISTRIBUTION_BINARY, value: kubectl}
+
+  demo-app-health:
+    codeBundle: k8s-deployment-healthcheck
+    resources: [deploy-demo-app]   # 1:N — same resource backs ops and health
+    alias: Demo App Health
+    statement: Health metric for demo-app deployment
+    levelOfDetail: detailed
+    runbook:
+      configProvided:
+        - {name: NAMESPACE, value: demo}
+        - {name: DEPLOYMENT_NAME, value: demo-app}
+    sli:
+      description: Demo app deployment health metric
+      displayUnitsLong: OK
+      displayUnitsShort: ok
+      configProvided:
+        - {name: NAMESPACE, value: demo}
+        - {name: DEPLOYMENT_NAME, value: demo-app}
+    slo:
+      target: 99.5
+
+  demo-cache-ops:
+    codeBundle: k8s-statefulset-ops
+    resources: [sts-demo-cache]
+    alias: Demo Cache Operations
+    statement: Operational tasks for demo cache statefulset
+    runbook:
+      configProvided:
+        - {name: NAMESPACE, value: demo-cache}
+        - {name: STATEFULSET_NAME, value: demo-cache}
+
+  demo-ingress-health:
+    codeBundle: k8s-ingress-healthcheck
+    resources: [ingress-demo]
+    alias: Demo Ingress Health
+    statement: Health checks for demo public ingress
+    runbook:
+      configProvided:
+        - {name: NAMESPACE, value: ingress}
+        - {name: INGRESS_NAME, value: demo-public}
+
+  demo-prod-aggregate:
+    codeBundle: k8s-aggregate-health
+    resources: [deploy-demo-app, sts-demo-cache]   # N:1 — aggregate over two resources
+    alias: Production Aggregate Health
+    statement: Aggregate health across the demo workload
+    runbook: {}

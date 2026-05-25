@@ -1,0 +1,26 @@
+{# Skip rendering when the test config didn't supply an "slo" subdict for
+   this SLX. Trigger a deliberate Jinja error so render_output_items
+   classifies this template as skipped (and the file is never written). #}
+{% if not match_resource.slo %}{% set _skip = (1 / 0) %}{% endif %}
+apiVersion: runwhen.com/v1
+kind: ServiceLevelObjective
+metadata:
+  name: {{ slx_name }}
+  labels:
+{% include "common-labels.yaml" %}
+  annotations:
+    fullSlxName: {{ full_slx_name }}
+    sourceGenerationRuleRepoURL: {{ repo_url }}
+    sourceGenerationRuleRepoRef: {{ ref }}
+    sourceGenerationRulePath: {{ generation_rule_file_path }}
+    qualifiers: '{{ qualifiers | tojson }}'
+    internal.runwhen.com/generated-by: {{ generated_by }}
+spec:
+  location: {{ location_id }}
+  codeBundle:
+    repoUrl: {{ match_resource.repo_url }}
+    ref: {{ match_resource.ref }}
+    pathToRobot: {{ match_resource.slo.get("pathToRobot", "") }}
+  target: {{ match_resource.slo.get("target", 99.0) }}
+  configProvided: {{ match_resource.slo.get("configProvided", []) | tojson }}
+  secretsProvided: {{ match_resource.slo.get("secretsProvided", []) | tojson }}
