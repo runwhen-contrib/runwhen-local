@@ -3,7 +3,8 @@
 # Path to the lock file
 TMPDIR=${TMPDIR:-/tmp}
 LOCK_FILE="$TMPDIR/.wb_lock"
-DISABLE_CLOUDQUERY=0
+# Honor DISABLE_CLOUDQUERY from the environment (e.g. Helm extraEnv); --disable-cloudquery still sets it below
+DISABLE_CLOUDQUERY=${DISABLE_CLOUDQUERY:-0}
 
 # Parse arguments
 POSITIONAL_ARGS=()
