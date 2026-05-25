@@ -465,3 +465,49 @@ class CodeCollectionConfigTestCase(TestCase):
 #
 #     def test_no_code_bundle_config(self):
 #         pass
+
+
+# ---------------------------------------------------------------------------
+# mcp_tools indexer
+# ---------------------------------------------------------------------------
+
+import json
+import responses
+from unittest import mock
+
+from indexers import mcp_tools
+
+
+class LoadServersFromSettingTest(TestCase):
+    def test_returns_servers_list_from_well_formed_config(self):
+        config = {"servers": [
+            {"display_name": "jira",
+             "url": "https://jira-mcp.internal/mcp",
+             "secret_ref": "jira-mcp-token"},
+            {"display_name": "linear",
+             "url": "https://linear-mcp.internal/mcp",
+             "secret_ref": "linear-mcp-token"},
+        ]}
+        servers = mcp_tools._load_servers_from_setting(config)
+        self.assertEqual(len(servers), 2)
+        self.assertEqual(servers[0]["display_name"], "jira")
+
+    def test_returns_empty_when_no_servers_key(self):
+        self.assertEqual(mcp_tools._load_servers_from_setting({}), [])
+        self.assertEqual(mcp_tools._load_servers_from_setting(None), [])
+
+    def test_skips_entries_missing_required_fields_and_warns(self):
+        warnings = []
+        config = {"servers": [
+            {"display_name": "ok",
+             "url": "https://ok.internal/mcp",
+             "secret_ref": "ok-token"},
+            {"display_name": "broken"},  # missing url + secret_ref
+            {"url": "https://anon.internal/mcp",
+             "secret_ref": "anon-token"},  # missing display_name
+        ]}
+        servers = mcp_tools._load_servers_from_setting(
+            config, on_warning=warnings.append)
+        self.assertEqual([s["display_name"] for s in servers], ["ok"])
+        self.assertEqual(len(warnings), 2)
+        self.assertTrue(any("broken" in w for w in warnings))

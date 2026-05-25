@@ -76,3 +76,32 @@ def index(context: Context) -> None:
             continue
         for tool in tools:
             _emit_tool_resource(registry, server, tool)
+
+
+REQUIRED_SERVER_FIELDS = ("display_name", "url", "secret_ref")
+
+
+def _load_servers_from_setting(config, on_warning=None) -> list[dict[str, Any]]:
+    """Parse the MCP_CONFIG setting (a DICT mirroring the Helm values block)
+    into a list of validated server entries. Skips malformed entries with a
+    warning so a single bad config row doesn't prevent the rest from working.
+    """
+    if not config:
+        return []
+    raw = config.get("servers") or []
+    valid: list[dict[str, Any]] = []
+    for entry in raw:
+        if not isinstance(entry, dict):
+            if on_warning:
+                on_warning(f"mcpConfig.servers entry is not a dict: {entry!r}")
+            continue
+        missing = [f for f in REQUIRED_SERVER_FIELDS if not entry.get(f)]
+        if missing:
+            label = entry.get("display_name") or entry.get("url") or "<unnamed>"
+            if on_warning:
+                on_warning(
+                    f"mcpConfig.servers[{label}] missing required field(s) "
+                    f"{missing}; skipping")
+            continue
+        valid.append(entry)
+    return valid
