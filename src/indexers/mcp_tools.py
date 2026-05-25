@@ -156,3 +156,30 @@ def _list_tools(server: dict[str, Any],
     if "error" in parsed:
         raise RuntimeError(f"tools/list error: {parsed['error']}")
     return parsed.get("result", {}).get("tools", [])
+
+
+def _emit_tool_resource(registry: Registry,
+                        server: dict[str, Any],
+                        tool: dict[str, Any]) -> None:
+    """Add one `mcp_tool` resource to the registry under platform=mcp."""
+    server_name = server["display_name"]
+    tool_name = tool["name"]
+    qualified = f"{server_name}__{tool_name}"
+    spec = {
+        "server_id": server.get("server_id"),
+        "server_display_name": server_name,
+        "server_url": server["url"],
+        "secret_ref": server["secret_ref"],
+        "tool_name": tool_name,
+        "description": tool.get("description", ""),
+        "input_schema": tool.get("inputSchema") or tool.get("input_schema") or {
+            "type": "object", "properties": {}, "required": [],
+        },
+    }
+    registry.add_resource(
+        platform_name=PLATFORM_NAME,
+        resource_type_name=RESOURCE_TYPE,
+        resource_name=qualified,
+        resource_qualified_name=qualified,
+        resource_attributes={"spec": spec},
+    )

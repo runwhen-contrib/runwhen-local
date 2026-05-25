@@ -552,3 +552,56 @@ class ListToolsTest(TestCase):
         self.assertEqual(len(tools), 1)
         self.assertEqual(tools[0]["name"], "create_issue")
         self.assertEqual(tools[0]["inputSchema"]["required"], ["project"])
+
+
+from resources import Registry, REGISTRY_PROPERTY_NAME
+from component import Context
+
+
+class EmitToolResourceTest(TestCase):
+    def test_emits_resource_with_expected_shape(self):
+        reg = Registry()
+        server = {"server_id": "u1", "display_name": "jira",
+                  "url": "https://jira-mcp.internal/mcp",
+                  "secret_ref": "jira-mcp-token"}
+        tool = {"name": "create_issue",
+                "description": "Create a Jira issue",
+                "inputSchema": {"type": "object",
+                                "properties": {"project": {"type": "string"}},
+                                "required": ["project"]}}
+        mcp_tools._emit_tool_resource(reg, server, tool)
+
+        rt = reg.lookup_resource_type("mcp", "mcp_tool")
+        self.assertIsNotNone(rt)
+        self.assertEqual(len(rt.instances), 1)
+        res = next(iter(rt.instances.values()))
+        self.assertEqual(res.spec["server_display_name"], "jira")
+        self.assertEqual(res.spec["tool_name"], "create_issue")
+        self.assertEqual(res.spec["secret_ref"], "jira-mcp-token")
+        self.assertEqual(res.spec["input_schema"]["required"], ["project"])
+
+    def test_index_skips_when_config_empty(self):
+        ctx = Context({}, mock.MagicMock())
+        ctx.set_property(REGISTRY_PROPERTY_NAME, Registry())
+        mcp_tools.index(ctx)  # should not raise
+        reg = ctx.get_property(REGISTRY_PROPERTY_NAME)
+        self.assertEqual(reg.platforms, {})
+
+    def test_index_preserves_on_tools_list_failure(self):
+        # MCP_CONFIG lists one server; tools/list raises → no resources
+        # emitted, warning recorded, no exception propagated.
+        ctx = Context({
+            "MCP_CONFIG": {"servers": [
+                {"display_name": "jira",
+                 "url": "https://jira-mcp.internal/mcp",
+                 "secret_ref": "tok"},
+            ]},
+        }, mock.MagicMock())
+        ctx.set_property(REGISTRY_PROPERTY_NAME, Registry())
+        with mock.patch.object(mcp_tools, "_list_tools",
+                               side_effect=RuntimeError("boom")) as patched:
+            mcp_tools.index(ctx)
+            self.assertEqual(patched.call_count, 1)
+        reg = ctx.get_property(REGISTRY_PROPERTY_NAME)
+        self.assertEqual(reg.platforms, {})
+        self.assertTrue(any("boom" in w for w in ctx.warnings))
