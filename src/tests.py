@@ -605,3 +605,92 @@ class EmitToolResourceTest(TestCase):
         reg = ctx.get_property(REGISTRY_PROPERTY_NAME)
         self.assertEqual(reg.platforms, {})
         self.assertTrue(any("boom" in w for w in ctx.warnings))
+
+
+import yaml as _yaml
+
+
+class EndToEndMcpIndexingTest(TestCase):
+    """Runs the full mcp_tools indexer against an in-memory MCP_CONFIG +
+    stub MCP server, then renders the rw-generic-codecollection templates
+    against the resulting registry and asserts the SLX + Runbook YAML
+    reflect the discovered tool."""
+
+    @responses.activate
+    def test_indexer_to_template_render(self):
+        # 1. Helm-provided MCP_CONFIG (single server)
+        mcp_config = {"servers": [
+            {"display_name": "jira",
+             "url": "https://jira-mcp.internal/mcp",
+             "secret_ref": "jira-mcp-token"},
+        ]}
+
+        # 2. Stub MCP tools/list
+        url = "https://jira-mcp.internal/mcp"
+
+        def init_cb(request):
+            body = json.loads(request.body)
+            return (200, {"Content-Type": "application/json",
+                          "Mcp-Session-Id": "s1"},
+                    json.dumps({"jsonrpc": "2.0", "id": body["id"],
+                                "result": {"protocolVersion": "2025-03-26",
+                                           "capabilities": {},
+                                           "serverInfo": {"name": "x", "version": "0"}}}))
+
+        def list_cb(request):
+            body = json.loads(request.body)
+            if body.get("method") == "notifications/initialized":
+                return (200, {}, "")
+            assert body["method"] == "tools/list"
+            return (200, {"Content-Type": "application/json"},
+                    json.dumps({"jsonrpc": "2.0", "id": body["id"],
+                                "result": {"tools": [
+                                    {"name": "create_issue",
+                                     "description": "Create a Jira issue",
+                                     "inputSchema": {
+                                         "type": "object",
+                                         "properties": {
+                                             "project": {"type": "string", "description": "Project key"},
+                                             "summary": {"type": "string"},
+                                         },
+                                         "required": ["project", "summary"]}},
+                                ]}}))
+
+        responses.add_callback(responses.POST, url, callback=init_cb)
+        responses.add_callback(responses.POST, url, callback=list_cb)
+        responses.add_callback(responses.POST, url, callback=list_cb)
+
+        # 3. Run indexer with the secret resolver stubbed out
+        ctx = Context({"MCP_CONFIG": mcp_config}, mock.MagicMock())
+        ctx.set_property(REGISTRY_PROPERTY_NAME, Registry())
+        with mock.patch.object(mcp_tools, "_resolve_secret",
+                               return_value="stub-token"):
+            mcp_tools.index(ctx)
+        reg = ctx.get_property(REGISTRY_PROPERTY_NAME)
+        instances = reg.lookup_resource_type("mcp", "mcp_tool").instances
+        self.assertEqual(len(instances), 1)
+        match_resource = next(iter(instances.values()))
+
+        # 4. Render Runbook template from the codecollection.
+        import jinja2
+        cb_path = os.environ.get(
+            "MCP_TOOL_PROXY_PATH",
+            "/Users/prats/Documents/work/rw-generic-codecollection/codebundles/mcp-tool-proxy",
+        )
+        env = jinja2.Environment(
+            loader=jinja2.FileSystemLoader(os.path.join(cb_path, ".runwhen/templates")),
+            undefined=jinja2.StrictUndefined,
+        )
+        t = env.get_template("mcp-tool-proxy-runbook.yaml")
+        out = t.render(slx_name="mcp-jira-create-issue",
+                       default_location="loc1",
+                       match_resource=match_resource)
+        parsed = _yaml.safe_load(out)
+        runtime_vars = parsed["spec"]["runtimeVarsProvided"]
+        names = {v["name"] for v in runtime_vars}
+        self.assertEqual(names, {"project", "summary"})
+        required_names = {v["name"] for v in runtime_vars if v.get("required") is True}
+        self.assertEqual(required_names, {"project", "summary"})
+        # Static config var carries the input schema as JSON for the codebundle
+        config_names = {c["name"] for c in parsed["spec"]["configProvided"]}
+        self.assertEqual(config_names, {"MCP_SERVER_URL", "MCP_TOOL_NAME", "MCP_INPUT_SCHEMA"})
