@@ -689,8 +689,13 @@ class EndToEndMcpIndexingTest(TestCase):
         runtime_vars = parsed["spec"]["runtimeVarsProvided"]
         names = {v["name"] for v in runtime_vars}
         self.assertEqual(names, {"project", "summary"})
-        required_names = {v["name"] for v in runtime_vars if v.get("required") is True}
-        self.assertEqual(required_names, {"project", "summary"})
+        # RuntimeVarEntry only allows name/default/description/validation
+        # (corestate-operator api/v1/common_types.go) — guard against drift
+        # that would put unknown fields on the rendered Runbook.
+        allowed_fields = {"name", "default", "description", "validation"}
+        for v in runtime_vars:
+            extra = set(v.keys()) - allowed_fields
+            self.assertFalse(extra, f"runtimeVarsProvided[{v.get('name')}] has unexpected field(s): {extra}")
         # Static config var carries the input schema as JSON for the codebundle
         config_names = {c["name"] for c in parsed["spec"]["configProvided"]}
         self.assertEqual(config_names, {"MCP_SERVER_URL", "MCP_TOOL_NAME", "MCP_INPUT_SCHEMA"})
