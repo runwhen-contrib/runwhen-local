@@ -511,3 +511,44 @@ class LoadServersFromSettingTest(TestCase):
         self.assertEqual([s["display_name"] for s in servers], ["ok"])
         self.assertEqual(len(warnings), 2)
         self.assertTrue(any("broken" in w for w in warnings))
+
+
+class ListToolsTest(TestCase):
+    @responses.activate
+    def test_lists_tools_via_initialize_and_tools_list(self):
+        url = "https://jira-mcp.internal/mcp"
+
+        def init_cb(request):
+            body = json.loads(request.body)
+            assert body["method"] == "initialize"
+            return (200, {"Content-Type": "application/json",
+                          "Mcp-Session-Id": "s1"},
+                    json.dumps({"jsonrpc": "2.0", "id": body["id"],
+                                "result": {"protocolVersion": "2025-03-26",
+                                           "capabilities": {},
+                                           "serverInfo": {"name": "x", "version": "0"}}}))
+
+        def notify_or_list_cb(request):
+            body = json.loads(request.body)
+            if body.get("method") == "notifications/initialized":
+                return (200, {}, "")
+            assert body["method"] == "tools/list"
+            return (200, {"Content-Type": "application/json"},
+                    json.dumps({"jsonrpc": "2.0", "id": body["id"],
+                                "result": {"tools": [
+                                    {"name": "create_issue",
+                                     "description": "Create a Jira issue",
+                                     "inputSchema": {"type": "object",
+                                                     "properties": {"project": {"type": "string"}},
+                                                     "required": ["project"]}},
+                                ]}}))
+
+        responses.add_callback(responses.POST, url, callback=init_cb)
+        responses.add_callback(responses.POST, url, callback=notify_or_list_cb)
+        responses.add_callback(responses.POST, url, callback=notify_or_list_cb)
+
+        server = {"display_name": "jira", "url": url, "secret_ref": "tok"}
+        tools = mcp_tools._list_tools(server, fetch_secret=lambda _: "stub-token")
+        self.assertEqual(len(tools), 1)
+        self.assertEqual(tools[0]["name"], "create_issue")
+        self.assertEqual(tools[0]["inputSchema"]["required"], ["project"])

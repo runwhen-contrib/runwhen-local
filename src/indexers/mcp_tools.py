@@ -105,3 +105,54 @@ def _load_servers_from_setting(config, on_warning=None) -> list[dict[str, Any]]:
             continue
         valid.append(entry)
     return valid
+
+
+def _resolve_secret(secret_ref: str) -> str:
+    """Read a workspace secret and return the token value. Resolved here so
+    tests can monkey-patch this single function rather than threading a
+    fetcher parameter through every call site."""
+    from k8s_utils import get_secret
+    data = get_secret(secret_ref)
+    # Secret convention: stored under key "token"; fall back to single-key shape.
+    return data.get("token") or next(iter(data.values()))
+
+
+def _list_tools(server: dict[str, Any],
+                fetch_secret=None) -> list[dict[str, Any]]:
+    """Calls the MCP server's initialize/notifications/tools/list handshake
+    and returns the `tools` array from the result.
+
+    `fetch_secret` is injected for testability. Defaults to _resolve_secret
+    which talks to the k8s secret store at runtime.
+    """
+    if fetch_secret is None:
+        fetch_secret = _resolve_secret
+    token = fetch_secret(server["secret_ref"])
+
+    s = requests.Session()
+    s.headers.update({
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json, text/event-stream",
+    })
+    init = s.post(server["url"],
+                  json={"jsonrpc": "2.0", "id": 1, "method": "initialize",
+                        "params": {"protocolVersion": "2025-03-26",
+                                   "capabilities": {},
+                                   "clientInfo": {"name": "runwhen-builder", "version": "1.0.0"}}},
+                  timeout=TOOLS_LIST_TIMEOUT)
+    init.raise_for_status()
+    sid = init.headers.get("Mcp-Session-Id")
+    if sid:
+        s.headers["Mcp-Session-Id"] = sid
+    s.post(server["url"],
+           json={"jsonrpc": "2.0", "method": "notifications/initialized"},
+           timeout=TOOLS_LIST_TIMEOUT)
+    resp = s.post(server["url"],
+                  json={"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
+                  timeout=TOOLS_LIST_TIMEOUT)
+    resp.raise_for_status()
+    parsed = resp.json()
+    if "error" in parsed:
+        raise RuntimeError(f"tools/list error: {parsed['error']}")
+    return parsed.get("result", {}).get("tools", [])
