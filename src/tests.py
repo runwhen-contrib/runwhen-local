@@ -696,6 +696,12 @@ class EndToEndMcpIndexingTest(TestCase):
         for v in runtime_vars:
             extra = set(v.keys()) - allowed_fields
             self.assertFalse(extra, f"runtimeVarsProvided[{v.get('name')}] has unexpected field(s): {extra}")
+            # Every var must carry a validation block with a CRD-allowed type
+            # (the CRD enum is {enum, regex}); when the MCP property has neither
+            # enum nor pattern the template falls back to regex .*
+            self.assertIn("validation", v, f"runtimeVarsProvided[{v['name']}] missing validation")
+            self.assertIn(v["validation"]["type"], {"enum", "regex"},
+                          f"runtimeVarsProvided[{v['name']}] has invalid validation.type")
         # Static config var carries the input schema as JSON for the codebundle
         config_names = {c["name"] for c in parsed["spec"]["configProvided"]}
         self.assertEqual(config_names, {"MCP_SERVER_URL", "MCP_TOOL_NAME", "MCP_INPUT_SCHEMA"})
