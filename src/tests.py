@@ -599,6 +599,43 @@ class ListToolsTest(TestCase):
         self.assertEqual(tools[0]["name"], "create_issue")
         self.assertEqual(tools[0]["inputSchema"]["required"], ["project"])
 
+    def test_verify_tls_flag_propagates_to_requests(self):
+        """verify_tls=False on a server entry should disable cert verification
+        in the underlying requests.Session. Default (omitted) stays True."""
+        captured = {}
+        real_session_post = mcp_tools.requests.Session.post
+
+        def post_spy(self, url, **kwargs):
+            captured["verify"] = self.verify
+            # Short-circuit the network call with a synthetic 200 so the rest
+            # of _list_tools doesn't actually fire over the wire.
+            class _Resp:
+                status_code = 200
+                headers = {}
+                def raise_for_status(self): pass
+                def json(self_inner): return {"jsonrpc": "2.0", "id": 1,
+                                              "result": {"tools": []}}
+            return _Resp()
+
+        mcp_tools.requests.Session.post = post_spy
+        try:
+            mcp_tools._list_tools(
+                {"display_name": "x", "url": "https://x.invalid/mcp",
+                 "secret_ref": "tok", "verify_tls": False},
+                fetch_secret=lambda _: "stub",
+            )
+            self.assertEqual(captured["verify"], False)
+
+            captured.clear()
+            mcp_tools._list_tools(
+                {"display_name": "x", "url": "https://x.invalid/mcp",
+                 "secret_ref": "tok"},  # verify_tls omitted → default True
+                fetch_secret=lambda _: "stub",
+            )
+            self.assertEqual(captured["verify"], True)
+        finally:
+            mcp_tools.requests.Session.post = real_session_post
+
 
 from resources import Registry, REGISTRY_PROPERTY_NAME
 from component import Context

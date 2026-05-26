@@ -137,12 +137,35 @@ def _list_tools(server: dict[str, Any],
 
     `fetch_secret` is injected for testability. Defaults to _resolve_secret
     which talks to the k8s secret store at runtime.
+
+    The `verify_tls` field on a server entry (default True) is forwarded to
+    the underlying `requests` call. Set it to False for a server whose cert
+    can't be validated by the pod's CA bundle (temporary escape hatch — the
+    proper fix is to add the issuer to the bundle).
     """
     if fetch_secret is None:
         fetch_secret = _resolve_secret
     token = fetch_secret(server["secret_ref"])
 
+    verify_tls = server.get("verify_tls", True)
+    if verify_tls is False:
+        logger.warning(
+            "mcp_tools: TLS verification DISABLED for %s — temporary debug "
+            "mode. The proper fix is to trust the server's CA in the pod's "
+            "CA bundle. Do not leave verify_tls=false in production.",
+            server.get("display_name"),
+        )
+        # Silence requests' per-call InsecureRequestWarning so the warning
+        # above is the only noise per server (logged once at start).
+        try:
+            from urllib3 import disable_warnings
+            from urllib3.exceptions import InsecureRequestWarning
+            disable_warnings(InsecureRequestWarning)
+        except Exception:
+            pass
+
     s = requests.Session()
+    s.verify = verify_tls
     s.headers.update({
         "Content-Type": "application/json",
         "Authorization": f"Bearer {token}",
