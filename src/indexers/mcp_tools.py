@@ -204,10 +204,36 @@ def _list_tools(server: dict[str, Any],
                   timeout=TOOLS_LIST_TIMEOUT,
                   verify=verify_tls)
     resp.raise_for_status()
-    parsed = resp.json()
+    parsed = _parse_jsonrpc_response(resp)
+    if parsed is None:
+        raise RuntimeError("tools/list returned no parseable JSON-RPC envelope")
     if "error" in parsed:
         raise RuntimeError(f"tools/list error: {parsed['error']}")
     return parsed.get("result", {}).get("tools", [])
+
+
+def _parse_jsonrpc_response(resp) -> dict[str, Any] | None:
+    """Parse a JSON or SSE (text/event-stream) MCP response body. Mirrors
+    `_parse_response` in the rw-generic-codecollection mcp-tool-proxy client:
+    streamable HTTP MCP servers may answer in either content type, and the
+    SSE form is `event: message\\ndata: <json>\\n\\n` per RPC envelope.
+    """
+    import json as _json
+    ct = resp.headers.get("Content-Type", "")
+    if "text/event-stream" in ct:
+        for line in resp.text.split("\n"):
+            if line.startswith("data: "):
+                try:
+                    msg = _json.loads(line[len("data: "):])
+                    if "id" in msg or "result" in msg or "error" in msg:
+                        return msg
+                except _json.JSONDecodeError:
+                    continue
+        return None
+    try:
+        return resp.json()
+    except Exception:
+        return None
 
 
 def _emit_tool_resource(registry: Registry,
