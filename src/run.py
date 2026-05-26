@@ -433,6 +433,7 @@ def main():
     code_collections = workspace_info.get("codeCollections")
     overrides = workspace_info.get("overrides", {})
     task_tag_exclusions = workspace_info.get("taskTagExclusions")
+    mcp_config = workspace_info.get("mcpConfig")
 
     # ------------------------------------------------------------------ 4. validation guards
     missing = []
@@ -682,6 +683,8 @@ def main():
             request_data['codeCollections'] = code_collections
         if cloud_config:
             request_data['cloudConfig'] = cloud_config
+        if mcp_config:
+            request_data['mcpConfig'] = mcp_config
         if overrides:
             request_data['overrides'] = overrides
         if task_tag_exclusions:
