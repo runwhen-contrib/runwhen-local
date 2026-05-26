@@ -672,22 +672,6 @@ class EmitToolResourceTest(TestCase):
         self.assertEqual(res.spec["tool_name"], "create_issue")
         self.assertEqual(res.spec["secret_ref"], "jira-mcp-token")
         self.assertEqual(res.spec["input_schema"]["required"], ["project"])
-        # default codecollection_ref must always be 'main' so generated runbooks
-        # clone an existing branch (the PAPI taskiq worker errors out otherwise).
-        self.assertEqual(res.spec["codecollection_ref"], "main")
-
-    def test_emits_resource_with_overridden_codecollection_ref(self):
-        reg = Registry()
-        server = {"display_name": "jira",
-                  "url": "https://jira-mcp.internal/mcp",
-                  "secret_ref": "jira-mcp-token",
-                  "codecollection_ref": "feat/some-branch"}
-        tool = {"name": "create_issue",
-                "inputSchema": {"type": "object", "properties": {}}}
-        mcp_tools._emit_tool_resource(reg, server, tool)
-        rt = reg.lookup_resource_type("mcp", "mcp_tool")
-        res = next(iter(rt.instances.values()))
-        self.assertEqual(res.spec["codecollection_ref"], "feat/some-branch")
 
     def test_index_skips_when_config_empty(self):
         ctx = Context({}, mock.MagicMock())

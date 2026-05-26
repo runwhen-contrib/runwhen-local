@@ -253,11 +253,6 @@ def _emit_tool_resource(registry: Registry,
         "input_schema": tool.get("inputSchema") or tool.get("input_schema") or {
             "type": "object", "properties": {}, "required": [],
         },
-        # ref the runner / PAPI taskiq worker will use when cloning the
-        # mcp-tool-proxy codebundle to attach a runbook to this SLX.
-        # Defaults to "main"; override per-server in mcpConfig when testing
-        # against a branch that hasn't merged yet.
-        "codecollection_ref": server.get("codecollection_ref", "main"),
     }
     registry.add_resource(
         platform_name=PLATFORM_NAME,
