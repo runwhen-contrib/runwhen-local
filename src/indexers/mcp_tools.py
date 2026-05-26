@@ -165,6 +165,12 @@ def _list_tools(server: dict[str, Any],
             pass
 
     s = requests.Session()
+    # Note: setting s.verify alone isn't enough when REQUESTS_CA_BUNDLE is set
+    # in the environment — requests.Session.merge_environment_settings reads
+    # the env path into the per-request verify (when the request-level value
+    # is None/True) and then merge_setting returns the per-request value over
+    # the session-level one. We pass verify=verify_tls to each post() call so
+    # the env override is skipped when verify_tls is False.
     s.verify = verify_tls
     s.headers.update({
         "Content-Type": "application/json",
@@ -176,17 +182,20 @@ def _list_tools(server: dict[str, Any],
                         "params": {"protocolVersion": "2025-03-26",
                                    "capabilities": {},
                                    "clientInfo": {"name": "runwhen-builder", "version": "1.0.0"}}},
-                  timeout=TOOLS_LIST_TIMEOUT)
+                  timeout=TOOLS_LIST_TIMEOUT,
+                  verify=verify_tls)
     init.raise_for_status()
     sid = init.headers.get("Mcp-Session-Id")
     if sid:
         s.headers["Mcp-Session-Id"] = sid
     s.post(server["url"],
            json={"jsonrpc": "2.0", "method": "notifications/initialized"},
-           timeout=TOOLS_LIST_TIMEOUT)
+           timeout=TOOLS_LIST_TIMEOUT,
+           verify=verify_tls)
     resp = s.post(server["url"],
                   json={"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
-                  timeout=TOOLS_LIST_TIMEOUT)
+                  timeout=TOOLS_LIST_TIMEOUT,
+                  verify=verify_tls)
     resp.raise_for_status()
     parsed = resp.json()
     if "error" in parsed:

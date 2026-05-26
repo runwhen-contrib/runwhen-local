@@ -601,14 +601,17 @@ class ListToolsTest(TestCase):
 
     def test_verify_tls_flag_propagates_to_requests(self):
         """verify_tls=False on a server entry should disable cert verification
-        in the underlying requests.Session. Default (omitted) stays True."""
-        captured = {}
+        on the per-request `verify=` kwarg (not just session-level), because
+        REQUESTS_CA_BUNDLE in the environment can override session.verify.
+        Default (omitted) stays True."""
+        captured = {"calls": []}
         real_session_post = mcp_tools.requests.Session.post
 
         def post_spy(self, url, **kwargs):
-            captured["verify"] = self.verify
-            # Short-circuit the network call with a synthetic 200 so the rest
-            # of _list_tools doesn't actually fire over the wire.
+            captured["calls"].append({
+                "session_verify": self.verify,
+                "kwarg_verify": kwargs.get("verify"),
+            })
             class _Resp:
                 status_code = 200
                 headers = {}
@@ -624,15 +627,22 @@ class ListToolsTest(TestCase):
                  "secret_ref": "tok", "verify_tls": False},
                 fetch_secret=lambda _: "stub",
             )
-            self.assertEqual(captured["verify"], False)
+            # Every post() call must carry verify=False as a kwarg so the
+            # env-var override path in requests is skipped.
+            self.assertTrue(captured["calls"])
+            for call in captured["calls"]:
+                self.assertEqual(call["session_verify"], False)
+                self.assertEqual(call["kwarg_verify"], False)
 
-            captured.clear()
+            captured["calls"] = []
             mcp_tools._list_tools(
                 {"display_name": "x", "url": "https://x.invalid/mcp",
                  "secret_ref": "tok"},  # verify_tls omitted → default True
                 fetch_secret=lambda _: "stub",
             )
-            self.assertEqual(captured["verify"], True)
+            for call in captured["calls"]:
+                self.assertEqual(call["session_verify"], True)
+                self.assertEqual(call["kwarg_verify"], True)
         finally:
             mcp_tools.requests.Session.post = real_session_post
 
