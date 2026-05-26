@@ -54,28 +54,41 @@ TOOLS_LIST_TIMEOUT = 15
 
 
 def index(context: Context) -> None:
+    logger.info("mcp_tools: indexer starting")
     config = context.get_setting(MCP_CONFIG_SETTING) or {}
+    raw_count = len((config or {}).get("servers") or [])
+    logger.info("mcp_tools: MCP_CONFIG has %d raw server entries", raw_count)
     servers = _load_servers_from_setting(config, on_warning=context.add_warning)
+    logger.info("mcp_tools: %d server entries passed validation", len(servers))
     if not servers:
         logger.info("mcp_tools: no MCP servers configured; skipping.")
         return
 
     registry: Registry = context.get_property(REGISTRY_PROPERTY_NAME)
 
+    total_tools = 0
     for server in servers:
+        name = server.get("display_name")
+        url = server.get("url")
+        logger.info("mcp_tools: calling tools/list on %s (url=%s, secret_ref=%s)",
+                    name, url, server.get("secret_ref"))
         try:
             tools = _list_tools(server)
         except Exception as exc:
             # Preserve previous SLXs on failure (per design §7.9). We simply
             # don't emit fresh resources for this server; the existing SLXs
             # from the previous successful cycle stay in place upstream.
-            logger.warning("mcp_tools: tools/list failed for %s: %s",
-                           server.get("display_name"), exc)
+            logger.warning("mcp_tools: tools/list failed for %s: %s", name, exc)
             context.add_warning(
-                f"MCP tools/list failed for {server.get('display_name')}: {exc}")
+                f"MCP tools/list failed for {name}: {exc}")
             continue
+        logger.info("mcp_tools: %s returned %d tools", name, len(tools))
         for tool in tools:
+            logger.debug("mcp_tools: emitting resource for %s/%s", name, tool.get("name"))
             _emit_tool_resource(registry, server, tool)
+            total_tools += 1
+    logger.info("mcp_tools: indexer complete; emitted %d mcp_tool resources across %d servers",
+                total_tools, len(servers))
 
 
 REQUIRED_SERVER_FIELDS = ("display_name", "url", "secret_ref")
