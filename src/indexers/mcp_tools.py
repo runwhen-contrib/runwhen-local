@@ -123,11 +123,18 @@ def _load_servers_from_setting(config, on_warning=None) -> list[dict[str, Any]]:
 def _resolve_secret(secret_ref: str) -> str:
     """Read a workspace secret and return the token value. Resolved here so
     tests can monkey-patch this single function rather than threading a
-    fetcher parameter through every call site."""
+    fetcher parameter through every call site.
+
+    k8s_utils.get_secret returns secret.data from the Kubernetes Python
+    client unchanged — values are still base64-encoded. Must be decoded
+    before use as a bearer token (see azure_utils.py:95 for prior art).
+    """
+    import base64
     from k8s_utils import get_secret
     data = get_secret(secret_ref)
     # Secret convention: stored under key "token"; fall back to single-key shape.
-    return data.get("token") or next(iter(data.values()))
+    encoded = data.get("token") or next(iter(data.values()))
+    return base64.b64decode(encoded).decode("utf-8")
 
 
 def _list_tools(server: dict[str, Any],
