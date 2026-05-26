@@ -29,7 +29,7 @@ In order to test the image, a valid `kubeconfig` and `workspaceInfo.yaml` file m
 * Testing with built in generation and customization rules
 
 ```
-docker run --name RunWhenLocal -p 8081:8081 -v $workdir/shared:/shared -d runwhen-local:test
+docker run --name RunWhenLocal -p 8000:8000 -v $workdir/shared:/shared -d runwhen-local:test
 docker exec -w /workspace-builder -- RunWhenLocal ./run.sh
 ```
 
@@ -37,7 +37,7 @@ docker exec -w /workspace-builder -- RunWhenLocal ./run.sh
 
 ```
 git_repo_path=[FULL PATH TO GIT REPO BASE]
-cd $workdir; docker run --name RunWhenLocal -p 8081:8081 -v $workdir/shared:/shared -v $git_repo_path/src/generation-rules:/workspace-builder/generation-rules -v $git_repo_path/src/templates:/workspace-builder/templates  -v $git_repo_path/src/map-customization-rules:/workspace-builder/map-customization-rules -d runwhen-local:test 
+cd $workdir; docker run --name RunWhenLocal -p 8000:8000 -v $workdir/shared:/shared -v $git_repo_path/src/generation-rules:/workspace-builder/generation-rules -v $git_repo_path/src/templates:/workspace-builder/templates  -v $git_repo_path/src/map-customization-rules:/workspace-builder/map-customization-rules -d runwhen-local:test 
 ```
 
 ### Quick test script with verbose output
@@ -59,7 +59,7 @@ if [[ "$workdir" ]];then
         echo "rebuild image" 
         docker build -t runwhen-local:test -f ../runwhen-local/src/Dockerfile ../runwhen-local/src/
         echo "Running RunWhenLocal container"
-        docker run --name RunWhenLocal -p 8081:8081 -v $workdir/shared:/shared -d runwhen-local:test
+        docker run --name RunWhenLocal -p 8000:8000 -v $workdir/shared:/shared -d runwhen-local:test
         sleep 5
         echo "Running discovery"
         docker exec -w /workspace-builder -- RunWhenLocal ./run.sh --verbose

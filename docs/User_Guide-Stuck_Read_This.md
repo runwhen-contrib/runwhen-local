@@ -35,20 +35,11 @@ In order to get more insights into the root cause of the issue, you can attach t
 ```
 $ docker attach RunWhenLocal 
 Directory /shared/output has been created.
-Starting up neo4j
-Waiting a bit before starting prodgraph REST server
-WARNING  -  Config value 'build': Unrecognised configuration name: build
-WARNING  -  Config value 'dev_addr': The use of the IP address '0.0.0.0' suggests a production environment or the use of a proxy to connect to the MkDocs server. However, the MkDocs' server is intended for local development purposes only. Please use a third party production-ready server instead.
-INFO     -  Building documentation...
-INFO     -  Cleaning site directory
-INFO     -  Documentation built in 1.48 seconds
-INFO     -  [13:28:09] Watching paths for changes: 'cmd-assist-docs/docs', 'cmd-assist-docs/mkdocs.yml'
-INFO     -  [13:28:09] Serving on http://0.0.0.0:8081/
 Operations to perform:
   Apply all migrations: admin, auth, contenttypes, sessions
 Running migrations:
 ...
-Starting prodgraph REST server
+Starting workspace builder REST server
 ```
 
 * In many cases, you may just see the following generic error, which is often related to [#authentication-issues](User\_Guide-Stuck\_Read\_This.md#authentication-issues "mention")

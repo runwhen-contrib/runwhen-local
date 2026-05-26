@@ -14,10 +14,10 @@ If you have any issues with this process, feel free to reach out on [Slack](http
 
 ## Overview
 
-Some teams might benefit from running a single instance of RunWhen Local directly from a Kubernetes cluster, sharing copy & paste-able troubleshooting commands with an entire team.
+Some teams might benefit from running a single instance of RunWhen Local directly from a Kubernetes cluster, sharing discovery output and generated troubleshooting configuration with an entire team.
 
 {% hint style="info" %}
-The commands generated in the Troubleshooting Cheat Sheet include the specific kubeconfig context. In order for this tool to be of the greatest use to all users, each user should have their kubeconfig context set to the identical name as the one that is used to generate the cheat sheet.
+Generated commands include the specific kubeconfig context from discovery. For the greatest use to all users, each user should have their kubeconfig context set to the identical name as the one used during discovery.
 {% endhint %}
 
 As we also host this in Kubernetes for the purposes of an online demo, this document will share the manifests that we have used in [our own demo environment](https://runwhen-local.sandbox.runwhen.com).
@@ -64,7 +64,7 @@ For additional resources on creating a long-lived service account and Kubeconfig
 Deploying RunWhen Local to a Kubernetes cluster can be achieved with the following manifests:
 
 * Deployment:
-  * Supports an environment variable titled `AUTORUN_WORKSPACE_BUILDER_INTERVAL` to control how often the Troubleshooting Cheat Sheet content is refreshed
+  * Supports an environment variable titled `AUTORUN_WORKSPACE_BUILDER_INTERVAL` to control how often discovery runs
   * Includes automatic file watching for configuration changes - see [File Watching Configuration](../configuration/file-watching-configuration.md) for details
   * Defines the following volumes to mount into the container:
     * configmap-volume: mounts the workspaceInto.yaml file into the container
@@ -74,9 +74,9 @@ Deploying RunWhen Local to a Kubernetes cluster can be achieved with the followi
 * Ingress
   * The ingress object supports access from outside of the cluster to the RunWhen container. An example ingress manifest is not provided, as this will vary from cluster to cluster.
 * ConfigMap
-  * Stores the `workspaceInfo.yaml` file, which is the main configuration file that is used to customize how RunWhen Local builds it's Troubleshooting Cheat Sheet. See [Broken link](broken-reference "mention")for more details on how to modify this file.
+  * Stores the `workspaceInfo.yaml` file, which is the main configuration file used to customize how RunWhen Local runs discovery. See [workspaceinfo-customization.md](../configuration/workspaceinfo-customization.md) for details.
 * Secret
-  * A kubeconfig secret that contains all contexts that should be included in the Troubleshooting Cheat Sheet. This is typically a user or service account that has view-only access to the resources you wish to be included in the Troubleshooting Cheat Sheet.
+  * A kubeconfig secret that contains all contexts that should be included in discovery. This is typically a user or service account that has view-only access to the resources you wish to be discovered.
 
 Example deployment manifests (as used in the online demo environment) are in the [runwhen-local GitHub repo](https://github.com/runwhen-contrib/runwhen-local/tree/main/deploy/kubernetes). There is an all-in-one.yaml manifest that provides the fastest path to deployment.
 
@@ -142,7 +142,7 @@ helm install runwhen-local runwhen-contrib/runwhen-local -n $namespace \
     --set ingress.className="ingress-nginx" \
     --set ingress.hosts[0].host=${hostname} \
     --set ingress.hosts[0].paths[0].backend.service.name="runwhen-local" \
-    --set ingress.hosts[0].paths[0].backend.service.port.number=8081 \
+    --set ingress.hosts[0].paths[0].backend.service.port.number=8000 \
     --set ingress.hosts[0].paths[0].path="/" \
     --set ingress.hosts[0].paths[0].pathType="Prefix" \
     --set ingress.tls[0].hosts[0]=${hostname} \
@@ -174,55 +174,15 @@ If you choose to deploy an ingress object (or loadbalancer type service) with an
 Without an ingress object or loadbalancer IP address, you can port-forward the instance to your local machine:
 
 ```
-kubectl port-forward svc/runwhen-local 8081:8081 -n $namespace
+kubectl port-forward svc/runwhen-local 8000:8000 -n $namespace
 ```
 
-With the service available on your local machine, you can access the interface by opening a browser to [http://localhost:8081](http://localhost:8081)
+With the service available on your local machine, you can check health and run discovery:
 
-<figure><img src="../assets/gs_k8s_view_cheat_sheet.png" alt=""><figcaption></figcaption></figure>
+```
+curl http://localhost:8000/health/
+kubectl exec -n $namespace deploy/runwhen-local -- ./run.sh
+```
 
-### Optional: Add a CLI Shortcut
+Generated output is written to the container's `/shared/output` volume.
 
-If you would like a shortcut from the CLI to open your cheatsheet, the following may help:
-
-{% tabs %}
-{% tab title="Linux/MacOS" %}
-* **Edit the Bash Profile**:
-  * For **Linux**, you'll typically edit the `.bashrc` file. For **macOS**, you'll edit the `.bash_profile` or `.zshrc` if you're using zsh.
-  * Use a text editor like nano or vim. For example, type `nano ~/.bashrc` (Linux) or `nano ~/.bash_profile` (macOS) and press Enter.
-* **Add the Alias**:
-  *   At the end of the file, add the following line:
-
-      ```bash
-      alias runwhen-local='open http://[INGRESS_URL or http://127.0.0.1:8081] &>/dev/null &'
-      ```
-  * For macOS, `open` is the command to open the URL in your default browser. For Linux, you might need to use `xdg-open` instead of `open`.
-* **Save and Exit**:
-  * For nano, press `CTRL + X`, then `Y` to confirm, and `Enter` to exit.
-  * For vim, press `Esc`, type `:wq`, and press `Enter`.
-* **Activate the Alias**:
-  * To make the alias available, you need to reload the profile. Type `source ~/.bashrc` (Linux) or `source ~/.bash_profile` (macOS) and press Enter.
-* **Test the Alias**:
-  * Simply type `runwhen-local` in your terminal and press Enter. It should open your default browser to the specified website.
-{% endtab %}
-
-{% tab title="Microsoft PowerShell" %}
-* **Check if a Profile Already Exists**:
-  * In PowerShell, type `Test-Path $PROFILE` and press Enter. If it returns `True`, then you already have a profile.
-* **Create or Edit the Profile**:
-  * If you don't have a profile, create one by typing `New-Item -path $PROFILE -type file -force`.
-  * Open the profile in a text editor, such as Notepad, by typing `notepad $PROFILE`.
-* **Add the Function and Alias to Your Profile**:
-  *   Add the following lines to the profile script:
-
-      ```powershell
-      function Open-RunWhenLocal { Start-Process http://[INGRESS_URL or http://127.0.0.1:8081] }
-      Set-Alias -Name runwhen-local Open-RunWhenLocal
-      ```
-  * Save and close the file.
-* **Reload Your Profile** (or restart PowerShell):
-  * Type `. $PROFILE` to reload your profile in the current session.
-* **Test the Alias Again**:
-  * Type `runwhen-local` and press Enter. It should open your default browser to the specified website.
-{% endtab %}
-{% endtabs %}

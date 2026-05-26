@@ -111,7 +111,7 @@ tasks:
           -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
           -e AWS_SESSION_TOKEN="${AWS_SESSION_TOKEN}" \
           -e AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION:-us-east-1}" \
-          --name $CONTAINER_NAME -p 8081:8081 -p 8000:8000 -v $(pwd):/shared -d runwhen-local:test || {
+          --name $CONTAINER_NAME -p 8000:8000 -v $(pwd):/shared -d runwhen-local:test || {
           echo "Failed to start container"; exit 1;
         }
 

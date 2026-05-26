@@ -132,7 +132,7 @@ tasks:
 
         echo "Starting new container $CONTAINER_NAME..."
 
-        docker run -e DEBUG_LOGGING=false --name $CONTAINER_NAME -p 8081:8081 -v $(pwd):/shared -d runwhen-local:test || {
+        docker run -e DEBUG_LOGGING=false --name $CONTAINER_NAME -p 8000:8000 -v $(pwd):/shared -d runwhen-local:test || {
           echo "Failed to start container"; exit 1;
         }
 
@@ -171,10 +171,9 @@ tasks:
         echo "User $(whoami)"
         # 1. Start container in the background
         docker run -d \
-          -e WB_DEBUG_SUPPRESS_CHEAT_SHEET="true" \
           -e DEBUG_LOGS=true \
           --name "$CONTAINER_NAME" \
-          -p 8081:8081 \
+          -p 8000:8000 \
           -v "$(pwd):/shared" \
           runwhen-local:test
 
@@ -382,12 +381,11 @@ tasks:
         
         # Start container with airgap mode explicitly disabled
         docker run -d \
-          -e WB_DEBUG_SUPPRESS_CHEAT_SHEET="true" \
           -e DEBUG_LOGS=true \
           -e CLOUDQUERY_AIRGAP_MODE=false \
           -e CLOUDQUERY_PLUGINS_PREINSTALLED=false \
           --name "$CONTAINER_NAME" \
-          -p 8082:8081 \
+          -p 8082:8000 \
           -v "$(pwd):/shared" \
           runwhen-local:test
 

@@ -121,21 +121,6 @@ kubectl create secret generic runner-registration-token --from-literal=token="[T
 * From the workspace creation wizard, select **Generate Upload Configuration** (alternatively, if the wizard is gone, this can be performed from Configuration -> Workspace -> Admin Tools)
 
 {% tabs %}
-{% tab title="From the Web UI" %}
-* Port-forward the RunWhen Local UI (or leverage an ingress object) to access the Upload Configuration Screen
-
-```
-kubectl port-forward deployment/runwhen-local 8081:8081 -n $namespace
-```
-
-* Navigate to [http://127.0.0.1:8081/platform-upload/](http://127.0.0.1:8081/platform-upload/)
-* Select **Upload Configuration**
-
-<figure><img src="../../.gitbook/assets/image (11).png" alt=""><figcaption></figcaption></figure>
-
-
-{% endtab %}
-
 {% tab title="From the CLI" %}
 * Create a secret in the namespace with the contents of uploadInfo.yaml (ensure to update the file name accordingly)
 

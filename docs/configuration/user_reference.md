@@ -2,7 +2,7 @@
 
 When resources are discovered, they are automatically grouped for easier organization:&#x20;
 
-* In RunWhen Local, these groups help with organization and navigation of the troubleshooting tech docs that are rendered in mkdocs
+* In RunWhen Local, these groups help organize discovered resources and generated configuration output
 * In the RunWhen Platform, these groups help with moving across the [map](https://docs.runwhen.com/public/runwhen-platform/feature-overview/maps) and provide additional context for the [Digital Assistants](https://docs.runwhen.com/public/runwhen-platform/feature-overview/digital-assistants) to help provide automated troubleshooting
 
 In general, the default grouping often follow a simple pattern, such as:&#x20;

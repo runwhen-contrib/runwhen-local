@@ -22,8 +22,8 @@ if [[ "$workdir" ]];then
         echo "rebuild image" 
         docker build -t runwhen-local:test -f ../runwhen-local/src/Dockerfile ../runwhen-local/src/
         echo "Running RunWhenLocal container"
-        #docker run --name RunWhenLocal -p 8081:8081 -e AUTORUN_WORKSPACE_BUILDER_INTERVAL=300 -e RW_LOCAL_UPLOAD_ENABLED=true  -e RW_LOCAL_UPLOAD_MERGE_MODE="keep-uploaded" -e RW_LOCAL_TERMINAL_DISABLED=false -v $workdir/shared:/shared -d runwhen-local:test
-        docker run --name RunWhenLocal -p 8081:8081 -e RW_LOCAL_TERMINAL_DISABLED=false -v $workdir/shared:/shared -d runwhen-local:test
+        #docker run --name RunWhenLocal -p 8000:8000 -e AUTORUN_WORKSPACE_BUILDER_INTERVAL=300 -e RW_LOCAL_UPLOAD_ENABLED=true  -e RW_LOCAL_UPLOAD_MERGE_MODE="keep-uploaded" -e RW_LOCAL_TERMINAL_DISABLED=false -v $workdir/shared:/shared -d runwhen-local:test
+        docker run --name RunWhenLocal -p 8000:8000 -e RW_LOCAL_TERMINAL_DISABLED=false -v $workdir/shared:/shared -d runwhen-local:test
         sleep 5
         echo "Running discovery"
         docker exec -w /workspace-builder -- RunWhenLocal ./run.sh $1 --verbose

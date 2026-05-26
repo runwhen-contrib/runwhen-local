@@ -7,6 +7,11 @@ on:
       - "src/enrichers/azure_devops.py"
       - "src/templates/azure-devops-auth.yaml"
       - "src/indexers/cloudquery.py"
+      - "src/indexers/azureapi.py"
+      - "src/indexers/azureapi_resource_types.py"
+      - "src/indexers/azureapi_normalizers.py"
+      - "src/indexers/azure_common.py"
+      - "src/indexers/resource_writer.py"
       - ".test/azure/ado/**"
       - ".github/workflows/ado-ci-test.yml"
   workflow_dispatch:

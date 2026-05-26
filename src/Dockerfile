@@ -88,15 +88,6 @@ RUN apt-get update \
 
 WORKDIR $RUNWHEN_HOME
 
-RUN pip install --no-cache-dir \
-    mkdocs \
-    mkdocs-material \
-    mkdocs-macros-plugin \
-    pymdown-extensions \
-    ruamel.yaml \
-    gitpython \
-    pyyaml
-
 ENV NODE_PATH="/var/lib/neo4j/node_modules"
 ENV CLOUDQUERY_PLUGINS_PREINSTALLED=true
 
@@ -203,5 +194,5 @@ RUN set -eux; \
     chown -R runwhen:runwhen "$CODE_COLLECTION_CACHE_ROOT"
 
 USER runwhen
-EXPOSE 8081
+EXPOSE 8000
 ENTRYPOINT ["/bin/sh", "-c", "./entrypoint.sh"]

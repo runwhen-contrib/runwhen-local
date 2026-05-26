@@ -77,28 +77,12 @@ fi
 # Use TMPDIR if set, or fall back to /tmp
 TMPDIR="${TMPDIR:-/tmp}"
 
-# Only start mkdocs when cheat sheet is enabled (WB_DEBUG_SUPPRESS_CHEAT_SHEET defaults to "true")
-WB_SUPPRESS="${WB_DEBUG_SUPPRESS_CHEAT_SHEET:-true}"
-if [ "${WB_SUPPRESS,,}" = "false" ] || [ "$WB_SUPPRESS" = "0" ]; then
-  MKDOCS_TMP="$TMPDIR/mkdocs-temp"
-  rm -rf "$MKDOCS_TMP"
-  mkdir -p "$MKDOCS_TMP"
-  cp -r /workspace-builder/cheat-sheet-docs/* "$MKDOCS_TMP"
-  cd "$MKDOCS_TMP"
-  mkdocs serve -f mkdocs.yml &
-  echo "MkDocs serve started in the background, serving from $MKDOCS_TMP"
-else
-  echo "Cheat sheet disabled (WB_DEBUG_SUPPRESS_CHEAT_SHEET=${WB_SUPPRESS}) — skipping MkDocs server"
-fi
-
 ## Clean stale lock files
 rm $TMPDIR/.wb_lock || true
 
 ## Execute main discovery process
 
 cd $RUNWHEN_HOME
-# Run Django in the background
-python manage.py migrate
 echo Starting workspace builder REST server
 
 # Check if AUTORUN_WORKSPACE_BUILDER_INTERVAL environment variable is set
@@ -107,9 +91,7 @@ echo Starting workspace builder REST server
 if [ -n "$AUTORUN_WORKSPACE_BUILDER_INTERVAL" ]; 
 then
     echo "AUTORUN_WORKSPACE_BUILDER_INTERVAL is set. Running workspace-builder"
-    python manage.py runserver 0.0.0.0:8000 &
-    # Put this back after testing
-    # python manage.py runserver 0.0.0.0:8000 --noreload &
+    uvicorn workspace_builder.api:app --host 0.0.0.0 --port 8000 &
     sleep 60
     
     # Configure which files to watch for changes (inclusive list)
@@ -217,7 +199,5 @@ then
         done
     fi 
 else
-  python manage.py runserver 0.0.0.0:8000 
-  # Put this back after testing
-  # python manage.py runserver 0.0.0.0:8000 --noreload
+  uvicorn workspace_builder.api:app --host 0.0.0.0 --port 8000
 fi

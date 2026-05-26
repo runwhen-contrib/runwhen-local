@@ -1,2 +1,0 @@
-# Cheat Sheet Features
-

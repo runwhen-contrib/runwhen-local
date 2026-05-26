@@ -17,7 +17,7 @@ As of v0.5.3 users can now support RunWhen Local running behind an HTTP proxy. A
 
 {% tab title="Docker Command" %}
 ```
-docker run --name RunWhenLocal --network host -p 8081:8081 -e NO_PROXY="localhost" -e HTTP_PROXY="http://proxy_host:proxy_port" -e HTTPS_PROXY="http://proxy_host:proxy_port" -v $workdir/shared:/shared -d runwhen-local:test
+docker run --name RunWhenLocal --network host -p 8000:8000 -e NO_PROXY="localhost" -e HTTP_PROXY="http://proxy_host:proxy_port" -e HTTPS_PROXY="http://proxy_host:proxy_port" -v $workdir/shared:/shared -d runwhen-local:test
 
 ```
 {% endtab %}

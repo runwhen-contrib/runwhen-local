@@ -31,7 +31,41 @@ cloudConfig:
 
 ## Azure Cloud Resource Discovery
 
-Azure discovery leverages [cloudquery](https://github.com/cloudquery/cloudquery) with the Azure source plugin to build up an inventory of cloud resources that should be matched with troubleshooting commands. &#x20;
+Azure discovery builds up an inventory of cloud resources that gets matched with troubleshooting commands. RunWhen Local supports two backends for Azure resource discovery:
+
+* **`cloudquery`** (default) — Uses [cloudquery](https://github.com/cloudquery/cloudquery) with the Azure source plugin. Long-standing path; still the default while the new backend bakes in.
+* **`azureapi`** — Uses the native Azure management SDK (`azure-mgmt-*`) directly. Removes the CloudQuery process / binary requirement, integrates better with airgapped images, and is the path forward for Azure (AWS / GCP migrations to follow).
+
+Both backends produce the same registry shape, so generation rules and SLX templates do not need to change when switching between them.
+
+### Selecting the backend
+
+Set `azureIndexerBackend` in `workspaceInfo.yaml`:
+
+```yaml
+azureIndexerBackend: azureapi   # or "cloudquery" (default)
+
+cloudConfig:
+  azure:
+    subscriptionId: "[subscription-id]"
+    # ... rest of the existing azure config ...
+```
+
+When `azureIndexerBackend: azureapi` is set, the CloudQuery indexer skips Azure (it still runs for AWS / GCP if those are configured) and the native `azureapi` indexer takes over. When the value is omitted or set to `cloudquery`, behavior is unchanged from previous releases.
+
+### Supported resource types (azureapi backend)
+
+Out of the box the native backend can discover:
+
+* `resource_group` (always)
+* `virtual_machine`
+* `azure_storage_accounts`
+* `azure_network_virtual_networks`
+* `azure_network_security_groups`
+* `azure_keyvault_vaults`
+* `azure_containerservice_managed_clusters`
+
+Additional types can be added by registering a collector in `src/indexers/azureapi_resource_types.py`. If a generation rule references an Azure resource type with no registered collector under the `azureapi` backend, the build emits a warning and continues; under the legacy `cloudquery` backend the behavior is unchanged.
 
 ## Azure Credentials
 

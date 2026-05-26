@@ -135,7 +135,7 @@ tasks:
         # Copy the collision test config to the shared directory
         cp $CONFIG_FILE workspaceInfo.yaml
 
-        docker run -e DEBUG_LOGGING=true -e CQ_DEBUG=true --name $CONTAINER_NAME -p 8082:8081 -v $(pwd):/shared -d runwhen-local:collision-test || {
+        docker run -e DEBUG_LOGGING=true -e CQ_DEBUG=true --name $CONTAINER_NAME -p 8082:8000 -v $(pwd):/shared -d runwhen-local:collision-test || {
           echo "Failed to start container"; exit 1;
         }
 
@@ -272,7 +272,7 @@ tasks:
 
         echo "Starting new container $CONTAINER_NAME..."
 
-        docker run -e DEBUG_LOGGING=true --name $CONTAINER_NAME -p 8081:8081 -v $(pwd):/shared -d runwhen-local:test || {
+        docker run -e DEBUG_LOGGING=true --name $CONTAINER_NAME -p 8000:8000 -v $(pwd):/shared -d runwhen-local:test || {
           echo "Failed to start container"; exit 1;
         }
 
@@ -387,4 +387,57 @@ tasks:
       - |
         rm -rf output
         rm workspaceInfo.yaml
+    silent: true
+
+  run-backend-equivalence-test:
+    desc: "Run discovery once with the legacy CloudQuery backend and once with the native Azure SDK (azureapi) backend, then diff the resource dumps to verify equivalence."
+    cmds:
+      - task: generate-rwl-config
+      - |
+        BUILD_DIR=/home/runwhen/runwhen-local/src
+        IMAGE=runwhen-local:azure-backend-test
+        BASELINE_OUT=output-cloudquery
+        CANDIDATE_OUT=output-azureapi
+
+        rm -rf "$BASELINE_OUT" "$CANDIDATE_OUT"
+        mkdir "$BASELINE_OUT" "$CANDIDATE_OUT"
+        chmod 777 "$BASELINE_OUT" "$CANDIDATE_OUT"
+
+        docker buildx build --builder mybuilder --platform linux/amd64 \
+          -t "$IMAGE" -f "$BUILD_DIR/Dockerfile" "$BUILD_DIR" --load
+
+        run_with_backend() {
+          local backend="$1"
+          local out_dir="$2"
+          local container="azure-backend-test-$backend"
+
+          # workspaceInfo.yaml is regenerated to inject azureIndexerBackend.
+          # Append rather than rewrite so we don't fight generate-rwl-config.
+          if grep -q "^azureIndexerBackend:" workspaceInfo.yaml; then
+            sed -i "s/^azureIndexerBackend:.*/azureIndexerBackend: $backend/" workspaceInfo.yaml
+          else
+            echo "azureIndexerBackend: $backend" >> workspaceInfo.yaml
+          fi
+
+          docker rm -f "$container" >/dev/null 2>&1 || true
+
+          # Mount the per-backend output directory at /shared/output so the
+          # tar extraction in run.py lands the resource-dump.yaml there.
+          rm -rf output && mkdir output && chmod 777 output
+
+          docker run --name "$container" -p 0:8000 -v "$(pwd):/shared" \
+            -d "$IMAGE"
+          docker exec -w /workspace-builder "$container" ./run.sh --verbose
+          docker stop "$container" >/dev/null
+          docker rm "$container" >/dev/null
+
+          cp -r output/* "$out_dir"/
+        }
+
+        run_with_backend cloudquery "$BASELINE_OUT"
+        run_with_backend azureapi   "$CANDIDATE_OUT"
+
+        python3 diff_resource_dump.py \
+          "$BASELINE_OUT/resource-dump.yaml" \
+          "$CANDIDATE_OUT/resource-dump.yaml"
     silent: true

@@ -119,7 +119,7 @@ tasks:
 
         echo "Starting new container $CONTAINER_NAME..."
 
-        docker run -e DEBUG_LOGGING=false --add-host github.com:0.0.0.0 --name $CONTAINER_NAME -p 8081:8081 -v $(pwd):/shared -d runwhen-local:test || {
+        docker run -e DEBUG_LOGGING=false --add-host github.com:0.0.0.0 --name $CONTAINER_NAME -p 8000:8000 -v $(pwd):/shared -d runwhen-local:test || {
           echo "Failed to start container"; exit 1;
         }
 
@@ -156,7 +156,7 @@ tasks:
 
         echo "Starting new container $CONTAINER_NAME..."
 
-        docker run -e DEBUG_LOGGING=false --name $CONTAINER_NAME -p 8081:8081 -p 8000:8000 -v $(pwd):/shared -d runwhen-local:test || {
+        docker run -e DEBUG_LOGGING=false --name $CONTAINER_NAME -p 8000:8000 -v $(pwd):/shared -d runwhen-local:test || {
           echo "Failed to start container"; exit 1;
         }
 
@@ -195,10 +195,9 @@ tasks:
         echo "User $(whoami)"
         # 1. Start container in the background
         docker run -d \
-          -e WB_DEBUG_SUPPRESS_CHEAT_SHEET="true" \
           -e DEBUG_LOGS=true \
           --name "$CONTAINER_NAME" \
-          -p 8081:8081 \
+          -p 8000:8000 \
           -v "$(pwd):/shared" \
           runwhen-local:test
 
@@ -248,12 +247,11 @@ tasks:
         echo "User $(whoami)"
         # 1. Start container with github.com/api.github.com blocked via /etc/hosts
         docker run -d \
-          -e WB_DEBUG_SUPPRESS_CHEAT_SHEET="true" \
           -e DEBUG_LOGS=true \
           --add-host github.com:0.0.0.0 \
           --add-host api.github.com:0.0.0.0 \
           --name "$CONTAINER_NAME" \
-          -p 8081:8081 \
+          -p 8000:8000 \
           -v "$(pwd):/shared" \
           runwhen-local:test
 
@@ -437,7 +435,7 @@ tasks:
         FAILURES=0
         WARNINGS=0
 
-        # Helper: search both log files (container_logs.log has entrypoint + Django server output,
+        # Helper: search both log files (container_logs.log has entrypoint + FastAPI server output,
         # run_sh_output.log has the docker-exec run.sh output)
         search_logs() {
           local pattern="$1"
@@ -670,3 +668,93 @@ tasks:
     desc: "Run only YAML validation on existing output (for quick testing)"
     cmds:
       - task: validate-k8s-yaml
+
+  unit-test-src:
+    desc: "Fast no-Docker unit tests for the workspace builder source (indexers, normalizers, SQLite writer). Useful while iterating on src/ - no need to rebuild the image to catch encoder / writer regressions."
+    cmds:
+      - |
+        SRC_DIR=../../../src
+        if [ ! -d "$SRC_DIR" ]; then
+          echo "❌ src/ not found at $SRC_DIR"; exit 1
+        fi
+        echo "Running unittest discovery under $SRC_DIR/indexers ..."
+        cd "$SRC_DIR" && python3 -m unittest \
+          indexers.test_sqlite_resource_writer \
+          indexers.test_azureapi_normalizers \
+          -v
+    silent: false
+
+  ci-test-sqlite-store:
+    desc: "Run discovery with resourceStoreBackend=sqlite and verify the SQLite file lands in the output directory with non-empty platform/resource rows."
+    env:
+      RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace-sqlite"}}'
+    cmds:
+      - |
+        cat <<EOF > workspaceInfo.yaml
+        workspaceName: "$RW_WORKSPACE"
+        workspaceOwnerEmail: authors@runwhen.com
+        defaultLocation: location-01
+        defaultLOD: detailed
+        cloudConfig:
+          kubernetes:
+            kubeconfigFile: /shared/kubeconfig.secret
+            contexts:
+              sandbox-cluster-1:
+                defaultNamespaceLOD: basic
+        codeCollections: []
+        custom:
+          kubernetes_distribution_binary: kubectl
+        resourceStoreBackend: sqlite
+        resourceStorePath: resources.sqlite
+        EOF
+
+      - task: build-rwl
+      - task: run-rwl-discovery
+
+      - |
+        echo ""
+        echo "=== SQLite resource store validation ==="
+        DB_FILE=$(find output -maxdepth 3 -name 'resources.sqlite' | head -n 1)
+        if [ -z "$DB_FILE" ]; then
+          echo "❌ resources.sqlite not produced by discovery"
+          find output -maxdepth 3 -type f | sed 's/^/    /'
+          exit 1
+        fi
+        echo "✔ Found SQLite store: $DB_FILE ($(stat -c%s "$DB_FILE") bytes)"
+
+        if ! command -v sqlite3 >/dev/null; then
+          echo "ℹ sqlite3 CLI not available on host; falling back to python3 inspection"
+          PY=python3
+          $PY - "$DB_FILE" <<'PY' || exit 1
+        import sqlite3, sys
+        conn = sqlite3.connect(sys.argv[1])
+        platforms = [r[0] for r in conn.execute("SELECT name FROM platforms")]
+        types     = conn.execute("SELECT COUNT(*) FROM resource_types").fetchone()[0]
+        rows      = conn.execute("SELECT COUNT(*) FROM resources").fetchone()[0]
+        version   = conn.execute("SELECT value FROM schema_meta WHERE key='schema_version'").fetchone()
+        print(f"  schema_version : {version[0] if version else 'MISSING'}")
+        print(f"  platforms      : {platforms}")
+        print(f"  resource_types : {types}")
+        print(f"  resources      : {rows}")
+        if not platforms:
+            print("❌ no platforms in store"); sys.exit(1)
+        if rows == 0:
+            print("❌ resources table is empty"); sys.exit(1)
+        print("✔ SQLite store is populated")
+        PY
+        else
+          PLATFORMS=$(sqlite3 "$DB_FILE" "SELECT name FROM platforms;" | tr '\n' ' ')
+          TYPES=$(sqlite3 "$DB_FILE" "SELECT COUNT(*) FROM resource_types;")
+          ROWS=$(sqlite3 "$DB_FILE" "SELECT COUNT(*) FROM resources;")
+          VERSION=$(sqlite3 "$DB_FILE" "SELECT value FROM schema_meta WHERE key='schema_version';")
+          echo "  schema_version : ${VERSION:-MISSING}"
+          echo "  platforms      : ${PLATFORMS:-(none)}"
+          echo "  resource_types : $TYPES"
+          echo "  resources      : $ROWS"
+          if [ -z "$PLATFORMS" ] || [ "$ROWS" -eq 0 ]; then
+            echo "❌ SQLite store is empty"
+            exit 1
+          fi
+          echo "✔ SQLite store is populated"
+        fi
+    silent: false

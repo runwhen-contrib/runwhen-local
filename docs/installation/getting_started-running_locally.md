@@ -1,7 +1,7 @@
 ---
 description: >-
   These steps get you started with downloading the RunWhen Local container image
-  and preparing it to produce a troubleshooting cheat sheet that is tailored for
+  and preparing it to run resource discovery tailored for
   your environment.
 ---
 
@@ -143,7 +143,7 @@ EOF
 {% endtabs %}
 
 {% hint style="info" %}
-Everything in the workspaceInfo.yaml file that has a \[placeholder] beside it is not required for RunWhen Local to perform discovery or render the Troubleshooting Cheat Sheet. These values are required, however, when [uploading](../user-guide/features/upload-to-runwhen-platform.md) configurations to the RunWhen Platform (and are generated automatically when this activity is performed).
+Everything in the workspaceInfo.yaml file that has a \[placeholder] beside it is not required for RunWhen Local to perform discovery. These values are required, however, when [uploading](../user-guide/features/upload-to-runwhen-platform.md) configurations to the RunWhen Platform (and are generated automatically when this activity is performed).
 {% endhint %}
 
 ### Generating your Kubeconfig
@@ -197,9 +197,9 @@ cp ${newFile} $workdir/shared/kubeconfig
 
 ###
 
-### Generating your Cheat Sheet
+### Running discovery
 
-With the working directory in place, there are two more steps to generate the your troubleshooting cheat sheet:
+With the working directory in place, there are two more steps to run discovery:
 
 * Run the container image
 
@@ -211,7 +211,7 @@ Run this command within the same terminal that was used to prepare $workdir.
 {% tab title="Docker" %}
 {% code overflow="wrap" %}
 ```
-docker run --name RunWhenLocal -p 8081:8081 -v $workdir/shared:/shared -d ghcr.io/runwhen-contrib/runwhen-local:latest
+docker run --name RunWhenLocal -p 8000:8000 -v $workdir/shared:/shared -d ghcr.io/runwhen-contrib/runwhen-local:latest
 ```
 {% endcode %}
 {% endtab %}
@@ -220,7 +220,7 @@ docker run --name RunWhenLocal -p 8081:8081 -v $workdir/shared:/shared -d ghcr.i
 {% code overflow="wrap" %}
 ```
 # Run the container image
-podman run --name RunWhenLocal -p 8081:8081 -v $workdir/shared:/shared  --userns=keep-id:uid=999,gid=999 ghcr.io/runwhen-contrib/runwhen-local:latest
+podman run --name RunWhenLocal -p 8000:8000 -v $workdir/shared:/shared  --userns=keep-id:uid=999,gid=999 ghcr.io/runwhen-contrib/runwhen-local:latest
 ```
 {% endcode %}
 {% endtab %}
@@ -229,7 +229,7 @@ podman run --name RunWhenLocal -p 8081:8081 -v $workdir/shared:/shared  --userns
 {% code overflow="wrap" %}
 ```
 # Run the container image
-podman run --platform=linux/arm64 --name RunWhenLocal -p 8081:8081 -v $workdir/shared:/shared  --userns=keep-id:uid=999,gid=999 ghcr.io/runwhen-contrib/runwhen-local:latest
+podman run --platform=linux/arm64 --name RunWhenLocal -p 8000:8000 -v $workdir/shared:/shared  --userns=keep-id:uid=999,gid=999 ghcr.io/runwhen-contrib/runwhen-local:latest
 ```
 {% endcode %}
 {% endtab %}
@@ -242,13 +242,13 @@ With SELinux enabled, adding "--security-opt label=disable" can get things going
 {% code overflow="wrap" %}
 ```
 # Run the container image
-podman run --platform=linux/arm64 --name RunWhenLocal -p 8081:8081 -v $workdir/shared:/shared --security-opt label=disable --userns=keep-id:uid=999,gid=999 ghcr.io/runwhen-contrib/runwhen-local:latest
+podman run --platform=linux/arm64 --name RunWhenLocal -p 8000:8000 -v $workdir/shared:/shared --security-opt label=disable --userns=keep-id:uid=999,gid=999 ghcr.io/runwhen-contrib/runwhen-local:latest
 ```
 {% endcode %}
 {% endtab %}
 {% endtabs %}
 
-* Execute the script to perform discovery and build documentation:
+* Execute the script to perform discovery:
 
 {% tabs %}
 {% tab title="Docker" %}
@@ -268,60 +268,15 @@ podman exec -w /workspace-builder -- RunWhenLocal ./run.sh
 Depending on the amount of resources to in your cluster(s), the discovery process may take a few minutes to complete.
 {% endhint %}
 
-### Viewing the Troubleshooting Cheat Sheet
+### Viewing discovery output
 
-When the process has completed, you can navigate to [http://localhost:8081](http://localhost:8081) to view the troubleshooting commands generated for your environment.
+When the process has completed, generated files are available under `$workdir/shared/output`. You can also verify the service is healthy:
 
-<figure><img src="../assets/gs_view_cheat_sheet.png" alt=""><figcaption></figcaption></figure>
+```
+curl http://localhost:8000/health/
+```
 
-###
-
-### Optional: Add a CLI Shortcut
-
-If you would like a shortcut from the CLI to open your cheatsheet, the following may help:
-
-{% tabs %}
-{% tab title="Linux/MacOS" %}
-* **Open Terminal**: This can usually be found in your applications or by searching.
-* **Edit the Bash Profile**:
-  * For **Linux**, you'll typically edit the `.bashrc` file. For **macOS**, you'll edit the `.bash_profile` or `.zshrc` if you're using zsh.
-  * Use a text editor like nano or vim. For example, type `nano ~/.bashrc` (Linux) or `nano ~/.bash_profile` (macOS) and press Enter.
-* **Add the Alias**:
-  *   At the end of the file, add the following line:
-
-      ```bash
-      alias runwhen-local='open http://127.0.0.1:8081 &>/dev/null &'
-      ```
-  * For macOS, `open` is the command to open the URL in your default browser. For Linux, you might need to use `xdg-open` instead of `open`.
-* **Save and Exit**:
-  * For nano, press `CTRL + X`, then `Y` to confirm, and `Enter` to exit.
-  * For vim, press `Esc`, type `:wq`, and press `Enter`.
-* **Activate the Alias**:
-  * To make the alias available, you need to reload the profile. Type `source ~/.bashrc` (Linux) or `source ~/.bash_profile` (macOS) and press Enter.
-* **Test the Alias**:
-  * Simply type `runwhen-local` in your terminal and press Enter. It should open your default browser to the specified website.
-{% endtab %}
-
-{% tab title="Microsoft PowerShell" %}
-* **Check if a Profile Already Exists**:
-  * In PowerShell, type `Test-Path $PROFILE` and press Enter. If it returns `True`, then you already have a profile.
-* **Create or Edit the Profile**:
-  * If you don't have a profile, create one by typing `New-Item -path $PROFILE -type file -force`.
-  * Open the profile in a text editor, such as Notepad, by typing `notepad $PROFILE`.
-* **Add the Function and Alias to Your Profile**:
-  *   Add the following lines to the profile script:
-
-      ```powershell
-      function Open-RunWhenLocal { Start-Process "http://127.0.0.1:8081" }
-      Set-Alias -Name runwhen-local Open-RunWhenLocal
-      ```
-  * Save and close the file.
-* **Reload Your Profile** (or restart PowerShell):
-  * Type `. $PROFILE` to reload your profile in the current session.
-* **Test the Alias Again**:
-  * Type `runwhen-local` and press Enter. It should open your default browser to the specified website.
-{% endtab %}
-{% endtabs %}
+See [Discovery Output](../user-guide/features/user_guide-feature_overview.md) for details on the REST API.
 
 ### Cleanup
 

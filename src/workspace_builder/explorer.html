@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RunWhen Local Resource Explorer</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: system-ui, sans-serif;
+      line-height: 1.4;
+    }
+    body {
+      margin: 0;
+      background: #f4f4f5;
+      color: #18181b;
+    }
+    header {
+      padding: 1rem 1.25rem;
+      background: #18181b;
+      color: #fafafa;
+    }
+    header h1 {
+      margin: 0 0 0.25rem;
+      font-size: 1.25rem;
+    }
+    header p {
+      margin: 0;
+      opacity: 0.8;
+      font-size: 0.9rem;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      min-height: calc(100vh - 72px);
+    }
+    aside, main {
+      padding: 1rem;
+    }
+    aside {
+      background: #fff;
+      border-right: 1px solid #d4d4d8;
+    }
+    main {
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      gap: 1rem;
+    }
+    .panel {
+      background: #fff;
+      border: 1px solid #d4d4d8;
+      border-radius: 6px;
+      padding: 0.75rem;
+    }
+    .stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      font-size: 0.9rem;
+    }
+    .stats span {
+      background: #eef2ff;
+      border-radius: 999px;
+      padding: 0.25rem 0.75rem;
+    }
+    .toolbar {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    input, select, button {
+      font: inherit;
+      padding: 0.4rem 0.6rem;
+      border: 1px solid #d4d4d8;
+      border-radius: 4px;
+      background: #fff;
+    }
+    button {
+      cursor: pointer;
+    }
+    .tree ul {
+      list-style: none;
+      margin: 0.25rem 0 0.25rem 1rem;
+      padding: 0;
+    }
+    .tree button {
+      width: 100%;
+      text-align: left;
+      border: none;
+      background: transparent;
+      padding: 0.25rem 0;
+    }
+    .tree button.active {
+      font-weight: 600;
+      color: #4338ca;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    th, td {
+      border-bottom: 1px solid #e4e4e7;
+      padding: 0.5rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    tbody tr {
+      cursor: pointer;
+    }
+    tbody tr:hover {
+      background: #fafafa;
+    }
+    tbody tr.selected {
+      background: #eef2ff;
+    }
+    pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.85rem;
+      max-height: 320px;
+      overflow: auto;
+    }
+    .empty, .error {
+      padding: 1rem;
+      color: #71717a;
+    }
+    .error {
+      color: #b91c1c;
+    }
+    .pager {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.9rem;
+    }
+    @media (max-width: 900px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Resource Explorer</h1>
+    <p id="db-path">Loading store...</p>
+  </header>
+  <div class="layout">
+    <aside class="panel">
+      <strong>Platforms</strong>
+      <div id="platform-tree" class="tree"></div>
+    </aside>
+    <main>
+      <div id="stats" class="panel stats"></div>
+      <div class="panel toolbar">
+        <input id="search" type="search" placeholder="Search name or qualified name">
+        <select id="page-size">
+          <option value="50">50 rows</option>
+          <option value="100" selected>100 rows</option>
+          <option value="250">250 rows</option>
+        </select>
+        <button id="refresh" type="button">Refresh</button>
+      </div>
+      <div class="panel">
+        <div id="table-wrap"></div>
+        <div class="pager">
+          <button id="prev-page" type="button">Previous</button>
+          <span id="page-info"></span>
+          <button id="next-page" type="button">Next</button>
+        </div>
+      </div>
+      <div class="panel">
+        <strong>Resource detail</strong>
+        <pre id="detail">Select a resource to inspect attributes.</pre>
+      </div>
+    </main>
+  </div>
+  <script>
+    const state = {
+      platform: null,
+      resourceType: null,
+      q: "",
+      offset: 0,
+      limit: 100,
+      total: 0,
+      selectedKey: null,
+    };
+
+    function resourceKey(row) {
+      return `${row.platform}|${row.resource_type}|${row.qualified_name}`;
+    }
+
+    async function api(path) {
+      const response = await fetch(path);
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.detail || payload.message || response.statusText);
+      }
+      return payload;
+    }
+
+    function renderStats(summary) {
+      document.getElementById("db-path").textContent = summary.db_path;
+      document.getElementById("stats").innerHTML = [
+        `<span>${summary.resource_count} resources</span>`,
+        `<span>${summary.platform_count} platforms</span>`,
+        `<span>${summary.resource_type_count} types</span>`,
+        summary.schema_version != null ? `<span>schema v${summary.schema_version}</span>` : "",
+      ].join("");
+    }
+
+    function renderTree(tree) {
+      const root = document.getElementById("platform-tree");
+      if (!tree.length) {
+        root.innerHTML = '<div class="empty">No platforms indexed yet.</div>';
+        return;
+      }
+      root.innerHTML = tree.map(platform => {
+        const types = platform.resource_types.map(type => {
+          const active = state.platform === platform.name && state.resourceType === type.name;
+          return `<li><button type="button" class="${active ? "active" : ""}" data-platform="${platform.name}" data-type="${type.name}">${type.name} (${type.count})</button></li>`;
+        }).join("");
+        return `<div><button type="button" class="${state.platform === platform.name && !state.resourceType ? "active" : ""}" data-platform="${platform.name}">${platform.name} (${platform.count})</button><ul>${types}</ul></div>`;
+      }).join("");
+      root.querySelectorAll("button[data-platform]").forEach(button => {
+        button.addEventListener("click", () => {
+          state.platform = button.dataset.platform;
+          state.resourceType = button.dataset.type || null;
+          state.offset = 0;
+          loadResources();
+          renderTree(tree);
+        });
+      });
+    }
+
+    function renderTable(rows) {
+      const wrap = document.getElementById("table-wrap");
+      if (!rows.length) {
+        wrap.innerHTML = '<div class="empty">No resources match the current filters.</div>';
+        return;
+      }
+      const body = rows.map(row => {
+        const key = resourceKey(row);
+        const selected = key === state.selectedKey ? "selected" : "";
+        return `<tr class="${selected}" data-key="${encodeURIComponent(key)}"><td>${row.platform}</td><td>${row.resource_type}</td><td>${row.name}</td><td>${row.qualified_name}</td></tr>`;
+      }).join("");
+      wrap.innerHTML = `<table><thead><tr><th>Platform</th><th>Type</th><th>Name</th><th>Qualified name</th></tr></thead><tbody>${body}</tbody></table>`;
+      wrap.querySelectorAll("tbody tr").forEach(row => {
+        row.addEventListener("click", () => selectResource(decodeURIComponent(row.dataset.key)));
+      });
+    }
+
+    async function selectResource(key) {
+      state.selectedKey = key;
+      const [platform, resourceType, ...rest] = key.split("|");
+      const qualifiedName = rest.join("|");
+      document.querySelectorAll("tbody tr").forEach(row => {
+        row.classList.toggle("selected", row.dataset.key === encodeURIComponent(key));
+      });
+      const params = new URLSearchParams({
+        platform,
+        resource_type: resourceType,
+        qualified_name: qualifiedName,
+      });
+      const detail = await api(`/explorer/api/resource?${params}`);
+      document.getElementById("detail").textContent = JSON.stringify(detail, null, 2);
+    }
+
+    function renderPager() {
+      const start = state.total ? state.offset + 1 : 0;
+      const end = Math.min(state.offset + state.limit, state.total);
+      document.getElementById("page-info").textContent = `${start}-${end} of ${state.total}`;
+      document.getElementById("prev-page").disabled = state.offset <= 0;
+      document.getElementById("next-page").disabled = state.offset + state.limit >= state.total;
+    }
+
+    async function loadResources() {
+      const params = new URLSearchParams({
+        limit: String(state.limit),
+        offset: String(state.offset),
+      });
+      if (state.platform) params.set("platform", state.platform);
+      if (state.resourceType) params.set("resource_type", state.resourceType);
+      if (state.q) params.set("q", state.q);
+      const payload = await api(`/explorer/api/resources?${params}`);
+      state.total = payload.total;
+      renderTable(payload.items);
+      renderPager();
+    }
+
+    async function refreshAll() {
+      try {
+        const summary = await api("/explorer/api/summary");
+        renderStats(summary);
+        renderTree(summary.tree);
+        await loadResources();
+      } catch (error) {
+        document.getElementById("stats").innerHTML = `<span class="error">${error.message}</span>`;
+        document.getElementById("table-wrap").innerHTML = `<div class="error">${error.message}</div>`;
+      }
+    }
+
+    document.getElementById("search").addEventListener("keydown", event => {
+      if (event.key === "Enter") {
+        state.q = event.target.value.trim();
+        state.offset = 0;
+        loadResources();
+      }
+    });
+    document.getElementById("page-size").addEventListener("change", event => {
+      state.limit = Number(event.target.value);
+      state.offset = 0;
+      loadResources();
+    });
+    document.getElementById("refresh").addEventListener("click", refreshAll);
+    document.getElementById("prev-page").addEventListener("click", () => {
+      state.offset = Math.max(0, state.offset - state.limit);
+      loadResources();
+    });
+    document.getElementById("next-page").addEventListener("click", () => {
+      if (state.offset + state.limit < state.total) {
+        state.offset += state.limit;
+        loadResources();
+      }
+    });
+
+    refreshAll();
+  </script>
+</body>
+</html>

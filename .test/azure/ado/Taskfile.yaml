@@ -100,7 +100,7 @@ tasks:
         docker run \
           -e DEBUG_LOGGING=true \
           -e CQ_DEBUG=true \
-          --name $CONTAINER_NAME -p 8081:8081 \
+          --name $CONTAINER_NAME -p 8000:8000 \
           -v $(pwd):/shared -d runwhen-local:test || {
           echo "Failed to start container"; exit 1;
         }
@@ -146,7 +146,7 @@ tasks:
         docker run -d \
           -e DEBUG_LOGGING=true \
           -e CQ_DEBUG=true \
-          --name "$CONTAINER_NAME" -p 8081:8081 \
+          --name "$CONTAINER_NAME" -p 8000:8000 \
           -v "$(pwd):/shared" \
           runwhen-local:test || {
           echo "Failed to start container"; exit 1;

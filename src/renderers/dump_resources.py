@@ -1,6 +1,11 @@
 from component import Context, Setting, SettingDependency
 from resources import Registry, REGISTRY_PROPERTY_NAME
 from enrichers.generation_rules import SLXS_PROPERTY  # for access to aggregated SLX info
+from indexers.resource_writer import (
+    RESOURCE_STORE_BACKEND_SETTING,
+    RESOURCE_STORE_PATH_SETTING,
+    finalize_resource_store,
+)
 import yaml
 
 DOCUMENTATION = "Render/dump resource state to a YAML file"
@@ -14,9 +19,13 @@ RESOURCE_DUMP_PATH_SETTING = Setting("RESOURCE_DUMP_PATH",
 
 SETTINGS = (
     SettingDependency(RESOURCE_DUMP_PATH_SETTING, False),
+    SettingDependency(RESOURCE_STORE_BACKEND_SETTING, False),
+    SettingDependency(RESOURCE_STORE_PATH_SETTING, False),
 )
 
 def render(context: Context):
+    finalize_resource_store(context)
+
     resource_dump_path = context.get_setting(RESOURCE_DUMP_PATH_SETTING)
     if not resource_dump_path:
         return

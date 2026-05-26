@@ -22,15 +22,6 @@ from azure_utils import generate_kubeconfig_for_aks
 from aws_utils import generate_kubeconfig_for_eks
 
 
-debug_suppress_cheat_sheet = os.getenv("WB_DEBUG_SUPPRESS_CHEAT_SHEET", "true")
-cheat_sheet_enabled = (debug_suppress_cheat_sheet.lower() == 'false' or
-                      debug_suppress_cheat_sheet == '0')
-if cheat_sheet_enabled:
-    import cheatsheet
-
-# FIXME: Since we currently also do the cheat sheet generation in this tool
-# should the service name be something more generic, e.g. RunWhen Local or
-# something like that?
 SERVICE_NAME = "Workspace Builder"
 REST_SERVICE_HOST_DEFAULT = "localhost"
 REST_SERVICE_PORT_DEFAULT = 8000
@@ -41,11 +32,6 @@ UPLOAD_COMMAND = 'upload'
 
 
 CUSTOMIZATION_RULES_DEFAULT = "map-customization-rules"
-
-tmpdir_value = os.getenv("TMPDIR", "/tmp")  # fallback to /tmp if TMPDIR not set
-print("TMPDIR:", os.environ.get("TMPDIR", "not set"))
-with tempfile.NamedTemporaryFile(delete=True) as f:
-    print("Actual temp file location:", f.name)
 
 
 def read_file(file_path: bytes, mode="r") -> Union[str, bytes]:
@@ -433,6 +419,14 @@ def main():
     code_collections = workspace_info.get("codeCollections")
     overrides = workspace_info.get("overrides", {})
     task_tag_exclusions = workspace_info.get("taskTagExclusions")
+    resource_store_backend = coalesce(
+        workspace_info.get("resourceStoreBackend"),
+        os.getenv("WB_RESOURCE_STORE_BACKEND"),
+    )
+    resource_store_path = coalesce(
+        workspace_info.get("resourceStorePath"),
+        os.getenv("WB_RESOURCE_STORE_PATH"),
+    )
 
     # ------------------------------------------------------------------ 4. validation guards
     missing = []
@@ -693,6 +687,10 @@ def main():
             resource_load_data = read_file(resource_load_path, "rb")
             encoded_resource_load_data = base64.b64encode(resource_load_data).decode('utf-8')
             request_data['resourceLoadFile'] = encoded_resource_load_data
+        if resource_store_backend:
+            request_data['resourceStoreBackend'] = resource_store_backend
+        if resource_store_path:
+            request_data['resourceStorePath'] = resource_store_path
 
         # Invoke the workspace builder /run REST endpoint
         run_url = f"http://{rest_service_host}:{rest_service_port}/run/"
@@ -838,16 +836,6 @@ def main():
                       f"status={response.status_code}; Response body: {response.text[:500]}")
 
         print("Workspace builder data uploaded successfully.")
-
-    # Add cheat-sheet integration, which points at the output items and
-    # generates the list of local commands that exist in the TaskSet.
-    # FIXME: I think it would probably be cleaner and more decoupled to move the
-    # command assist stuff to a separate command line tool and then have the
-    # run.sh script handle calling it after invoking this tool.
-    if cheat_sheet_enabled:
-        # Update cheat sheet status by copying index
-        mkdocs_dir=f"{tmpdir_value}/mkdocs-temp"
-        cheatsheet.cheat_sheet(output_path, mkdocs_dir)
 
 
 if __name__ == "__main__":

@@ -53,9 +53,12 @@ fi
 touch "$LOCK_FILE"
 
 # Construct components string based on whether --disable-cloudquery is set
-COMPONENTS="load_resources,kubeapi,azure_devops,generation_rules,render_output_items,dump_resources"
+# `azureapi` is the native Azure SDK indexer; it is a no-op unless
+# AZURE_INDEXER_BACKEND=azureapi is set in workspaceInfo.yaml. Including it
+# here unconditionally lets users opt in via config without changing the CLI.
+COMPONENTS="load_resources,kubeapi,azureapi,azure_devops,generation_rules,render_output_items,dump_resources"
 if [ $DISABLE_CLOUDQUERY -eq 0 ]; then
-    COMPONENTS="load_resources,kubeapi,cloudquery,azure_devops,generation_rules,render_output_items,dump_resources"
+    COMPONENTS="load_resources,kubeapi,azureapi,cloudquery,azure_devops,generation_rules,render_output_items,dump_resources"
 fi
 
 # Run the Python script with your specified arguments

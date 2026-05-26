@@ -30,12 +30,8 @@ RunWhen Local will look for the file called `uploadInfo.yaml` in the `/shared` d
 With this file in place, re-run the discovery process with the `--upload` flag:&#x20;
 
 ```
-docker exec -w /workspace-builder -e WB_DEBUG_SUPPRESS_CHEAT_SHEET="true" -- RunWhenLocal  ./run.sh --upload
+docker exec -w /workspace-builder -- RunWhenLocal  ./run.sh --upload
 ```
-
-{% hint style="info" %}
-To speed up this step, we also skip the cheat sheet rendering in this step by passing `-e WB_DEBUG_SUPPRESS_CHEAT_SHEET="true"` in the docker exec command
-{% endhint %}
 
 #### Additional Upload Options for Merge Conflicts
 
