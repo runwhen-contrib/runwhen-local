@@ -476,6 +476,52 @@ import responses
 from unittest import mock
 
 from indexers import mcp_tools
+from enrichers.mcp import McpPlatformHandler, MCP_PLATFORM
+
+
+class McpPlatformHandlerTest(TestCase):
+    def setUp(self):
+        self.handler = McpPlatformHandler()
+
+    def test_platform_name_matches_indexer(self):
+        self.assertEqual(MCP_PLATFORM, mcp_tools.PLATFORM_NAME)
+        self.assertEqual(self.handler.name, MCP_PLATFORM)
+
+    def test_qualifier_value_pulled_from_spec(self):
+        class R:  # minimal resource stand-in
+            spec = {"server_display_name": "jira", "tool_name": "create_issue"}
+
+        self.assertEqual(
+            self.handler.get_resource_qualifier_value(R(), "server_display_name"),
+            "jira",
+        )
+        self.assertEqual(
+            self.handler.get_resource_qualifier_value(R(), "tool_name"),
+            "create_issue",
+        )
+
+    def test_qualifier_value_returns_none_when_missing(self):
+        class R:
+            spec = {"server_display_name": "jira"}
+
+        self.assertIsNone(self.handler.get_resource_qualifier_value(R(), "tool_name"))
+
+    def test_property_values_wrap_spec_value_in_list(self):
+        class R:
+            spec = {"tool_name": "create_issue"}
+
+        self.assertEqual(
+            self.handler.get_resource_property_values(R(), "tool_name"),
+            ["create_issue"],
+        )
+        self.assertIsNone(self.handler.get_resource_property_values(R(), "missing"))
+
+    def test_handles_resource_without_spec(self):
+        class R:
+            pass
+
+        self.assertIsNone(self.handler.get_resource_qualifier_value(R(), "tool_name"))
+        self.assertIsNone(self.handler.get_resource_property_values(R(), "tool_name"))
 
 
 class LoadServersFromSettingTest(TestCase):
