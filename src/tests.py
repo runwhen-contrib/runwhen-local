@@ -795,6 +795,11 @@ class EndToEndMcpIndexingTest(TestCase):
             self.assertIn("validation", v, f"runtimeVarsProvided[{v['name']}] missing validation")
             self.assertIn(v["validation"]["type"], {"enum", "regex"},
                           f"runtimeVarsProvided[{v['name']}] has invalid validation.type")
-        # Static config var carries the input schema as JSON for the codebundle
+        # Static config var carries the input schema as JSON for the codebundle.
+        # MCP_VERIFY_TLS is forwarded from the indexer's per-server verify_tls
+        # flag — defaults to "true" when the field is omitted from mcpConfig.
         config_names = {c["name"] for c in parsed["spec"]["configProvided"]}
-        self.assertEqual(config_names, {"MCP_SERVER_URL", "MCP_TOOL_NAME", "MCP_INPUT_SCHEMA"})
+        self.assertEqual(
+            config_names,
+            {"MCP_SERVER_URL", "MCP_TOOL_NAME", "MCP_INPUT_SCHEMA", "MCP_VERIFY_TLS"},
+        )

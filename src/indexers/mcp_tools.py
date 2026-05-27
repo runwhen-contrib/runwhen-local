@@ -248,6 +248,7 @@ def _emit_tool_resource(registry: Registry,
         "server_display_name": server_name,
         "server_url": server["url"],
         "secret_ref": server["secret_ref"],
+        "verify_tls": server.get("verify_tls", True),
         "tool_name": tool_name,
         "description": tool.get("description", ""),
         "input_schema": tool.get("inputSchema") or tool.get("input_schema") or {
