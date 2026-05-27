@@ -216,17 +216,12 @@ _RESOURCE_STORE_FINALIZED_PROPERTY = "RESOURCE_STORE_FINALIZED"
 
 
 def finalize_resource_store(context: "Context") -> None:
-    """Persist the resource graph when ``resourceStoreBackend`` is ``sqlite``.
+    """Persist resources and rendered workspace artifacts when backend is sqlite."""
+    from .sqlite_resource_writer import persist_sqlite_store
 
-    Indexers such as ``kubeapi`` still write directly to the in-memory
-    ``Registry``; this hook snapshots that registry into the configured SQLite
-    output path via the workspace outputter. Safe to call more than once.
-    """
     backend = (context.get_setting(RESOURCE_STORE_BACKEND_SETTING) or "").strip().lower()
     if backend != RESOURCE_STORE_BACKEND_SQLITE:
         return
     if context.get_property(_RESOURCE_STORE_FINALIZED_PROPERTY):
         return
-    writer = get_resource_writer(context)
-    writer.finalize()
-    context.set_property(_RESOURCE_STORE_FINALIZED_PROPERTY, True)
+    persist_sqlite_store(context)

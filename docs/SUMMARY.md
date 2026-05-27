@@ -42,6 +42,8 @@
 
 * [High Level Architecture (Disconnected)](Architecture.md)
 * [High Level Architecture - Self-Hosted Runner (Connected)](architecture/high-level-architecture-self-hosted-runner-connected.md)
+* [ResourceWriter](architecture/resource-writer.md)
+* [Resource store query API](architecture/resource-store-query-api.md)
 
 ## Development
 

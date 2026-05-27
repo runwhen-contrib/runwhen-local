@@ -10,11 +10,13 @@ from pathlib import Path
 from typing import Any, Iterator, Optional
 
 from indexers.sqlite_resource_writer import (
+    count_workspace_artifacts,
     get_resource,
     get_schema_version,
     list_platforms,
     list_resource_types,
     list_resources,
+    list_workspace_artifact_kinds,
     open_database,
 )
 
@@ -63,11 +65,15 @@ def get_store_summary(conn: sqlite3.Connection) -> dict[str, Any]:
     platforms = list_platforms(conn)
     resource_types = list_resource_types(conn)
     resource_count = conn.execute("SELECT COUNT(*) FROM resources").fetchone()[0]
+    artifact_count = count_workspace_artifacts(conn)
+    artifact_kinds = list_workspace_artifact_kinds(conn)
     return {
         "schema_version": get_schema_version(conn),
         "platform_count": len(platforms),
         "resource_type_count": len(resource_types),
         "resource_count": resource_count,
+        "artifact_count": artifact_count,
+        "artifact_kinds": artifact_kinds,
         "platforms": platforms,
     }
 
@@ -151,3 +157,83 @@ def json_safe(value: Any) -> Any:
     if isinstance(value, (str, int, float, bool)) or value is None:
         return value
     return str(value)
+
+
+def list_slx_bundles(
+    conn: sqlite3.Connection,
+    workspace_name: Optional[str] = None,
+    q: Optional[str] = None,
+    limit: int = 200,
+    offset: int = 0,
+) -> dict[str, Any]:
+    """Group rendered artifacts by ``slx_directory`` into SLX bundles.
+
+    Returns a dict with ``items`` (each bundle has ``slx_directory``, ``slx_name``,
+    ``workspace_name``, file paths grouped by kind) and a ``total`` count of distinct
+    bundles matching the filter.
+    """
+    where: list[str] = ["slx_directory IS NOT NULL"]
+    params: list[Any] = []
+    if workspace_name:
+        where.append("workspace_name = ?")
+        params.append(workspace_name)
+    if q:
+        where.append("(slx_directory LIKE ? OR relative_path LIKE ? OR content LIKE ?)")
+        pattern = f"%{q}%"
+        params.extend([pattern, pattern, pattern])
+    where_sql = " WHERE " + " AND ".join(where)
+
+    total = int(
+        conn.execute(
+            f"SELECT COUNT(DISTINCT workspace_name || '|' || slx_directory) "
+            f"FROM workspace_artifacts{where_sql}",
+            tuple(params),
+        ).fetchone()[0]
+    )
+
+    bundle_sql = (
+        f"SELECT workspace_name, slx_directory, COUNT(*) AS file_count "
+        f"FROM workspace_artifacts{where_sql} "
+        f"GROUP BY workspace_name, slx_directory "
+        f"ORDER BY workspace_name, slx_directory "
+        f"LIMIT ? OFFSET ?"
+    )
+    bundle_params = list(params) + [limit, offset]
+    bundle_rows = list(conn.execute(bundle_sql, tuple(bundle_params)))
+
+    items: list[dict[str, Any]] = []
+    for ws, slx_dir, file_count in bundle_rows:
+        files_sql = (
+            "SELECT relative_path, artifact_kind, media_type, "
+            "length(content) AS size_bytes, updated_at "
+            "FROM workspace_artifacts "
+            "WHERE workspace_name = ? AND slx_directory = ? "
+            "ORDER BY artifact_kind, relative_path"
+        )
+        files = [
+            {
+                "relative_path": row[0],
+                "artifact_kind": row[1],
+                "media_type": row[2],
+                "size_bytes": row[3],
+                "updated_at": row[4],
+            }
+            for row in conn.execute(files_sql, (ws, slx_dir))
+        ]
+        kinds = sorted({f["artifact_kind"] for f in files})
+        items.append(
+            {
+                "workspace_name": ws,
+                "slx_directory": slx_dir,
+                "slx_name": os.path.basename(slx_dir) if slx_dir else None,
+                "file_count": file_count,
+                "kinds": kinds,
+                "has_slx": "slx" in kinds,
+                "has_sli": "sli" in kinds,
+                "has_runbook": "runbook" in kinds,
+                "has_skill": "skill" in kinds,
+                "files": files,
+            }
+        )
+
+    return {"total": total, "items": items, "limit": limit, "offset": offset}

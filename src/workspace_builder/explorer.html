@@ -1,334 +1,787 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>RunWhen Local Resource Explorer</title>
+  <title>RunWhen Local Workspace Explorer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     :root {
-      color-scheme: light dark;
-      font-family: system-ui, sans-serif;
-      line-height: 1.4;
+      --primary: #2F80ED;
+      --primary-dark: #1a365d;
+      --primary-light: #90cdf4;
+      --secondary: #faa629;
+      --bg: #ffffff;
+      --bg-alt: #f7fafc;
+      --paper: #ffffff;
+      --text: #1a202c;
+      --text-secondary: #4a5568;
+      --divider: #e2e8f0;
+      --hover: rgba(47, 128, 237, 0.08);
+      --shadow: 0 2px 4px rgba(0,0,0,0.1);
+      --shadow-lg: 0 4px 20px rgba(47, 128, 237, 0.15);
     }
+    [data-theme="dark"] {
+      --bg: #0f172a;
+      --bg-alt: #1e293b;
+      --paper: #1e293b;
+      --text: #e2e8f0;
+      --text-secondary: #94a3b8;
+      --divider: rgba(255,255,255,0.12);
+      --hover: rgba(47, 128, 237, 0.12);
+      --shadow: 0 2px 4px rgba(0,0,0,0.4);
+      --shadow-lg: 0 4px 20px rgba(0,0,0,0.5);
+    }
+    * { box-sizing: border-box; }
     body {
       margin: 0;
-      background: #f4f4f5;
-      color: #18181b;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      transition: background 0.2s ease, color 0.2s ease;
     }
-    header {
-      padding: 1rem 1.25rem;
-      background: #18181b;
-      color: #fafafa;
+    .appbar {
+      position: sticky; top: 0; z-index: 50;
+      background: var(--primary); color: #fff;
+      padding: 0.75rem 1.5rem;
+      display: flex; align-items: center; gap: 1rem;
+      box-shadow: var(--shadow);
     }
-    header h1 {
-      margin: 0 0 0.25rem;
-      font-size: 1.25rem;
+    [data-theme="dark"] .appbar { background: #0f172a; border-bottom: 1px solid var(--divider); }
+    .brand { display: flex; align-items: center; gap: 0.625rem; font-weight: 700; font-size: 1.05rem; letter-spacing: 0.3px; }
+    .brand-mark {
+      width: 30px; height: 30px; border-radius: 8px;
+      background: linear-gradient(135deg, #fff 0%, var(--primary-light) 100%);
+      display: grid; place-items: center;
+      color: var(--primary-dark); font-weight: 800; font-size: 0.8rem;
     }
-    header p {
-      margin: 0;
-      opacity: 0.8;
-      font-size: 0.9rem;
+    .appbar-spacer { flex: 1; }
+    .appbar-actions { display: flex; gap: 0.5rem; align-items: center; }
+    .icon-btn {
+      background: transparent; border: 1px solid rgba(255,255,255,0.25);
+      color: #fff; width: 36px; height: 36px; border-radius: 8px;
+      cursor: pointer; display: grid; place-items: center;
+      transition: background 0.15s;
     }
-    .layout {
+    .icon-btn:hover { background: rgba(255,255,255,0.12); }
+    .hero {
+      padding: 2rem 1.5rem 1.5rem;
+      background: linear-gradient(180deg, var(--bg-alt) 0%, var(--bg) 100%);
+      border-bottom: 1px solid var(--divider);
+    }
+    .container { max-width: 1280px; margin: 0 auto; }
+    .hero h1 { margin: 0 0 0.5rem; font-size: 1.875rem; font-weight: 700; letter-spacing: -0.01em; }
+    .hero p { margin: 0 0 1.25rem; color: var(--text-secondary); font-size: 0.95rem; max-width: 720px; }
+    .search { position: relative; max-width: 640px; }
+    .search input {
+      width: 100%;
+      padding: 0.75rem 1rem 0.75rem 2.5rem;
+      border: 1.5px solid var(--divider); border-radius: 12px;
+      font-size: 0.95rem; font-family: inherit;
+      background: var(--paper); color: var(--text);
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .search input:focus {
+      outline: none; border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(47, 128, 237, 0.15);
+    }
+    .search-icon {
+      position: absolute; left: 0.875rem; top: 50%;
+      transform: translateY(-50%); color: var(--text-secondary); pointer-events: none;
+    }
+    .stat-row {
       display: grid;
-      grid-template-columns: 260px 1fr;
-      min-height: calc(100vh - 72px);
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 0.875rem; margin-top: 1.25rem;
     }
-    aside, main {
-      padding: 1rem;
+    .stat-card {
+      background: var(--paper); border: 1px solid var(--divider);
+      border-radius: 12px; padding: 0.875rem 1rem;
+      cursor: pointer; transition: all 0.2s;
+      text-decoration: none; color: inherit;
+      display: flex; flex-direction: column; gap: 0.25rem;
     }
-    aside {
-      background: #fff;
-      border-right: 1px solid #d4d4d8;
+    .stat-card:hover { border-color: var(--primary); transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+    .stat-card.active { border-color: var(--primary); background: var(--hover); }
+    .stat-card-top { display: flex; align-items: center; justify-content: space-between; }
+    .stat-icon {
+      width: 28px; height: 28px; border-radius: 8px;
+      background: rgba(47, 128, 237, 0.1); color: var(--primary);
+      display: grid; place-items: center; font-size: 0.875rem;
     }
-    main {
-      display: grid;
-      grid-template-rows: auto auto 1fr;
-      gap: 1rem;
+    .stat-count { font-size: 1.5rem; font-weight: 700; color: var(--primary); line-height: 1; }
+    .stat-label { font-size: 0.875rem; font-weight: 600; }
+    .stat-desc { font-size: 0.75rem; color: var(--text-secondary); }
+    main { padding: 1.5rem; }
+    .layout { display: grid; grid-template-columns: 280px 1fr; gap: 1.5rem; align-items: start; }
+    @media (max-width: 960px) { .layout { grid-template-columns: 1fr; } }
+    .sidebar {
+      background: var(--paper); border: 1px solid var(--divider);
+      border-radius: 12px; padding: 1rem;
+      position: sticky; top: 4.5rem;
+      max-height: calc(100vh - 6rem); overflow-y: auto;
     }
-    .panel {
-      background: #fff;
-      border: 1px solid #d4d4d8;
-      border-radius: 6px;
-      padding: 0.75rem;
+    .sidebar h3 {
+      font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--text-secondary); margin: 0 0 0.5rem; font-weight: 600;
     }
-    .stats {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 1rem;
-      font-size: 0.9rem;
+    .sidebar ul { list-style: none; margin: 0 0 1rem; padding: 0; }
+    .sidebar li button {
+      width: 100%; text-align: left; background: transparent; border: none;
+      padding: 0.5rem 0.625rem; border-radius: 8px; cursor: pointer;
+      font: inherit; color: var(--text);
+      display: flex; justify-content: space-between; align-items: center;
+      transition: background 0.15s;
     }
-    .stats span {
-      background: #eef2ff;
-      border-radius: 999px;
-      padding: 0.25rem 0.75rem;
+    .sidebar li button:hover { background: var(--hover); }
+    .sidebar li button.active { background: var(--hover); color: var(--primary); font-weight: 600; }
+    .sidebar li.indent button { padding-left: 1.5rem; font-size: 0.875rem; }
+    .badge {
+      background: rgba(47, 128, 237, 0.12); color: var(--primary);
+      padding: 0.125rem 0.5rem; border-radius: 999px;
+      font-size: 0.75rem; font-weight: 600;
     }
+    .content { background: var(--paper); border: 1px solid var(--divider); border-radius: 12px; overflow: hidden; }
+    .tabs {
+      display: flex; gap: 0.25rem; padding: 0.5rem;
+      border-bottom: 1px solid var(--divider);
+      background: var(--bg-alt); overflow-x: auto;
+    }
+    .tab {
+      background: transparent; border: none;
+      padding: 0.5rem 0.875rem; border-radius: 8px;
+      cursor: pointer; font: inherit; font-size: 0.875rem;
+      color: var(--text-secondary); font-weight: 500;
+      white-space: nowrap; transition: all 0.15s;
+    }
+    .tab:hover { background: var(--hover); color: var(--text); }
+    .tab.active { background: var(--primary); color: #fff; }
     .toolbar {
-      display: flex;
-      gap: 0.75rem;
-      align-items: center;
-      flex-wrap: wrap;
+      display: flex; gap: 0.625rem;
+      padding: 0.875rem 1rem;
+      border-bottom: 1px solid var(--divider);
+      flex-wrap: wrap; align-items: center;
     }
-    input, select, button {
-      font: inherit;
-      padding: 0.4rem 0.6rem;
-      border: 1px solid #d4d4d8;
-      border-radius: 4px;
-      background: #fff;
+    .toolbar input, .toolbar select {
+      padding: 0.5rem 0.75rem; border: 1px solid var(--divider);
+      border-radius: 8px; font: inherit; font-size: 0.875rem;
+      background: var(--paper); color: var(--text); min-width: 220px;
     }
-    button {
-      cursor: pointer;
+    .toolbar input:focus, .toolbar select:focus { outline: none; border-color: var(--primary); }
+    .toolbar .grow { flex: 1; }
+    .pill {
+      padding: 0.25rem 0.625rem; border-radius: 999px;
+      font-size: 0.72rem; font-weight: 600;
+      background: var(--bg-alt); color: var(--text-secondary);
+      border: 1px solid var(--divider); white-space: nowrap;
+      text-transform: uppercase; letter-spacing: 0.04em;
     }
-    .tree ul {
-      list-style: none;
-      margin: 0.25rem 0 0.25rem 1rem;
-      padding: 0;
+    .pill-blue { background: rgba(47, 128, 237, 0.12); color: var(--primary); border-color: transparent; }
+    .pill-orange { background: rgba(250, 166, 41, 0.18); color: #b46900; border-color: transparent; }
+    .pill-green { background: rgba(46, 125, 50, 0.14); color: #2e7d32; border-color: transparent; }
+    .pill-purple { background: rgba(123, 31, 162, 0.14); color: #7b1fa2; border-color: transparent; }
+    .pill-pink { background: rgba(236, 64, 122, 0.14); color: #c2185b; border-color: transparent; }
+    .list { padding: 0.5rem; min-height: 200px; }
+    .item {
+      display: block; padding: 0.875rem 1rem; border-radius: 10px;
+      border-left: 3px solid var(--primary);
+      background: rgba(82, 130, 241, 0.04);
+      margin-bottom: 0.5rem; cursor: pointer;
+      transition: all 0.2s; text-decoration: none; color: inherit;
     }
-    .tree button {
-      width: 100%;
-      text-align: left;
-      border: none;
-      background: transparent;
-      padding: 0.25rem 0;
+    [data-theme="dark"] .item { background: rgba(82, 130, 241, 0.08); }
+    .item:hover { background: rgba(82, 130, 241, 0.10); transform: translateX(3px); }
+    .item.selected { background: rgba(82, 130, 241, 0.16); box-shadow: var(--shadow-lg); }
+    .item-row { display: flex; gap: 0.875rem; justify-content: space-between; align-items: center; }
+    .item-title {
+      font-weight: 600; font-size: 0.95rem; color: var(--text); margin: 0 0 0.25rem;
+      font-family: 'JetBrains Mono', Menlo, monospace;
+      word-break: break-all;
     }
-    .tree button.active {
-      font-weight: 600;
-      color: #4338ca;
+    .item-meta { font-size: 0.75rem; color: var(--text-secondary); word-break: break-all; }
+    .item-tags { display: flex; gap: 0.375rem; flex-wrap: wrap; flex-shrink: 0; }
+    .detail {
+      position: fixed; top: 0; right: 0;
+      width: min(720px, 95vw); height: 100vh;
+      background: var(--paper); border-left: 1px solid var(--divider);
+      box-shadow: -10px 0 30px rgba(0,0,0,0.15);
+      transform: translateX(100%); transition: transform 0.25s ease;
+      z-index: 100; display: flex; flex-direction: column;
     }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.9rem;
+    .detail.open { transform: translateX(0); }
+    .detail-header {
+      padding: 1rem 1.25rem; border-bottom: 1px solid var(--divider);
+      display: flex; align-items: center; gap: 0.75rem;
     }
-    th, td {
-      border-bottom: 1px solid #e4e4e7;
-      padding: 0.5rem;
-      text-align: left;
-      vertical-align: top;
+    .detail-header h2 {
+      margin: 0; font-size: 1rem; font-weight: 600; flex: 1;
+      font-family: 'JetBrains Mono', monospace; word-break: break-all;
     }
-    tbody tr {
-      cursor: pointer;
+    .detail-body { flex: 1; overflow: auto; padding: 1rem 1.25rem; }
+    .detail-section { margin-bottom: 1.25rem; }
+    .detail-section h3 {
+      font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--text-secondary); margin: 0 0 0.5rem; font-weight: 600;
     }
-    tbody tr:hover {
-      background: #fafafa;
+    .detail-meta { display: grid; grid-template-columns: max-content 1fr; gap: 0.5rem 1rem; font-size: 0.875rem; }
+    .detail-meta dt { color: var(--text-secondary); font-weight: 500; }
+    .detail-meta dd { margin: 0; word-break: break-word; }
+    pre.code {
+      background: var(--bg-alt); border: 1px solid var(--divider);
+      padding: 0.875rem; border-radius: 8px; overflow: auto;
+      font-family: 'JetBrains Mono', Menlo, monospace;
+      font-size: 0.8125rem; line-height: 1.55;
+      max-height: 60vh; margin: 0; white-space: pre;
     }
-    tbody tr.selected {
-      background: #eef2ff;
+    .scrim {
+      position: fixed; inset: 0;
+      background: rgba(15, 23, 42, 0.4);
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.2s; z-index: 99;
     }
-    pre {
-      margin: 0;
-      white-space: pre-wrap;
-      word-break: break-word;
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 0.85rem;
-      max-height: 320px;
-      overflow: auto;
+    .scrim.open { opacity: 1; pointer-events: auto; }
+    .empty { padding: 2.5rem 1.5rem; text-align: center; color: var(--text-secondary); }
+    .empty h3 { margin: 0.5rem 0; color: var(--text); }
+    .pagination {
+      padding: 0.75rem 1rem; display: flex;
+      justify-content: space-between; align-items: center;
+      border-top: 1px solid var(--divider);
+      font-size: 0.875rem; color: var(--text-secondary);
     }
-    .empty, .error {
-      padding: 1rem;
-      color: #71717a;
+    .btn {
+      background: var(--primary); color: #fff; border: none;
+      padding: 0.4rem 0.875rem; border-radius: 8px;
+      cursor: pointer; font: inherit; font-size: 0.8125rem; font-weight: 600;
+      transition: filter 0.15s;
     }
-    .error {
-      color: #b91c1c;
+    .btn:hover { filter: brightness(0.92); }
+    .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+    .btn.outline { background: transparent; color: var(--primary); border: 1px solid var(--primary); }
+    .btn.outline:hover { background: var(--hover); }
+    .btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--divider); }
+    .btn.ghost:hover { background: var(--hover); }
+    .skeleton {
+      animation: shimmer 1.4s linear infinite;
+      background: linear-gradient(90deg, var(--bg-alt) 0%, var(--divider) 50%, var(--bg-alt) 100%);
+      background-size: 200% 100%; border-radius: 6px;
+      height: 18px; margin: 0.5rem 0;
     }
-    .pager {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 0.9rem;
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    .toast {
+      position: fixed; bottom: 1.5rem; left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--text); color: var(--paper);
+      padding: 0.625rem 1rem; border-radius: 8px;
+      font-size: 0.875rem;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+      transition: transform 0.25s ease; z-index: 200;
     }
-    @media (max-width: 900px) {
-      .layout {
-        grid-template-columns: 1fr;
-      }
-    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
   </style>
 </head>
 <body>
-  <header>
-    <h1>Resource Explorer</h1>
-    <p id="db-path">Loading store...</p>
-  </header>
-  <div class="layout">
-    <aside class="panel">
-      <strong>Platforms</strong>
-      <div id="platform-tree" class="tree"></div>
-    </aside>
-    <main>
-      <div id="stats" class="panel stats"></div>
-      <div class="panel toolbar">
-        <input id="search" type="search" placeholder="Search name or qualified name">
-        <select id="page-size">
-          <option value="50">50 rows</option>
-          <option value="100" selected>100 rows</option>
-          <option value="250">250 rows</option>
-        </select>
-        <button id="refresh" type="button">Refresh</button>
-      </div>
-      <div class="panel">
-        <div id="table-wrap"></div>
-        <div class="pager">
-          <button id="prev-page" type="button">Previous</button>
-          <span id="page-info"></span>
-          <button id="next-page" type="button">Next</button>
-        </div>
-      </div>
-      <div class="panel">
-        <strong>Resource detail</strong>
-        <pre id="detail">Select a resource to inspect attributes.</pre>
-      </div>
-    </main>
+  <div class="appbar">
+    <div class="brand">
+      <span class="brand-mark">RW</span>
+      <span>RunWhen Local · Workspace Explorer</span>
+    </div>
+    <div class="appbar-spacer"></div>
+    <div class="appbar-actions">
+      <button class="icon-btn" id="refreshBtn" title="Refresh">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      </button>
+      <button class="icon-btn" id="themeBtn" title="Toggle theme">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+    </div>
   </div>
+
+  <section class="hero">
+    <div class="container">
+      <h1>Workspace Explorer</h1>
+      <p>Browse the discovered cloud and Kubernetes resources, plus the SLXs, SLIs, runbooks and Skills that RunWhen Local rendered for them. Each SLX is an instance of a Skill defined by a CodeBundle, and every artifact below comes straight from the local SQLite resource store.</p>
+      <form class="search" id="globalSearchForm" autocomplete="off">
+        <span class="search-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </span>
+        <input id="globalSearch" type="search" placeholder="Search resources, SLXs, runbooks…">
+      </form>
+      <div class="stat-row" id="statRow"></div>
+    </div>
+  </section>
+
+  <main>
+    <div class="container">
+      <div class="tabs" id="tabs">
+        <button class="tab active" data-tab="bundles">SLX Bundles</button>
+        <button class="tab" data-tab="resources">Discovered Resources</button>
+        <button class="tab" data-tab="artifacts">All Artifacts</button>
+      </div>
+
+      <div class="layout">
+        <aside class="sidebar" id="sidebar"></aside>
+        <section class="content">
+          <div class="toolbar" id="toolbar"></div>
+          <div class="list" id="list"></div>
+          <div class="pagination" id="pagination"></div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <div class="scrim" id="scrim"></div>
+  <aside class="detail" id="detail" aria-hidden="true">
+    <div class="detail-header">
+      <h2 id="detailTitle">Details</h2>
+      <button class="btn ghost" id="copyBtn" title="Copy raw content">Copy</button>
+      <button class="btn ghost" id="closeDetail" aria-label="Close detail panel">×</button>
+    </div>
+    <div class="detail-body" id="detailBody"></div>
+  </aside>
+  <div class="toast" id="toast"></div>
   <script>
     const state = {
-      platform: null,
-      resourceType: null,
-      q: "",
-      offset: 0,
-      limit: 100,
-      total: 0,
-      selectedKey: null,
+      tab: 'bundles',
+      summary: null,
+      filter: { platform: null, resource_type: null, artifact_kind: null, workspace_name: null, q: '' },
+      pagination: { limit: 25, offset: 0, total: 0 },
+      currentList: []
     };
+    const $ = function (sel) { return document.querySelector(sel); };
+    const $$ = function (sel) { return Array.from(document.querySelectorAll(sel)); };
 
-    function resourceKey(row) {
-      return `${row.platform}|${row.resource_type}|${row.qualified_name}`;
+    function escapeHtml(s) {
+      if (s === null || s === undefined) return '';
+      return String(s).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
     }
-
+    function fmtBytes(n) {
+      if (n == null) return '';
+      if (n < 1024) return n + ' B';
+      if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+      return (n / 1048576).toFixed(2) + ' MB';
+    }
+    function kindPill(kind) {
+      const map = { slx: 'pill-blue', sli: 'pill-green', runbook: 'pill-orange', workspace: 'pill-purple', skill: 'pill-pink' };
+      return '<span class="pill ' + (map[kind] || '') + '">' + escapeHtml(kind || 'file') + '</span>';
+    }
+    function showToast(msg) {
+      const t = $('#toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      clearTimeout(showToast._t);
+      showToast._t = setTimeout(function () { t.classList.remove('show'); }, 1800);
+    }
     async function api(path) {
-      const response = await fetch(path);
-      const payload = await response.json();
-      if (!response.ok) {
-        throw new Error(payload.detail || payload.message || response.statusText);
+      const res = await fetch(path);
+      if (!res.ok) {
+        const text = await res.text().catch(function () { return res.statusText; });
+        throw new Error(res.status + ': ' + text);
       }
-      return payload;
+      return res.json();
+    }
+    function debounce(fn, ms) {
+      let t;
+      return function () {
+        const args = arguments;
+        clearTimeout(t);
+        t = setTimeout(function () { fn.apply(null, args); }, ms);
+      };
     }
 
-    function renderStats(summary) {
-      document.getElementById("db-path").textContent = summary.db_path;
-      document.getElementById("stats").innerHTML = [
-        `<span>${summary.resource_count} resources</span>`,
-        `<span>${summary.platform_count} platforms</span>`,
-        `<span>${summary.resource_type_count} types</span>`,
-        summary.schema_version != null ? `<span>schema v${summary.schema_version}</span>` : "",
-      ].join("");
+    function initTheme() {
+      const saved = localStorage.getItem('explorer.theme') || 'light';
+      document.documentElement.setAttribute('data-theme', saved);
+    }
+    $('#themeBtn').addEventListener('click', function () {
+      const cur = document.documentElement.getAttribute('data-theme') || 'light';
+      const next = cur === 'light' ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('explorer.theme', next);
+    });
+
+    async function loadSummary() {
+      try {
+        state.summary = await api('/explorer/api/summary');
+      } catch (err) {
+        state.summary = { error: err.message, platforms: [], tree: [], artifact_kinds: [], resource_count: 0, artifact_count: 0, platform_count: 0, resource_type_count: 0 };
+      }
+      renderStatRow();
+      renderSidebar();
     }
 
-    function renderTree(tree) {
-      const root = document.getElementById("platform-tree");
-      if (!tree.length) {
-        root.innerHTML = '<div class="empty">No platforms indexed yet.</div>';
-        return;
-      }
-      root.innerHTML = tree.map(platform => {
-        const types = platform.resource_types.map(type => {
-          const active = state.platform === platform.name && state.resourceType === type.name;
-          return `<li><button type="button" class="${active ? "active" : ""}" data-platform="${platform.name}" data-type="${type.name}">${type.name} (${type.count})</button></li>`;
-        }).join("");
-        return `<div><button type="button" class="${state.platform === platform.name && !state.resourceType ? "active" : ""}" data-platform="${platform.name}">${platform.name} (${platform.count})</button><ul>${types}</ul></div>`;
-      }).join("");
-      root.querySelectorAll("button[data-platform]").forEach(button => {
-        button.addEventListener("click", () => {
-          state.platform = button.dataset.platform;
-          state.resourceType = button.dataset.type || null;
-          state.offset = 0;
-          loadResources();
-          renderTree(tree);
+    function renderStatRow() {
+      const s = state.summary || {};
+      const slxCount = (s.artifact_kinds || []).filter(function (k) { return k.kind === 'slx'; }).reduce(function (a, b) { return a + b.count; }, 0);
+      const dbLabel = s.db_path ? s.db_path.split('/').slice(-2).join('/') : 'No database';
+      const cards = [
+        { label: 'Discovered Resources', count: s.resource_count || 0, desc: (s.platform_count || 0) + ' platforms · ' + (s.resource_type_count || 0) + ' types', tab: 'resources', icon: '⛁' },
+        { label: 'SLX Bundles', count: slxCount, desc: 'Generated SLXs grouped by directory', tab: 'bundles', icon: '◆' },
+        { label: 'Workspace Artifacts', count: s.artifact_count || 0, desc: (s.artifact_kinds || []).length + ' kinds rendered', tab: 'artifacts', icon: '◊' },
+        { label: 'Schema', count: 'v' + (s.schema_version || 0), desc: dbLabel, tab: null, icon: '⌬' }
+      ];
+      $('#statRow').innerHTML = cards.map(function (c) {
+        return '<a href="#" class="stat-card ' + (state.tab === c.tab ? 'active' : '') + '" data-tab="' + (c.tab || '') + '">' +
+          '<div class="stat-card-top"><div class="stat-icon">' + c.icon + '</div><div class="stat-count">' + escapeHtml(c.count) + '</div></div>' +
+          '<div class="stat-label">' + escapeHtml(c.label) + '</div>' +
+          '<div class="stat-desc">' + escapeHtml(c.desc) + '</div>' +
+          '</a>';
+      }).join('');
+      $$('#statRow .stat-card').forEach(function (el) {
+        el.addEventListener('click', function (e) {
+          e.preventDefault();
+          const t = el.getAttribute('data-tab');
+          if (t) switchTab(t);
         });
       });
     }
 
-    function renderTable(rows) {
-      const wrap = document.getElementById("table-wrap");
-      if (!rows.length) {
-        wrap.innerHTML = '<div class="empty">No resources match the current filters.</div>';
+    function renderSidebar() {
+      const s = state.summary || {};
+      let html = '';
+      if (state.tab === 'resources') {
+        html += '<h3>Platforms</h3><ul>';
+        html += '<li><button class="' + (!state.filter.platform ? 'active' : '') + '" data-platform="">All platforms <span class="badge">' + (s.resource_count || 0) + '</span></button></li>';
+        (s.tree || []).forEach(function (tree) {
+          const isActive = state.filter.platform === tree.name;
+          html += '<li><button class="' + (isActive ? 'active' : '') + '" data-platform="' + escapeHtml(tree.name) + '">' + escapeHtml(tree.name) + ' <span class="badge">' + tree.count + '</span></button></li>';
+          if (isActive && tree.resource_types && tree.resource_types.length) {
+            tree.resource_types.forEach(function (rt) {
+              const rtActive = state.filter.resource_type === rt.name;
+              html += '<li class="indent"><button class="' + (rtActive ? 'active' : '') + '" data-platform="' + escapeHtml(tree.name) + '" data-resource-type="' + escapeHtml(rt.name) + '">' + escapeHtml(rt.name) + ' <span class="badge">' + rt.count + '</span></button></li>';
+            });
+          }
+        });
+        html += '</ul>';
+      } else if (state.tab === 'artifacts') {
+        html += '<h3>Artifact kinds</h3><ul>';
+        html += '<li><button class="' + (!state.filter.artifact_kind ? 'active' : '') + '" data-kind="">All kinds <span class="badge">' + (s.artifact_count || 0) + '</span></button></li>';
+        (s.artifact_kinds || []).forEach(function (k) {
+          const isActive = state.filter.artifact_kind === k.kind;
+          html += '<li><button class="' + (isActive ? 'active' : '') + '" data-kind="' + escapeHtml(k.kind) + '">' + escapeHtml(k.kind) + ' <span class="badge">' + k.count + '</span></button></li>';
+        });
+        html += '</ul>';
+      } else {
+        html += '<h3>SLX bundles</h3>';
+        html += '<p style="font-size:0.8125rem;color:var(--text-secondary);margin:0 0 1rem;">Each card groups the SLX, SLI and runbook files that share an SLX directory.</p>';
+        html += '<h3>Tip</h3>';
+        html += '<p style="font-size:0.8125rem;color:var(--text-secondary);margin:0;">Click a bundle to see all its rendered files inline. Use the search box to filter by directory or content.</p>';
+      }
+      $('#sidebar').innerHTML = html;
+      $$('#sidebar button').forEach(function (b) {
+        b.addEventListener('click', function () {
+          const platform = b.getAttribute('data-platform');
+          const rt = b.getAttribute('data-resource-type');
+          const kind = b.getAttribute('data-kind');
+          if (platform !== null) {
+            state.filter.platform = platform || null;
+            state.filter.resource_type = rt || null;
+          }
+          if (kind !== null) state.filter.artifact_kind = kind || null;
+          state.pagination.offset = 0;
+          renderSidebar();
+          renderToolbar();
+          loadList();
+        });
+      });
+    }
+
+    function renderToolbar() {
+      const tb = $('#toolbar');
+      const placeholder = state.tab === 'bundles' ? 'Filter SLX bundles…' : (state.tab === 'resources' ? 'Filter resources…' : 'Filter artifacts…');
+      tb.innerHTML =
+        '<input id="localSearch" type="search" placeholder="' + placeholder + '" value="' + escapeHtml(state.filter.q) + '">' +
+        '<span class="grow"></span>' +
+        '<span class="pill" id="resultCount">— results</span>';
+      $('#localSearch').addEventListener('input', debounce(function (e) {
+        state.filter.q = e.target.value;
+        state.pagination.offset = 0;
+        loadList();
+      }, 300));
+    }
+
+    async function loadList() {
+      const list = $('#list');
+      list.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
+      const params = new URLSearchParams();
+      params.set('limit', state.pagination.limit);
+      params.set('offset', state.pagination.offset);
+      if (state.filter.q) params.set('q', state.filter.q);
+      try {
+        let data;
+        if (state.tab === 'resources') {
+          if (state.filter.platform) params.set('platform', state.filter.platform);
+          if (state.filter.resource_type) params.set('resource_type', state.filter.resource_type);
+          data = await api('/explorer/api/resources?' + params.toString());
+          renderResourceList(data);
+        } else if (state.tab === 'artifacts') {
+          if (state.filter.artifact_kind) params.set('artifact_kind', state.filter.artifact_kind);
+          data = await api('/explorer/api/artifacts?' + params.toString());
+          renderArtifactList(data);
+        } else {
+          data = await api('/explorer/api/slx-bundles?' + params.toString());
+          renderBundleList(data);
+        }
+        state.currentList = data.items || [];
+        state.pagination.total = data.total || 0;
+        $('#resultCount').textContent = (data.total || 0) + ' result' + (data.total === 1 ? '' : 's');
+        renderPagination();
+      } catch (err) {
+        list.innerHTML = '<div class="empty"><h3>Could not load data</h3><p>' + escapeHtml(err.message) + '</p></div>';
+        $('#pagination').innerHTML = '';
+      }
+    }
+
+    function renderResourceList(data) {
+      if (!data.items || !data.items.length) {
+        $('#list').innerHTML = '<div class="empty"><h3>No resources match</h3><p>Try clearing filters or running discovery.</p></div>';
         return;
       }
-      const body = rows.map(row => {
-        const key = resourceKey(row);
-        const selected = key === state.selectedKey ? "selected" : "";
-        return `<tr class="${selected}" data-key="${encodeURIComponent(key)}"><td>${row.platform}</td><td>${row.resource_type}</td><td>${row.name}</td><td>${row.qualified_name}</td></tr>`;
-      }).join("");
-      wrap.innerHTML = `<table><thead><tr><th>Platform</th><th>Type</th><th>Name</th><th>Qualified name</th></tr></thead><tbody>${body}</tbody></table>`;
-      wrap.querySelectorAll("tbody tr").forEach(row => {
-        row.addEventListener("click", () => selectResource(decodeURIComponent(row.dataset.key)));
+      $('#list').innerHTML = data.items.map(function (r, i) {
+        return '<a class="item" href="#" data-idx="' + i + '" data-kind="resource">' +
+          '<div class="item-row">' +
+            '<div><div class="item-title">' + escapeHtml(r.name || r.qualified_name) + '</div>' +
+            '<div class="item-meta">' + escapeHtml(r.qualified_name) + '</div></div>' +
+            '<div class="item-tags">' +
+              '<span class="pill pill-blue">' + escapeHtml(r.platform) + '</span>' +
+              '<span class="pill">' + escapeHtml(r.resource_type) + '</span>' +
+            '</div>' +
+          '</div></a>';
+      }).join('');
+      bindItemClicks();
+    }
+
+    function renderArtifactList(data) {
+      if (!data.items || !data.items.length) {
+        $('#list').innerHTML = '<div class="empty"><h3>No rendered artifacts</h3><p>Run discovery to populate SLXs, SLIs and runbooks.</p></div>';
+        return;
+      }
+      $('#list').innerHTML = data.items.map(function (a, i) {
+        return '<a class="item" href="#" data-idx="' + i + '" data-kind="artifact">' +
+          '<div class="item-row">' +
+            '<div><div class="item-title">' + escapeHtml(a.relative_path) + '</div>' +
+            '<div class="item-meta">' + escapeHtml(a.workspace_name) + ' · ' + fmtBytes(a.size_bytes) + ' · ' + escapeHtml(a.media_type || '') + '</div></div>' +
+            '<div class="item-tags">' + kindPill(a.artifact_kind) + '</div>' +
+          '</div></a>';
+      }).join('');
+      bindItemClicks();
+    }
+
+    function renderBundleList(data) {
+      if (!data.items || !data.items.length) {
+        $('#list').innerHTML = '<div class="empty"><h3>No SLX bundles yet</h3><p>SLX bundles appear once discovery has rendered SLX/SLI/runbook files.</p></div>';
+        return;
+      }
+      $('#list').innerHTML = data.items.map(function (b, i) {
+        const extras = (b.kinds || []).filter(function (k) { return ['slx', 'sli', 'runbook', 'skill'].indexOf(k) === -1; }).map(kindPill).join('');
+        return '<a class="item" href="#" data-idx="' + i + '" data-kind="bundle">' +
+          '<div class="item-row">' +
+            '<div><div class="item-title">' + escapeHtml(b.slx_name || b.slx_directory) + '</div>' +
+            '<div class="item-meta">' + escapeHtml(b.slx_directory) + ' · ' + b.file_count + ' file' + (b.file_count === 1 ? '' : 's') + ' · workspace ' + escapeHtml(b.workspace_name) + '</div></div>' +
+            '<div class="item-tags">' +
+              (b.has_slx ? kindPill('slx') : '') +
+              (b.has_sli ? kindPill('sli') : '') +
+              (b.has_runbook ? kindPill('runbook') : '') +
+              (b.has_skill ? kindPill('skill') : '') +
+              extras +
+            '</div>' +
+          '</div></a>';
+      }).join('');
+      bindItemClicks();
+    }
+
+    function bindItemClicks() {
+      $$('#list .item').forEach(function (a) {
+        a.addEventListener('click', function (e) {
+          e.preventDefault();
+          const idx = parseInt(a.getAttribute('data-idx'), 10);
+          const kind = a.getAttribute('data-kind');
+          $$('#list .item').forEach(function (x) { x.classList.remove('selected'); });
+          a.classList.add('selected');
+          openDetail(kind, state.currentList[idx]);
+        });
       });
     }
 
-    async function selectResource(key) {
-      state.selectedKey = key;
-      const [platform, resourceType, ...rest] = key.split("|");
-      const qualifiedName = rest.join("|");
-      document.querySelectorAll("tbody tr").forEach(row => {
-        row.classList.toggle("selected", row.dataset.key === encodeURIComponent(key));
+    function renderPagination() {
+      const p = state.pagination;
+      const start = p.total === 0 ? 0 : p.offset + 1;
+      const end = Math.min(p.total, p.offset + p.limit);
+      $('#pagination').innerHTML =
+        '<span>' + start + '–' + end + ' of ' + p.total + '</span>' +
+        '<span>' +
+        '<button class="btn ghost" id="prevBtn" ' + (p.offset === 0 ? 'disabled' : '') + '>Prev</button> ' +
+        '<button class="btn ghost" id="nextBtn" ' + (end >= p.total ? 'disabled' : '') + '>Next</button>' +
+        '</span>';
+      const prev = $('#prevBtn');
+      const next = $('#nextBtn');
+      if (prev) prev.addEventListener('click', function () {
+        state.pagination.offset = Math.max(0, state.pagination.offset - state.pagination.limit);
+        loadList();
       });
-      const params = new URLSearchParams({
-        platform,
-        resource_type: resourceType,
-        qualified_name: qualifiedName,
+      if (next) next.addEventListener('click', function () {
+        state.pagination.offset += state.pagination.limit;
+        loadList();
       });
-      const detail = await api(`/explorer/api/resource?${params}`);
-      document.getElementById("detail").textContent = JSON.stringify(detail, null, 2);
     }
 
-    function renderPager() {
-      const start = state.total ? state.offset + 1 : 0;
-      const end = Math.min(state.offset + state.limit, state.total);
-      document.getElementById("page-info").textContent = `${start}-${end} of ${state.total}`;
-      document.getElementById("prev-page").disabled = state.offset <= 0;
-      document.getElementById("next-page").disabled = state.offset + state.limit >= state.total;
-    }
-
-    async function loadResources() {
-      const params = new URLSearchParams({
-        limit: String(state.limit),
-        offset: String(state.offset),
-      });
-      if (state.platform) params.set("platform", state.platform);
-      if (state.resourceType) params.set("resource_type", state.resourceType);
-      if (state.q) params.set("q", state.q);
-      const payload = await api(`/explorer/api/resources?${params}`);
-      state.total = payload.total;
-      renderTable(payload.items);
-      renderPager();
-    }
-
-    async function refreshAll() {
-      try {
-        const summary = await api("/explorer/api/summary");
-        renderStats(summary);
-        renderTree(summary.tree);
-        await loadResources();
-      } catch (error) {
-        document.getElementById("stats").innerHTML = `<span class="error">${error.message}</span>`;
-        document.getElementById("table-wrap").innerHTML = `<div class="error">${error.message}</div>`;
+    let currentDetail = null;
+    function openDetail(kind, item) {
+      currentDetail = null;
+      $('#detailBody').innerHTML = '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
+      $('#detail').classList.add('open');
+      $('#detail').setAttribute('aria-hidden', 'false');
+      $('#scrim').classList.add('open');
+      if (kind === 'resource') {
+        $('#detailTitle').textContent = item.qualified_name;
+        const params = new URLSearchParams({ platform: item.platform, resource_type: item.resource_type, qualified_name: item.qualified_name });
+        api('/explorer/api/resource?' + params.toString()).then(function (res) { currentDetail = res; renderResourceDetail(res); }).catch(renderError);
+      } else if (kind === 'artifact') {
+        $('#detailTitle').textContent = item.relative_path;
+        const params = new URLSearchParams({ workspace_name: item.workspace_name, relative_path: item.relative_path });
+        api('/explorer/api/artifact?' + params.toString()).then(function (res) { currentDetail = res; renderArtifactDetail(res); }).catch(renderError);
+      } else if (kind === 'bundle') {
+        $('#detailTitle').textContent = item.slx_name || item.slx_directory;
+        currentDetail = item;
+        renderBundleDetail(item);
       }
     }
+    function renderError(err) {
+      $('#detailBody').innerHTML = '<div class="empty"><h3>Failed to load</h3><p>' + escapeHtml(err.message) + '</p></div>';
+    }
+    function renderResourceDetail(r) {
+      const attrs = r.attributes || {};
+      $('#detailBody').innerHTML =
+        '<div class="detail-section"><h3>Identity</h3>' +
+        '<dl class="detail-meta">' +
+        '<dt>Platform</dt><dd>' + escapeHtml(r.platform) + '</dd>' +
+        '<dt>Type</dt><dd>' + escapeHtml(r.resource_type) + '</dd>' +
+        '<dt>Name</dt><dd>' + escapeHtml(r.name || '') + '</dd>' +
+        '<dt>Qualified name</dt><dd>' + escapeHtml(r.qualified_name) + '</dd>' +
+        '<dt>Updated</dt><dd>' + escapeHtml(r.updated_at || '') + '</dd>' +
+        '</dl></div>' +
+        '<div class="detail-section"><h3>Attributes</h3>' +
+        '<pre class="code">' + escapeHtml(JSON.stringify(attrs, null, 2)) + '</pre></div>';
+    }
+    function renderArtifactDetail(a) {
+      $('#detailBody').innerHTML =
+        '<div class="detail-section"><h3>Artifact</h3>' +
+        '<dl class="detail-meta">' +
+        '<dt>Workspace</dt><dd>' + escapeHtml(a.workspace_name) + '</dd>' +
+        '<dt>Path</dt><dd>' + escapeHtml(a.relative_path) + '</dd>' +
+        '<dt>Kind</dt><dd>' + kindPill(a.artifact_kind) + '</dd>' +
+        '<dt>Media type</dt><dd>' + escapeHtml(a.media_type || '') + '</dd>' +
+        '<dt>SLX directory</dt><dd>' + escapeHtml(a.slx_directory || '—') + '</dd>' +
+        '<dt>Size</dt><dd>' + fmtBytes((a.content || '').length) + '</dd>' +
+        '</dl></div>' +
+        '<div class="detail-section"><h3>Content</h3>' +
+        '<pre class="code">' + escapeHtml(a.content || '') + '</pre></div>';
+    }
+    function renderBundleDetail(b) {
+      $('#detailBody').innerHTML =
+        '<div class="detail-section"><h3>SLX bundle</h3>' +
+        '<dl class="detail-meta">' +
+        '<dt>Workspace</dt><dd>' + escapeHtml(b.workspace_name) + '</dd>' +
+        '<dt>SLX directory</dt><dd>' + escapeHtml(b.slx_directory) + '</dd>' +
+        '<dt>Files</dt><dd>' + b.file_count + '</dd>' +
+        '</dl></div>' +
+        '<div class="detail-section"><h3>Files</h3><div id="bundleFiles"></div></div>';
+      const container = $('#bundleFiles');
+      container.innerHTML = (b.files || []).map(function (f, i) {
+        return '<div class="item" data-idx="' + i + '">' +
+          '<div class="item-row">' +
+          '<div><div class="item-title" style="font-size:0.875rem">' + escapeHtml(f.relative_path) + '</div>' +
+          '<div class="item-meta">' + fmtBytes(f.size_bytes) + ' · ' + escapeHtml(f.media_type || '') + '</div></div>' +
+          '<div class="item-tags">' + kindPill(f.artifact_kind) + '</div>' +
+          '</div>' +
+          '<div class="bundle-content" style="display:none;margin-top:0.625rem"></div>' +
+          '</div>';
+      }).join('');
+      $$('#bundleFiles .item').forEach(function (el) {
+        el.addEventListener('click', async function (e) {
+          e.preventDefault();
+          const idx = parseInt(el.getAttribute('data-idx'), 10);
+          const f = b.files[idx];
+          const target = el.querySelector('.bundle-content');
+          if (target.dataset.loaded === 'true') {
+            target.style.display = target.style.display === 'none' ? 'block' : 'none';
+            return;
+          }
+          target.innerHTML = '<div class="skeleton"></div>';
+          target.style.display = 'block';
+          try {
+            const params = new URLSearchParams({ workspace_name: b.workspace_name, relative_path: f.relative_path });
+            const data = await api('/explorer/api/artifact?' + params.toString());
+            target.innerHTML = '<pre class="code">' + escapeHtml(data.content || '') + '</pre>';
+            target.dataset.loaded = 'true';
+          } catch (err) {
+            target.innerHTML = '<div class="empty">' + escapeHtml(err.message) + '</div>';
+          }
+        });
+      });
+    }
+    function closeDetail() {
+      $('#detail').classList.remove('open');
+      $('#detail').setAttribute('aria-hidden', 'true');
+      $('#scrim').classList.remove('open');
+      $$('#list .item.selected').forEach(function (x) { x.classList.remove('selected'); });
+    }
+    $('#closeDetail').addEventListener('click', closeDetail);
+    $('#scrim').addEventListener('click', closeDetail);
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeDetail(); });
+    $('#copyBtn').addEventListener('click', async function () {
+      if (!currentDetail) return;
+      const text = currentDetail.content || JSON.stringify(currentDetail, null, 2);
+      try { await navigator.clipboard.writeText(text); showToast('Copied to clipboard'); }
+      catch (e) { showToast('Copy failed'); }
+    });
 
-    document.getElementById("search").addEventListener("keydown", event => {
-      if (event.key === "Enter") {
-        state.q = event.target.value.trim();
-        state.offset = 0;
-        loadResources();
-      }
+    function switchTab(tab) {
+      state.tab = tab;
+      state.pagination.offset = 0;
+      state.filter.platform = null;
+      state.filter.resource_type = null;
+      state.filter.artifact_kind = null;
+      state.filter.workspace_name = null;
+      $$('.tab').forEach(function (t) { t.classList.toggle('active', t.getAttribute('data-tab') === tab); });
+      renderStatRow();
+      renderSidebar();
+      renderToolbar();
+      loadList();
+    }
+    $$('.tab').forEach(function (t) { t.addEventListener('click', function () { switchTab(t.getAttribute('data-tab')); }); });
+
+    $('#globalSearchForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      state.filter.q = $('#globalSearch').value;
+      state.pagination.offset = 0;
+      renderToolbar();
+      loadList();
     });
-    document.getElementById("page-size").addEventListener("change", event => {
-      state.limit = Number(event.target.value);
-      state.offset = 0;
-      loadResources();
-    });
-    document.getElementById("refresh").addEventListener("click", refreshAll);
-    document.getElementById("prev-page").addEventListener("click", () => {
-      state.offset = Math.max(0, state.offset - state.limit);
-      loadResources();
-    });
-    document.getElementById("next-page").addEventListener("click", () => {
-      if (state.offset + state.limit < state.total) {
-        state.offset += state.limit;
-        loadResources();
-      }
+    $('#globalSearch').addEventListener('input', debounce(function (e) {
+      state.filter.q = e.target.value;
+      state.pagination.offset = 0;
+      const local = $('#localSearch');
+      if (local) local.value = e.target.value;
+      loadList();
+    }, 350));
+
+    $('#refreshBtn').addEventListener('click', async function () {
+      await loadSummary();
+      loadList();
+      showToast('Refreshed');
     });
 
-    refreshAll();
+    initTheme();
+    (async function () {
+      await loadSummary();
+      renderToolbar();
+      loadList();
+    })();
   </script>
 </body>
 </html>

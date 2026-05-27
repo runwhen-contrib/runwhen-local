@@ -38,6 +38,7 @@ from indexers.sqlite_resource_writer import (  # noqa: E402
     SCHEMA_VERSION,
     SqliteResourceWriter,
     _snapshot_registry,
+    count_workspace_artifacts,
     decode_attributes,
     encode_attributes,
     get_resource,
@@ -46,18 +47,26 @@ from indexers.sqlite_resource_writer import (  # noqa: E402
     list_resource_types,
     list_resources,
     open_database,
+    persist_sqlite_store,
+    search_workspace_artifacts,
 )
 
 
-def _make_context(tmpdir: str):
+def _make_context(tmpdir: str, sqlite: bool = False):
     """Build a minimal workspace-builder Context backed by a real filesystem
     outputter under ``tmpdir``."""
     from component import Context
     from outputter import FileSystemOutputter
     from resources import REGISTRY_PROPERTY_NAME, Registry
 
+    setting_values: dict = {}
+    if sqlite:
+        from indexers.resource_writer import RESOURCE_STORE_BACKEND_SETTING
+
+        setting_values[RESOURCE_STORE_BACKEND_SETTING.name] = "sqlite"
+
     ctx = Context(
-        setting_values={},
+        setting_values=setting_values,
         outputter=FileSystemOutputter(tmpdir),
     )
     ctx.set_property(REGISTRY_PROPERTY_NAME, Registry())
@@ -142,9 +151,11 @@ class EncoderTests(TestCase):
 class SchemaTests(TestCase):
     def test_schema_initialised_with_version(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            ctx = _make_context(tmpdir)
-            writer = SqliteResourceWriter(ctx, db_path="resources.sqlite")
-            writer.finalize()
+            ctx = _make_context(tmpdir, sqlite=True)
+            from indexers.resource_writer import RESOURCE_STORE_BACKEND_SETTING
+
+            ctx.setting_values[RESOURCE_STORE_BACKEND_SETTING.name] = "sqlite"
+            persist_sqlite_store(ctx, db_path="resources.sqlite")
 
             db_file = os.path.join(tmpdir, "resources.sqlite")
             self.assertTrue(os.path.exists(db_file))
@@ -158,7 +169,13 @@ class SchemaTests(TestCase):
                     )
                 }
                 self.assertTrue(
-                    {"platforms", "resource_types", "resources", "schema_meta"}.issubset(tables)
+                    {
+                        "platforms",
+                        "resource_types",
+                        "resources",
+                        "workspace_artifacts",
+                        "schema_meta",
+                    }.issubset(tables)
                 )
             finally:
                 conn.close()
@@ -170,7 +187,7 @@ class WriterTests(TestCase):
         from resources import REGISTRY_PROPERTY_NAME
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            ctx = _make_context(tmpdir)
+            ctx = _make_context(tmpdir, sqlite=True)
             writer = SqliteResourceWriter(ctx, db_path="store/resources.sqlite")
 
             # 1) Write through the writer (azureapi-style call).
@@ -199,6 +216,7 @@ class WriterTests(TestCase):
             )
 
             writer.finalize()
+            persist_sqlite_store(ctx, db_path="store/resources.sqlite")
 
             db_file = os.path.join(tmpdir, "store", "resources.sqlite")
             conn = open_database(db_file)
@@ -224,7 +242,7 @@ class WriterTests(TestCase):
 
     def test_resource_reference_attributes_persist_as_ref_marker(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            ctx = _make_context(tmpdir)
+            ctx = _make_context(tmpdir, sqlite=True)
             writer = SqliteResourceWriter(ctx, db_path="resources.sqlite")
 
             rg = writer.add_resource(
@@ -242,6 +260,7 @@ class WriterTests(TestCase):
                 {"subscription_id": "sub-1", "resource_group": rg},
             )
             writer.finalize()
+            persist_sqlite_store(ctx, db_path="resources.sqlite")
 
             db_file = os.path.join(tmpdir, "resources.sqlite")
             conn = open_database(db_file)
@@ -273,7 +292,7 @@ class WriterTests(TestCase):
         from resources import REGISTRY_PROPERTY_NAME
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            ctx = _make_context(tmpdir)
+            ctx = _make_context(tmpdir, sqlite=True)
             ctx.setting_values["DEFAULT_LOD"] = "basic"
             ctx.set_property(
                 PLATFORM_HANDLERS_PROPERTY_NAME,
@@ -351,6 +370,7 @@ class WriterTests(TestCase):
             )
 
             writer.finalize()
+            persist_sqlite_store(ctx, db_path="resources.sqlite")
 
             db_file = os.path.join(tmpdir, "resources.sqlite")
             conn = open_database(db_file)
@@ -392,7 +412,7 @@ class SelectorTests(TestCase):
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            ctx = _make_context(tmpdir)
+            ctx = _make_context(tmpdir, sqlite=True)
             ctx.setting_values[RESOURCE_STORE_BACKEND_SETTING.name] = "sqlite"
             ctx.setting_values[RESOURCE_STORE_PATH_SETTING.name] = "custom/path.sqlite"
             writer = get_resource_writer(ctx)
@@ -420,7 +440,7 @@ class SelectorTests(TestCase):
         from resources import REGISTRY_PROPERTY_NAME
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            ctx = _make_context(tmpdir)
+            ctx = _make_context(tmpdir, sqlite=True)
             ctx.setting_values[RESOURCE_STORE_BACKEND_SETTING.name] = "sqlite"
             ctx.get_property(REGISTRY_PROPERTY_NAME).add_resource(
                 "kubernetes",
@@ -439,11 +459,45 @@ class SelectorTests(TestCase):
             finally:
                 conn.close()
 
+    def test_persist_workspace_artifacts(self):
+        from renderers.rendered_artifacts import record_rendered_artifact
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            ctx = _make_context(tmpdir, sqlite=True)
+            ctx.setting_values["WORKSPACE_NAME"] = "demo-ws"
+            record_rendered_artifact(
+                ctx,
+                "workspaces/demo-ws/slxs/my-app/slx.yaml",
+                "kind: ServiceLevelX\nmetadata:\n  name: my-app\n",
+            )
+            record_rendered_artifact(
+                ctx,
+                "workspaces/demo-ws/slxs/my-app/sli.yaml",
+                "kind: ServiceLevelIndicator\n",
+            )
+            record_rendered_artifact(
+                ctx,
+                "workspaces/demo-ws/slxs/my-app/runbook.yaml",
+                "kind: Runbook\n",
+            )
+            persist_sqlite_store(ctx, db_path="resources.sqlite")
+
+            conn = open_database(os.path.join(tmpdir, "resources.sqlite"))
+            try:
+                self.assertEqual(count_workspace_artifacts(conn, workspace_name="demo-ws"), 3)
+                rows = search_workspace_artifacts(
+                    conn, workspace_name="demo-ws", artifact_kind="slx"
+                )
+                self.assertEqual(len(rows), 1)
+                self.assertIn("ServiceLevelX", rows[0]["content"])
+            finally:
+                conn.close()
+
 
 class ReadApiTests(TestCase):
     def test_list_resource_types_includes_custom_attributes(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            ctx = _make_context(tmpdir)
+            ctx = _make_context(tmpdir, sqlite=True)
             writer = SqliteResourceWriter(ctx, db_path="resources.sqlite")
             writer.add_resource(
                 "azure",
@@ -453,6 +507,7 @@ class ReadApiTests(TestCase):
                 {"subscription_id": "sub-1", "tags": {}},
             )
             writer.finalize()
+            persist_sqlite_store(ctx, db_path="resources.sqlite")
 
             conn = open_database(os.path.join(tmpdir, "resources.sqlite"))
             try:

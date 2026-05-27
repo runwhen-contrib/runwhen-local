@@ -79,7 +79,17 @@ CREATE TABLE resources (
 CREATE INDEX idx_resources_name ON resources (platform, resource_type, name);
 ```
 
-A small `schema_meta` table carries the schema version (currently `1`) so future migrations can detect old DBs.
+A small `schema_meta` table carries the schema version (currently `2`) so future migrations can detect old DBs.
+
+A `workspace_artifacts` table stores rendered SLX, SLI, runbook, workspace YAML, and Skill overlays written by `render_output_items`. Rows are keyed by `(workspace_name, relative_path)` with `artifact_kind`, `media_type`, `slx_directory`, and full `content` text. The DB is written once at the end of the pipeline via `persist_sqlite_store` in `dump_resources`.
+
+`artifact_kind` values today: `slx`, `sli`, `runbook`, `workspace`, `skill`, `slx_bundle` (any other file under `/slxs/`), and `other`. The `skill` kind corresponds to a `Skill.md` overlaid from the source CodeBundle — see [Skill overlay](#skill-overlay) below.
+
+### Skill overlay
+
+A CodeBundle defines a Skill (Skill Template); each rendered SLX is an instance of that Skill. When a CodeBundle ships a Skill markdown file at its root, `enrichers/generation_rules._emit_skill_overlay` adds a non-templated `RendererOutputItem` (`raw_content`) for every SLX rendered from that bundle. The renderer writes it verbatim and `record_rendered_artifact` classifies it as `artifact_kind='skill'` so it lands in `workspace_artifacts` alongside the slx/sli/runbook YAML for the same SLX directory. The lookup is cached per `(repo_url, ref, code_bundle_name)` on the context to avoid re-walking the git tree once per SLX.
+
+The filename is matched **case-insensitively** at the codebundle root — common variants are `SKILL.md`, `Skill.md`, and `skill.md`. The upstream casing is preserved when writing into the SLX directory (so a codebundle that publishes `SKILL.md` produces `SKILL.md` in every rendered SLX, not a normalized `Skill.md`). Files named `skill.md` deeper than the bundle root are ignored.
 
 #### Encoding
 
@@ -107,6 +117,8 @@ Cross-resource references (e.g. an Azure storage account's `resource_group`) are
 3. Replaces existing rows on each finalize so the DB is always a fresh, idempotent snapshot.
 
 This means the SQLite store reflects the post-indexing, post-deferred-resolution state — i.e. exactly what `dump_resources.py` writes to `resource-dump.yaml`, but normalised into queryable rows.
+
+For HTTP endpoints, SQL examples, and **listing all SLXs**, see [Resource store query API](resource-store-query-api.md).
 
 ### Future: `RestApiResourceWriter`
 

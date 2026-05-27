@@ -731,30 +731,182 @@ tasks:
         platforms = [r[0] for r in conn.execute("SELECT name FROM platforms")]
         types     = conn.execute("SELECT COUNT(*) FROM resource_types").fetchone()[0]
         rows      = conn.execute("SELECT COUNT(*) FROM resources").fetchone()[0]
+        artifacts = conn.execute("SELECT COUNT(*) FROM workspace_artifacts").fetchone()[0]
+        slx_rows  = conn.execute("SELECT COUNT(*) FROM workspace_artifacts WHERE artifact_kind='slx'").fetchone()[0]
         version   = conn.execute("SELECT value FROM schema_meta WHERE key='schema_version'").fetchone()
         print(f"  schema_version : {version[0] if version else 'MISSING'}")
         print(f"  platforms      : {platforms}")
         print(f"  resource_types : {types}")
         print(f"  resources      : {rows}")
+        print(f"  artifacts      : {artifacts}")
+        print(f"  slx files      : {slx_rows}")
         if not platforms:
             print("❌ no platforms in store"); sys.exit(1)
         if rows == 0:
             print("❌ resources table is empty"); sys.exit(1)
+        if artifacts == 0:
+            print("❌ workspace_artifacts table is empty"); sys.exit(1)
+        if slx_rows == 0:
+            print("❌ no slx.yaml artifacts persisted"); sys.exit(1)
         print("✔ SQLite store is populated")
         PY
         else
           PLATFORMS=$(sqlite3 "$DB_FILE" "SELECT name FROM platforms;" | tr '\n' ' ')
           TYPES=$(sqlite3 "$DB_FILE" "SELECT COUNT(*) FROM resource_types;")
           ROWS=$(sqlite3 "$DB_FILE" "SELECT COUNT(*) FROM resources;")
+          ARTIFACTS=$(sqlite3 "$DB_FILE" "SELECT COUNT(*) FROM workspace_artifacts;")
+          SLX_ROWS=$(sqlite3 "$DB_FILE" "SELECT COUNT(*) FROM workspace_artifacts WHERE artifact_kind='slx';")
           VERSION=$(sqlite3 "$DB_FILE" "SELECT value FROM schema_meta WHERE key='schema_version';")
           echo "  schema_version : ${VERSION:-MISSING}"
           echo "  platforms      : ${PLATFORMS:-(none)}"
           echo "  resource_types : $TYPES"
           echo "  resources      : $ROWS"
+          echo "  artifacts      : $ARTIFACTS"
+          echo "  slx files      : $SLX_ROWS"
           if [ -z "$PLATFORMS" ] || [ "$ROWS" -eq 0 ]; then
             echo "❌ SQLite store is empty"
             exit 1
           fi
+          if [ "$ARTIFACTS" -eq 0 ] || [ "$SLX_ROWS" -eq 0 ]; then
+            echo "❌ workspace artifacts not persisted"
+            exit 1
+          fi
           echo "✔ SQLite store is populated"
         fi
+    silent: false
+
+  ci-test-skill-overlay:
+    desc: "Run discovery pinned to rw-cli-codecollection feat/skill-overlay and verify the Skill overlay pipeline. The overlay is conditional: only codebundles that ship a Skill markdown file (SKILL.md, Skill.md, or skill.md — matched case-insensitively) at the bundle root produce an overlay file. The test asks GitHub how many Skill markdown files exist on the branch and tightens its assertions accordingly, so it stays green today and tightens automatically once Skill markdown files start landing upstream."
+    env:
+      RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace-skill"}}'
+      SKILL_BRANCH: '{{.SKILL_BRANCH | default "feat/skill-overlay"}}'
+    cmds:
+      - |
+        cat <<EOF > workspaceInfo.yaml
+        workspaceName: "$RW_WORKSPACE"
+        workspaceOwnerEmail: authors@runwhen.com
+        defaultLocation: location-01
+        defaultLOD: detailed
+        cloudConfig:
+          kubernetes:
+            kubeconfigFile: /shared/kubeconfig.secret
+            contexts:
+              sandbox-cluster-1:
+                defaultNamespaceLOD: basic
+            namespaces:
+              - ci-verify-basic
+        codeCollections:
+          - repoURL: https://github.com/runwhen-contrib/rw-cli-codecollection.git
+            branch: ${SKILL_BRANCH}
+        useLocalGit: false
+        custom:
+          kubernetes_distribution_binary: kubectl
+        resourceStoreBackend: sqlite
+        resourceStorePath: resources.sqlite
+        EOF
+
+      - task: build-rwl
+      - task: run-rwl-discovery
+
+      - |
+        echo ""
+        echo "=== Branch override validation ==="
+        # Confirm the codecollection override actually took effect: every rendered
+        # slx.yaml records the source ref via common-annotations (sourceGenerationRuleRepoRef).
+        REF_HITS=$(grep -rl "sourceGenerationRuleRepoRef: ${SKILL_BRANCH}" output/workspaces 2>/dev/null | wc -l | tr -d ' ')
+        echo "  slx.yaml files referencing ref '${SKILL_BRANCH}' : $REF_HITS"
+        if [ "$REF_HITS" -eq 0 ]; then
+          echo "❌ codeCollections override did not take effect — no SLX references ref '${SKILL_BRANCH}'."
+          echo "   Sample slx.yaml ref lines we did see:"
+          grep -rh "sourceGenerationRuleRepoRef:" output/workspaces 2>/dev/null | sort -u | head -5 | sed 's/^/    /'
+          exit 1
+        fi
+        echo "✔ codeCollections override honored"
+
+      - |
+        echo ""
+        echo "=== Skill overlay validation ==="
+        # `-iname` matches any case (SKILL.md, Skill.md, skill.md, sKiLL.Md, ...).
+        SLX_COUNT=$(find output -mindepth 4 -type d -path '*/slxs/*' | wc -l | tr -d ' ')
+        SKILL_COUNT=$(find output -type f -iname 'skill.md' -path '*/slxs/*' | wc -l | tr -d ' ')
+        echo "  rendered SLX directories         : $SLX_COUNT"
+        echo "  Skill overlay files (any case)   : $SKILL_COUNT"
+
+        if [ "$SLX_COUNT" -eq 0 ]; then
+          echo "❌ No rendered SLX directories produced"
+          find output -maxdepth 5 -type d | sed 's/^/    /'
+          exit 1
+        fi
+
+        # Ask GitHub how many Skill markdown files exist on the branch we just
+        # rendered against, matching the filename case-insensitively (codebundles
+        # can publish it as SKILL.md, Skill.md, or skill.md). Limit the count to
+        # entries at codebundles/<bundle>/<skill>.md at the bundle root —
+        # sub-directory matches don't trigger the overlay.
+        UPSTREAM_SKILL_COUNT=0
+        TREE_JSON=$(curl -fsSL "https://api.github.com/repos/runwhen-contrib/rw-cli-codecollection/git/trees/${SKILL_BRANCH}?recursive=1" 2>/dev/null || true)
+        if [ -n "$TREE_JSON" ]; then
+          UPSTREAM_SKILL_COUNT=$(printf '%s' "$TREE_JSON" \
+            | python3 -c 'import json,sys; t=json.load(sys.stdin); paths=[e["path"] for e in t.get("tree",[]) if e.get("type")=="blob"]; print(sum(1 for p in paths if p.startswith("codebundles/") and p.lower().endswith("/skill.md") and p.count("/")==2))' \
+            2>/dev/null || echo 0)
+        fi
+        echo "  upstream codebundles with Skill markdown (branch ${SKILL_BRANCH}) : ${UPSTREAM_SKILL_COUNT}"
+
+        if [ "$UPSTREAM_SKILL_COUNT" -eq 0 ]; then
+          echo ""
+          echo "ℹ️  No codebundle on branch '${SKILL_BRANCH}' ships a Skill markdown yet."
+          echo "    The overlay code path is exercised but produced 0 files (expected)."
+          echo "    This task will auto-tighten once a SKILL.md / Skill.md is added upstream."
+          echo "    For end-to-end coverage of the overlay code path itself, see"
+          echo "    src/renderers/test_skill_overlay.py (unit tests)."
+          echo ""
+          echo "✔ Skill overlay pipeline ran cleanly (no upstream sources to overlay)"
+          exit 0
+        fi
+
+        if [ "$SKILL_COUNT" -eq 0 ]; then
+          echo "❌ Branch '${SKILL_BRANCH}' has ${UPSTREAM_SKILL_COUNT} codebundle Skill markdown file(s),"
+          echo "   but none were overlaid onto rendered SLXs. Investigate _emit_skill_overlay."
+          find output -type f -path '*/slxs/*' | head -n 30 | sed 's/^/    /'
+          exit 1
+        fi
+
+        echo ""
+        echo "  sample Skill overlay (first 12 lines):"
+        SAMPLE=$(find output -type f -iname 'skill.md' -path '*/slxs/*' | head -n 1)
+        echo "    -> $SAMPLE"
+        sed 's/^/    /' "$SAMPLE" | head -n 12 || true
+
+        echo ""
+        echo "=== SQLite skill-artifact validation ==="
+        DB_FILE=$(find output -maxdepth 3 -name 'resources.sqlite' | head -n 1)
+        if [ -z "$DB_FILE" ]; then
+          echo "❌ resources.sqlite not produced"
+          exit 1
+        fi
+
+        if command -v sqlite3 >/dev/null; then
+          SKILL_ROWS=$(sqlite3 "$DB_FILE" "SELECT COUNT(*) FROM workspace_artifacts WHERE artifact_kind='skill';")
+          SAMPLE_ROW=$(sqlite3 "$DB_FILE" "SELECT relative_path FROM workspace_artifacts WHERE artifact_kind='skill' LIMIT 1;")
+          echo "  skill artifacts : $SKILL_ROWS"
+          echo "  sample row      : ${SAMPLE_ROW:-(none)}"
+          if [ "$SKILL_ROWS" -eq 0 ]; then
+            echo "❌ Skill.md present on disk but not classified as artifact_kind='skill' in SQLite"
+            exit 1
+          fi
+        else
+          python3 - "$DB_FILE" <<'PY' || exit 1
+        import sqlite3, sys
+        conn = sqlite3.connect(sys.argv[1])
+        rows = conn.execute("SELECT COUNT(*) FROM workspace_artifacts WHERE artifact_kind='skill'").fetchone()[0]
+        sample = conn.execute("SELECT relative_path FROM workspace_artifacts WHERE artifact_kind='skill' LIMIT 1").fetchone()
+        print(f"  skill artifacts : {rows}")
+        print(f"  sample row      : {sample[0] if sample else '(none)'}")
+        if rows == 0:
+            print("❌ Skill.md present on disk but not classified as artifact_kind='skill' in SQLite")
+            sys.exit(1)
+        PY
+        fi
+
+        echo "✔ Skill.md overlay rendered and persisted as artifact_kind='skill'"
     silent: false

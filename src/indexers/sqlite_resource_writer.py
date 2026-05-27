@@ -65,7 +65,7 @@ logger = logging.getLogger(__name__)
 
 
 # Bumped when the on-disk schema changes in a backwards-incompatible way.
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 _SCHEMA_SQL = """
@@ -101,6 +101,23 @@ CREATE TABLE IF NOT EXISTS resources (
 
 CREATE INDEX IF NOT EXISTS idx_resources_name
     ON resources (platform, resource_type, name);
+
+CREATE TABLE IF NOT EXISTS workspace_artifacts (
+    workspace_name TEXT NOT NULL,
+    relative_path TEXT NOT NULL,
+    artifact_kind TEXT NOT NULL,
+    media_type TEXT NOT NULL,
+    slx_directory TEXT,
+    content TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (workspace_name, relative_path)
+);
+
+CREATE INDEX IF NOT EXISTS idx_workspace_artifacts_kind
+    ON workspace_artifacts (workspace_name, artifact_kind);
+CREATE INDEX IF NOT EXISTS idx_workspace_artifacts_slx_dir
+    ON workspace_artifacts (slx_directory);
 """
 
 
@@ -268,44 +285,10 @@ class SqliteResourceWriter:
         )
 
     def finalize(self) -> None:
-        # 1) Run in-memory finalize first so deferred Azure RG resolution
-        #    settles and the registry holds final qualified names / refs.
+        # Registry relationship fixes (e.g. deferred Azure RG resolution). The
+        # on-disk SQLite snapshot is written later by :func:`persist_sqlite_store`
+        # once renderers have produced SLX/SLI/runbook artifacts.
         self._memory.finalize()
-
-        # 2) Snapshot the full registry to SQLite on a local temp file
-        #    (sqlite3 needs a real fd) and then publish via the outputter so
-        #    the DB lands wherever non-SQL artefacts go (filesystem dir or
-        #    tar archive).
-        registry = self._memory.registry
-        with tempfile.NamedTemporaryFile(
-            suffix=".sqlite", delete=False
-        ) as tmp:
-            tmp_path = tmp.name
-        try:
-            conn = sqlite3.connect(tmp_path)
-            try:
-                conn.execute("PRAGMA foreign_keys = ON")
-                _init_schema(conn)
-                _snapshot_registry(conn, registry)
-                conn.commit()
-            finally:
-                conn.close()
-            with open(tmp_path, "rb") as fh:
-                payload = fh.read()
-            self._context.outputter.write_file(self._db_path, payload)
-            logger.info(
-                "SqliteResourceWriter wrote %d byte resource DB to %s",
-                len(payload),
-                self._db_path,
-            )
-            from .resource_writer import _RESOURCE_STORE_FINALIZED_PROPERTY
-
-            self._context.set_property(_RESOURCE_STORE_FINALIZED_PROPERTY, True)
-        finally:
-            try:
-                os.unlink(tmp_path)
-            except OSError:
-                pass
 
 
 # ---------------------------------------------------------------------------
@@ -318,6 +301,94 @@ def _init_schema(conn: sqlite3.Connection) -> None:
         "INSERT OR REPLACE INTO schema_meta (key, value) VALUES (?, ?)",
         ("schema_version", str(SCHEMA_VERSION)),
     )
+
+
+def _snapshot_workspace_artifacts(
+    conn: sqlite3.Connection,
+    workspace_name: str,
+    artifacts: list[dict[str, Any]],
+) -> None:
+    now = _dt.datetime.now(_dt.timezone.utc).isoformat()
+    conn.execute("DELETE FROM workspace_artifacts WHERE workspace_name = ?", (workspace_name,))
+    for artifact in artifacts:
+        conn.execute(
+            "INSERT INTO workspace_artifacts "
+            "(workspace_name, relative_path, artifact_kind, media_type, slx_directory, "
+            " content, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                workspace_name,
+                artifact["relative_path"],
+                artifact["artifact_kind"],
+                artifact["media_type"],
+                artifact.get("slx_directory"),
+                artifact["content"],
+                now,
+                now,
+            ),
+        )
+
+
+def persist_sqlite_store(context: "Context", db_path: str | None = None) -> None:
+    """Write the SQLite store with discovered resources and rendered workspace artifacts."""
+    from component import WORKSPACE_NAME_SETTING
+    from resources import REGISTRY_PROPERTY_NAME
+    from indexers.resource_writer import (
+        RESOURCE_STORE_BACKEND_SETTING,
+        RESOURCE_STORE_BACKEND_SQLITE,
+        RESOURCE_STORE_PATH_SETTING,
+        _RESOURCE_STORE_FINALIZED_PROPERTY,
+    )
+    from renderers.rendered_artifacts import RENDERED_ARTIFACTS_PROPERTY
+
+    backend = (context.get_setting(RESOURCE_STORE_BACKEND_SETTING) or "").strip().lower()
+    if backend != RESOURCE_STORE_BACKEND_SQLITE:
+        return
+
+    if db_path is None:
+        db_path = context.get_setting(RESOURCE_STORE_PATH_SETTING) or "resources.sqlite"
+
+    registry = context.get_property(REGISTRY_PROPERTY_NAME)
+    if registry is None:
+        logger.warning("persist_sqlite_store: no registry on context; skipping")
+        return
+
+    workspace_name = context.get_setting(WORKSPACE_NAME_SETTING) or "workspace"
+    artifacts = context.get_property(RENDERED_ARTIFACTS_PROPERTY, [])
+
+    with tempfile.NamedTemporaryFile(suffix=".sqlite", delete=False) as tmp:
+        tmp_path = tmp.name
+    try:
+        conn = sqlite3.connect(tmp_path)
+        try:
+            conn.execute("PRAGMA foreign_keys = ON")
+            _init_schema(conn)
+            _snapshot_registry(conn, registry)
+            _snapshot_workspace_artifacts(conn, workspace_name, artifacts)
+            conn.commit()
+        finally:
+            conn.close()
+        with open(tmp_path, "rb") as fh:
+            payload = fh.read()
+        context.outputter.write_file(db_path, payload)
+        logger.info(
+            "persist_sqlite_store wrote %d byte DB to %s "
+            "(%d resources in registry snapshot, %d workspace artifacts)",
+            len(payload),
+            db_path,
+            sum(
+                len(rt.instances or {})
+                for platform in (registry.platforms or {}).values()
+                for rt in (platform.resource_types or {}).values()
+            ),
+            len(artifacts),
+        )
+        context.set_property(_RESOURCE_STORE_FINALIZED_PROPERTY, True)
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
 
 
 def _snapshot_registry(conn: sqlite3.Connection, registry: "Registry") -> None:
@@ -490,6 +561,115 @@ def get_schema_version(conn: sqlite3.Connection) -> Optional[int]:
         return None
 
 
+def count_workspace_artifacts(
+    conn: sqlite3.Connection,
+    workspace_name: Optional[str] = None,
+    artifact_kind: Optional[str] = None,
+    q: Optional[str] = None,
+) -> int:
+    where: list[str] = []
+    params: list[Any] = []
+    if workspace_name:
+        where.append("workspace_name = ?")
+        params.append(workspace_name)
+    if artifact_kind:
+        where.append("artifact_kind = ?")
+        params.append(artifact_kind)
+    if q:
+        where.append("(relative_path LIKE ? OR content LIKE ?)")
+        pattern = f"%{q}%"
+        params.extend([pattern, pattern])
+    sql = "SELECT COUNT(*) FROM workspace_artifacts"
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+    return int(conn.execute(sql, tuple(params)).fetchone()[0])
+
+
+def list_workspace_artifact_kinds(
+    conn: sqlite3.Connection, workspace_name: Optional[str] = None
+) -> list[dict[str, Any]]:
+    sql = (
+        "SELECT workspace_name, artifact_kind, COUNT(*) "
+        "FROM workspace_artifacts"
+    )
+    params: tuple[Any, ...] = ()
+    if workspace_name:
+        sql += " WHERE workspace_name = ?"
+        params = (workspace_name,)
+    sql += " GROUP BY workspace_name, artifact_kind ORDER BY workspace_name, artifact_kind"
+    return [
+        {"workspace_name": row[0], "artifact_kind": row[1], "count": row[2]}
+        for row in conn.execute(sql, params)
+    ]
+
+
+def search_workspace_artifacts(
+    conn: sqlite3.Connection,
+    workspace_name: Optional[str] = None,
+    artifact_kind: Optional[str] = None,
+    q: Optional[str] = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[dict[str, Any]]:
+    where: list[str] = []
+    params: list[Any] = []
+    if workspace_name:
+        where.append("workspace_name = ?")
+        params.append(workspace_name)
+    if artifact_kind:
+        where.append("artifact_kind = ?")
+        params.append(artifact_kind)
+    if q:
+        where.append("(relative_path LIKE ? OR content LIKE ?)")
+        pattern = f"%{q}%"
+        params.extend([pattern, pattern])
+    sql = (
+        "SELECT workspace_name, relative_path, artifact_kind, media_type, "
+        "slx_directory, content, created_at, updated_at FROM workspace_artifacts"
+    )
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+    sql += " ORDER BY workspace_name, slx_directory, relative_path LIMIT ? OFFSET ?"
+    params.extend([limit, offset])
+    return [
+        {
+            "workspace_name": row[0],
+            "relative_path": row[1],
+            "artifact_kind": row[2],
+            "media_type": row[3],
+            "slx_directory": row[4],
+            "content": row[5],
+            "created_at": row[6],
+            "updated_at": row[7],
+        }
+        for row in conn.execute(sql, tuple(params))
+    ]
+
+
+def get_workspace_artifact(
+    conn: sqlite3.Connection,
+    workspace_name: str,
+    relative_path: str,
+) -> Optional[dict[str, Any]]:
+    row = conn.execute(
+        "SELECT artifact_kind, media_type, slx_directory, content, created_at, updated_at "
+        "FROM workspace_artifacts WHERE workspace_name = ? AND relative_path = ?",
+        (workspace_name, relative_path),
+    ).fetchone()
+    if not row:
+        return None
+    return {
+        "workspace_name": workspace_name,
+        "relative_path": relative_path,
+        "artifact_kind": row[0],
+        "media_type": row[1],
+        "slx_directory": row[2],
+        "content": row[3],
+        "created_at": row[4],
+        "updated_at": row[5],
+    }
+
+
 __all__ = [
     "SCHEMA_VERSION",
     "SqliteResourceWriter",
@@ -501,4 +681,9 @@ __all__ = [
     "list_resources",
     "get_resource",
     "get_schema_version",
+    "count_workspace_artifacts",
+    "list_workspace_artifact_kinds",
+    "search_workspace_artifacts",
+    "get_workspace_artifact",
+    "persist_sqlite_store",
 ]

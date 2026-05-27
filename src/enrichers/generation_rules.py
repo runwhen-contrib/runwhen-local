@@ -868,6 +868,69 @@ def generate_output_item(generation_rule_info: GenerationRuleInfo,
         logger.error(f"Unhandled error in generate_output_item: {e}", exc_info=True)
         return False
 
+# Canonical filename used when looking up a codebundle's Skill overlay. The
+# lookup is case-insensitive (Git is case-sensitive on Linux but in practice
+# codebundles ship the file as ``SKILL.md``, ``Skill.md``, or ``skill.md``).
+# The upstream filename casing is preserved when we write the overlay into the
+# SLX directory so the on-disk filename matches what the codebundle author
+# published.
+SKILL_OVERLAY_FILENAME = "Skill.md"
+_SKILL_OVERLAY_CACHE_PROPERTY = "_skill_overlay_cache"
+
+
+def _emit_skill_overlay(generation_rule_info: GenerationRuleInfo,
+                        slx_directory_path: str,
+                        slx_base_template_variables: dict[str, Any],
+                        renderer_output_items: dict[str, RendererOutputItem],
+                        context: Context) -> None:
+    """Copy a codebundle's Skill markdown (if present) into the rendered SLX directory.
+
+    A CodeBundle defines a Skill (template); each SLX rendered from that CodeBundle
+    is an *instance* of the Skill. Carrying the Skill markdown alongside the SLX lets
+    an AI agent (or MCP) read what the skill does and decide when to invoke it.
+    The file is copied verbatim — no Jinja substitution. The lookup matches the
+    filename case-insensitively (``SKILL.md`` / ``Skill.md`` / ``skill.md``).
+    """
+    code_collection = generation_rule_info.code_collection
+    if code_collection is None:
+        return
+    ref_name = generation_rule_info.generation_rule_file_spec.ref_name
+    code_bundle_name = generation_rule_info.generation_rule_file_spec.code_bundle_name
+    cache_key = (code_collection.repo_url, ref_name, code_bundle_name)
+    cache: Optional[dict] = context.get_property(_SKILL_OVERLAY_CACHE_PROPERTY)
+    if cache is None:
+        cache = {}
+        context.set_property(_SKILL_OVERLAY_CACHE_PROPERTY, cache)
+    if cache_key in cache:
+        resolved = cache[cache_key]
+    else:
+        resolved = code_collection.find_code_bundle_file(
+            ref_name, code_bundle_name, SKILL_OVERLAY_FILENAME, case_insensitive=True
+        )
+        cache[cache_key] = resolved
+    if resolved is None:
+        logger.debug(
+            f"No Skill.md (any case) found in codebundle '{code_bundle_name}' at "
+            f"ref '{ref_name}' of {code_collection.repo_url}; skipping overlay."
+        )
+        return
+    actual_filename, skill_text = resolved
+    overlay_path = f"{slx_directory_path}/{actual_filename}"
+    if overlay_path in renderer_output_items:
+        return
+    renderer_output_items[overlay_path] = RendererOutputItem(
+        overlay_path,
+        actual_filename,
+        slx_base_template_variables,
+        template_loader_func=None,
+        raw_content=skill_text,
+    )
+    logger.debug(
+        f"Overlaying {actual_filename} from codebundle '{code_bundle_name}' "
+        f"onto SLX directory {slx_directory_path}"
+    )
+
+
 def collect_emitted_slxs(generation_rule_info: GenerationRuleInfo,
                          resource: Resource,
                          level_of_detail: LevelOfDetail,
@@ -1025,6 +1088,15 @@ def generate_slx_output_items(slx_info: SLXInfo,
             except Exception as e:
                 logger.error(f"Error generating output item: {e}")
                 # Continue with next output item
+
+        try:
+            _emit_skill_overlay(generation_rule_info,
+                                slx_directory_path,
+                                slx_base_template_variables,
+                                renderer_output_items,
+                                context)
+        except Exception as e:
+            logger.warning(f"Error emitting Skill.md overlay for SLX {slx_info.full_name}: {e}")
 
         try:
             customization_variables = {

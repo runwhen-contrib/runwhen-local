@@ -12,11 +12,18 @@ from .resource_store_reader import (
     count_resources,
     get_store_summary,
     json_safe,
+    list_slx_bundles,
     resource_db_connection,
     resolve_resource_db_path,
     search_resources,
 )
-from indexers.sqlite_resource_writer import get_resource, list_resource_types
+from indexers.sqlite_resource_writer import (
+    count_workspace_artifacts,
+    get_resource,
+    get_workspace_artifact,
+    list_resource_types,
+    search_workspace_artifacts,
+)
 
 router = APIRouter(prefix="/explorer", tags=["resource-explorer"])
 
@@ -110,5 +117,87 @@ def explorer_resource(
             if resource is None:
                 raise HTTPException(status_code=404, detail="Resource not found")
             return json_safe(resource)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/api/artifacts")
+def explorer_artifacts(
+    workspace_name: Optional[str] = None,
+    artifact_kind: Optional[str] = None,
+    q: Optional[str] = None,
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+) -> dict[str, Any]:
+    try:
+        with resource_db_connection() as conn:
+            total = count_workspace_artifacts(
+                conn,
+                workspace_name=workspace_name,
+                artifact_kind=artifact_kind,
+                q=q,
+            )
+            items = search_workspace_artifacts(
+                conn,
+                workspace_name=workspace_name,
+                artifact_kind=artifact_kind,
+                q=q,
+                limit=limit,
+                offset=offset,
+            )
+            preview = []
+            for item in items:
+                row = dict(item)
+                content = row.pop("content", "")
+                row["content_preview"] = content[:240] + ("..." if len(content) > 240 else "")
+                preview.append(row)
+            return {
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+                "items": json_safe(preview),
+            }
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/api/artifact")
+def explorer_artifact(
+    workspace_name: str,
+    relative_path: str,
+) -> dict[str, Any]:
+    try:
+        with resource_db_connection() as conn:
+            artifact = get_workspace_artifact(conn, workspace_name, relative_path)
+            if artifact is None:
+                raise HTTPException(status_code=404, detail="Artifact not found")
+            return json_safe(artifact)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/api/slx-bundles")
+def explorer_slx_bundles(
+    workspace_name: Optional[str] = None,
+    q: Optional[str] = None,
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+) -> dict[str, Any]:
+    """Group rendered artifacts by SLX directory.
+
+    Each bundle includes the SLX, SLI and runbook files that share an
+    ``slx_directory``. Useful for browsing the rendered workspace by SLX
+    rather than by individual file.
+    """
+    try:
+        with resource_db_connection() as conn:
+            data = list_slx_bundles(
+                conn,
+                workspace_name=workspace_name,
+                q=q,
+                limit=limit,
+                offset=offset,
+            )
+            return json_safe(data)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

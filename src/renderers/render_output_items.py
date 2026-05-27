@@ -8,6 +8,7 @@ from component import Context, SettingDependency, WORKSPACE_NAME_SETTING, \
     LOCATION_ID_SETTING, WORKSPACE_OUTPUT_PATH_SETTING
 from template import render_template_file
 from exceptions import WorkspaceBuilderException
+from renderers.rendered_artifacts import init_rendered_artifacts, record_rendered_artifact
 
 logger = logging.getLogger(__name__)
 
@@ -34,21 +35,28 @@ class OutputItem:
     template_name: str
     template_loader_func: Optional[Callable[[str], str]]
     template_variables: dict[str, Any]
+    raw_content: Optional[str]
 
     def __init__(self, path: str,
                  template_name: str,
                  template_variables: dict[str, Any],
-                 template_loader_func: Optional[Callable[[str], str]] = None):
+                 template_loader_func: Optional[Callable[[str], str]] = None,
+                 raw_content: Optional[str] = None):
         self.path = path
         self.template_name = template_name
         self.template_loader_func = template_loader_func
         self.template_variables = template_variables
+        # When ``raw_content`` is set, the renderer writes it verbatim to ``path``
+        # without invoking Jinja or post-processing. Used for codebundle overlay
+        # files such as ``Skill.md`` that ship as opaque text alongside an SLX.
+        self.raw_content = raw_content
 
 
 def load(context: Context):
     # Initialize the output items dict so that other components don't need to
     # check for None and initialize it themselves.
     context.set_property(OUTPUT_ITEMS_PROPERTY, dict())
+    init_rendered_artifacts(context)
 
 
 def compute_resource_path_from_hierarchy(data: dict) -> None:
@@ -320,6 +328,13 @@ def render(context: Context):
             logger.debug(f"Template variables for {output_item.path}: {output_item.template_variables}")
 
         try:
+            if output_item.raw_content is not None:
+                output_text = output_item.raw_content
+                context.write_file(output_item.path, output_text)
+                record_rendered_artifact(context, output_item.path, output_text)
+                render_stats['successfully_rendered'] += 1
+                continue
+
             # Render the template
             output_text = render_template_file(output_item.template_name,
                                               output_item.template_variables,
@@ -333,6 +348,7 @@ def render(context: Context):
 
             # Write the deduplicated output to the file
             context.write_file(output_item.path, deduplicated_output)
+            record_rendered_artifact(context, output_item.path, deduplicated_output)
             render_stats['successfully_rendered'] += 1
         except WorkspaceBuilderException as e:
             logger.warning(f"Skipping template {output_item.template_name} for {output_item.path}: {str(e)}")

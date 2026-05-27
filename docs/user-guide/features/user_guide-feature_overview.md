@@ -26,7 +26,15 @@ Example:
 curl http://localhost:8000/health/
 ```
 
-Browse indexed resources in the basic explorer UI at [http://localhost:8000/explorer/](http://localhost:8000/explorer/) after running discovery with `resourceStoreBackend: sqlite`.
+Browse indexed resources in the Workspace Explorer at [http://localhost:8000/explorer/](http://localhost:8000/explorer/) after running discovery with `resourceStoreBackend: sqlite`. The explorer has three tabs: **SLX Bundles** (each card groups the rendered SLX, SLI, runbook, and overlaid `Skill.md` for one SLX directory), **Discovered Resources** (the indexer graph), and **All Artifacts**. For HTTP and SQL examples, see [Resource store query API](../architecture/resource-store-query-api.md).
+
+### Terminology
+
+In the Skills Registry vocabulary used by the explorer:
+
+- A **CodeBundle** is a directory under `codebundles/` in a CodeCollection git repo. It defines a **Skill** (or "Skill Template") that an agent can invoke.
+- A **Skill** is documented by an optional Skill markdown file at the CodeBundle root (case-insensitive — commonly `SKILL.md` or `Skill.md`).
+- An **SLX** is an *instance* of a Skill, bound to a specific resource. RunWhen Local renders an SLX directory (`output/workspaces/<ws>/slxs/<slx>/`) containing `slx.yaml`, `sli.yaml`, `runbook.yaml`, and a verbatim copy of the source CodeBundle's Skill markdown file (when present), preserving the upstream filename casing.
 
 ## Upload to RunWhen Platform
 

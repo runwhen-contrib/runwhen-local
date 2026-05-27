@@ -422,6 +422,72 @@ class CodeCollection:
         template_text = template_bytes.decode('utf-8')
         return template_text
 
+    def get_code_bundle_file_text(
+        self,
+        ref_name: str,
+        code_bundle_name: str,
+        relative_path: str,
+        case_insensitive: bool = False,
+    ) -> Optional[str]:
+        """Read a file at ``codebundles/<code_bundle_name>/<relative_path>`` from the git ref.
+
+        Returns the file contents as text when present, or ``None`` when the file is
+        not in the tree. Used to overlay companion artifacts that ship with a
+        codebundle (for example ``Skill.md``) onto every SLX rendered from it.
+
+        When ``case_insensitive`` is True and ``relative_path`` is a single filename
+        (no path separators), the codebundle root is scanned for the first blob whose
+        name matches case-insensitively. Useful for files like ``Skill.md`` whose
+        upstream casing varies (``SKILL.md``, ``Skill.md``, ``skill.md``).
+        """
+        resolved = self.find_code_bundle_file(
+            ref_name, code_bundle_name, relative_path, case_insensitive=case_insensitive
+        )
+        if resolved is None:
+            return None
+        _, text = resolved
+        return text
+
+    def find_code_bundle_file(
+        self,
+        ref_name: str,
+        code_bundle_name: str,
+        relative_path: str,
+        case_insensitive: bool = False,
+    ) -> Optional[tuple[str, str]]:
+        """Resolve a codebundle file and return ``(actual_filename, text)``.
+
+        Returns ``None`` if the file is missing or not UTF-8 decodable. The
+        ``actual_filename`` reflects the on-disk casing in the git tree, which is
+        useful when ``case_insensitive=True`` and the caller wants to preserve the
+        upstream filename in its output.
+        """
+        try:
+            code_bundles_tree = self.get_code_bundles_tree(ref_name)
+            code_bundle_tree = self.resolve_path(code_bundles_tree, code_bundle_name)
+            if case_insensitive and "/" not in relative_path and "\\" not in relative_path:
+                target = relative_path.lower()
+                blob = None
+                for item in code_bundle_tree:
+                    if isinstance(item, Blob) and item.name.lower() == target:
+                        blob = item
+                        break
+                if blob is None:
+                    return None
+                resolved_name = blob.name
+            else:
+                blob = self.resolve_path(code_bundle_tree, relative_path)
+                if not isinstance(blob, Blob):
+                    return None
+                resolved_name = relative_path
+        except WorkspaceBuilderObjectNotFoundException:
+            return None
+        try:
+            text = blob.data_stream.read().decode("utf-8")
+        except UnicodeDecodeError:
+            return None
+        return resolved_name, text
+
 
 code_collection_cache_temp_dir: Optional[TemporaryDirectory] = None
 code_collection_cache_dir: Optional[str] = None
