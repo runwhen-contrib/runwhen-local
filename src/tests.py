@@ -651,6 +651,67 @@ from resources import Registry, REGISTRY_PROPERTY_NAME
 from component import Context
 
 
+from renderers.render_output_items import compute_resource_path_from_hierarchy
+
+
+class ComputeResourcePathFromHierarchyTest(TestCase):
+    """The post-render hook in render_output_items.py derives `resourcePath`
+    from `additionalContext.hierarchy` + `tags` so they stay in sync. But
+    some platforms (e.g. mcp) need hierarchy and resourcePath at different
+    depths — 3-key hierarchy for UI grouping, 2-key resourcePath for the
+    underlying resource identity. Test that an explicit `resourcePath` in
+    the template is honored, while the auto-compute path stays unchanged
+    for templates that don't set it.
+    """
+
+    def _make_data(self, hierarchy, tags, explicit_resource_path=None):
+        additional_context = {"hierarchy": hierarchy}
+        if explicit_resource_path is not None:
+            additional_context["resourcePath"] = explicit_resource_path
+        return {"spec": {"additionalContext": additional_context, "tags": tags}}
+
+    def test_auto_computes_when_resource_path_not_set(self):
+        data = self._make_data(
+            hierarchy=["platform", "mcp_server", "mcp_tool"],
+            tags=[{"name": "platform", "value": "mcp"},
+                  {"name": "mcp_server", "value": "linear-mcp"},
+                  {"name": "mcp_tool", "value": "list_teams"}],
+        )
+        compute_resource_path_from_hierarchy(data)
+        self.assertEqual(
+            data["spec"]["additionalContext"]["resourcePath"],
+            "mcp/linear-mcp/list_teams")
+
+    def test_honors_explicit_resource_path_from_template(self):
+        # Same hierarchy as above, but template already set resourcePath to a
+        # different depth — must not be overwritten.
+        data = self._make_data(
+            hierarchy=["platform", "mcp_server", "mcp_tool"],
+            tags=[{"name": "platform", "value": "mcp"},
+                  {"name": "mcp_server", "value": "linear-mcp"},
+                  {"name": "mcp_tool", "value": "list_teams"}],
+            explicit_resource_path="mcp/linear-mcp",
+        )
+        compute_resource_path_from_hierarchy(data)
+        self.assertEqual(
+            data["spec"]["additionalContext"]["resourcePath"],
+            "mcp/linear-mcp")
+
+    def test_empty_explicit_resource_path_falls_through_to_auto_compute(self):
+        # `resourcePath: ""` in a template (e.g. when an upstream value was
+        # missing) should not block auto-compute — we only honor truthy values.
+        data = self._make_data(
+            hierarchy=["platform", "cluster"],
+            tags=[{"name": "platform", "value": "kubernetes"},
+                  {"name": "cluster", "value": "prod"}],
+            explicit_resource_path="",
+        )
+        compute_resource_path_from_hierarchy(data)
+        self.assertEqual(
+            data["spec"]["additionalContext"]["resourcePath"],
+            "kubernetes/prod")
+
+
 class ComputeAccessTest(TestCase):
     def test_read_only_hint_true_is_authoritative(self):
         tool = {"name": "create_issue", "annotations": {"readOnlyHint": True}}
