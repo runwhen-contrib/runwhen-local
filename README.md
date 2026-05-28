@@ -2,426 +2,277 @@
 
 [![Join Slack](https://img.shields.io/badge/Join%20Slack-%23E01563.svg?&style=for-the-badge&logo=slack&logoColor=white)](https://runwhen.slack.com/join/shared_invite/zt-1l7t3tdzl-IzB8gXDsWtHkT8C5nufm2A)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.14](https://img.shields.io/badge/python-3.14-blue.svg)](https://www.python.org/downloads/)
 [![Docker](https://img.shields.io/badge/docker-supported-blue.svg)](https://www.docker.com/)
 
-RunWhen Local is an open-source workspace builder and troubleshooting companion that automatically discovers resources from your Kubernetes clusters and cloud environments. It generates personalized troubleshooting commands, runbooks, and automation tasks tailored specifically to your infrastructure.
+RunWhen Local is a **discovery tool** for cloud and Kubernetes
+infrastructure that turns the resources you already have into a tailored
+set of agentic **Skills** — small, AI-agent-readable runbooks bound to
+the specific things in *your* environment.
 
-**RunWhen Local** is like your personal troubleshooter's toolbox - it scans your environment, identifies the perfect troubleshooting commands for your resources, and provides them as easy copy-and-paste CLI commands through a web interface.
+Pair it with the [RunWhen Platform](https://www.runwhen.com) to manage
+and run those Skills safely in production: scheduled execution, audit,
+secrets, and team-level governance.
+
+> Heads up: RunWhen Local is evolving quickly. The **discovery →
+> tailored Skills** workflow described below is the current core
+> feature. Additional functionality is on the way and will be folded
+> into this README and the docs as it lands.
 
 ## Table of Contents
 
-- [Features](#features)
-- [What is RunWhen?](#what-is-runwhen)
-- [Prerequisites](#prerequisites)
-- [Installation](#installation)
-- [Quick Start](#quick-start)
+- [What it does](#what-it-does)
+- [How the pieces fit together](#how-the-pieces-fit-together)
+- [Quick start](#quick-start)
 - [Configuration](#configuration)
-- [Usage Examples](#usage-examples)
+- [What gets discovered](#what-gets-discovered)
+- [Going to production with the RunWhen Platform](#going-to-production-with-the-runwhen-platform)
 - [Documentation](#documentation)
 - [Contributing](#contributing)
-- [Support](#support)
+- [Community and support](#community-and-support)
 - [License](#license)
 
-## Features
+## What it does
 
-- **Multi-Cloud Discovery**: Automatically discover and index resources from Kubernetes, Azure, AWS, and GCP
-- **Code Collections**: Leverage community-maintained runbooks and SLIs from external repositories
-- **Template-Based Generation**: Generate workspace configurations using flexible Jinja2 templates
-- **Level of Detail Control**: Configure different levels of detail for resource discovery and SLX generation
-- **ConfigProvided Overrides**: Override template variables in runbooks and SLIs without modifying original templates
-- **Map Customization**: Apply custom grouping and relationship rules to organize your workspace
-- **Multiple Output Formats**: Generate runbooks, SLIs, workflows, and workspace configurations
-- **Azure DevOps Integration**: Support for Azure DevOps resource discovery and automation
-- **Web Interface**: Searchable web interface for copy-and-paste troubleshooting commands
-- **Docker Support**: Run in containerized environments for consistent deployments
+1. **Discovery.** RunWhen Local connects to your Kubernetes clusters and
+   cloud accounts and indexes the resources you point it at — selectively
+   (per-namespace, per-resource-group) or broadly. The Azure indexer is
+   native (no CloudQuery dependency) and indexes the full Azure resource
+   catalog; AWS, GCP, and Kubernetes are supported.
 
-## What is RunWhen?
+2. **Skill tailoring.** A library of CodeBundles (in [contrib
+   CodeCollections](https://github.com/runwhen-contrib)) ships
+   generation rules that match against discovered resources. The
+   workspace builder renders one **SLX** (a tailored Skill instance)
+   per match: a runbook bound to a specific resource, with its own
+   `SKILL.md` so an MCP-aware AI agent can read what it does and how to
+   invoke it.
 
-RunWhen provides **AI Engineering Assistants** that help with troubleshooting and automation:
+3. **Local explorer UI.** A FastAPI-backed UI at
+   `http://localhost:8000/explorer/` lets you browse the discovered
+   resources, the rendered SLXs, and their Skill descriptions side by
+   side.
 
-- **RunWhen Platform**: SaaS service that orchestrates AI assistants for alert response, developer self-service, and automated troubleshooting
-- **RunWhen Local**: Open-source agent that provides personalized troubleshooting commands and can connect to the RunWhen Platform
-- **Code Collections**: Community-maintained libraries of troubleshooting automation and runbooks
+4. **Optional Platform pairing.** Push the same SLXs to the RunWhen
+   Platform to gate execution behind RBAC, schedule them, and route
+   results into alerts or developer self-service flows. Local is fully
+   useful standalone; the Platform turns it into a production runtime.
 
-**RunWhen Local** works standalone as a troubleshooting companion, or can be connected to the RunWhen Platform for advanced AI-powered automation and workflows.
+## How the pieces fit together
 
-## Prerequisites
+A short glossary; the [authoring/concepts
+guide](docs/authoring/concepts.md) covers it in more depth.
 
-- **Python**: 3.10 or higher (for local installation)
-- **Docker**: Latest version (for containerized deployment)
-- **Cloud Access**: Appropriate credentials for your target cloud platforms:
-  - **Kubernetes**: Valid kubeconfig file
-  - **Azure**: Azure CLI or service principal credentials
-  - **AWS**: AWS CLI credentials or IAM roles
-  - **GCP**: Service account key or gcloud credentials
+- **CodeBundle** — a versioned, distributable unit of automation in a
+  CodeCollection git repo. Ships code, optional `SKILL.md`, and one or
+  more generation rules.
+- **Skill** — the abstract capability the CodeBundle implements
+  (e.g. "diagnose a stuck Pod", "rotate a Key Vault secret").
+- **SLX** — a *rendered instance* of a Skill, bound to a specific
+  resource you discovered (e.g. "diagnose a stuck Pod *in the
+  `payments-prod` namespace*"). One SLX = one directory of artifacts.
+- **Runbook** — the executable artifact inside an SLX (typically a
+  Robot Framework `.robot`). What a human or agent actually runs.
+- **Generation rule** — the YAML in a CodeBundle that tells the
+  workspace builder: "match this resource type, render this Skill
+  template into an SLX with this name."
 
-## Installation
+```text
+Discovered resources                Generated SLXs
+(Kubernetes pods, Azure Key         (one per match — runbook + SKILL.md
+ Vaults, AWS RDS instances, ...)     bound to a specific resource)
 
-### Docker (Recommended)
+       │                                       │
+       └──────── generation rules ─────────────┘
+              (live in CodeBundles)
+```
+
+## Quick start
+
+The fastest path is the published image. You'll need a
+`workspaceInfo.yaml` (sample below) and credentials for whatever
+platform(s) you want to discover.
 
 ```bash
-# Pull the latest image
 docker pull ghcr.io/runwhen-contrib/runwhen-local:latest
 
-# Run with volume mounts for configuration and output
-docker run -it --rm \
-  -v $(pwd)/workspaceInfo.yaml:/shared/workspaceInfo.yaml \
-  -v $(pwd)/kubeconfig:/shared/kubeconfig \
-  -v $(pwd)/output:/shared/output \
+docker run --rm -it \
+  -p 8000:8000 \
+  -v "$(pwd):/shared" \
   ghcr.io/runwhen-contrib/runwhen-local:latest
 ```
 
-### Local Python Installation
+Once discovery finishes, the explorer UI is at
+`http://localhost:8000/explorer/`. Generated SLXs land in `./output/`.
 
-```bash
-# Clone the repository
-git clone https://github.com/runwhen-contrib/runwhen-local.git
-cd runwhen-local/src
-
-# Install dependencies using Poetry
-pip install poetry
-poetry install
-
-# Make the run script executable
-chmod +x run.sh
-
-# Run the workspace builder
-./run.sh
-```
-
-## Quick Start
-
-1. **Create a workspace configuration file** (`workspaceInfo.yaml`):
+A minimal `workspaceInfo.yaml` to get started against a single
+Kubernetes cluster:
 
 ```yaml
-# Basic workspaceInfo.yaml structure
 workspaceName: "my-workspace"
-workspaceOwnerEmail: "admin@company.com"
+workspaceOwnerEmail: "you@example.com"
 defaultLocation: "location-01"
-defaultLOD: "detailed"  # Level of detail: "none", "basic", or "detailed"
+defaultLOD: "detailed"   # discover everything by default
 
-# Cloud configuration
 cloudConfig:
   kubernetes:
     kubeconfigFile: "/shared/kubeconfig"
     namespaceLODs:
-      kube-system: "none"
-      kube-public: "none"
+      kube-system:    "none"
+      kube-public:    "none"
       kube-node-lease: "none"
-  
-  # Optional: Azure configuration
-  azure:
-    subscriptionId: "your-subscription-id"
-    tenantId: "your-tenant-id"
-    clientId: "your-client-id"
-    clientSecret: "your-client-secret"
 
-# Code collections - external repositories with runbooks/SLIs
 codeCollections:
   - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection.git"
     branch: "main"
-
-# Custom variables for generation rules
-custom:
-  kubernetes_distribution_binary: "kubectl"
-  cloud_provider: "none"
 ```
 
-2. **Prepare your kubeconfig** (if using Kubernetes discovery):
-
-```bash
-# Copy your kubeconfig to the workspace
-cp ~/.kube/config ./kubeconfig
-```
-
-3. **Run the workspace builder**:
-
-```bash
-# Using Docker
-docker run -it --rm \
-  -v $(pwd)/workspaceInfo.yaml:/shared/workspaceInfo.yaml \
-  -v $(pwd)/kubeconfig:/shared/kubeconfig \
-  -v $(pwd)/output:/shared/output \
-  ghcr.io/runwhen-contrib/runwhen-local:latest
-
-# Using local installation
-cd src && ./run.sh
-```
-
-4. **Check the generated output**:
-
-```bash
-ls output/
-# You'll find generated runbooks, SLIs, and workspace configurations
-```
+For Azure, AWS, and GCP setup, see the per-platform pages in
+[`docs/user-guide/cloud-discovery/`](docs/user-guide/cloud-discovery/).
 
 ## Configuration
 
-### workspaceInfo.yaml Structure
-
-The main configuration file is a simple YAML file with these top-level sections:
+`workspaceInfo.yaml` is the single source of truth. Top-level shape:
 
 ```yaml
-# Basic workspace configuration
-workspaceName: "workspace-name"
-workspaceOwnerEmail: "admin@company.com"
+workspaceName: "..."
+workspaceOwnerEmail: "..."
 defaultLocation: "location-01"
-defaultLOD: "detailed"  # Level of detail
+defaultLOD: "detailed"            # "none" | "basic" | "detailed"
 
-# Cloud platform configuration
 cloudConfig:
-  kubernetes: # Kubernetes cluster configuration
-  azure:      # Azure subscription configuration  
-  aws:        # AWS account configuration
-  gcp:        # GCP project configuration
+  kubernetes: { ... }
+  azure:      { ... }
+  aws:        { ... }
+  gcp:        { ... }
 
-# External code collections  
 codeCollections:
   - repoURL: "https://github.com/..."
-    branch: "main"
+    branch:  "main"
 
-# Custom variables for generation rules
-custom:
-  kubernetes_distribution_binary: "kubectl"
+custom: { ... }                   # values exposed to generation rule templates
 ```
 
-### Command Line Options
+Full reference and examples:
 
-```bash
-./run.sh [OPTIONS]
+- [`workspaceInfo.yaml` reference](docs/user-guide/configuration/workspace-info.md)
+- [Discovery level of detail](docs/user-guide/configuration/level-of-detail.md)
+- [Helm / proxy / private-registry / file-watching](docs/user-guide/configuration/)
+- [`workspaceinfo-overrides-example.yaml`](docs/user-guide/configuration/workspaceinfo-overrides-example.yaml)
 
-Options:
-  -w, --workspace-info FILE    Workspace info file (default: workspaceInfo.yaml)
-  -k, --kubeconfig FILE        Kubeconfig file (default: kubeconfig)
-  -r, --customization-rules FILE  Customization rules file
-  -o, --output DIRECTORY       Output directory (default: output)
-  --upload                     Upload to RunWhen platform
-  -v, --verbose                Verbose output
-  --disable-cloudquery         Disable cloudquery component
-  -h, --help                   Show help message
-```
+CLI invocation lives in [`src/run.sh`](src/run.sh); run with `--help`
+for the current flag list.
 
-## Usage Examples
+## What gets discovered
 
-### Example 1: Kubernetes-Only Discovery
+| Platform     | Indexer        | Coverage |
+| ------------ | -------------- | -------- |
+| Azure        | native `azureapi` (`azure-mgmt-*` SDKs) | 619 resource types — full parity with the legacy CloudQuery plugin. 25 with rich (typed) payloads, the rest via the ARM-resources catch-all. [Catalog](docs/authoring/indexed-resources/azure-resource-catalog.md). |
+| Kubernetes   | native (`kubernetes` Python client) | Standard kinds (Deployment, StatefulSet, Service, Pod, Ingress, etc.) plus user-listed CRDs, with per-namespace LOD. |
+| AWS          | CloudQuery AWS plugin | Every CloudQuery AWS table; gen rules match by table name. |
+| GCP          | CloudQuery GCP plugin | Every CloudQuery GCP table; gen rules match by table name. |
 
-```yaml
-workspaceName: "kubernetes-prod"
-workspaceOwnerEmail: "admin@company.com"
-defaultLocation: "location-01"
-defaultLOD: "detailed"
+Per-indexer authoring reference:
+[`docs/authoring/indexed-resources/`](docs/authoring/indexed-resources/).
 
-cloudConfig:
-  kubernetes:
-    kubeconfigFile: "/shared/kubeconfig"
-    namespaceLODs:
-      production: "detailed"
-      staging: "basic"
-      kube-system: "none"
-      kube-public: "none"
-      kube-node-lease: "none"
+The Azure CloudQuery backend still exists behind
+`azureIndexerBackend: cloudquery` for compatibility but is being phased
+out in favor of `azureIndexerBackend: azureapi`. Both backends emit a
+single grep-able info-level log line on every run so it's obvious which
+one ran.
 
-codeCollections:
-  - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection.git"
-    branch: "main"
+## Going to production with the RunWhen Platform
 
-custom:
-  kubernetes_distribution_binary: "kubectl"
-  cloud_provider: "none"
-```
+Local gives you discovered resources and tailored SLXs on disk. The
+[RunWhen Platform](https://www.runwhen.com) is the optional companion
+that turns those SLXs into a *managed* production runtime:
 
-### Example 2: Multi-Cloud with Azure
+- **Privately host** the Skills your team can run, with RBAC controls
+  on who can invoke what.
+- **Schedule** SLX runs and ingest the results into alerts /
+  developer-self-service flows.
+- **Manage secrets** centrally so credentials never live next to the
+  CodeBundle.
+- **Audit** every SLX execution for compliance.
 
-```yaml
-workspaceName: "multi-cloud-ops"
-workspaceOwnerEmail: "admin@company.com"
-defaultLocation: "location-01"
-defaultLOD: "basic"
-
-cloudConfig:
-  kubernetes:
-    kubeconfigFile: "/shared/kubeconfig"
-    namespaceLODs:
-      production: "basic"
-      kube-system: "none"
-  
-  azure:
-    subscriptionId: "your-subscription-id"
-    tenantId: "your-tenant-id"
-    clientId: "your-client-id"
-    clientSecret: "your-client-secret"
-
-codeCollections:
-  - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection.git"
-    branch: "main"
-
-custom:
-  kubernetes_distribution_binary: "kubectl"
-  cloud_provider: "azure"
-```
-
-### Example 3: Azure DevOps Integration
-
-```yaml
-workspaceName: "azure-devops-workspace"
-workspaceOwnerEmail: "admin@company.com"
-defaultLocation: "location-01"
-defaultLOD: "basic"
-
-cloudConfig:
-  azure:
-    subscriptionId: "your-subscription-id"
-    tenantId: "your-tenant-id"
-    clientId: "your-client-id"
-    clientSecret: "your-client-secret"
-    
-    devops:
-      organizationUrl: "https://dev.azure.com/your-organization"
-      # Use Kubernetes secret for PAT (recommended)
-      patSecretName: "azure-devops-pat"
-      
-      codeCollections:
-        - repositoryUrl: "https://dev.azure.com/your-org/your-project/_git/your-repo"
-          branch: "main"
-
-codeCollections:
-  - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection.git"
-    branch: "main"
-
-custom:
-  azure_devops:
-    environment: "production"
-    organization: "your-organization"
-    critical_project: "your-main-project"
-    repository_size_threshold: "1000"
-    pipeline_type: "infrastructure"
-    monitoring_level: "detailed"
-    team: "platform-engineering"
-```
-
-More examples are available in the [examples directory](examples/).
+To upload the workspace generated by RunWhen Local to the Platform,
+pass `--upload` to `run.sh` (or the equivalent setting in
+`workspaceInfo.yaml`); see
+[`docs/user-guide/features/upload-to-runwhen-platform.md`](docs/user-guide/features/upload-to-runwhen-platform.md).
 
 ## Documentation
 
-### ConfigProvided Overrides
+The full doc tree is in [`docs/`](docs/) and is split into three
+buckets:
 
-The configProvided overrides feature allows you to customize template variables in runbooks and SLIs without modifying the original templates. This is particularly useful for:
-
-- Environment-specific configurations
-- Testing different parameter values  
-- Customizing default values for your organization
-
-**Quick Example:**
-
-```yaml
-# workspaceInfo.yaml
-overrides:
-  codebundles:
-    - repoURL: "https://github.com/runwhen-contrib/rw-cli-codecollection.git"
-      codebundleDirectory: "azure-aks-triage"
-      type: "runbook"
-      configProvided:
-        TIME_PERIOD_MINUTES: "120"
-        DEBUG_MODE: "true"
+```
+docs/
+├── user-guide/      I want to deploy and operate RunWhen Local
+├── authoring/       I want to write CodeBundles, Skills, or generation rules
+└── architecture/    I want to understand how RunWhen Local works internally
 ```
 
-For comprehensive documentation, see: [ConfigProvided Overrides Guide](docs/configProvided-overrides.md)
+Highlights:
 
-### Additional Resources
+- [Getting started](docs/user-guide/getting-started.md)
+- [Local Docker / Podman install](docs/user-guide/installation/local-docker.md) ·
+  [Kubernetes standalone](docs/user-guide/installation/kubernetes-standalone.md) ·
+  [Self-hosted runner (Platform-connected)](docs/user-guide/installation/kubernetes-self-hosted/README.md)
+- [Cloud discovery: Azure](docs/user-guide/cloud-discovery/azure.md) ·
+  [AWS](docs/user-guide/cloud-discovery/aws.md) ·
+  [GCP](docs/user-guide/cloud-discovery/gcp.md) ·
+  [Kubernetes](docs/user-guide/cloud-discovery/kubernetes.md)
+- [CodeBundle / Skill / SLX concepts](docs/authoring/concepts.md)
+- [Indexed resources reference](docs/authoring/indexed-resources/README.md)
+- [Generation rules: schema, lifecycle, and examples](docs/authoring/generation-rules/README.md)
+- [Architecture overview](docs/architecture/README.md)
 
-- 📖 **[Full Documentation](https://docs.runwhen.com/public/v/runwhen-local/)**: Complete user guide and API reference
-- 🎯 **[Generation Rules Guide](generation-rules-guide.md)**: How to create custom generation rules
-- 💡 **[Examples](examples/)**: Sample configurations for different scenarios
-- 🏗️ **[Architecture Overview](docs/Architecture.md)**: Technical architecture and design
-- 🛠️ **[Development Guide](docs/Development.md)**: Development setup and contribution guidelines
-- 📚 **[Complete Documentation](docs/)**: All documentation in the docs directory
-
-## Getting Started
-
-1. Configure your `workspaceInfo.yaml` with cloud credentials and discovery settings
-2. (Optional) Add configProvided overrides for custom template variables
-3. Run the workspace builder to generate your workspace configuration
-4. Deploy the generated runbooks and SLIs to your RunWhen platform
+Hosted docs mirror is at
+[docs.runwhen.com/public/v/runwhen-local/](https://docs.runwhen.com/public/v/runwhen-local/).
 
 ## Contributing
 
-We welcome contributions from the community! Please see our [Contributing Guide](CONTRIBUTING.md) for details on:
+We welcome contributions. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for
+the bug / feature / PR workflow and code of conduct.
 
-- How to submit bug reports and feature requests
-- Development setup and coding standards  
-- Pull request process
-- Code of conduct
-
-### Quick Development Setup
-
-#### Option 1: Using Dev Container (Recommended)
-
-The easiest way to get started with development is using the provided dev container:
+### Dev container (recommended)
 
 ```bash
-# Fork and clone the repository
-git clone https://github.com/YOUR-USERNAME/runwhen-local.git
+git clone https://github.com/runwhen-contrib/runwhen-local.git
 cd runwhen-local
-
-# Open in VS Code with dev container
-code .
-# VS Code will prompt to "Reopen in Container"
+code .   # VS Code will prompt: "Reopen in Container"
 ```
 
-The dev container includes:
-- Python 3.12 with all dependencies
-- Pre-configured VS Code extensions (Robot Framework, Python, Pylint, Black formatter)
-- CLI tools: kubectl, aws, gcloud, terraform, helm, yq
-- Docker-in-Docker for building and testing
-- All necessary development tools pre-installed
+The dev container ships Python 3.14, Poetry, kubectl, az, gcloud,
+helm, terraform, yq, Docker-in-Docker, and the recommended editor
+extensions.
 
-#### Option 2: Local Development
+### Local dev
 
 ```bash
-# Fork and clone the repository
-git clone https://github.com/YOUR-USERNAME/runwhen-local.git
-cd runwhen-local
-
-# Set up development environment
-cd src
-pip install poetry
-poetry install
+git clone https://github.com/runwhen-contrib/runwhen-local.git
+cd runwhen-local/src
+pip install poetry && poetry install
 poetry shell
 
-# Run tests
-python tests.py
-
-# Start developing!
+cd .. && python src/tests.py   # run the test suite
 ```
 
-### Community Contributions
+For deeper dives, see
+[`docs/architecture/development.md`](docs/architecture/development.md).
 
-- 🐛 **[Report bugs or share feedback](https://github.com/runwhen-contrib/runwhen-local/issues/new?assignees=stewartshea&labels=runwhen-local&projects=&template=runwhen-local-feedback.md&title=%5Brunwhen-local-feedback%5D+)**
-- 💡 **[Contribute an awesome troubleshooting command](https://github.com/runwhen-contrib/runwhen-local/issues/new?assignees=stewartshea&labels=runwhen-local%2Cawesome-command-contribution&projects=&template=awesome-command-contribution.yaml&title=%5Bawesome-command-contribution%5D+)**
-- 🙋 **[Request a new command](https://github.com/runwhen-contrib/runwhen-local/issues/new?assignees=stewartshea&labels=runwhen-local%2Cnew-command-request&projects=&template=commands-wanted.yaml&title=%5Bnew-command-request%5D+)**
-- 💬 **[GitHub Discussions](https://github.com/orgs/runwhen-contrib/discussions)**
+## Community and support
 
-## Support
+- [Slack](https://runwhen.slack.com/join/shared_invite/zt-1l7t3tdzl-IzB8gXDsWtHkT8C5nufm2A)
+- [GitHub issues](https://github.com/runwhen-contrib/runwhen-local/issues)
+- [GitHub discussions](https://github.com/orgs/runwhen-contrib/discussions)
+- [YouTube channel (demos)](https://www.youtube.com/@whatdoirunwhen)
+- [Live sandbox](https://runwhen-local.sandbox.runwhen.com/)
 
-- 📚 **[Documentation](https://docs.runwhen.com/public/v/runwhen-local/)**: Complete user guide and API reference
-- 🐛 **[GitHub Issues](https://github.com/runwhen-contrib/runwhen-local/issues)**: Bug reports and feature requests
-- 💬 **[Slack Community](https://runwhen.slack.com/join/shared_invite/zt-1l7t3tdzl-IzB8gXDsWtHkT8C5nufm2A)**: Join our community discussions
-- 🎮 **[Discord](https://discord.com/invite/Ut7Ws4rm8Q)**: Alternative community chat
-- 🎥 **[YouTube Channel](https://www.youtube.com/@whatdoirunwhen)**: Demo videos and tutorials
-- 🌐 **[Live Demo](https://runwhen-local.sandbox.runwhen.com/)**: Try it out in our sandbox environment
-
-When reporting issues, please include:
-- RunWhen Local version
-- Operating system and version
-- Cloud platform details (Kubernetes version, cloud provider, etc.)
-- Complete error messages and logs
-- Steps to reproduce the issue
+When opening an issue, please include the RunWhen Local version,
+target platform (Kubernetes version, cloud provider, etc.), and a
+sanitized log excerpt.
 
 ## License
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
-
----
-
-**Made with ❤️ by the RunWhen community** 
+Apache License 2.0 — see [`LICENSE`](LICENSE).
