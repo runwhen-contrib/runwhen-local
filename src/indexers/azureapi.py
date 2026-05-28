@@ -430,24 +430,27 @@ def index(context: Context) -> None:
     # two collections:
     #
     #   * ``typed_specs_to_collect`` - typed (rich-payload) specs whose
-    #     CQ table name or alias is referenced by a gen rule, OR which
-    #     are mandatory (today: just resource_groups).
-    #   * ``generic_arm_types_wanted`` - lower-cased ARM type strings of
-    #     non-typed registry entries referenced by a gen rule. These are
-    #     fed by the generic-resources pass below.
-    # Derive the typed slice at runtime so test mocks that override
-    # ``AZURE_RESOURCE_TYPE_SPECS`` don't have to also override a
-    # pre-filtered constant.
+    #     CQ table name OR any registry alias is referenced by a gen
+    #     rule, OR which are mandatory (today: just resource_groups).
+    #   * ``generic_specs_by_arm_type`` - lower-cased ARM type -> spec
+    #     for non-typed registry entries referenced by a gen rule.
+    #     These are fed by the generic-resources pass below.
+    #
+    # Resolve every accessed name via ``find_spec`` so we honor registry
+    # aliases (e.g. gen rules referencing ``azure_keyvault_keyvault``
+    # need to map to the typed ``azure_keyvault_vaults`` collector).
     typed_specs_to_collect: list[AzureResourceTypeSpec] = []
-    for spec in AZURE_RESOURCE_TYPE_SPECS:
-        if not getattr(spec, "typed", True):
-            continue
-        if (spec.mandatory
-                or spec.resource_type_name in accessed_names
-                or spec.cloudquery_table_name in accessed_names):
-            typed_specs_to_collect.append(spec)
-
+    seen_typed_specs: set[str] = set()
     generic_specs_by_arm_type: dict[str, AzureResourceTypeSpec] = {}
+
+    # Always pull in mandatory typed specs (resource_group bootstrap),
+    # whether or not any gen rule names them.
+    for spec in AZURE_RESOURCE_TYPE_SPECS:
+        if spec.mandatory and getattr(spec, "typed", True):
+            if spec.resource_type_name not in seen_typed_specs:
+                typed_specs_to_collect.append(spec)
+                seen_typed_specs.add(spec.resource_type_name)
+
     for accessed in accessed_names:
         spec = find_spec(accessed)
         if spec is None:
@@ -463,7 +466,11 @@ def index(context: Context) -> None:
             logger.warning(warning)
             context.add_warning(warning)
             continue
-        if not spec.typed and spec.arm_type:
+        if getattr(spec, "typed", True):
+            if spec.resource_type_name not in seen_typed_specs:
+                typed_specs_to_collect.append(spec)
+                seen_typed_specs.add(spec.resource_type_name)
+        elif spec.arm_type:
             generic_specs_by_arm_type[spec.arm_type.lower()] = spec
 
     platform_handler = _resolve_platform_handler(context)

@@ -113,7 +113,7 @@ tasks:
     silent: true
     cmds:
       - |
-        rm -f run_sh_output.log
+        rm -f run_sh_output.log container_logs.log
         CONTAINER_NAME="RunWhenLocal-NoAks"
         if docker ps -aq --filter "name=$CONTAINER_NAME" | grep -q .; then
           docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
@@ -126,6 +126,11 @@ tasks:
           -v "$(pwd):/shared" \
           runwhen-local:test
         docker exec -w /workspace-builder "$CONTAINER_NAME" ./run.sh --verbose 2>&1 | tee run_sh_output.log
+        # Snapshot the FastAPI / indexer stdout into container_logs.log so
+        # the assert-* tasks (which grep for "selective discovery", etc.)
+        # have a fresh, deterministic file to read. Without this the
+        # internal [INFO] indexers.azureapi logs only live in docker logs.
+        docker logs "$CONTAINER_NAME" > container_logs.log 2>&1 || true
         echo
         echo "Discovery finished. Container '$CONTAINER_NAME' is still running."
         echo "  - Explorer UI : http://localhost:8001/explorer/"
