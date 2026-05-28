@@ -104,7 +104,7 @@ tasks:
     silent: true
     cmds:
       - |
-        BUILD_DIR=/home/runwhen/runwhen-local/src
+        BUILD_DIR=../../../src
         docker buildx build --builder mybuilder --platform linux/amd64 \
           -t runwhen-local:test -f "$BUILD_DIR/Dockerfile" "$BUILD_DIR" --load
 
@@ -400,7 +400,7 @@ tasks:
     cmds:
       - task: generate-baseline-config
       - |
-        BUILD_DIR=/home/runwhen/runwhen-local/src
+        BUILD_DIR=../../../src
         IMAGE=runwhen-local:no-aks-equiv
         BASELINE_OUT=output-cloudquery
         CANDIDATE_OUT=output-azureapi

@@ -74,6 +74,7 @@ tasks:
         workspaceOwnerEmail: authors@runwhen.com
         defaultLocation: location-01
         defaultLOD: none
+        azureIndexerBackend: azureapi
         cloudConfig:
           kubernetes:             
             kubeconfigFile: /shared/kubeconfig.secret
@@ -261,6 +262,7 @@ tasks:
         workspaceOwnerEmail: authors@runwhen.com
         defaultLocation: location-01
         defaultLOD: none
+        azureIndexerBackend: azureapi
         cloudConfig:
           kubernetes:             
             kubeconfigFile: /shared/kubeconfig.secret
@@ -337,6 +339,7 @@ tasks:
           workspaceOwnerEmail: authors@runwhen.com
           defaultLocation: location-01
           defaultLOD: none
+          azureIndexerBackend: azureapi
           cloudConfig:
             kubernetes:             
               kubeconfigFile: /shared/kubeconfig.secret
@@ -407,6 +410,7 @@ tasks:
           workspaceOwnerEmail: authors@runwhen.com
           defaultLocation: location-01
           defaultLOD: none
+          azureIndexerBackend: azureapi
           cloudConfig:
             kubernetes:             
               kubeconfigFile: /shared/kubeconfig.secret
@@ -486,6 +490,7 @@ tasks:
           workspaceOwnerEmail: authors@runwhen.com
           defaultLocation: location-01
           defaultLOD: none
+          azureIndexerBackend: azureapi
           cloudConfig:
             kubernetes: null
             azure:
@@ -555,6 +560,7 @@ tasks:
           workspaceOwnerEmail: authors@runwhen.com
           defaultLocation: location-01
           defaultLOD: none
+          azureIndexerBackend: azureapi
           cloudConfig:
             kubernetes:             
               kubeconfigFile: /shared/kubeconfig.secret
@@ -617,6 +623,7 @@ tasks:
         workspaceOwnerEmail: authors@runwhen.com
         defaultLocation: location-01
         defaultLOD: none
+        azureIndexerBackend: azureapi
         taskTagExclusions: 
           - "access:read-write"
         cloudConfig:

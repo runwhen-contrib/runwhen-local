@@ -58,6 +58,7 @@ tasks:
         workspaceOwnerEmail: authors@runwhen.com
         defaultLocation: location-01
         defaultLOD: detailed
+        azureIndexerBackend: azureapi
         cloudConfig:
           kubernetes: null
           azure:
