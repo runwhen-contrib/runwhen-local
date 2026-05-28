@@ -861,5 +861,6 @@ class EndToEndMcpIndexingTest(TestCase):
         config_names = {c["name"] for c in parsed["spec"]["configProvided"]}
         self.assertEqual(
             config_names,
-            {"MCP_SERVER_URL", "MCP_TOOL_NAME", "MCP_INPUT_SCHEMA", "MCP_VERIFY_TLS"},
+            {"MCP_SERVER_URL", "MCP_SERVER_DISPLAY_NAME", "MCP_TOOL_NAME",
+             "MCP_INPUT_SCHEMA", "MCP_VERIFY_TLS"},
         )
