@@ -179,8 +179,9 @@ tasks:
     cmds:
       - |
         source terraform/tf.secret
-        keep_rg=$(terraform show -json terraform/terraform.tfstate | jq -r '.values.outputs.keep_rg_name.value')
-        drop_rg=$(terraform show -json terraform/terraform.tfstate | jq -r '.values.outputs.drop_rg_name.value')
+        TFS_JSON=$(terraform -chdir=terraform show -json terraform.tfstate)
+        keep_rg=$(echo "$TFS_JSON" | jq -r '.values.outputs.keep_rg_name.value')
+        drop_rg=$(echo "$TFS_JSON" | jq -r '.values.outputs.drop_rg_name.value')
         cat > workspaceInfo.yaml <<EOF
         workspaceName: "${RW_WORKSPACE}"
         workspaceOwnerEmail: authors@runwhen.com
@@ -271,12 +272,15 @@ tasks:
           echo "FAIL: $DB not produced"
           exit 1
         fi
-        TFS=terraform/terraform.tfstate
-        keep_rg=$(terraform show -json "$TFS" | jq -r '.values.outputs.keep_rg_name.value')
-        drop_rg=$(terraform show -json "$TFS" | jq -r '.values.outputs.drop_rg_name.value')
-        keep_st=$(terraform show -json "$TFS" | jq -r '.values.outputs.keep_storage_name.value')
-        drop_st=$(terraform show -json "$TFS" | jq -r '.values.outputs.drop_storage_name.value')
-        kv=$(terraform show -json "$TFS" | jq -r '.values.outputs.key_vault_name.value')
+        # NB: `terraform show -json` needs the provider plugin schemas, which
+        # only live under terraform/.terraform/ once `terraform init` has run
+        # there. Use -chdir so the show executes in that directory.
+        TFS_JSON=$(terraform -chdir=terraform show -json terraform.tfstate)
+        keep_rg=$(echo "$TFS_JSON" | jq -r '.values.outputs.keep_rg_name.value')
+        drop_rg=$(echo "$TFS_JSON" | jq -r '.values.outputs.drop_rg_name.value')
+        keep_st=$(echo "$TFS_JSON" | jq -r '.values.outputs.keep_storage_name.value')
+        drop_st=$(echo "$TFS_JSON" | jq -r '.values.outputs.drop_storage_name.value')
+        kv=$(echo "$TFS_JSON" | jq -r '.values.outputs.key_vault_name.value')
 
         fail=0
         for name in "$keep_rg" "$drop_rg" "$keep_st" "$drop_st" "$kv"; do
@@ -302,11 +306,11 @@ tasks:
           echo "FAIL: $DB not produced"
           exit 1
         fi
-        TFS=terraform/terraform.tfstate
-        keep_rg=$(terraform show -json "$TFS" | jq -r '.values.outputs.keep_rg_name.value')
-        drop_rg=$(terraform show -json "$TFS" | jq -r '.values.outputs.drop_rg_name.value')
-        keep_st=$(terraform show -json "$TFS" | jq -r '.values.outputs.keep_storage_name.value')
-        drop_st=$(terraform show -json "$TFS" | jq -r '.values.outputs.drop_storage_name.value')
+        TFS_JSON=$(terraform -chdir=terraform show -json terraform.tfstate)
+        keep_rg=$(echo "$TFS_JSON" | jq -r '.values.outputs.keep_rg_name.value')
+        drop_rg=$(echo "$TFS_JSON" | jq -r '.values.outputs.drop_rg_name.value')
+        keep_st=$(echo "$TFS_JSON" | jq -r '.values.outputs.keep_storage_name.value')
+        drop_st=$(echo "$TFS_JSON" | jq -r '.values.outputs.drop_storage_name.value')
 
         fail=0
         # keep-rg + its storage MUST be present.
@@ -361,9 +365,9 @@ tasks:
           echo "FAIL: $DB not produced"
           exit 1
         fi
-        TFS=terraform/terraform.tfstate
-        keep_st=$(terraform show -json "$TFS" | jq -r '.values.outputs.keep_storage_name.value')
-        drop_st=$(terraform show -json "$TFS" | jq -r '.values.outputs.drop_storage_name.value')
+        TFS_JSON=$(terraform -chdir=terraform show -json terraform.tfstate)
+        keep_st=$(echo "$TFS_JSON" | jq -r '.values.outputs.keep_storage_name.value')
+        drop_st=$(echo "$TFS_JSON" | jq -r '.values.outputs.drop_storage_name.value')
 
         fail=0
         n=$(sqlite3 "$DB" \

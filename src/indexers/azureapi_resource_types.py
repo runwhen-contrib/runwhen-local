@@ -270,7 +270,9 @@ def _collect_redis_caches_all(credential, subscription_id):
     from azure.mgmt.redis import RedisManagementClient
 
     client = RedisManagementClient(credential, subscription_id)
-    return client.redis.list()
+    # azure-mgmt-redis renamed the subscription-wide pager to list_by_subscription;
+    # there is no plain .list() on RedisOperations.
+    return client.redis.list_by_subscription()
 
 
 # --- Service Bus ---
