@@ -674,8 +674,8 @@ def init_cloudquery_config(
 
         if platform_name == "azure" and azure_backend == "azureapi":
             logger.info(
-                "AZURE_INDEXER_BACKEND=azureapi: skipping Azure in CloudQuery; "
-                "the native Azure SDK indexer will handle Azure discovery."
+                "Azure indexer backend: 'azureapi' (native azure-mgmt-* SDK); "
+                "skipping Azure in CloudQuery."
             )
             continue
 
@@ -685,6 +685,14 @@ def init_cloudquery_config(
                 "Skipping Azure CloudQuery discovery; Azure DevOps indexer will handle ADO resources."
             )
             continue
+
+        if platform_name == "azure":
+            # Mirror the announcement the azureapi path makes when it owns
+            # Azure, so a default-verbosity log makes the choice obvious.
+            logger.info(
+                "Azure indexer backend: 'cloudquery' (legacy). Starting "
+                "Azure resource discovery via the CloudQuery Azure plugin."
+            )
 
         # ---------- mandatory specs/tables ----------
         cq_resource_type_specs: list[CloudQueryResourceTypeSpec] = []

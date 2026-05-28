@@ -74,6 +74,7 @@ class AzureResourceTypeRegistry:
     entries: tuple[AzureResourceTypeEntry, ...]
     _by_canonical: dict[str, AzureResourceTypeEntry] = field(default_factory=dict, repr=False)
     _by_alias: dict[str, AzureResourceTypeEntry] = field(default_factory=dict, repr=False)
+    _by_arm_type_lower: dict[str, AzureResourceTypeEntry] = field(default_factory=dict, repr=False)
 
     def __post_init__(self) -> None:
         for entry in self.entries:
@@ -96,6 +97,13 @@ class AzureResourceTypeRegistry:
                         f"{entry.cloudquery_table_name!r}"
                     )
                 self._by_alias[alias] = entry
+            if entry.arm_type:
+                # ARM types are case-insensitive on the wire; we lower-case for
+                # lookup. Multiple registry entries occasionally share an ARM
+                # type (e.g. legacy duplicates); the first one wins, which is
+                # deterministic because entries arrive sorted by canonical name.
+                key = entry.arm_type.lower()
+                self._by_arm_type_lower.setdefault(key, entry)
 
     def find(self, name: str) -> Optional[AzureResourceTypeEntry]:
         """Return the entry for a canonical table name or alias, else None."""
@@ -105,6 +113,18 @@ class AzureResourceTypeRegistry:
         if entry is not None:
             return entry
         return self._by_alias.get(name)
+
+    def find_by_arm_type(self, arm_type: Optional[str]) -> Optional[AzureResourceTypeEntry]:
+        """Look up the registry entry whose ``arm_type`` matches this string.
+
+        Used by the generic-resources discovery pass to route each
+        ``GenericResource.type`` value (e.g. ``Microsoft.Storage/storageAccounts``)
+        back to the registry entry whose ``cloudquery_table_name`` is the
+        canonical RWL identifier for that type.
+        """
+        if not arm_type:
+            return None
+        return self._by_arm_type_lower.get(arm_type.lower())
 
     def __contains__(self, name: object) -> bool:
         return isinstance(name, str) and self.find(name) is not None

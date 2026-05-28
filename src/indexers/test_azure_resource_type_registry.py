@@ -259,18 +259,57 @@ class AzureapiResourceTypesShimTests(TestCase):
 
         self.mod = importlib.reload(mod)
 
-    def test_seven_typed_collectors_present(self) -> None:
-        names = {s.cloudquery_table_name for s in self.mod.AZURE_RESOURCE_TYPE_SPECS}
+    def test_typed_collectors_present(self) -> None:
+        # Pin the full set of CloudQuery tables that have a hand-written
+        # ``azure-mgmt-*`` collector. Whenever a new SDK collector is added
+        # in ``azureapi_resource_types`` (and registered via the overrides),
+        # this set should grow accordingly.
+        #
+        # ``AZURE_RESOURCE_TYPE_SPECS`` now contains one entry per registry
+        # row (typed *and* generic-catch-all specs), so we filter to the
+        # typed slice for this assertion.
+        names = {
+            s.cloudquery_table_name
+            for s in self.mod.AZURE_RESOURCE_TYPE_SPECS
+            if s.typed
+        }
         self.assertEqual(
             names,
             {
+                # Bootstrap (no per-RG endpoint exists for resource groups).
                 "azure_resources_resource_groups",
+                # Compute.
                 "azure_compute_virtual_machines",
+                "azure_compute_disks",
+                "azure_compute_snapshots",
+                "azure_compute_virtual_machine_scale_sets",
+                # Storage / KeyVault.
                 "azure_storage_accounts",
+                "azure_keyvault_keyvaults",
+                # Network.
                 "azure_network_virtual_networks",
                 "azure_network_security_groups",
-                "azure_keyvault_keyvaults",
+                "azure_network_load_balancers",
+                "azure_network_application_gateways",
+                # Container service.
                 "azure_containerservice_managed_clusters",
+                "azure_containerregistry_registries",
+                # Subscription as a top-level resource.
+                "azure_subscription_subscriptions",
+                # App Service.
+                "azure_appservice_plans",
+                "azure_appservice_web_apps",
+                # RDBMS family.
+                "azure_mysql_servers",
+                "azure_mysqlflexibleservers_servers",
+                "azure_postgresql_databases",
+                # One-off SDKs.
+                "azure_redis_caches",
+                "azure_servicebus_namespaces",
+                "azure_datafactory_factories",
+                "azure_apimanagement_service",
+                "azure_cosmos_sql_databases",
+                "azure_azurearcdata_sql_server_instances",
             },
         )
 

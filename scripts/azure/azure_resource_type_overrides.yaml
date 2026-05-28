@@ -141,6 +141,7 @@ arm_type_overrides:
   azure_containerinstance_container_groups: Microsoft.ContainerInstance/containerGroups
   azure_containerregistry_registries: Microsoft.ContainerRegistry/registries
   azure_containerservice_managed_clusters: Microsoft.ContainerService/managedClusters
+  azure_cosmos_sql_databases: Microsoft.DocumentDB/databaseAccounts/sqlDatabases
   azure_datafactory_factories: Microsoft.DataFactory/factories
   azure_eventhub_namespaces: Microsoft.EventHub/namespaces
   azure_keyvault_certificate_issuers: Microsoft.KeyVault/vaults/certificates/issuers
@@ -159,6 +160,7 @@ arm_type_overrides:
   azure_monitor_diagnostic_settings: Microsoft.Insights/diagnosticSettings
   azure_monitor_metric_alerts: Microsoft.Insights/metricAlerts
   azure_mysql_servers: Microsoft.DBforMySQL/servers
+  azure_mysqlflexibleservers_servers: Microsoft.DBforMySQL/flexibleServers
   azure_network_application_gateways: Microsoft.Network/applicationGateways
   azure_network_bastion_hosts: Microsoft.Network/bastionHosts
   azure_network_ddos_protection_plans: Microsoft.Network/ddosProtectionPlans
@@ -177,8 +179,10 @@ arm_type_overrides:
   azure_network_watchers: Microsoft.Network/networkWatchers
   azure_notificationhubs_namespaces: Microsoft.NotificationHubs/namespaces
   azure_operationalinsights_workspaces: Microsoft.OperationalInsights/workspaces
+  azure_postgresql_databases: Microsoft.DBforPostgreSQL/servers/databases
   azure_postgresql_servers: Microsoft.DBforPostgreSQL/servers
   azure_recoveryservices_vaults: Microsoft.RecoveryServices/vaults
+  azure_redis_caches: Microsoft.Cache/Redis
   azure_resources_links: Microsoft.Resources/links
   azure_resources_providers: Microsoft.Resources/providers
   azure_resources_resource_groups: Microsoft.Resources/resourceGroups
@@ -201,15 +205,34 @@ aliases:
   - virtual_machine
   azure_keyvault_keyvaults:
   - azure_keyvault_vaults
+  - azure_keyvault_keyvault
   azure_resources_resource_groups:
   - resource_group
 typed_collectors:
+- azure_apimanagement_service
+- azure_appservice_plans
+- azure_appservice_web_apps
+- azure_azurearcdata_sql_server_instances
+- azure_compute_disks
+- azure_compute_snapshots
+- azure_compute_virtual_machine_scale_sets
 - azure_compute_virtual_machines
+- azure_containerregistry_registries
 - azure_containerservice_managed_clusters
+- azure_cosmos_sql_databases
+- azure_datafactory_factories
 - azure_keyvault_keyvaults
+- azure_mysql_servers
+- azure_mysqlflexibleservers_servers
+- azure_network_application_gateways
+- azure_network_load_balancers
 - azure_network_security_groups
 - azure_network_virtual_networks
+- azure_postgresql_databases
+- azure_redis_caches
 - azure_resources_resource_groups
+- azure_servicebus_namespaces
 - azure_storage_accounts
+- azure_subscription_subscriptions
 mandatory:
 - azure_resources_resource_groups

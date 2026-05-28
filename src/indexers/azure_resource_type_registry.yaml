@@ -1,12 +1,11 @@
 metadata:
   source: https://www.cloudquery.io/hub/plugins/source/cloudquery/azure/latest/tables
-  snapshot_date: '2026-05-27'
+  snapshot_date: '2026-05-28'
   total_tables: 619
-  typed_collectors: 7
+  typed_collectors: 25
   arm_types_assigned: 618
   generator: scripts/azure/sync_azure_resource_type_registry.py
-  notes: Generated file. To change ARM type for a table, edit scripts/azure/azure_resource_type_overrides.yaml and re-run
-    the sync script. Hand-edits to this file will be overwritten.
+  notes: Generated file. To change ARM type for a table, edit scripts/azure/azure_resource_type_overrides.yaml and re-run the sync script. Hand-edits to this file will be overwritten.
 types:
   azure_advisor_recommendation_metadata:
     arm_type: Microsoft.Advisor/metadata
@@ -41,7 +40,7 @@ types:
     arm_type_source: heuristic
     category: apimanagement
     aliases: []
-    typed_collector: false
+    typed_collector: true
     mandatory: false
   azure_appcomplianceautomation_reports:
     arm_type: Microsoft.AppComplianceAutomation/reports
@@ -111,7 +110,7 @@ types:
     arm_type_source: override
     category: appservice
     aliases: []
-    typed_collector: false
+    typed_collector: true
     mandatory: false
   azure_appservice_recommendations:
     arm_type: Microsoft.Web/recommendations
@@ -174,7 +173,7 @@ types:
     arm_type_source: override
     category: appservice
     aliases: []
-    typed_collector: false
+    typed_collector: true
     mandatory: false
   azure_authorization_classic_administrators:
     arm_type: Microsoft.Authorization/classicAdministrators
@@ -230,7 +229,7 @@ types:
     arm_type_source: heuristic
     category: azurearcdata
     aliases: []
-    typed_collector: false
+    typed_collector: true
     mandatory: false
   azure_batch_account:
     arm_type: Microsoft.Batch/account
@@ -510,7 +509,7 @@ types:
     arm_type_source: override
     category: compute
     aliases: []
-    typed_collector: false
+    typed_collector: true
     mandatory: false
   azure_compute_galleries:
     arm_type: Microsoft.Compute/galleries
@@ -566,7 +565,7 @@ types:
     arm_type_source: override
     category: compute
     aliases: []
-    typed_collector: false
+    typed_collector: true
     mandatory: false
   azure_compute_ssh_public_keys:
     arm_type: Microsoft.Compute/sshPublicKeys
@@ -608,7 +607,7 @@ types:
     arm_type_source: override
     category: compute
     aliases: []
-    typed_collector: false
+    typed_collector: true
     mandatory: false
   azure_compute_virtual_machine_software_inventories:
     arm_type: Microsoft.Compute/virtualMachineSoftwareInventories
@@ -1001,7 +1000,7 @@ types:
     arm_type_source: override
     category: containerregistry
     aliases: []
-    typed_collector: false
+    typed_collector: true
     mandatory: false
   azure_containerservice_managed_cluster_agent_pools:
     arm_type: Microsoft.ContainerService/managedClusterAgentPools
@@ -1067,11 +1066,11 @@ types:
     typed_collector: false
     mandatory: false
   azure_cosmos_sql_databases:
-    arm_type: Microsoft.Cosmos/sqlDatabases
-    arm_type_source: heuristic
+    arm_type: Microsoft.DocumentDB/databaseAccounts/sqlDatabases
+    arm_type_source: override
     category: cosmos
     aliases: []
-    typed_collector: false
+    typed_collector: true
     mandatory: false
   azure_costmanagement_subscription_costs:
     arm_type: Microsoft.CostManagement/subscriptionCosts
@@ -1190,7 +1189,7 @@ types:
     arm_type_source: override
     category: datafactory
     aliases: []
-    typed_collector: false
+    typed_collector: true
     mandatory: false
   azure_datalakeanalytics_accounts:
     arm_type: Microsoft.Datalakeanalytics/accounts
@@ -1548,6 +1547,7 @@ types:
     category: keyvault
     aliases:
     - azure_keyvault_vaults
+    - azure_keyvault_keyvault
     typed_collector: true
     mandatory: false
   azure_keyvault_managed_hsms:
@@ -2346,7 +2346,7 @@ types:
     arm_type_source: override
     category: mysql
     aliases: []
-    typed_collector: false
+    typed_collector: true
     mandatory: false
   azure_mysqlflexibleservers_server_configurations:
     arm_type: Microsoft.Mysqlflexibleservers/serverConfigurations
@@ -2363,11 +2363,11 @@ types:
     typed_collector: false
     mandatory: false
   azure_mysqlflexibleservers_servers:
-    arm_type: Microsoft.Mysqlflexibleservers/servers
-    arm_type_source: heuristic
+    arm_type: Microsoft.DBforMySQL/flexibleServers
+    arm_type_source: override
     category: mysqlflexibleservers
     aliases: []
-    typed_collector: false
+    typed_collector: true
     mandatory: false
   azure_netappfiles_account_backup_policies:
     arm_type: Microsoft.NetApp/accountBackupPolicies
@@ -2472,7 +2472,7 @@ types:
     arm_type_source: override
     category: network
     aliases: []
-    typed_collector: false
+    typed_collector: true
     mandatory: false
   azure_network_application_security_groups:
     arm_type: Microsoft.Network/applicationSecurityGroups
@@ -2626,7 +2626,7 @@ types:
     arm_type_source: override
     category: network
     aliases: []
-    typed_collector: false
+    typed_collector: true
     mandatory: false
   azure_network_nat_gateways:
     arm_type: Microsoft.Network/natGateways
@@ -2958,11 +2958,11 @@ types:
     typed_collector: false
     mandatory: false
   azure_postgresql_databases:
-    arm_type: Microsoft.DBforPostgreSQL/databases
-    arm_type_source: heuristic
+    arm_type: Microsoft.DBforPostgreSQL/servers/databases
+    arm_type_source: override
     category: postgresql
     aliases: []
-    typed_collector: false
+    typed_collector: true
     mandatory: false
   azure_postgresql_server_configurations:
     arm_type: Microsoft.DBforPostgreSQL/serverConfigurations
@@ -3336,11 +3336,11 @@ types:
     typed_collector: false
     mandatory: false
   azure_redis_caches:
-    arm_type: Microsoft.Redis/caches
-    arm_type_source: heuristic
+    arm_type: Microsoft.Cache/Redis
+    arm_type_source: override
     category: redis
     aliases: []
-    typed_collector: false
+    typed_collector: true
     mandatory: false
   azure_redis_firewall_rules:
     arm_type: Microsoft.Redis/firewallRules
@@ -3733,7 +3733,7 @@ types:
     arm_type_source: override
     category: servicebus
     aliases: []
-    typed_collector: false
+    typed_collector: true
     mandatory: false
   azure_servicefabric_cluster_application_services:
     arm_type: Microsoft.ServiceFabric/clusterApplicationServices
@@ -4167,7 +4167,7 @@ types:
     arm_type_source: heuristic
     category: subscription
     aliases: []
-    typed_collector: false
+    typed_collector: true
     mandatory: false
   azure_subscription_tenants:
     arm_type: Microsoft.Subscription/tenants

@@ -107,6 +107,29 @@ def az_get_credentials_and_subscription_id(platform_config_data: dict[str, Any])
         client_secret = platform_config_data.get("clientSecret")
         tenant_id = platform_config_data.get("tenantId")
 
+    # Detect the common foot-gun where the user supplies a Service Principal
+    # but one of the three SP fields renders as an empty string (e.g. an
+    # un-substituted ``"${AZ_CLIENT_SECRET}"`` or a redacted ``tf.secret``).
+    # Without this guard we silently fall through to Managed Identity /
+    # DefaultAzureCredential and the user is left chasing a 30-line
+    # ChainedTokenCredential traceback.
+    sp_fields = {
+        "clientId": client_id,
+        "clientSecret": client_secret,
+        "tenantId": tenant_id,
+    }
+    populated = {k: v for k, v in sp_fields.items() if v}
+    empty = [k for k, v in sp_fields.items() if v == ""]
+    if populated and empty:
+        raise WorkspaceBuilderException(
+            "Azure Service Principal configuration is incomplete: "
+            f"{', '.join(sorted(populated))} provided but "
+            f"{', '.join(sorted(empty))} is empty. "
+            "Verify that all of cloudConfig.azure.{clientId,clientSecret,tenantId} "
+            "are set in workspaceInfo.yaml (or that the env vars referenced from "
+            "your secret file are populated before the YAML is rendered)."
+        )
+
     explicit_sub_ids = [
         str(e["subscriptionId"])
         for e in platform_config_data.get("subscriptions", [])

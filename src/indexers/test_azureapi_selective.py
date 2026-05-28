@@ -38,6 +38,12 @@ from indexers.azureapi import (  # noqa: E402
     _rgs_in_scope_from_config,
     _safe_lod,
 )
+from indexers.azureapi_resource_types import (  # noqa: E402
+    AZURE_RESOURCE_TYPE_SPECS,
+    AzureResourceTypeSpec,
+    find_spec,
+    find_spec_by_arm_type,
+)
 
 
 _KEEP_ARM_ID = (
@@ -629,6 +635,118 @@ class DiscoveryDispatchTests(TestCase):
         self.assertIn(("sub-A",), self._calls["all"])
         # and per-RG was NOT called (no callable to call).
         self.assertEqual(self._calls["in_rg"], [])
+
+    def test_new_typed_collectors_are_registered(self) -> None:
+        """Lock in the comprehensive collector coverage added in the
+        Bucket A/B/C/D pass: every CQ table that the indexer is supposed
+        to have a typed collector for must show up in
+        ``AZURE_RESOURCE_TYPE_SPECS`` and resolve via ``find_spec``.
+
+        Failing this test means the registry / overrides / dispatch dict
+        have drifted out of sync with one another.
+        """
+        from indexers.azureapi_resource_types import (
+            AZURE_RESOURCE_TYPE_SPECS,
+            find_spec,
+        )
+
+        expected_typed_tables = {
+            "azure_apimanagement_service",
+            "azure_appservice_plans",
+            "azure_appservice_web_apps",
+            "azure_azurearcdata_sql_server_instances",
+            "azure_compute_disks",
+            "azure_compute_snapshots",
+            "azure_compute_virtual_machine_scale_sets",
+            "azure_compute_virtual_machines",
+            "azure_containerregistry_registries",
+            "azure_containerservice_managed_clusters",
+            "azure_cosmos_sql_databases",
+            "azure_datafactory_factories",
+            "azure_keyvault_keyvaults",
+            "azure_mysql_servers",
+            "azure_mysqlflexibleservers_servers",
+            "azure_network_application_gateways",
+            "azure_network_load_balancers",
+            "azure_network_security_groups",
+            "azure_network_virtual_networks",
+            "azure_postgresql_databases",
+            "azure_redis_caches",
+            "azure_resources_resource_groups",
+            "azure_servicebus_namespaces",
+            "azure_storage_accounts",
+            "azure_subscription_subscriptions",
+        }
+        registered = {s.cloudquery_table_name for s in AZURE_RESOURCE_TYPE_SPECS}
+        missing = expected_typed_tables - registered
+        self.assertFalse(missing, f"Missing typed collectors: {sorted(missing)}")
+
+        # find_spec should resolve every expected table by CQ name.
+        for table in expected_typed_tables:
+            self.assertIsNotNone(
+                find_spec(table),
+                f"find_spec returned None for registered table {table}",
+            )
+
+        # Subscriptions opt out of selective per-RG enumeration; everything
+        # else exposes both ``collector_all`` and ``collector_in_rg``.
+        for spec in AZURE_RESOURCE_TYPE_SPECS:
+            if spec.cloudquery_table_name in (
+                "azure_resources_resource_groups",
+                "azure_subscription_subscriptions",
+            ):
+                self.assertFalse(
+                    spec.supports_in_rg,
+                    f"{spec.cloudquery_table_name} should not have a per-RG collector",
+                )
+            else:
+                self.assertTrue(
+                    spec.supports_in_rg,
+                    f"{spec.cloudquery_table_name} is missing a per-RG collector",
+                )
+
+    def test_generic_specs_materialize_for_every_registry_entry(self) -> None:
+        """Every registry entry must resolve via ``find_spec`` - typed
+        when a hand-written collector exists, generic-catch-all otherwise.
+        Together this is what gives the indexer coverage parity with the
+        CloudQuery plugin's resource table.
+        """
+        from indexers.azure_resource_type_registry import load_registry
+
+        registry = load_registry()
+        # Every CQ table the registry knows about should have a spec.
+        for entry in registry:
+            spec = find_spec(entry.cloudquery_table_name)
+            self.assertIsNotNone(
+                spec, f"registry entry {entry.cloudquery_table_name} has no spec"
+            )
+        # The set of typed specs is a strict subset.
+        typed = {s for s in AZURE_RESOURCE_TYPE_SPECS if s.typed}
+        all_specs = set(AZURE_RESOURCE_TYPE_SPECS)
+        self.assertLess(len(typed), len(all_specs))
+        for s in typed:
+            self.assertIn(s, all_specs)
+
+    def test_find_spec_by_arm_type_routes_generic_resources(self) -> None:
+        # An ARM type without a typed collector should round-trip through
+        # the registry to a generic spec. ``Microsoft.Logic/workflows`` is
+        # a representative non-typed ARM type today.
+        spec = find_spec_by_arm_type("Microsoft.Logic/workflows")
+        self.assertIsNotNone(spec)
+        self.assertFalse(spec.typed)
+        self.assertEqual(spec.cloudquery_table_name, "azure_logic_workflows")
+        # Case-insensitive on ARM type.
+        same = find_spec_by_arm_type("microsoft.logic/WORKFLOWS")
+        self.assertEqual(same, spec)
+        # And a typed ARM type still resolves to the typed spec.
+        kv = find_spec_by_arm_type("Microsoft.KeyVault/vaults")
+        self.assertIsNotNone(kv)
+        self.assertTrue(kv.typed)
+        self.assertEqual(kv.cloudquery_table_name, "azure_keyvault_keyvaults")
+        # Unknown ARM types return None.
+        self.assertIsNone(find_spec_by_arm_type("Microsoft.Nope/notathing"))
+        self.assertIsNone(find_spec_by_arm_type(None))
+        self.assertIsNone(find_spec_by_arm_type(""))
 
     def test_no_in_scope_rgs_means_zero_sdk_calls_for_storage(self) -> None:
         """With defaultLOD=none and no per-RG overrides, selective scope

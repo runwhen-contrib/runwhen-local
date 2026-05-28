@@ -41,7 +41,12 @@ from .azure_common import (
     has_included_tags,
 )
 from .azureapi_normalizers import normalize_azure_resource
-from .azureapi_resource_types import AZURE_RESOURCE_TYPE_SPECS, find_spec
+from .azureapi_resource_types import (
+    AZURE_RESOURCE_TYPE_SPECS,
+    AzureResourceTypeSpec,
+    find_spec,
+    find_spec_by_arm_type,
+)
 from .common import CLOUD_CONFIG_SETTING
 from .resource_writer import (
     RESOURCE_STORE_BACKEND_SETTING,
@@ -362,27 +367,37 @@ def _resolve_platform_handler(context: Context) -> PlatformHandler:
 def index(context: Context) -> None:
     backend = context.get_setting(AZURE_INDEXER_BACKEND_SETTING)
     if backend != "azureapi":
-        logger.debug(
-            f"AZURE_INDEXER_BACKEND={backend!r}; azureapi indexer is a no-op "
-            f"(legacy CloudQuery path is responsible for Azure)."
+        # Bumped from debug to info so a default-verbosity log makes it
+        # obvious which Azure backend will own discovery on this run.
+        logger.info(
+            f"Azure indexer backend: '{backend}' (azureIndexerBackend in "
+            f"workspaceInfo.yaml). Native azureapi indexer is a no-op; the "
+            f"CloudQuery indexer will handle Azure."
         )
         return
 
     cloud_config = context.get_setting(CLOUD_CONFIG_SETTING) or {}
     platform_cfg = cloud_config.get(AZURE_PLATFORM)
     if not platform_cfg:
-        logger.info("No 'azure' section in cloudConfig; azureapi indexer skipping.")
+        logger.info(
+            "Azure indexer backend: 'azureapi' selected, but no 'azure' section "
+            "in cloudConfig; nothing to discover."
+        )
         return
 
     if _azure_has_only_devops_config(platform_cfg):
         logger.info(
-            "Azure config contains only DevOps settings (no subscriptionId or cloud "
-            "credentials). Skipping azureapi discovery; Azure DevOps indexer will "
-            "handle ADO resources."
+            "Azure indexer backend: 'azureapi' selected, but cloudConfig.azure "
+            "contains only DevOps settings (no subscriptionId / cloud "
+            "credentials). Skipping resource discovery; Azure DevOps indexer "
+            "will handle ADO resources."
         )
         return
 
-    logger.info("Starting Azure SDK indexing")
+    logger.info(
+        "Azure indexer backend: 'azureapi' (native azure-mgmt-* SDK). "
+        "Starting Azure resource discovery."
+    )
 
     az = az_get_credentials_and_subscription_id(platform_cfg)
     credential = az["credential"]
@@ -411,27 +426,45 @@ def index(context: Context) -> None:
         f"{sorted(accessed_names) if accessed_names else '(none)'}"
     )
 
-    specs_to_collect = []
+    # Resolve "what does the workspace want indexed" up-front. We keep
+    # two collections:
+    #
+    #   * ``typed_specs_to_collect`` - typed (rich-payload) specs whose
+    #     CQ table name or alias is referenced by a gen rule, OR which
+    #     are mandatory (today: just resource_groups).
+    #   * ``generic_arm_types_wanted`` - lower-cased ARM type strings of
+    #     non-typed registry entries referenced by a gen rule. These are
+    #     fed by the generic-resources pass below.
+    # Derive the typed slice at runtime so test mocks that override
+    # ``AZURE_RESOURCE_TYPE_SPECS`` don't have to also override a
+    # pre-filtered constant.
+    typed_specs_to_collect: list[AzureResourceTypeSpec] = []
     for spec in AZURE_RESOURCE_TYPE_SPECS:
+        if not getattr(spec, "typed", True):
+            continue
         if (spec.mandatory
                 or spec.resource_type_name in accessed_names
                 or spec.cloudquery_table_name in accessed_names):
-            specs_to_collect.append(spec)
+            typed_specs_to_collect.append(spec)
 
-    # Surface gen-rule references with no collector so the user gets a clean
-    # warning rather than a silent miss. Today, ad-hoc CQ table names referenced
-    # by generation rules used to "just work" because CloudQuery had a generic
-    # sync path; with the SDK indexer, every supported type needs an entry in
-    # AZURE_RESOURCE_TYPE_SPECS.
+    generic_specs_by_arm_type: dict[str, AzureResourceTypeSpec] = {}
     for accessed in accessed_names:
-        if find_spec(accessed) is None:
+        spec = find_spec(accessed)
+        if spec is None:
+            # ``find_spec`` returns None only for names that are not in
+            # the Azure resource-type registry at all. The gen rule has
+            # a typo or the registry needs a new entry.
             warning = (
-                f'Azure SDK indexer has no collector for resource type '
-                f'"{accessed}"; resources of this type will not be indexed. '
-                f'Add a collector to indexers/azureapi_resource_types.py.'
+                f'Azure SDK indexer: gen-rule references unknown Azure resource '
+                f'type "{accessed}". Verify the name or add it to '
+                f'scripts/azure/azure_resource_type_overrides.yaml and rerun the '
+                f'sync script.'
             )
             logger.warning(warning)
             context.add_warning(warning)
+            continue
+        if not spec.typed and spec.arm_type:
+            generic_specs_by_arm_type[spec.arm_type.lower()] = spec
 
     platform_handler = _resolve_platform_handler(context)
 
@@ -467,15 +500,28 @@ def index(context: Context) -> None:
     stats = {
         "discovered": 0,
         "added": 0,
+        "added_typed": 0,
+        "added_generic": 0,
+        "generic_unmatched_arm_type": 0,
+        "generic_already_typed": 0,
         "skipped_tag_filter": 0,
         "skipped_lod_filter": 0,
         "skipped_parse_error": 0,
         "skipped_collector_error": 0,
         "skipped_rg_not_found": 0,
     }
+    # Track ARM IDs the typed pass already emitted so the generic pass
+    # doesn't double-write the same resource with a sparser payload.
+    typed_arm_ids: set[str] = set()
 
-    def _process_models(spec, subscription_id, models, *, lod_filter: bool) -> None:
-        """Normalize -> tag filter -> (optional) LOD filter -> parse -> write."""
+    def _process_models(spec, subscription_id, models, *, lod_filter: bool, source: str = "typed") -> None:
+        """Normalize -> tag filter -> (optional) LOD filter -> parse -> write.
+
+        ``source`` is either ``"typed"`` (the rich-payload pass) or
+        ``"generic"`` (the ARM-resources catch-all pass). It controls
+        per-source bookkeeping (``typed_arm_ids`` write set, generic-pass
+        skip-if-already-typed check, per-source stats).
+        """
         for model in models:
             stats["discovered"] += 1
             try:
@@ -541,6 +587,13 @@ def index(context: Context) -> None:
                 )
                 continue
 
+            arm_id = resource_data.get("id")
+            if source == "generic" and arm_id and arm_id in typed_arm_ids:
+                # The typed pass already wrote a richer copy of this
+                # resource; don't overwrite with the basic generic payload.
+                stats["generic_already_typed"] += 1
+                continue
+
             resource_attributes["resource"] = resource_data
             resource_attributes["auth_type"] = auth_type
             resource_attributes["auth_secret"] = auth_secret
@@ -553,6 +606,9 @@ def index(context: Context) -> None:
                 resource_attributes,
             )
             stats["added"] += 1
+            stats["added_typed" if source == "typed" else "added_generic"] += 1
+            if source == "typed" and arm_id:
+                typed_arm_ids.add(arm_id)
 
     def _list_subscription_wide(spec, subscription_id):
         try:
@@ -600,8 +656,8 @@ def index(context: Context) -> None:
     # RGs themselves only have a subscription-wide list endpoint, so this
     # is the one mandatory ``list_all`` call. Out-of-scope RGs are dropped
     # via ``_resource_is_in_scope`` and never reach the writer.
-    rg_specs = [s for s in specs_to_collect if s.resource_type_name == "resource_group"]
-    non_rg_specs = [s for s in specs_to_collect if s.resource_type_name != "resource_group"]
+    rg_specs = [s for s in typed_specs_to_collect if s.resource_type_name == "resource_group"]
+    non_rg_specs = [s for s in typed_specs_to_collect if s.resource_type_name != "resource_group"]
 
     for spec in rg_specs:
         for subscription_id in subscription_ids:
@@ -660,11 +716,156 @@ def index(context: Context) -> None:
             )
             _process_models(spec, subscription_id, models, lod_filter=True)
 
+    # Phase 3: generic ARM-resources pass.
+    #
+    # One ``ResourceManagementClient.resources.list[_by_resource_group]``
+    # call per subscription (or per in-scope RG) returns *every*
+    # top-level ARM resource the credential can see. We route each
+    # ``GenericResource`` by its ``type`` field through the registry,
+    # and emit it under the registry-mapped ``resource_type_name``
+    # **only if** that type was referenced by an accessed gen rule and
+    # **only if** the typed pass didn't already write the same ARM ID
+    # (richer-typed-payload wins).
+    #
+    # This is what gives us coverage parity with the CloudQuery indexer:
+    # any ARM resource type a gen rule cares about is discoverable, even
+    # if we don't ship a hand-written collector for it. Types in
+    # ``generic_specs_by_arm_type`` get the basic envelope (``id``,
+    # ``name``, ``type``, ``location``, ``tags``, ``sku``, ``kind``,
+    # ``identity``, ``managed_by``); ``properties`` is empty (that's an
+    # ARM API limitation, not a workspace-builder one).
+    if generic_specs_by_arm_type:
+        from .azureapi_resource_types import (
+            _collect_generic_resources_all,
+            _collect_generic_resources_in_rg,
+        )
+
+        # ARM types the typed pass already owns. We never emit a generic
+        # copy for these; the typed pass either already wrote them or was
+        # gated off (mandatory/accessed) by intent.
+        typed_arm_types = {
+            (s.arm_type or "").lower()
+            for s in typed_specs_to_collect
+            if s.arm_type
+        }
+
+        def _route_generic(model) -> Optional[AzureResourceTypeSpec]:
+            """Return the spec to emit a ``GenericResource`` under, or
+            None if it should be dropped."""
+            arm_type = getattr(model, "type", None) or (
+                model.get("type") if isinstance(model, dict) else None
+            )
+            if not arm_type:
+                return None
+            arm_lower = arm_type.lower()
+            if arm_lower in typed_arm_types:
+                # Owned by the typed pass; skip silently.
+                return None
+            spec = generic_specs_by_arm_type.get(arm_lower)
+            if spec is None:
+                # ARM type is real but no gen rule referenced it. Drop
+                # (the indexer is gen-rule-driven; we don't balloon the
+                # resource store with unused rows).
+                stats["generic_unmatched_arm_type"] += 1
+                return None
+            return spec
+
+        def _generic_pass_for_rg(subscription_id: str, rg_name: str) -> None:
+            try:
+                resources_iter = list(
+                    _collect_generic_resources_in_rg(
+                        credential, subscription_id, rg_name
+                    )
+                )
+            except Exception as e:
+                err_text = str(e)
+                if (
+                    "ResourceGroupNotFound" in err_text
+                    or "ResourceNotFound" in err_text
+                ):
+                    stats["skipped_rg_not_found"] += 1
+                    logger.warning(
+                        f"Resource group '{rg_name}' not found in subscription "
+                        f"{subscription_id} during generic discovery; skipping."
+                    )
+                    return
+                stats["skipped_collector_error"] += 1
+                logger.error(
+                    f"Generic ARM resources list failed for "
+                    f"{subscription_id}/{rg_name}: {e}"
+                )
+                context.add_warning(
+                    f"Failed to list generic Azure resources in RG "
+                    f"'{rg_name}' under subscription {subscription_id}: {e}"
+                )
+                return
+            _emit_generic_models(subscription_id, resources_iter, scope_label=f"{subscription_id}/{rg_name}")
+
+        def _generic_pass_subscription_wide(subscription_id: str) -> None:
+            try:
+                resources_iter = list(
+                    _collect_generic_resources_all(credential, subscription_id)
+                )
+            except Exception as e:
+                stats["skipped_collector_error"] += 1
+                logger.error(
+                    f"Generic ARM resources list failed for "
+                    f"subscription {subscription_id}: {e}"
+                )
+                context.add_warning(
+                    f"Failed to list generic Azure resources in "
+                    f"subscription {subscription_id}: {e}"
+                )
+                return
+            _emit_generic_models(subscription_id, resources_iter, scope_label=f"subscription {subscription_id}")
+
+        def _emit_generic_models(
+            subscription_id: str, models: list, *, scope_label: str
+        ) -> None:
+            routed: dict[str, list] = {}
+            for model in models:
+                spec = _route_generic(model)
+                if spec is None:
+                    continue
+                routed.setdefault(spec.cloudquery_table_name, []).append(model)
+            for table_name, batch in routed.items():
+                spec = find_spec(table_name)
+                if spec is None:
+                    continue
+                logger.info(
+                    f"Collected {len(batch)} {spec.resource_type_name} "
+                    f"(generic) from {scope_label}"
+                )
+                _process_models(
+                    spec, subscription_id, batch,
+                    lod_filter=True, source="generic",
+                )
+
+        for subscription_id in subscription_ids:
+            scope = discovery_scope.get(subscription_id)
+            if scope is not None:
+                logger.info(
+                    f"Generic discovery (selective): listing ARM resources "
+                    f"per-RG in subscription {subscription_id} "
+                    f"(in-scope RGs={sorted(scope) if scope else '(none)'})"
+                )
+                for rg_name in scope:
+                    _generic_pass_for_rg(subscription_id, rg_name)
+            else:
+                logger.info(
+                    f"Generic discovery (subscription-wide): listing ARM "
+                    f"resources in subscription {subscription_id}"
+                )
+                _generic_pass_subscription_wide(subscription_id)
+
     writer.finalize()
 
     logger.info(
         f"Azure SDK indexing complete: "
-        f"discovered={stats['discovered']}, added={stats['added']}, "
+        f"discovered={stats['discovered']}, added={stats['added']} "
+        f"(typed={stats['added_typed']}, generic={stats['added_generic']}), "
+        f"generic_already_typed={stats['generic_already_typed']}, "
+        f"generic_unmatched_arm_type={stats['generic_unmatched_arm_type']}, "
         f"skipped_tag_filter={stats['skipped_tag_filter']}, "
         f"skipped_lod_filter={stats['skipped_lod_filter']}, "
         f"skipped_rg_not_found={stats['skipped_rg_not_found']}, "

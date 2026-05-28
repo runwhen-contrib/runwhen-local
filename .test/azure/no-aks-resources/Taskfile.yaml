@@ -109,11 +109,11 @@ tasks:
           -t runwhen-local:test -f "$BUILD_DIR/Dockerfile" "$BUILD_DIR" --load
 
   run-rwl-discovery:
-    desc: "Run RWL discovery against the current workspaceInfo.yaml."
+    desc: "Run RWL discovery against the current workspaceInfo.yaml. Container stays up so the explorer UI is reachable at http://localhost:8001/."
     silent: true
     cmds:
       - |
-        rm -f run_sh_output.log container_logs.log
+        rm -f run_sh_output.log
         CONTAINER_NAME="RunWhenLocal-NoAks"
         if docker ps -aq --filter "name=$CONTAINER_NAME" | grep -q .; then
           docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
@@ -126,9 +126,10 @@ tasks:
           -v "$(pwd):/shared" \
           runwhen-local:test
         docker exec -w /workspace-builder "$CONTAINER_NAME" ./run.sh --verbose 2>&1 | tee run_sh_output.log
-        docker logs "$CONTAINER_NAME" > container_logs.log 2>&1 || true
-        docker stop "$CONTAINER_NAME" >/dev/null
-        docker rm "$CONTAINER_NAME" >/dev/null
+        echo
+        echo "Discovery finished. Container '$CONTAINER_NAME' is still running."
+        echo "  - Explorer UI : http://localhost:8001/explorer/"
+        echo "  - Stop it with: docker rm -f $CONTAINER_NAME   (or 'task clean-rwl-discovery')"
 
   clean-rwl-discovery:
     desc: "Remove output/ and any generated workspaceInfo.yaml."
@@ -178,10 +179,8 @@ tasks:
     cmds:
       - |
         source terraform/tf.secret
-        pushd terraform > /dev/null
-        keep_rg=$(terraform output -raw keep_rg_name)
-        drop_rg=$(terraform output -raw drop_rg_name)
-        popd > /dev/null
+        keep_rg=$(terraform show -json terraform/terraform.tfstate | jq -r '.values.outputs.keep_rg_name.value')
+        drop_rg=$(terraform show -json terraform/terraform.tfstate | jq -r '.values.outputs.drop_rg_name.value')
         cat > workspaceInfo.yaml <<EOF
         workspaceName: "${RW_WORKSPACE}"
         workspaceOwnerEmail: authors@runwhen.com
@@ -272,11 +271,12 @@ tasks:
           echo "FAIL: $DB not produced"
           exit 1
         fi
-        keep_rg=$(cd terraform && terraform output -raw keep_rg_name)
-        drop_rg=$(cd terraform && terraform output -raw drop_rg_name)
-        keep_st=$(cd terraform && terraform output -raw keep_storage_name)
-        drop_st=$(cd terraform && terraform output -raw drop_storage_name)
-        kv=$(cd terraform && terraform output -raw key_vault_name)
+        TFS=terraform/terraform.tfstate
+        keep_rg=$(terraform show -json "$TFS" | jq -r '.values.outputs.keep_rg_name.value')
+        drop_rg=$(terraform show -json "$TFS" | jq -r '.values.outputs.drop_rg_name.value')
+        keep_st=$(terraform show -json "$TFS" | jq -r '.values.outputs.keep_storage_name.value')
+        drop_st=$(terraform show -json "$TFS" | jq -r '.values.outputs.drop_storage_name.value')
+        kv=$(terraform show -json "$TFS" | jq -r '.values.outputs.key_vault_name.value')
 
         fail=0
         for name in "$keep_rg" "$drop_rg" "$keep_st" "$drop_st" "$kv"; do
@@ -302,10 +302,11 @@ tasks:
           echo "FAIL: $DB not produced"
           exit 1
         fi
-        keep_rg=$(cd terraform && terraform output -raw keep_rg_name)
-        drop_rg=$(cd terraform && terraform output -raw drop_rg_name)
-        keep_st=$(cd terraform && terraform output -raw keep_storage_name)
-        drop_st=$(cd terraform && terraform output -raw drop_storage_name)
+        TFS=terraform/terraform.tfstate
+        keep_rg=$(terraform show -json "$TFS" | jq -r '.values.outputs.keep_rg_name.value')
+        drop_rg=$(terraform show -json "$TFS" | jq -r '.values.outputs.drop_rg_name.value')
+        keep_st=$(terraform show -json "$TFS" | jq -r '.values.outputs.keep_storage_name.value')
+        drop_st=$(terraform show -json "$TFS" | jq -r '.values.outputs.drop_storage_name.value')
 
         fail=0
         # keep-rg + its storage MUST be present.
@@ -360,8 +361,9 @@ tasks:
           echo "FAIL: $DB not produced"
           exit 1
         fi
-        keep_st=$(cd terraform && terraform output -raw keep_storage_name)
-        drop_st=$(cd terraform && terraform output -raw drop_storage_name)
+        TFS=terraform/terraform.tfstate
+        keep_st=$(terraform show -json "$TFS" | jq -r '.values.outputs.keep_storage_name.value')
+        drop_st=$(terraform show -json "$TFS" | jq -r '.values.outputs.drop_storage_name.value')
 
         fail=0
         n=$(sqlite3 "$DB" \

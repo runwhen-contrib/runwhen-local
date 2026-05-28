@@ -55,9 +55,12 @@ RUN curl -sSL https://install.python-poetry.org | python3 - --version $POETRY_VE
 # Copy project requirement files here to ensure they will be cached.
 WORKDIR $PYSETUP_PATH
 
-COPY pyproject.toml ./
+COPY pyproject.toml poetry.lock ./
 
-# Install Python Dependencies
+# Install Python Dependencies. The lockfile pins every transitive dep so the
+# image build is reproducible and is not exposed to upstream resolution flakes
+# (e.g. a freshly-published transitive that doesn't yet have wheels for the
+# Python ABI we target).
 RUN poetry run pip install --upgrade pip setuptools wheel
 RUN poetry install --only main
 

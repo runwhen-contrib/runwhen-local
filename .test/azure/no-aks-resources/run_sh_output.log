@@ -1,0 +1,30 @@
+Workspace builder REST service isn't available yet; waiting and trying again.
+Workspace builder version: 0.11.0
+Using base directory: /shared
+AKS clusters not found or improperly formatted, and auto-discovery is disabled. Skipping Kubernetes discovery for AKS.
+AWS configuration not found in workspace_info.
+Skipping Kubernetes setup as cloudConfig.kubernetes is missing or null.
+Skipping Kubernetes discovery due to missing kubeconfig, AKS clusters, or EKS clusters configuration.
+Using Map Customization Rules Path: map-customization-rules
+Kubernetes discovery not completed due to missing or invalid kubeconfig.
+Workspace builder completed successfully. Total SLXs: 18
+WARNING: Skipping generation rules file that does not contain any data; file="azure-appservice-webapp-ops.yaml"; code-bundle="azure-appservice-webapp-ops"; code-collection="https://github.com/runwhen-contrib/rw-cli-codecollection.git"; 
+WARNING: Skipping generation rules file that does not contain any data; file="gh-actions-health.yaml"; code-bundle="gh-actions-health"; code-collection="https://github.com/runwhen-contrib/rw-cli-codecollection.git"; 
+WARNING: Azure SDK indexer has no collector for resource type "azure_mysql_servers"; resources of this type will not be indexed. Add a collector to indexers/azureapi_resource_types.py.
+WARNING: Azure SDK indexer has no collector for resource type "azure_subscription_subscriptions"; resources of this type will not be indexed. Add a collector to indexers/azureapi_resource_types.py.
+WARNING: Azure SDK indexer has no collector for resource type "azure_mysqlflexibleservers_servers"; resources of this type will not be indexed. Add a collector to indexers/azureapi_resource_types.py.
+WARNING: Azure SDK indexer has no collector for resource type "azure_azurearcdata_sql_server_instances"; resources of this type will not be indexed. Add a collector to indexers/azureapi_resource_types.py.
+WARNING: Azure SDK indexer has no collector for resource type "azure_appservice_web_apps"; resources of this type will not be indexed. Add a collector to indexers/azureapi_resource_types.py.
+WARNING: Azure SDK indexer has no collector for resource type "azure_postgresql_databases"; resources of this type will not be indexed. Add a collector to indexers/azureapi_resource_types.py.
+WARNING: Azure SDK indexer has no collector for resource type "azure_network_load_balancers"; resources of this type will not be indexed. Add a collector to indexers/azureapi_resource_types.py.
+WARNING: Azure SDK indexer has no collector for resource type "azure_datafactory_factories"; resources of this type will not be indexed. Add a collector to indexers/azureapi_resource_types.py.
+WARNING: Azure SDK indexer has no collector for resource type "azure_servicebus_namespaces"; resources of this type will not be indexed. Add a collector to indexers/azureapi_resource_types.py.
+WARNING: Azure SDK indexer has no collector for resource type "azure_compute_virtual_machine_scale_sets"; resources of this type will not be indexed. Add a collector to indexers/azureapi_resource_types.py.
+WARNING: Azure SDK indexer has no collector for resource type "azure_compute_disks"; resources of this type will not be indexed. Add a collector to indexers/azureapi_resource_types.py.
+WARNING: Azure SDK indexer has no collector for resource type "azure_redis_caches"; resources of this type will not be indexed. Add a collector to indexers/azureapi_resource_types.py.
+WARNING: Azure SDK indexer has no collector for resource type "azure_network_application_gateways"; resources of this type will not be indexed. Add a collector to indexers/azureapi_resource_types.py.
+WARNING: Azure SDK indexer has no collector for resource type "azure_appservice_plans"; resources of this type will not be indexed. Add a collector to indexers/azureapi_resource_types.py.
+WARNING: Azure SDK indexer has no collector for resource type "azure_containerregistry_registries"; resources of this type will not be indexed. Add a collector to indexers/azureapi_resource_types.py.
+WARNING: Azure SDK indexer has no collector for resource type "azure_cosmos_sql_databases"; resources of this type will not be indexed. Add a collector to indexers/azureapi_resource_types.py.
+WARNING: Azure SDK indexer has no collector for resource type "azure_apimanagement_service"; resources of this type will not be indexed. Add a collector to indexers/azureapi_resource_types.py.
+WARNING: Azure SDK indexer has no collector for resource type "azure_compute_snapshots"; resources of this type will not be indexed. Add a collector to indexers/azureapi_resource_types.py.
