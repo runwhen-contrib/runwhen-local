@@ -651,6 +651,53 @@ from resources import Registry, REGISTRY_PROPERTY_NAME
 from component import Context
 
 
+class ComputeAccessTest(TestCase):
+    def test_read_only_hint_true_is_authoritative(self):
+        tool = {"name": "create_issue", "annotations": {"readOnlyHint": True}}
+        self.assertEqual(mcp_tools._compute_access(tool), "read-only")
+
+    def test_read_only_hint_false_falls_back_to_name_heuristic(self):
+        # Hint says not read-only, but verb says it is — heuristic wins.
+        # Some MCP servers leave readOnlyHint at the default `false` even for
+        # tools that clearly only read; the verb is the more reliable signal.
+        tool = {"name": "list_teams", "annotations": {"readOnlyHint": False}}
+        self.assertEqual(mcp_tools._compute_access(tool), "read-only")
+
+    def test_missing_annotations_uses_name_heuristic(self):
+        for name in ("list_teams", "get_project", "search_documentation",
+                     "read_file", "describe_table", "fetch_user", "find_issue",
+                     "query_db", "show_status", "view_doc"):
+            self.assertEqual(mcp_tools._compute_access({"name": name}),
+                             "read-only", msg=name)
+
+    def test_write_verbs_default_to_read_write(self):
+        for name in ("create_issue", "update_project", "delete_attachment",
+                     "save_comment", "send_message", "post_status"):
+            self.assertEqual(mcp_tools._compute_access({"name": name}),
+                             "read-write", msg=name)
+
+    def test_heuristic_matches_kebab_case_names(self):
+        self.assertEqual(
+            mcp_tools._compute_access({"name": "list-teams"}), "read-only")
+        self.assertEqual(
+            mcp_tools._compute_access({"name": "create-issue"}), "read-write")
+
+    def test_heuristic_does_not_match_substring(self):
+        # `listen_for_events` starts with "listen", not "list_" — must not
+        # be flagged read-only just because "list" is a prefix of "listen".
+        self.assertEqual(
+            mcp_tools._compute_access({"name": "listen_for_events"}),
+            "read-write")
+        # Same for `gettysburg_addresses` — not "get_".
+        self.assertEqual(
+            mcp_tools._compute_access({"name": "gettysburg_addresses"}),
+            "read-write")
+
+    def test_empty_or_missing_name_defaults_to_read_write(self):
+        self.assertEqual(mcp_tools._compute_access({}), "read-write")
+        self.assertEqual(mcp_tools._compute_access({"name": ""}), "read-write")
+
+
 class EmitToolResourceTest(TestCase):
     def test_emits_resource_with_expected_shape(self):
         reg = Registry()
@@ -672,6 +719,19 @@ class EmitToolResourceTest(TestCase):
         self.assertEqual(res.spec["tool_name"], "create_issue")
         self.assertEqual(res.spec["secret_ref"], "jira-mcp-token")
         self.assertEqual(res.spec["input_schema"]["required"], ["project"])
+        # `create_*` is a write verb → access defaults to read-write.
+        self.assertEqual(res.spec["access"], "read-write")
+
+    def test_emits_access_read_only_for_list_verb(self):
+        reg = Registry()
+        server = {"display_name": "jira",
+                  "url": "https://jira-mcp.internal/mcp",
+                  "secret_ref": "jira-mcp-token"}
+        mcp_tools._emit_tool_resource(
+            reg, server, {"name": "list_projects", "inputSchema": {}})
+        res = next(iter(
+            reg.lookup_resource_type("mcp", "mcp_tool").instances.values()))
+        self.assertEqual(res.spec["access"], "read-only")
 
     def test_index_skips_when_config_empty(self):
         ctx = Context({}, mock.MagicMock())

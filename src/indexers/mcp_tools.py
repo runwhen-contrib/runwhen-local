@@ -52,6 +52,48 @@ PLATFORM_NAME = "mcp"
 RESOURCE_TYPE = "mcp_tool"
 TOOLS_LIST_TIMEOUT = 15
 
+# Verbs that strongly suggest a tool only reads state. Used as a fallback when
+# the MCP server doesn't set `annotations.readOnlyHint=true` — most servers
+# don't bother to set the hint, so we fall back on the tool name's leading
+# verb to avoid defaulting every tool to read-write.
+READ_ONLY_VERBS = (
+    "get", "list", "search", "read", "fetch",
+    "describe", "find", "query", "show", "view",
+)
+
+
+def _name_suggests_read_only(name: str) -> bool:
+    """True if the tool name's leading token (split on `_` or `-`) is one of
+    READ_ONLY_VERBS. Examples that match: `list_teams`, `get-project`,
+    `search_documentation`. Examples that don't: `create_issue`,
+    `update_project`, `delete_attachment`."""
+    if not name:
+        return False
+    lower = name.lower()
+    for verb in READ_ONLY_VERBS:
+        if lower == verb or lower.startswith(verb + "_") or lower.startswith(verb + "-"):
+            return True
+    return False
+
+
+def _compute_access(tool: dict[str, Any]) -> str:
+    """Determine the SLX `access` tag for an MCP tool.
+
+    - `annotations.readOnlyHint=true` is authoritative → "read-only".
+    - Otherwise (hint is false, missing, or annotations absent) fall back on
+      the tool name's leading verb. Many MCP servers leave readOnlyHint unset
+      or default it to false even for clearly read-only tools, so we'd flag
+      half the catalog as read-write without the heuristic.
+    - Default is "read-write" — safer to over-mark write capability than to
+      silently let a write tool through as read-only.
+    """
+    annotations = tool.get("annotations") or {}
+    if annotations.get("readOnlyHint") is True:
+        return "read-only"
+    if _name_suggests_read_only(tool.get("name", "")):
+        return "read-only"
+    return "read-write"
+
 
 def index(context: Context) -> None:
     logger.info("mcp_tools: indexer starting")
@@ -254,6 +296,7 @@ def _emit_tool_resource(registry: Registry,
         "input_schema": tool.get("inputSchema") or tool.get("input_schema") or {
             "type": "object", "properties": {}, "required": [],
         },
+        "access": _compute_access(tool),
     }
     registry.add_resource(
         platform_name=PLATFORM_NAME,
