@@ -40,6 +40,8 @@ google-cloud-asset = "^3.27.0"
 google-cloud-compute = "^1.23.0"
 google-cloud-storage = "^2.19.0"
 google-cloud-container = "^2.56.0"
+google-cloud-pubsub = "^2.21.0"
+google-cloud-iam = "^2.15.0"
 mcp = "^1.27.0"
 [build-system]
 requires = ["poetry-core>=1.0.0"]

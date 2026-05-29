@@ -16,13 +16,20 @@ no resource-group dimension):
   discovery), keeping the resource store focused on what gen rules need.
 * The ``project`` resource is the mandatory anchor every other GCP resource
   links to; it is synthesized directly from config and written first.
-* Cloud Asset Inventory is the parity workhorse: a single ``list_assets`` call
-  per project (scoped to the CAI asset types referenced by generation rules)
+* The per-service typed SDK collectors are the supported FUNCTIONAL baseline:
+  a typed tier (compute instances/disks/snapshots/networks/subnetworks/
+  firewalls/addresses, storage buckets, GKE clusters, Pub/Sub topics &
+  subscriptions, IAM service accounts) uses ``google-cloud-*`` SDKs for rich
+  payloads and needs only the relevant per-service viewer roles. These run
+  whether or not Cloud Asset Inventory is available.
+* Cloud Asset Inventory is an OPTIONAL accelerator that broadens coverage to
+  resource types lacking a typed collector: a single ``list_assets`` call per
+  project (scoped to the CAI asset types referenced by generation rules)
   returns full-payload assets, which we route by ``asset_type`` back to the
-  registry-mapped ``resource_type_name``.
-* A thin typed tier (compute instances, GKE clusters, storage buckets) uses
-  ``google-cloud-*`` SDKs for richer payloads; those asset types are excluded
-  from the CAI pass so a resource is never written twice.
+  registry-mapped ``resource_type_name``. The typed asset types are excluded
+  from the CAI pass so a resource is never written twice. CAI is NOT required;
+  if it is not enabled / not permitted, discovery proceeds on the typed
+  collectors and the absence is logged informationally (never as an error).
 
 Coexists with the CloudQuery indexer behind the ``GCP_INDEXER_BACKEND`` setting:
 
@@ -77,6 +84,14 @@ from .resource_writer import (
 logger = logging.getLogger(__name__)
 
 GCP_PLATFORM = "gcp"
+
+# Stable, grep-able marker emitted (at INFO) when the OPTIONAL Cloud Asset
+# Inventory generic pass is not accessible (e.g. the API is not enabled or the
+# service account lacks the CAI viewer role). It is purely informational: CAI is
+# an accelerator that broadens coverage, NOT a requirement, so its absence must
+# never fail discovery or CI. Operators can still grep for the token to confirm
+# whether the CAI pass ran.
+CAI_PERMISSION_DENIED_TOKEN = "GCP_CAI_PERMISSION_DENIED"
 
 DOCUMENTATION = "Index GCP resources using Cloud Asset Inventory and the google-cloud SDKs"
 
@@ -160,6 +175,52 @@ def _resolve_platform_handler(context: Context) -> PlatformHandler:
     from enrichers.gcp import GCPPlatformHandler
 
     return GCPPlatformHandler()
+
+
+def _is_permission_denied(exc: Exception) -> bool:
+    """Best-effort detection of a GCP 403 / PermissionDenied without importing
+    the google SDK exception types at module scope (keeps this module importable
+    where the SDK is absent). Covers both the gRPC ``PermissionDenied`` and the
+    REST ``Forbidden`` shapes, plus a string fallback."""
+    if type(exc).__name__ in ("PermissionDenied", "Forbidden"):
+        return True
+    code = getattr(exc, "code", None)
+    # google.api_core PermissionDenied exposes code==403; grpc status objects
+    # expose a callable .code(). Handle both without hard-depending on either.
+    try:
+        if callable(code):
+            code = code()
+    except Exception:  # pragma: no cover - defensive
+        code = None
+    if code == 403 or getattr(code, "value", None) == 403:
+        return True
+    if str(getattr(code, "name", "")).upper() == "PERMISSION_DENIED":
+        return True
+    text = str(exc).lower()
+    return "403" in text and "permission" in text
+
+
+def _note_cai_unavailable(context: Context, project_id: str, exc: Exception) -> None:
+    """Note, informationally, that the OPTIONAL Cloud Asset Inventory generic
+    pass was not accessible for this project.
+
+    CAI is an accelerator that broadens coverage to resource types without a
+    typed collector; it is NOT required for native GCP discovery. The per-service
+    typed SDK collectors are the supported functional path and run independently
+    of CAI, so a 403 / disabled-API here is normal and non-fatal. This is logged
+    at INFO (no error, no banner, no warning) so CAI's absence never reads as a
+    failure or fails CI."""
+    message = (
+        f"{CAI_PERMISSION_DENIED_TOKEN}: Cloud Asset Inventory was not accessible "
+        f"for GCP project '{project_id}' ({exc}). This is informational, not an "
+        f"error: CAI is an OPTIONAL accelerator that broadens coverage to resource "
+        f"types lacking a typed collector. The per-service typed SDK collectors "
+        f"(compute, storage, GKE, Pub/Sub, IAM, ...) are the functional discovery "
+        f"path and continue to run normally. Enabling the Cloud Asset Inventory API "
+        f"with a CAI viewer role is optional and only increases coverage breadth; "
+        f"it is not required, so no action is needed."
+    )
+    logger.info(message)
 
 
 # ---------------------------------------------------------------------------
@@ -286,6 +347,7 @@ def index(context: Context) -> None:
         "skipped_tag_filter": 0,
         "skipped_parse_error": 0,
         "skipped_collector_error": 0,
+        "cai_permission_denied": 0,
     }
 
     def _process(spec, project_id, resource_data, *, source: str) -> None:
@@ -404,14 +466,19 @@ def index(context: Context) -> None:
             try:
                 assets = list(collect_assets_for_project(credentials, pid, cai_filter))
             except Exception as e:
-                stats["skipped_collector_error"] += 1
-                logger.error(
-                    f"Cloud Asset Inventory list_assets failed for project "
-                    f"{pid}: {e}"
-                )
-                context.add_warning(
-                    f"Failed to list GCP assets in project {pid}: {e}"
-                )
+                if _is_permission_denied(e):
+                    # Optional accelerator unavailable: informational, not an error.
+                    stats["cai_permission_denied"] += 1
+                    _note_cai_unavailable(context, pid, e)
+                else:
+                    stats["skipped_collector_error"] += 1
+                    logger.error(
+                        f"Cloud Asset Inventory list_assets failed for project "
+                        f"{pid}: {e}"
+                    )
+                    context.add_warning(
+                        f"Failed to list GCP assets in project {pid}: {e}"
+                    )
                 continue
             logger.info(
                 f"Collected {len(assets)} assets (Cloud Asset Inventory) from "
@@ -452,5 +519,15 @@ def index(context: Context) -> None:
         f"generic_unmatched_cai_type={stats['generic_unmatched_cai_type']}, "
         f"skipped_tag_filter={stats['skipped_tag_filter']}, "
         f"skipped_parse_error={stats['skipped_parse_error']}, "
-        f"skipped_collector_error={stats['skipped_collector_error']}"
+        f"skipped_collector_error={stats['skipped_collector_error']}, "
+        f"cai_permission_denied={stats['cai_permission_denied']}"
     )
+
+    if stats["cai_permission_denied"]:
+        logger.info(
+            "GCP discovery completed via the typed SDK collectors; the OPTIONAL "
+            "Cloud Asset Inventory accelerator was not accessible this run (see %s "
+            "above). This is expected when CAI is not enabled and does not indicate "
+            "a failure -- the typed collectors are the functional discovery path.",
+            CAI_PERMISSION_DENIED_TOKEN,
+        )

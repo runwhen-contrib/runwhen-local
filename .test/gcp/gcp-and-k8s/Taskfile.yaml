@@ -136,10 +136,41 @@ tasks:
           echo "Failed to start container"; exit 1;
         }
 
+        # Wait for the REST service to actually come up. If uvicorn crashes on
+        # startup the container exits; dump its logs so the Python traceback is
+        # visible in CI instead of an opaque "Error executing script". Without
+        # this, a startup crash produced no artifact at all.
+        echo "Waiting for workspace builder REST service..."
+        rest_ready=0
+        for i in $(seq 1 30); do
+          if ! docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+            echo "Container $CONTAINER_NAME exited during startup. Logs:"
+            docker logs $CONTAINER_NAME 2>&1 | tee container_logs.log
+            exit 1
+          fi
+          if docker exec $CONTAINER_NAME curl -sf http://localhost:8000/info/ >/dev/null 2>&1; then
+            rest_ready=1; break
+          fi
+          sleep 2
+        done
+        if [ "$rest_ready" -ne 1 ]; then
+          echo "REST service never became ready. Container logs:"
+          docker logs $CONTAINER_NAME 2>&1 | tee container_logs.log
+          exit 1
+        fi
+
         echo "Running workspace builder script in container..."
-        docker exec -w /workspace-builder $CONTAINER_NAME ./run.sh $1 --verbose || {
-          echo "Error executing script in container"; exit 1;
+        # pipefail so a run.sh failure is NOT masked by tee's exit code.
+        set -o pipefail
+        docker exec -w /workspace-builder $CONTAINER_NAME ./run.sh $1 --verbose 2>&1 | tee run_sh_output.log || {
+          echo "Error executing script in container. Container logs:"
+          docker logs $CONTAINER_NAME 2>&1 | tee container_logs.log
+          exit 1
         }
+        set +o pipefail
+        # Always snapshot the container (REST/indexer) logs for the asserts +
+        # the failure artifact.
+        docker logs $CONTAINER_NAME > container_logs.log 2>&1 || true
 
         echo "Review generated config files under output/workspaces/"
         total_slxs=$(find $(find 'output/' -type d -name 'slxs') -mindepth 1 -type d | wc -l)
@@ -468,9 +499,11 @@ tasks:
     cmds:
       - |
         rm -rf output
+        rm -rf gcpapi-test-codecollection || true
         rm workspaceInfo.yaml
         rm airgap_test_output.log || true
         rm container_logs.log || true
+        rm run_sh_output.log || true
         rm exec_output.log || true
         rm slx_count.txt || true
     silent: true
@@ -511,16 +544,66 @@ tasks:
             - ${GCP_PROJECT}
             projectLevelOfDetails:
               ${GCP_PROJECT}: detailed
-        codeCollections: []
+        # Load the bundled (default) code collections AND a tiny test-only local
+        # code collection (built by generate-gcpapi-test-codecollection) that
+        # references the compute typed-fallback types so selective discovery
+        # exercises them. The local repo is cloned from the mounted /shared dir.
+        codeCollections:
+        - "defaults"
+        - repoURL: "file:///shared/gcpapi-test-codecollection"
+          ref: main
+          codeBundles: ["*"]
         custom:
           kubernetes_distribution_binary: kubectl
         EOF
         echo "Wrote workspaceInfo.yaml (gcpapi baseline / project=${GCP_PROJECT}, defaultLOD=detailed)"
 
+  generate-gcpapi-test-codecollection:
+    desc: "Build a tiny local git code collection that references the compute typed-fallback types (proves fallback function without CAI)."
+    silent: true
+    cmds:
+      - |
+        # A minimal, self-contained code collection whose single generation rule
+        # references the compute fallback types. Selective discovery only runs a
+        # typed collector when a LOADED generation rule references its type, so
+        # this guarantees gcp_compute_networks / gcp_compute_firewalls (the GCP
+        # equivalent of AWS's always-present default VPC/SG) are collected -- no
+        # CAI required. The rule intentionally has no SLXs: the baseline asserts
+        # against output/resources.sqlite, not SLX rendering, so no templates are
+        # needed and nothing fails at enrich time.
+        CC_DIR=gcpapi-test-codecollection
+        GR_DIR="${CC_DIR}/codebundles/gcp-compute-baseline/.runwhen/generation-rules"
+        rm -rf "${CC_DIR}"
+        mkdir -p "${GR_DIR}"
+        cat > "${GR_DIR}/gcp-compute-baseline.yaml" <<'EOF'
+        apiVersion: runwhen.com/v1
+        kind: GenerationRules
+        spec:
+          platform: gcp
+          generationRules:
+            - resourceTypes:
+                - gcp_compute_networks
+                - gcp_compute_firewalls
+              matchRules:
+                - type: pattern
+                  pattern: ".+"
+                  properties: [name]
+                  mode: substring
+              slxs: []
+        EOF
+        # Turn it into a git repo on branch 'main' so the code-collection loader
+        # (git-based) can clone it via the file:// URL from the mounted /shared.
+        ( cd "${CC_DIR}" \
+          && git -c init.defaultBranch=main init -q \
+          && git -c user.email=ci@runwhen.com -c user.name=ci add -A \
+          && git -c user.email=ci@runwhen.com -c user.name=ci commit -qm "test-only gcp compute fallback gen rule" )
+        echo "Built local test code collection at ${CC_DIR} (references gcp_compute_networks, gcp_compute_firewalls)"
+
   ci-test-gcpapi-baseline:
     desc: "End to end: native gcpapi discovery. SQLite store must contain the project anchor + discovered GCP resources."
     cmds:
       - task: generate-gcpapi-baseline-config
+      - task: generate-gcpapi-test-codecollection
       - task: build-rwl
       - task: run-rwl-discovery
       - task: assert-gcpapi-baseline
@@ -552,6 +635,21 @@ tasks:
           fail=1
         fi
 
+        # 1b. Cloud Asset Inventory is an OPTIONAL accelerator that broadens
+        #     coverage to resource types without a typed collector. Its absence
+        #     (API not enabled / no CAI viewer role) is normal and MUST NOT fail
+        #     the baseline -- the per-service typed SDK collectors are the
+        #     functional discovery path and are asserted below. This is purely
+        #     informational so operators can see whether the CAI pass ran.
+        if grep -q "GCP_CAI_PERMISSION_DENIED" run_sh_output.log container_logs.log 2>/dev/null; then
+          echo "NOTE baseline: Cloud Asset Inventory was not accessible (optional accelerator)."
+          echo "     -> This is expected and non-fatal. Native GCP discovery is driven by the"
+          echo "        per-service typed collectors (asserted below). Enabling cloudasset.googleapis.com"
+          echo "        with a CAI viewer role is optional and only increases coverage breadth."
+        else
+          echo "OK   baseline: Cloud Asset Inventory generic pass ran (optional accelerator available)"
+        fi
+
         # 2. The project anchor must be present (resource_type 'project').
         n=$(sqlite3 "$DB" \
           "SELECT count(*) FROM resources WHERE platform='gcp' AND resource_type='project' AND name='${GCP_PROJECT}';" \
@@ -576,7 +674,8 @@ tasks:
 
         # 4. Typed collectors (storage buckets + GKE clusters) populate the
         #    persistent sandbox infra. Assert presence (>= 1), not exact counts,
-        #    so the test stays stable as buckets come and go.
+        #    so the test stays stable as buckets come and go. These types are
+        #    referenced by the bundled rw-cli-codecollection generation rules.
         for rtype in gcp_storage_buckets gcp_container_clusters; do
           n=$(sqlite3 "$DB" \
             "SELECT count(*) FROM resources WHERE platform='gcp' AND resource_type='${rtype}';" \
@@ -588,5 +687,35 @@ tasks:
             echo "OK   baseline: ${rtype} present (${n} row)"
           fi
         done
+
+        # 5. PROOF the typed fallback collectors provide function WITHOUT CAI.
+        #    The test-only code collection (gcpapi-test-codecollection, wired in
+        #    by generate-gcpapi-test-codecollection) references gcp_compute_networks
+        #    and gcp_compute_firewalls. Every GCP project has a default network +
+        #    default firewall rules out of the box (like AWS's default VPC/SG), so
+        #    these fallback collectors must return real sandbox resources even with
+        #    CAI denied. We require the network (always present); the firewall count
+        #    is reported but only required to be >= 1 alongside the network.
+        net=$(sqlite3 "$DB" \
+          "SELECT count(*) FROM resources WHERE platform='gcp' AND resource_type='gcp_compute_networks';" \
+          2>/dev/null || echo 0)
+        fw=$(sqlite3 "$DB" \
+          "SELECT count(*) FROM resources WHERE platform='gcp' AND resource_type='gcp_compute_firewalls';" \
+          2>/dev/null || echo 0)
+        if [ "$net" -lt 1 ]; then
+          echo "FAIL baseline: expected >= 1 gcp_compute_networks from the typed fallback collector, found ${net}"
+          fail=1
+        else
+          echo "OK   baseline: gcp_compute_networks present (${net} row) via typed fallback collector (no CAI)"
+        fi
+        echo "INFO baseline: gcp_compute_firewalls present (${fw} row) via typed fallback collector"
+
+        # Per-resource_type counts (report artifact + proof of typed-collector function).
+        echo "---- gcp resource_type counts (output/resources.sqlite) ----"
+        sqlite3 "$DB" \
+          "SELECT resource_type, count(*) FROM resources WHERE platform='gcp' GROUP BY resource_type ORDER BY resource_type;" \
+          2>/dev/null || true
+        echo "---- referenced GCP resource types (from the indexer log) ----"
+        grep -hE "GCP resource types referenced by generation rules:" run_sh_output.log container_logs.log 2>/dev/null | tail -1 || true
 
         exit "$fail"

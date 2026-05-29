@@ -62,3 +62,7 @@ src/rw-cli-codecollection-cache
 .test/azure/ado/container_logs.log
 .test/azure/no-aks-resources/run_sh_output.log
 .test/azure/no-aks-resources/container_logs.log
+.test/gcp/gcp-and-k8s/run_sh_output.log
+.test/gcp/gcp-and-k8s/container_logs.log
+# Ephemeral local code collection built by generate-gcpapi-test-codecollection
+.test/gcp/gcp-and-k8s/gcpapi-test-codecollection/

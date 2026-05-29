@@ -87,11 +87,123 @@ def _collect_container_clusters(credentials, project_id):
     return getattr(response, "clusters", None) or []
 
 
-# Maps canonical CQ table name -> typed collector callable.
+# ---- Tier 1 compute fallbacks (no new dependency; google-cloud-compute) -----
+#
+# These mirror ``_collect_compute_instances``: aggregated_list yields
+# ``(scope, scoped_list)`` pairs across every zone/region, where each
+# ``scoped_list`` carries either a per-scope resource list or a ``warning``
+# entry (for scopes with nothing / no permission). We defensively read the
+# resource attribute and skip warning-only scopes. The plain ``list`` calls
+# cover global resources. Each call returns a pager that transparently handles
+# pagination, so materializing it (``list(...)`` in the orchestrator) walks
+# every page.
+
+def _collect_compute_disks(credentials, project_id):
+    from google.cloud import compute_v1  # noqa: WPS433
+
+    client = compute_v1.DisksClient(credentials=credentials)
+    for _zone, scoped in client.aggregated_list(project=project_id):
+        for disk in getattr(scoped, "disks", None) or []:
+            yield disk
+
+
+def _collect_compute_snapshots(credentials, project_id):
+    from google.cloud import compute_v1  # noqa: WPS433
+
+    # Snapshots are a global resource: a flat list, no aggregation.
+    client = compute_v1.SnapshotsClient(credentials=credentials)
+    return client.list(project=project_id)
+
+
+def _collect_compute_networks(credentials, project_id):
+    from google.cloud import compute_v1  # noqa: WPS433
+
+    # Networks (VPCs) are global.
+    client = compute_v1.NetworksClient(credentials=credentials)
+    return client.list(project=project_id)
+
+
+def _collect_compute_subnetworks(credentials, project_id):
+    from google.cloud import compute_v1  # noqa: WPS433
+
+    client = compute_v1.SubnetworksClient(credentials=credentials)
+    for _region, scoped in client.aggregated_list(project=project_id):
+        for subnet in getattr(scoped, "subnetworks", None) or []:
+            yield subnet
+
+
+def _collect_compute_firewalls(credentials, project_id):
+    from google.cloud import compute_v1  # noqa: WPS433
+
+    # Firewall rules are global.
+    client = compute_v1.FirewallsClient(credentials=credentials)
+    return client.list(project=project_id)
+
+
+def _collect_compute_addresses(credentials, project_id):
+    from google.cloud import compute_v1  # noqa: WPS433
+
+    # Regional addresses; aggregated_list spans all regions. (Global/static
+    # IPs are a separate table, gcp_compute_global_addresses.)
+    client = compute_v1.AddressesClient(credentials=credentials)
+    for _region, scoped in client.aggregated_list(project=project_id):
+        for address in getattr(scoped, "addresses", None) or []:
+            yield address
+
+
+# ---- Tier 2 service fallbacks (each adds one idiomatic google-cloud-* dep) ---
+
+def _collect_pubsub_topics(credentials, project_id):
+    from google.cloud import pubsub_v1  # noqa: WPS433
+
+    client = pubsub_v1.PublisherClient(credentials=credentials)
+    # list_topics returns a pager yielding Topic messages whose ``name`` is the
+    # full path projects/<p>/topics/<t>; the normalizer collapses it to the leaf.
+    return client.list_topics(request={"project": f"projects/{project_id}"})
+
+
+def _collect_pubsub_subscriptions(credentials, project_id):
+    from google.cloud import pubsub_v1  # noqa: WPS433
+
+    client = pubsub_v1.SubscriberClient(credentials=credentials)
+    return client.list_subscriptions(
+        request={"project": f"projects/{project_id}"}
+    )
+
+
+def _collect_iam_service_accounts(credentials, project_id):
+    from google.cloud import iam_admin_v1  # noqa: WPS433
+
+    client = iam_admin_v1.IAMClient(credentials=credentials)
+    # The pager is iterable, yielding ServiceAccount messages (name is the full
+    # path projects/<p>/serviceAccounts/<email>); pagination is transparent.
+    request = iam_admin_v1.types.ListServiceAccountsRequest(
+        name=f"projects/{project_id}"
+    )
+    return client.list_service_accounts(request=request)
+
+
+# Maps canonical CQ table name -> typed collector callable. Adding an entry here
+# automatically (a) flips the spec's ``typed`` flag and (b) excludes the type's
+# CAI asset type from the Cloud Asset Inventory generic filter in
+# ``gcpapi.index`` (write-once) - so each type below is discovered via its SDK
+# collector whether or not CAI is available.
 _TYPED_COLLECTORS: dict[str, GcpCollector] = {
+    # Pre-existing rich-payload tier.
     "gcp_compute_instances": _collect_compute_instances,
     "gcp_storage_buckets": _collect_storage_buckets,
     "gcp_container_clusters": _collect_container_clusters,
+    # Tier 1 - high-value compute types (no new dependency).
+    "gcp_compute_disks": _collect_compute_disks,
+    "gcp_compute_snapshots": _collect_compute_snapshots,
+    "gcp_compute_networks": _collect_compute_networks,
+    "gcp_compute_subnetworks": _collect_compute_subnetworks,
+    "gcp_compute_firewalls": _collect_compute_firewalls,
+    "gcp_compute_addresses": _collect_compute_addresses,
+    # Tier 2 - idiomatic single-call service clients.
+    "gcp_pubsub_topics": _collect_pubsub_topics,
+    "gcp_pubsub_subscriptions": _collect_pubsub_subscriptions,
+    "gcp_iam_service_accounts": _collect_iam_service_accounts,
 }
 
 

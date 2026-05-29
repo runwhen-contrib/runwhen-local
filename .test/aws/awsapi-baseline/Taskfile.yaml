@@ -125,10 +125,42 @@ tasks:
           -v "$(pwd):/shared" \
           runwhen-local:test || { echo "Failed to start container"; exit 1; }
 
+        # Wait for the REST service to actually come up. If uvicorn crashes on
+        # startup the container exits; dump its logs so the Python traceback is
+        # visible in CI instead of an opaque "Total SLXs: 0 / no sqlite".
+        echo "Waiting for workspace builder REST service..."
+        rest_ready=0
+        for i in $(seq 1 30); do
+          if ! docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+            echo "Container $CONTAINER_NAME exited during startup. Logs:"
+            docker logs "$CONTAINER_NAME" 2>&1 | tee container_logs.log
+            exit 1
+          fi
+          if docker exec "$CONTAINER_NAME" curl -sf http://localhost:8000/info/ >/dev/null 2>&1; then
+            rest_ready=1; break
+          fi
+          sleep 2
+        done
+        if [ "$rest_ready" -ne 1 ]; then
+          echo "REST service never became ready. Container logs:"
+          docker logs "$CONTAINER_NAME" 2>&1 | tee container_logs.log
+          exit 1
+        fi
+
         echo "Running workspace builder script in container..."
+        # pipefail so a run.sh failure is NOT masked by tee's exit code (which
+        # previously let a failed discovery proceed to a confusing "no sqlite"
+        # assertion instead of failing here with the real error).
+        set -o pipefail
         docker exec -w /workspace-builder "$CONTAINER_NAME" ./run.sh "$1" --verbose 2>&1 | tee run_sh_output.log || {
-          echo "Error executing script in container"; exit 1;
+          echo "Error executing script in container. Container logs:"
+          docker logs "$CONTAINER_NAME" 2>&1 | tee container_logs.log
+          exit 1
         }
+        set +o pipefail
+        # Always snapshot the container (REST/indexer) logs for the asserts +
+        # the failure artifact.
+        docker logs "$CONTAINER_NAME" > container_logs.log 2>&1 || true
 
         echo "Review generated config files under output/workspaces/"
         slx_root=$(find 'output/' -type d -name 'slxs' 2>/dev/null)

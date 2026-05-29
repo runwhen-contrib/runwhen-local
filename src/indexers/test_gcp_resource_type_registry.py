@@ -253,16 +253,54 @@ class GcpapiResourceTypesSpecTests(TestCase):
         self.mod = importlib.reload(mod)
 
     def test_typed_sdk_collectors_present(self) -> None:
-        # The set of tables with a hand-written google-cloud-* collector.
+        # The set of tables with a hand-written google-cloud-* collector. These
+        # are the high-value types that survive even when Cloud Asset Inventory
+        # is unavailable (CAI is an accelerator, not a hard dependency).
         names = {s.cloudquery_table_name for s in self.mod.GCP_TYPED_RESOURCE_TYPE_SPECS}
         self.assertEqual(
             names,
             {
+                # Original rich-payload tier.
                 "gcp_compute_instances",
                 "gcp_storage_buckets",
                 "gcp_container_clusters",
+                # Tier 1 compute fallbacks (google-cloud-compute).
+                "gcp_compute_disks",
+                "gcp_compute_snapshots",
+                "gcp_compute_networks",
+                "gcp_compute_subnetworks",
+                "gcp_compute_firewalls",
+                "gcp_compute_addresses",
+                # Tier 2 service-client fallbacks.
+                "gcp_pubsub_topics",
+                "gcp_pubsub_subscriptions",
+                "gcp_iam_service_accounts",
             },
         )
+
+    def test_new_fallback_types_are_typed_and_excluded_from_cai_generic(self) -> None:
+        # Each newly-added fallback type must resolve via find_spec, carry a
+        # bound collector, and keep its CAI asset type (so the CAI pass can be
+        # used as an accelerator) - but because it now has a collector, the
+        # orchestrator's write-once logic excludes it from the CAI *generic*
+        # filter. We assert the spec-level invariants that drive that exclusion.
+        expected_cai = {
+            "gcp_compute_disks": "compute.googleapis.com/Disk",
+            "gcp_compute_snapshots": "compute.googleapis.com/Snapshot",
+            "gcp_compute_networks": "compute.googleapis.com/Network",
+            "gcp_compute_subnetworks": "compute.googleapis.com/Subnetwork",
+            "gcp_compute_firewalls": "compute.googleapis.com/Firewall",
+            "gcp_compute_addresses": "compute.googleapis.com/Address",
+            "gcp_pubsub_topics": "pubsub.googleapis.com/Topic",
+            "gcp_pubsub_subscriptions": "pubsub.googleapis.com/Subscription",
+            "gcp_iam_service_accounts": "iam.googleapis.com/ServiceAccount",
+        }
+        for table, cai_type in expected_cai.items():
+            spec = self.mod.find_spec(table)
+            self.assertIsNotNone(spec, table)
+            self.assertTrue(spec.typed, table)
+            self.assertTrue(callable(spec.collector), table)
+            self.assertEqual(spec.cai_asset_type, cai_type, table)
 
     def test_project_spec_is_first_and_mandatory(self) -> None:
         first = self.mod.GCP_RESOURCE_TYPE_SPECS[0]

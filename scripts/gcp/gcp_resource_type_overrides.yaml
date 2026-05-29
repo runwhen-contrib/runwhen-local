@@ -159,6 +159,19 @@ typed_collectors:
 - gcp_compute_instances
 - gcp_storage_buckets
 - gcp_container_clusters
+# Tier 1 high-value compute fallbacks (google-cloud-compute, already a dep) so
+# these survive without Cloud Asset Inventory.
+- gcp_compute_disks
+- gcp_compute_snapshots
+- gcp_compute_networks
+- gcp_compute_subnetworks
+- gcp_compute_firewalls
+- gcp_compute_addresses
+# Tier 2 idiomatic single-call service clients (google-cloud-pubsub,
+# google-cloud-iam) for the remaining common matchable types.
+- gcp_pubsub_topics
+- gcp_pubsub_subscriptions
+- gcp_iam_service_accounts
 
 # ---------------------------------------------------------------------------
 # mandatory

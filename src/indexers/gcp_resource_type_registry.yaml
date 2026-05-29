@@ -2,7 +2,7 @@ metadata:
   source: https://www.cloudquery.io/hub/plugins/source/cloudquery/gcp/latest/tables
   snapshot_date: '2026-05-29'
   total_tables: 404
-  typed_collectors: 4
+  typed_collectors: 13
   cai_types_assigned: 403
   generator: scripts/gcp/sync_gcp_resource_type_registry.py
   notes: Generated file. To change the CAI asset type for a table, edit scripts/gcp/gcp_resource_type_overrides.yaml and re-run the sync script. Hand-edits to this file will be overwritten.
@@ -1006,7 +1006,7 @@ types:
     cai_asset_type_source: override
     category: compute
     aliases: []
-    typed_collector: false
+    typed_collector: true
     mandatory: false
   gcp_compute_autoscalers:
     cai_asset_type: compute.googleapis.com/Autoscaler
@@ -1041,7 +1041,7 @@ types:
     cai_asset_type_source: override
     category: compute
     aliases: []
-    typed_collector: false
+    typed_collector: true
     mandatory: false
   gcp_compute_external_vpn_gateways:
     cai_asset_type: compute.googleapis.com/ExternalVpnGateway
@@ -1055,7 +1055,7 @@ types:
     cai_asset_type_source: override
     category: compute
     aliases: []
-    typed_collector: false
+    typed_collector: true
     mandatory: false
   gcp_compute_forwarding_rules:
     cai_asset_type: compute.googleapis.com/ForwardingRule
@@ -1203,7 +1203,7 @@ types:
     cai_asset_type_source: override
     category: compute
     aliases: []
-    typed_collector: false
+    typed_collector: true
     mandatory: false
   gcp_compute_osconfig_inventories:
     cai_asset_type: compute.googleapis.com/OsconfigInventory
@@ -1315,7 +1315,7 @@ types:
     cai_asset_type_source: override
     category: compute
     aliases: []
-    typed_collector: false
+    typed_collector: true
     mandatory: false
   gcp_compute_ssl_certificates:
     cai_asset_type: compute.googleapis.com/SslCertificate
@@ -1336,7 +1336,7 @@ types:
     cai_asset_type_source: override
     category: compute
     aliases: []
-    typed_collector: false
+    typed_collector: true
     mandatory: false
   gcp_compute_target_grpc_proxies:
     cai_asset_type: compute.googleapis.com/TargetGrpcProxy
@@ -1861,7 +1861,7 @@ types:
     cai_asset_type_source: override
     category: iam
     aliases: []
-    typed_collector: false
+    typed_collector: true
     mandatory: false
   gcp_iam_workload_identity_pool_providers:
     cai_asset_type: iam.googleapis.com/WorkloadIdentityPoolProvider
@@ -2261,14 +2261,14 @@ types:
     cai_asset_type_source: override
     category: pubsub
     aliases: []
-    typed_collector: false
+    typed_collector: true
     mandatory: false
   gcp_pubsub_topics:
     cai_asset_type: pubsub.googleapis.com/Topic
     cai_asset_type_source: override
     category: pubsub
     aliases: []
-    typed_collector: false
+    typed_collector: true
     mandatory: false
   gcp_recommendations_folders:
     cai_asset_type: recommendations.googleapis.com/Folder

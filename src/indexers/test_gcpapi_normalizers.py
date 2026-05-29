@@ -161,6 +161,163 @@ class NormalizeGcpSdkModelTests(TestCase):
         self.assertEqual(data["asset_type"], "cloudresourcemanager.googleapis.com/Project")
 
 
+class TypedFallbackRoundTripTests(TestCase):
+    """Per-type round-trips for the new typed fallback collectors.
+
+    Each fallback collector yields an SDK model that flows through
+    ``normalize_gcp_sdk_model`` and then ``GCPPlatformHandler.parse_resource_data``.
+    These tests pin that, for a representative SDK payload of each new type, the
+    normalized dict carries the handler-read fields (name, zone/region, tags) and
+    parses into the expected ``(name, qualified_name)`` under its CloudQuery
+    ``resource_type`` - identical to what the Cloud Asset Inventory path produced
+    for the same type, so generation rules are unaffected by the source.
+    """
+
+    def setUp(self):
+        from component import Context
+        from outputter import FileItemOutputter
+        from resources import REGISTRY_PROPERTY_NAME, Registry
+        from enrichers.generation_rule_types import LevelOfDetail
+
+        self.context = Context(
+            setting_values={"DEFAULT_LOD": LevelOfDetail.BASIC},
+            outputter=FileItemOutputter(),
+        )
+        self.context.set_property(REGISTRY_PROPERTY_NAME, Registry())
+        self.platform_cfg = {"projectLevelOfDetails": {PROJECT_ID: "detailed"}}
+
+        from enrichers.gcp import GCP_PLATFORM, GCPPlatformHandler
+        from resources import REGISTRY_PROPERTY_NAME as _RP
+
+        self.handler = GCPPlatformHandler()
+        # Write the project anchor so child resources link to it (Phase 0).
+        registry = self.context.get_property(_RP)
+        proj = make_project_resource_data(PROJECT_ID)
+        pname, pqual, pattrs = self.handler.parse_resource_data(
+            proj, "project", self.platform_cfg, self.context
+        )
+        registry.add_resource(GCP_PLATFORM, "project", pname, pqual, pattrs)
+
+    def _round_trip(self, model, resource_type_name, *, expected_name):
+        data = normalize_gcp_sdk_model(
+            model, project_id=PROJECT_ID, resource_type_name=resource_type_name
+        )
+        name, qualified_name, attrs = self.handler.parse_resource_data(
+            data, resource_type_name, self.platform_cfg, self.context
+        )
+        self.assertEqual(name, expected_name)
+        self.assertEqual(qualified_name, f"{PROJECT_ID}/{expected_name}")
+        self.assertEqual(attrs["project_id"], PROJECT_ID)
+        self.assertIn("project", attrs)
+        return data, attrs
+
+    def test_compute_disk_zonal(self):
+        model = {
+            "name": "disk-1",
+            "labels": {"env": "prod"},
+            "zone": (
+                "https://www.googleapis.com/compute/v1/projects/"
+                "my-project/zones/us-central1-a"
+            ),
+            "sizeGb": "100",
+        }
+        data, attrs = self._round_trip(
+            model, "gcp_compute_disks", expected_name="disk-1"
+        )
+        self.assertEqual(data["zone"], "us-central1-a")
+        self.assertEqual(data["tags"], {"env": "prod"})
+        # Region derived from zone by the handler.
+        self.assertEqual(attrs["region"], "us-central1")
+
+    def test_compute_snapshot_global(self):
+        model = {"name": "snap-1", "labels": {}, "diskSizeGb": "50"}
+        data, _ = self._round_trip(
+            model, "gcp_compute_snapshots", expected_name="snap-1"
+        )
+        self.assertEqual(data["tags"], {})
+        self.assertIsNone(data.get("zone"))
+        self.assertIsNone(data.get("region"))
+
+    def test_compute_network_global_no_labels(self):
+        model = {
+            "name": "default",
+            "autoCreateSubnetworks": True,
+            "selfLink": "https://www.googleapis.com/compute/v1/projects/p/global/networks/default",
+        }
+        data, _ = self._round_trip(
+            model, "gcp_compute_networks", expected_name="default"
+        )
+        self.assertEqual(data["tags"], {})
+
+    def test_compute_subnetwork_regional(self):
+        model = {
+            "name": "subnet-1",
+            "region": (
+                "https://www.googleapis.com/compute/v1/projects/"
+                "my-project/regions/us-central1"
+            ),
+            "ipCidrRange": "10.0.0.0/24",
+        }
+        data, attrs = self._round_trip(
+            model, "gcp_compute_subnetworks", expected_name="subnet-1"
+        )
+        self.assertEqual(data["region"], "us-central1")
+        self.assertEqual(attrs["region"], "us-central1")
+
+    def test_compute_firewall_global(self):
+        model = {"name": "allow-ssh", "network": ".../networks/default"}
+        self._round_trip(model, "gcp_compute_firewalls", expected_name="allow-ssh")
+
+    def test_compute_address_regional(self):
+        model = {
+            "name": "ip-1",
+            "address": "34.1.2.3",
+            "region": (
+                "https://www.googleapis.com/compute/v1/projects/"
+                "my-project/regions/europe-west1"
+            ),
+        }
+        data, attrs = self._round_trip(
+            model, "gcp_compute_addresses", expected_name="ip-1"
+        )
+        self.assertEqual(data["region"], "europe-west1")
+
+    def test_pubsub_topic_full_path_name_and_labels(self):
+        # PublisherClient yields Topic messages whose name is the full path.
+        model = {
+            "name": f"projects/{PROJECT_ID}/topics/orders",
+            "labels": {"team": "payments"},
+        }
+        data, _ = self._round_trip(
+            model, "gcp_pubsub_topics", expected_name="orders"
+        )
+        self.assertEqual(data["tags"], {"team": "payments"})
+
+    def test_pubsub_subscription_full_path_name(self):
+        model = {
+            "name": f"projects/{PROJECT_ID}/subscriptions/orders-sub",
+            "topic": f"projects/{PROJECT_ID}/topics/orders",
+            "labels": {},
+        }
+        self._round_trip(
+            model, "gcp_pubsub_subscriptions", expected_name="orders-sub"
+        )
+
+    def test_iam_service_account_name_collapses_to_email(self):
+        email = f"runner@{PROJECT_ID}.iam.gserviceaccount.com"
+        model = {
+            "name": f"projects/{PROJECT_ID}/serviceAccounts/{email}",
+            "email": email,
+            "display_name": "CI Runner",
+            "unique_id": "10293847",
+        }
+        data, _ = self._round_trip(
+            model, "gcp_iam_service_accounts", expected_name=email
+        )
+        # Service accounts have no labels -> tags default to {}.
+        self.assertEqual(data["tags"], {})
+
+
 class NormalizerParserRoundTripTests(TestCase):
     """End-to-end: normalizer dict -> GCPPlatformHandler.parse_resource_data."""
 

@@ -23,16 +23,23 @@ native indexers at parity. Both indexers live in-tree and share the same
 downstream pipeline; the toggle is `gcpIndexerBackend: cloudquery|gcpapi` in
 `workspaceInfo.yaml` (or `WB_GCP_INDEXER_BACKEND`).
 
-## Cloud Asset Inventory is the parity workhorse
+## Typed collectors are the baseline; CAI is an optional accelerator
 
+The native GCP indexer's supported **functional baseline** is the per-service
+typed `google-cloud-*` SDK collectors (plus the synthesized `project` anchor).
+Any type with a typed collector is discovered using only its per-service viewer
+role, whether or not Cloud Asset Inventory is available.
+
+**Cloud Asset Inventory** (CAI) is an **optional accelerator** layered on top.
 The key difference from Azure: Azure's generic `resources.list()` returns only a
 sparse envelope (no `properties`), so Azure needs many hand-written typed
-collectors for rich payloads. GCP's **Cloud Asset Inventory** (CAI)
+collectors for rich payloads. GCP's CAI
 `list_assets(..., content_type=RESOURCE)` returns the *full* API representation
-of each asset under `resource.data`. A single CAI call per project therefore
-covers every registry type that has a CAI asset type, with rich payloads. Typed
-`google-cloud-*` collectors are a thin enrichment layer for a handful of
-high-value resources plus the synthesized `project` anchor.
+of each asset under `resource.data`, so a single CAI call per project broadens
+coverage to the long tail of registry types that have a CAI asset type but no
+typed collector. CAI is **not a hard dependency**: if it is not enabled or not
+permitted, the typed baseline still discovers normally and the CAI-only types
+are simply skipped.
 
 The join key is the **CAI asset type** (`<service>.googleapis.com/<Entity>`,
 e.g. `compute.googleapis.com/Instance`) — the GCP analogue of Azure's ARM type.
@@ -71,9 +78,12 @@ scripts/gcp/
    so child resources can link to their parent project at parse time (the
    handler does an immediate registry lookup).
 3. **Phase 1 - Typed pass**: for each accessed type that has a hand-written
-   `google-cloud-*` collector (compute instances, GKE clusters, storage
-   buckets), call `spec.collector(credentials, project_id)` per in-scope
-   project. Rich SDK payloads land in the resource store.
+   `google-cloud-*` collector (the 12 typed tables — compute instances, disks,
+   snapshots, networks, subnetworks, firewalls, addresses; storage buckets; GKE
+   clusters; Pub/Sub topics and subscriptions; IAM service accounts), call
+   `spec.collector(credentials, project_id)` per in-scope project. Rich SDK
+   payloads land in the resource store, and these types are excluded from the
+   Phase 2 CAI filter so they survive even when CAI is denied.
 4. **Phase 2 - CAI generic pass**: one `list_assets` call per in-scope project,
    scoped to the CAI asset types of accessed *generic* types (typed types are
    excluded so nothing is written twice). Each returned asset is routed by
@@ -106,10 +116,40 @@ Never hand-edit the YAML; edit the overrides and re-run the sync script.
 
 Every one of the 404 CloudQuery tables resolves via `find_spec` (by canonical
 table name or alias). Tables with a CAI asset type are discoverable via the CAI
-pass the moment a generation rule references them; the three typed tables get
-richer SDK payloads. The handful of tables with no CAI equivalent map to `null`
-and would need a dedicated typed collector if ever referenced — the same
+pass the moment a generation rule references them; the 12 typed tables get
+richer SDK payloads **and** survive without CAI. Of the 403 tables with a CAI
+asset type, 390 are served solely by the CAI pass (down from 399 before the
+typed fallback tier was expanded); the remaining high-value types have typed
+collectors. The handful of tables with no CAI equivalent map to `null` and
+would need a dedicated typed collector if ever referenced — the same
 incremental model the Azure indexer uses.
+
+#### What the baseline discovers when CAI is unavailable (normal, non-fatal)
+
+If the optional Phase 2 `list_assets` call is permission-denied (missing
+`roles/cloudasset.viewer` / `cloudasset.assets.listResource`, or the API is not
+enabled), `index()` logs an **informational** `GCP_CAI_PERMISSION_DENIED` note
+(at INFO — no error, no banner, no warning), increments `cai_permission_denied`,
+and **continues** — it does not abort the run. The discovery that remains is the
+functional baseline: the **12 typed types + the synthesized `gcp_projects`
+anchor** (and only the subset the loaded generation rules reference). The 390
+CAI-only types are simply skipped. This matches the live run against the sandbox
+project, which does not have CAI enabled: the typed `gcp_storage_buckets`,
+`gcp_container_clusters`, `gcp_compute_networks`, and `gcp_compute_firewalls`
+collectors ran cleanly and populated the store while the optional generic pass
+was skipped. The `assert-gcpapi-baseline` CI step treats the note as
+**informational** and **passes** on the typed-baseline results — CAI's absence
+is expected and never gates CI.
+
+#### Deferred typed collectors
+
+- `gcp_sql_instances`: the Cloud SQL Admin API has no idiomatic
+  `google-cloud-*` client; listing instances requires the
+  `google-api-python-client` discovery layer, which is a heavy non-idiomatic
+  dependency not otherwise used. Deferred — stays CAI-served.
+- `gcp_run_services`: the Cloud Run Admin v2 `ListServices` call has no
+  aggregated/`-` cross-region wildcard, so a clean single-call fallback would
+  require enumerating regions. Deferred — stays CAI-served.
 
 ## Authentication
 

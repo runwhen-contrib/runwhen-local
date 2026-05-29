@@ -49,12 +49,24 @@ def check_rest_service_error(response: requests.Response, command: str, verbose:
     # FIXME: Should probably also check for other 2xx status code, but currently
     # for the workspace builder service a successful execution always returns 200.
     if response.status_code != HTTPStatus.OK:
-        response_data = response.json()
+        # The service normally returns a JSON error body, but an unhandled
+        # exception (or a crashing/exiting server) can yield a non-JSON body or
+        # an empty response. Don't let that turn a clean server-side error into
+        # an opaque client-side JSONDecodeError -- surface the status + body.
+        try:
+            response_data = response.json()
+        except ValueError:
+            body = (response.text or "").strip()
+            fatal(
+                f'Error {response.status_code} from {SERVICE_NAME} service for '
+                f'command "{command}": non-JSON response body:\n{body[:4000]}'
+            )
+            return
         if verbose:
             print("Exception stack trace:")
-            print(response_data["stackTrace"])
+            print(response_data.get("stackTrace"))
             print("Request data:")
-            print(response_data["originalRequestData"])
+            print(response_data.get("originalRequestData"))
         fatal(f'Error {response.status_code} from {SERVICE_NAME} service for command "{command}": '
               f'{response_data.get("message")}')
 
