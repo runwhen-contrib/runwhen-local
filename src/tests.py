@@ -925,3 +925,99 @@ class EndToEndMcpIndexingTest(TestCase):
             {"MCP_SERVER_URL", "MCP_SERVER_DISPLAY_NAME", "MCP_TOOL_NAME",
              "MCP_INPUT_SCHEMA", "MCP_VERIFY_TLS"},
         )
+
+
+class RunbookDefaultsAreStringsTest(TestCase):
+    """The runbook template must coerce every runtimeVar `default` to a YAML
+    string. Robot Framework treats runtime vars as strings — if the template
+    leaves a JSON schema default as a raw number/bool/list/dict, YAML parses
+    it as that native type and the runner barfs on the type mismatch."""
+
+    def _render(self, properties: dict) -> dict:
+        import jinja2
+        from indexers import mcp_tools
+        from resources import Registry, REGISTRY_PROPERTY_NAME
+        from component import Context
+
+        # Build a fake registry entry by running _emit_tool_resource directly
+        # — no MCP server needed; we only care about template rendering.
+        reg = Registry()
+        mcp_tools._emit_tool_resource(
+            reg,
+            {"display_name": "srv",
+             "url": "https://srv.local/mcp",
+             "secret_ref": "srv-token"},
+            {"name": "do_thing",
+             "description": "",
+             "inputSchema": {"type": "object", "properties": properties}},
+        )
+        match_resource = next(iter(
+            reg.lookup_resource_type("mcp", "mcp_tool").instances.values()))
+
+        cb_path = os.environ.get(
+            "MCP_TOOL_PROXY_PATH",
+            "/Users/prats/Documents/work/rw-generic-codecollection/codebundles/mcp-tool-proxy",
+        )
+        env = jinja2.Environment(
+            loader=jinja2.FileSystemLoader(os.path.join(cb_path, ".runwhen/templates")),
+            undefined=jinja2.StrictUndefined,
+        )
+        t = env.get_template("mcp-tool-proxy-runbook.yaml")
+        out = t.render(slx_name="srv-do-thing",
+                       default_location="loc1",
+                       match_resource=match_resource)
+        return _yaml.safe_load(out)
+
+    def _defaults_by_name(self, parsed: dict) -> dict:
+        return {v["name"]: v["default"] for v in parsed["spec"]["runtimeVarsProvided"]}
+
+    def test_string_default_passes_through(self):
+        defaults = self._defaults_by_name(self._render({
+            "project": {"type": "string", "default": "RW"},
+        }))
+        self.assertEqual(defaults["project"], "RW")
+        self.assertIsInstance(defaults["project"], str)
+
+    def test_int_default_becomes_string(self):
+        defaults = self._defaults_by_name(self._render({
+            "limit": {"type": "integer", "default": 42},
+        }))
+        self.assertEqual(defaults["limit"], "42")
+        self.assertIsInstance(defaults["limit"], str)
+
+    def test_bool_default_becomes_lowercase_json_string(self):
+        # tojson on True yields "true" (JSON), not "True" (Python repr) —
+        # matters because Robot/downstream consumers expect JSON-shaped bools.
+        defaults = self._defaults_by_name(self._render({
+            "dry_run": {"type": "boolean", "default": True},
+        }))
+        self.assertEqual(defaults["dry_run"], "true")
+        self.assertIsInstance(defaults["dry_run"], str)
+
+    def test_list_default_becomes_json_string(self):
+        defaults = self._defaults_by_name(self._render({
+            "tags": {"type": "array", "default": ["a", "b"]},
+        }))
+        self.assertEqual(defaults["tags"], '["a", "b"]')
+        self.assertIsInstance(defaults["tags"], str)
+
+    def test_dict_default_becomes_json_string(self):
+        defaults = self._defaults_by_name(self._render({
+            "filters": {"type": "object", "default": {"k": "v"}},
+        }))
+        self.assertEqual(defaults["filters"], '{"k": "v"}')
+        self.assertIsInstance(defaults["filters"], str)
+
+    def test_missing_default_becomes_empty_string(self):
+        defaults = self._defaults_by_name(self._render({
+            "project": {"type": "string"},
+        }))
+        self.assertEqual(defaults["project"], "")
+        self.assertIsInstance(defaults["project"], str)
+
+    def test_null_default_becomes_empty_string(self):
+        defaults = self._defaults_by_name(self._render({
+            "project": {"type": "string", "default": None},
+        }))
+        self.assertEqual(defaults["project"], "")
+        self.assertIsInstance(defaults["project"], str)
