@@ -1,0 +1,169 @@
+metadata:
+  description: >-
+    Manual overrides applied by sync_gcp_resource_type_registry.py. Edit by hand,
+    then re-run the sync script to regenerate
+    src/indexers/gcp_resource_type_registry.yaml.
+
+    The registry maps every CloudQuery GCP plugin table to its Cloud Asset
+    Inventory (CAI) asset type (``<service>.googleapis.com/<Entity>``) plus
+    metadata used by the native ``gcpapi`` indexer. CAI asset types are the join
+    key for generic discovery, exactly like ARM types are for Azure.
+
+# ---------------------------------------------------------------------------
+# service_api_hosts
+#   Maps the CloudQuery service token (the ``<service>`` in
+#   ``gcp_<service>_<entity>``) to the Google API host that CAI uses in the
+#   asset type. When a token is absent here the heuristic falls back to
+#   ``<token>.googleapis.com``. Only list tokens whose host differs from the
+#   token, or where we want to be explicit.
+# ---------------------------------------------------------------------------
+service_api_hosts:
+  cloudassetinventory: cloudasset
+  resourcemanager: cloudresourcemanager
+  projects: cloudresourcemanager
+  organization: cloudresourcemanager
+  sql: sqladmin
+  kms: cloudkms
+  functions: cloudfunctions
+  functionsv2: cloudfunctions
+  filestore: file
+  cloudtasks: cloudtasks
+  cloudscheduler: cloudscheduler
+  cloudbuild: cloudbuild
+  clouddeploy: clouddeploy
+  cloudtrace: cloudtrace
+  cloudsupport: cloudsupport
+  clouderrorreporting: clouderrorreporting
+  databasemigration: datamigration
+  bigquerydatatransfer: bigquerydatatransfer
+  identitytoolkit: identitytoolkit
+  privateca: privateca
+  websecurityscanner: websecurityscanner
+  networkintelligencecenter: networkmanagement
+  sourcerepo: sourcerepo
+  videotranscoder: transcoder
+
+# ---------------------------------------------------------------------------
+# cai_type_overrides
+#   Pin the full CAI asset type for a table when the heuristic gets the host
+#   or entity wrong, or when the table has no CAI equivalent (set to null so
+#   generic discovery skips it and a typed collector handles it instead).
+#   These are the high-value, frequently-referenced resources first.
+# ---------------------------------------------------------------------------
+cai_type_overrides:
+  # --- compute (most-referenced surface) ---
+  gcp_compute_instances: compute.googleapis.com/Instance
+  gcp_compute_disks: compute.googleapis.com/Disk
+  gcp_compute_networks: compute.googleapis.com/Network
+  gcp_compute_subnetworks: compute.googleapis.com/Subnetwork
+  gcp_compute_addresses: compute.googleapis.com/Address
+  gcp_compute_global_addresses: compute.googleapis.com/GlobalAddress
+  gcp_compute_firewalls: compute.googleapis.com/Firewall
+  gcp_compute_forwarding_rules: compute.googleapis.com/ForwardingRule
+  gcp_compute_global_forwarding_rules: compute.googleapis.com/GlobalForwardingRule
+  gcp_compute_routers: compute.googleapis.com/Router
+  gcp_compute_routes: compute.googleapis.com/Route
+  gcp_compute_vpn_gateways: compute.googleapis.com/VpnGateway
+  gcp_compute_vpn_tunnels: compute.googleapis.com/VpnTunnel
+  gcp_compute_target_pools: compute.googleapis.com/TargetPool
+  gcp_compute_backend_services: compute.googleapis.com/BackendService
+  gcp_compute_url_maps: compute.googleapis.com/UrlMap
+  gcp_compute_images: compute.googleapis.com/Image
+  gcp_compute_snapshots: compute.googleapis.com/Snapshot
+  gcp_compute_instance_groups: compute.googleapis.com/InstanceGroup
+  gcp_compute_instance_templates: compute.googleapis.com/InstanceTemplate
+  gcp_compute_autoscalers: compute.googleapis.com/Autoscaler
+  gcp_compute_ssl_certificates: compute.googleapis.com/SslCertificate
+
+  # --- containers / serverless ---
+  gcp_container_clusters: container.googleapis.com/Cluster
+  gcp_container_node_pools: container.googleapis.com/NodePool
+  gcp_run_services: run.googleapis.com/Service
+  gcp_run_jobs: run.googleapis.com/Job
+  gcp_appengine_apps: appengine.googleapis.com/Application
+  gcp_appengine_services: appengine.googleapis.com/Service
+  gcp_appengine_versions: appengine.googleapis.com/Version
+  gcp_functions_functions: cloudfunctions.googleapis.com/CloudFunction
+  gcp_functionsv2_functions: cloudfunctions.googleapis.com/Function
+
+  # --- storage / data ---
+  gcp_storage_buckets: storage.googleapis.com/Bucket
+  gcp_sql_instances: sqladmin.googleapis.com/Instance
+  gcp_bigquery_datasets: bigquery.googleapis.com/Dataset
+  gcp_bigquery_tables: bigquery.googleapis.com/Table
+  gcp_spanner_instances: spanner.googleapis.com/Instance
+  gcp_spanner_databases: spanner.googleapis.com/Database
+  gcp_redis_instances: redis.googleapis.com/Instance
+  gcp_filestore_instances: file.googleapis.com/Instance
+  gcp_filestore_backups: file.googleapis.com/Backup
+  gcp_bigtableadmin_instances: bigtableadmin.googleapis.com/Instance
+  gcp_bigtableadmin_tables: bigtableadmin.googleapis.com/Table
+  gcp_bigtableadmin_clusters: bigtableadmin.googleapis.com/Cluster
+  gcp_bigtableadmin_app_profiles: bigtableadmin.googleapis.com/AppProfile
+  gcp_alloydb_clusters: alloydb.googleapis.com/Cluster
+  gcp_alloydb_instances: alloydb.googleapis.com/Instance
+
+  # --- messaging ---
+  gcp_pubsub_topics: pubsub.googleapis.com/Topic
+  gcp_pubsub_subscriptions: pubsub.googleapis.com/Subscription
+  gcp_pubsub_snapshots: pubsub.googleapis.com/Snapshot
+
+  # --- security / identity ---
+  gcp_kms_crypto_keys: cloudkms.googleapis.com/CryptoKey
+  gcp_kms_crypto_key_versions: cloudkms.googleapis.com/CryptoKeyVersion
+  gcp_kms_keyrings: cloudkms.googleapis.com/KeyRing
+  gcp_kms_import_jobs: cloudkms.googleapis.com/ImportJob
+  gcp_iam_roles: iam.googleapis.com/Role
+  gcp_iam_service_accounts: iam.googleapis.com/ServiceAccount
+  gcp_secretmanager_secrets: secretmanager.googleapis.com/Secret
+  gcp_dns_managed_zones: dns.googleapis.com/ManagedZone
+  gcp_dns_policies: dns.googleapis.com/Policy
+  gcp_artifactregistry_repositories: artifactregistry.googleapis.com/Repository
+
+  # --- resource manager (project is the anchor type) ---
+  gcp_projects: cloudresourcemanager.googleapis.com/Project
+  gcp_resourcemanager_projects: cloudresourcemanager.googleapis.com/Project
+  gcp_resourcemanager_folders: cloudresourcemanager.googleapis.com/Folder
+
+  # --- tables with no CAI asset-type equivalent ---
+  # These are IAM policy bindings, billing rollups, metadata, etc. CAI does not
+  # expose them as discrete assets, so generic discovery must skip them
+  # (cai_asset_type: null). A typed collector handles them if ever needed.
+  gcp_billing_billing_accounts: null
+
+# ---------------------------------------------------------------------------
+# aliases
+#   Extra RWL resource_type_name aliases that should resolve to a table, on
+#   top of the canonical CloudQuery table name. Mirrors the legacy preset
+#   registry names (e.g. ``project``, ``compute_instance``) so existing
+#   generation rules keep working.
+# ---------------------------------------------------------------------------
+aliases:
+  gcp_projects:
+  - project
+  gcp_compute_instances:
+  - compute_instance
+
+# ---------------------------------------------------------------------------
+# typed_collectors
+#   Tables for which gcpapi_resource_types.py ships a dedicated SDK collector
+#   (richer payload than the generic Cloud Asset Inventory pass).
+# ---------------------------------------------------------------------------
+# typed_collectors
+#   Tables for which gcpapi_resource_types.py ships a dedicated google-cloud-*
+#   SDK collector (richer payload than the generic Cloud Asset Inventory pass),
+#   plus ``gcp_projects`` which is synthesized directly from config as the
+#   anchor. Every other table is covered by the Cloud Asset Inventory pass.
+typed_collectors:
+- gcp_projects
+- gcp_compute_instances
+- gcp_storage_buckets
+- gcp_container_clusters
+
+# ---------------------------------------------------------------------------
+# mandatory
+#   Tables always collected regardless of generation-rule scope. ``gcp_projects``
+#   is the anchor: every other GCP resource links to its parent project.
+# ---------------------------------------------------------------------------
+mandatory:
+- gcp_projects

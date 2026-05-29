@@ -665,6 +665,8 @@ def init_cloudquery_config(
     # when the native Azure SDK indexer (azureapi) is responsible for Azure.
     from .azureapi import AZURE_INDEXER_BACKEND_SETTING  # local import to avoid cycles
     azure_backend = context.get_setting(AZURE_INDEXER_BACKEND_SETTING)
+    from .gcpapi import GCP_INDEXER_BACKEND_SETTING  # local import to avoid cycles
+    gcp_backend = context.get_setting(GCP_INDEXER_BACKEND_SETTING)
 
     for platform_spec in platform_specs:
         platform_name = platform_spec.name
@@ -676,6 +678,13 @@ def init_cloudquery_config(
             logger.info(
                 "Azure indexer backend: 'azureapi' (native azure-mgmt-* SDK); "
                 "skipping Azure in CloudQuery."
+            )
+            continue
+
+        if platform_name == "gcp" and gcp_backend == "gcpapi":
+            logger.info(
+                "GCP indexer backend: 'gcpapi' (native Cloud Asset Inventory + "
+                "google-cloud-* SDK); skipping GCP in CloudQuery."
             )
             continue
 

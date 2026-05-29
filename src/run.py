@@ -431,6 +431,10 @@ def main():
         workspace_info.get("azureIndexerBackend"),
         os.getenv("WB_AZURE_INDEXER_BACKEND"),
     )
+    gcp_indexer_backend = coalesce(
+        workspace_info.get("gcpIndexerBackend"),
+        os.getenv("WB_GCP_INDEXER_BACKEND"),
+    )
 
     # ------------------------------------------------------------------ 4. validation guards
     missing = []
@@ -697,6 +701,8 @@ def main():
             request_data['resourceStorePath'] = resource_store_path
         if azure_indexer_backend:
             request_data['azureIndexerBackend'] = azure_indexer_backend
+        if gcp_indexer_backend:
+            request_data['gcpIndexerBackend'] = gcp_indexer_backend
 
         # Invoke the workspace builder /run REST endpoint
         run_url = f"http://{rest_service_host}:{rest_service_port}/run/"

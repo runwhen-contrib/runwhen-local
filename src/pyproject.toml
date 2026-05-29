@@ -35,6 +35,11 @@ azure-mgmt-apimanagement = "^5.0.0"
 azure-mgmt-cosmosdb = "^9.9.0"
 azure-mgmt-azurearcdata = "^1.0.1"
 azure-devops = "^7.1.0b1"
+google-auth = "^2.38.0"
+google-cloud-asset = "^3.27.0"
+google-cloud-compute = "^1.23.0"
+google-cloud-storage = "^2.19.0"
+google-cloud-container = "^2.56.0"
 mcp = "^1.27.0"
 [build-system]
 requires = ["poetry-core>=1.0.0"]

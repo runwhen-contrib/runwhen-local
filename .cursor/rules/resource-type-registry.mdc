@@ -1,0 +1,38 @@
+---
+description: Guardrail for generated resource-type registry YAMLs and their sync scripts. Edit overrides + re-run sync; never hand-edit the generated file.
+globs: src/indexers/*_resource_type_registry.yaml,scripts/azure/*_overrides.yaml,scripts/gcp/*_overrides.yaml,scripts/azure/sync_*.py,scripts/gcp/sync_*.py,scripts/azure/*_cloudquery_tables.txt,scripts/gcp/*_cloudquery_tables.txt
+alwaysApply: false
+---
+
+# Resource-type registry is generated
+
+`src/indexers/*_resource_type_registry.yaml` is produced by
+`scripts/<platform>/sync_<platform>_resource_type_registry.py` from three
+inputs. **Do not hand-edit the generated YAML.**
+
+## To change a mapping
+
+1. Edit the right input:
+   - **Native-type wrong / missing** -> `*_overrides.yaml`
+     (`arm_type_overrides` for Azure, `cai_type_overrides` for GCP; use `null`
+     when there is no native API equivalent).
+   - **Alternate name** -> `aliases` in the overrides.
+   - **Rich payload wanted** -> add the table to `typed_collectors`.
+   - **Service -> API host remap** -> `service_api_hosts` (GCP).
+   - **New parity tables** -> refresh the `*_cloudquery_tables.txt` snapshot
+     from the CloudQuery hub (record source + version in its header).
+2. Regenerate:
+
+```bash
+python scripts/gcp/sync_gcp_resource_type_registry.py      # or azure/...
+```
+
+3. Review the `added / removed / changed` summary and the YAML diff; commit the
+   overrides AND the regenerated YAML together.
+
+## Parity invariant
+
+Every CloudQuery table for the platform must resolve via the registry by
+canonical name or alias. The sync `--dry-run` must report 0 drift after your
+change. Removing a table from parity requires an explicit reason, not
+convenience.
