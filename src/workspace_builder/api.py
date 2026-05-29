@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from typing import Any
 
@@ -14,14 +15,36 @@ from utils import get_version_info
 from . import startup
 from .exceptions import build_error_response
 from .explorer import router as explorer_router
+from .mcp.server import build_mcp_lifespan, build_streamable_http_app, is_mcp_enabled
 from .models import InfoResult
 from .run_handler import execute_run
 from .serialization import serialize_info, serialize_run_result
 
 startup.bootstrap()
 
-app = FastAPI(title="RunWhen Local Workspace Builder")
+logger = logging.getLogger("workspace_builder")
+
+# The MCP server's Streamable HTTP transport runs a session manager whose
+# lifecycle is exposed as an ASGI lifespan. FastAPI does not propagate
+# nested-mount lifespans automatically, so we wire the MCP session
+# manager into the parent app's lifespan explicitly. Without this, every
+# JSON-RPC call into the mounted ``/mcp`` endpoint would fail with
+# "Task group is not initialized". ``is_mcp_enabled()`` lets operators
+# opt out via ``RW_MCP_DISABLED=true`` while keeping the rest of the
+# server running.
+_mcp_lifespan = build_mcp_lifespan() if is_mcp_enabled() else None
+
+app = FastAPI(title="RunWhen Local Workspace Builder", lifespan=_mcp_lifespan)
 app.include_router(explorer_router)
+
+if _mcp_lifespan is not None:
+    # JSON-RPC endpoint reachable at ``http://<host>:8000/mcp``. Inside
+    # the FastMCP server we configured ``streamable_http_path="/"``, so
+    # the mount path is the only thing clients need to point at.
+    app.mount("/mcp", build_streamable_http_app())
+    logger.info("MCP server mounted at /mcp (set RW_MCP_DISABLED=true to disable)")
+else:
+    logger.info("MCP server disabled via RW_MCP_DISABLED")
 
 
 @app.get("/info/")

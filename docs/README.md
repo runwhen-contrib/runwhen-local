@@ -26,6 +26,8 @@ docs/
   [AWS](./user-guide/cloud-discovery/aws.md) /
   [GCP](./user-guide/cloud-discovery/gcp.md) /
   [Kubernetes](./user-guide/cloud-discovery/kubernetes.md)
+* [Agentic access: built-in MCP server](./user-guide/features/mcp-server.md) -
+  point Claude Code, Cursor, or Claude Desktop at your indexed Skills
 * [Troubleshooting](./user-guide/troubleshooting/stuck.md)
 
 ### Author CodeBundles, Skills, and generation rules
@@ -42,6 +44,7 @@ docs/
 * [Self-hosted runner architecture](./architecture/high-level-architecture-self-hosted-runner-connected.md)
 * [Resource store query API](./architecture/resource-store-query-api.md)
 * [ResourceWriter](./architecture/resource-writer.md)
+* [MCP server design](./architecture/mcp-server.md)
 * [Kubernetes Level-of-Detail internals](./architecture/kubernetes-lod/README.md)
 * [Workspace generation statistics](./architecture/workspace-generation-statistics.md)
 * [Container development guide](./architecture/development.md)

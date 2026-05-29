@@ -35,6 +35,7 @@ azure-mgmt-apimanagement = "^5.0.0"
 azure-mgmt-cosmosdb = "^9.9.0"
 azure-mgmt-azurearcdata = "^1.0.1"
 azure-devops = "^7.1.0b1"
+mcp = "^1.27.0"
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"

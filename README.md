@@ -53,7 +53,14 @@ secrets, and team-level governance.
    resources, the rendered SLXs, and their Skill descriptions side by
    side.
 
-4. **Optional Platform pairing.** Push the same SLXs to the RunWhen
+4. **Built-in MCP server.** A read-only [Model Context Protocol](https://modelcontextprotocol.io)
+   server is mounted at `http://localhost:8000/mcp/` so AI agents
+   (Claude Code, Cursor, Claude Desktop, ...) can search, browse, and
+   read your generated Skills directly. v1 is read-only — search and
+   suggestion; execution is the natural follow-on. See the
+   [MCP server guide](docs/user-guide/features/mcp-server.md).
+
+5. **Optional Platform pairing.** Push the same SLXs to the RunWhen
    Platform to gate execution behind RBAC, schedule them, and route
    results into alerts or developer self-service flows. Local is fully
    useful standalone; the Platform turns it into a production runtime.
@@ -225,6 +232,7 @@ Highlights:
 - [CodeBundle / Skill / SLX concepts](docs/authoring/concepts.md)
 - [Indexed resources reference](docs/authoring/indexed-resources/README.md)
 - [Generation rules: schema, lifecycle, and examples](docs/authoring/generation-rules/README.md)
+- [Agentic access: built-in MCP server](docs/user-guide/features/mcp-server.md)
 - [Architecture overview](docs/architecture/README.md)
 
 Hosted docs mirror is at

@@ -36,6 +36,12 @@ Per-platform deep dives.
 
 * [Workspace generation statistics](./workspace-generation-statistics.md)
 
+## Agentic surface
+
+* [MCP server design](./mcp-server.md) - the read-only Model Context
+  Protocol server that exposes the indexed resources and rendered
+  Skills to AI agents
+
 ## Development
 
 * [Container development guide](./development.md)
