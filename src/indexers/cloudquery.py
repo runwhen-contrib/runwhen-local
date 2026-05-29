@@ -104,9 +104,17 @@ def _import_azure_indexer_backend_setting():
     return AZURE_INDEXER_BACKEND_SETTING
 
 
+def _import_aws_indexer_backend_setting():
+    # Same rationale as the Azure helper: honor awsIndexerBackend even when the
+    # awsapi indexer is not explicitly included alongside cloudquery.
+    from .awsapi import AWS_INDEXER_BACKEND_SETTING
+    return AWS_INDEXER_BACKEND_SETTING
+
+
 SETTINGS = (
     SettingDependency(CLOUD_CONFIG_SETTING, False),
     SettingDependency(_import_azure_indexer_backend_setting(), False),
+    SettingDependency(_import_aws_indexer_backend_setting(), False),
 )
 
 @dataclass
@@ -667,6 +675,8 @@ def init_cloudquery_config(
     azure_backend = context.get_setting(AZURE_INDEXER_BACKEND_SETTING)
     from .gcpapi import GCP_INDEXER_BACKEND_SETTING  # local import to avoid cycles
     gcp_backend = context.get_setting(GCP_INDEXER_BACKEND_SETTING)
+    from .awsapi import AWS_INDEXER_BACKEND_SETTING  # local import to avoid cycles
+    aws_backend = context.get_setting(AWS_INDEXER_BACKEND_SETTING)
 
     for platform_spec in platform_specs:
         platform_name = platform_spec.name
@@ -685,6 +695,13 @@ def init_cloudquery_config(
             logger.info(
                 "GCP indexer backend: 'gcpapi' (native Cloud Asset Inventory + "
                 "google-cloud-* SDK); skipping GCP in CloudQuery."
+            )
+            continue
+
+        if platform_name == "aws" and aws_backend == "awsapi":
+            logger.info(
+                "AWS indexer backend: 'awsapi' (native Cloud Control API + "
+                "boto3 SDK); skipping AWS in CloudQuery."
             )
             continue
 

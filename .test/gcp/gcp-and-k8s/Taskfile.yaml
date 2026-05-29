@@ -474,3 +474,119 @@ tasks:
         rm exec_output.log || true
         rm slx_count.txt || true
     silent: true
+
+  # === Native gcpapi indexer (SQLite resource-store assertions) =============
+  #
+  # Mirrors .test/azure/no-aks-resources Taskfile: generate a workspaceInfo
+  # that selects the native ``gcpapi`` backend + the SQLite resource store,
+  # run discovery, then assert directly against output/resources.sqlite (not
+  # the SLX count). The legacy ci-test-1 / ci-test-2 targets above still
+  # exercise the CloudQuery GCP backend via SLX-count only.
+  #
+  # The project under test is read from gcp.secret's project_id so the same
+  # target works against whatever sandbox SA the CI secret writes.
+
+  generate-gcpapi-baseline-config:
+    desc: "Emit workspaceInfo.yaml selecting the native gcpapi backend + SQLite store (defaultLOD=detailed)."
+    silent: true
+    env:
+      RW_WORKSPACE: '{{.RW_WORKSPACE | default "gcpapi-baseline"}}'
+    cmds:
+      - |
+        GCP_PROJECT=$(python3 -c "import json;print(json.load(open('gcp.secret'))['project_id'])")
+        if [ -z "$GCP_PROJECT" ]; then
+          echo "Could not read project_id from gcp.secret"; exit 1
+        fi
+        cat > workspaceInfo.yaml <<EOF
+        workspaceName: "${RW_WORKSPACE}"
+        workspaceOwnerEmail: authors@runwhen.com
+        defaultLocation: location-01
+        defaultLOD: detailed
+        gcpIndexerBackend: gcpapi
+        resourceStoreBackend: sqlite
+        cloudConfig:
+          gcp:
+            applicationCredentialsFile: /shared/gcp.secret
+            projects:
+            - ${GCP_PROJECT}
+            projectLevelOfDetails:
+              ${GCP_PROJECT}: detailed
+        codeCollections: []
+        custom:
+          kubernetes_distribution_binary: kubectl
+        EOF
+        echo "Wrote workspaceInfo.yaml (gcpapi baseline / project=${GCP_PROJECT}, defaultLOD=detailed)"
+
+  ci-test-gcpapi-baseline:
+    desc: "End to end: native gcpapi discovery. SQLite store must contain the project anchor + discovered GCP resources."
+    cmds:
+      - task: generate-gcpapi-baseline-config
+      - task: build-rwl
+      - task: run-rwl-discovery
+      - task: assert-gcpapi-baseline
+
+  assert-gcpapi-baseline:
+    desc: "Verify the native gcpapi backend ran and persisted GCP resources to output/resources.sqlite."
+    silent: true
+    cmds:
+      - |
+        DB=output/resources.sqlite
+        if [ ! -f "$DB" ]; then
+          echo "FAIL: $DB not produced"
+          exit 1
+        fi
+
+        # Snapshot the indexer stdout so we can confirm the *native* backend ran
+        # (the run-rwl-discovery container stays up after discovery). The
+        # gcpapi backend-selection log only lives in the container's logs.
+        docker logs RunWhenLocal > container_logs.log 2>&1 || true
+
+        GCP_PROJECT=$(python3 -c "import json;print(json.load(open('gcp.secret'))['project_id'])")
+        fail=0
+
+        # 1. The native gcpapi backend must have been selected (NOT cloudquery).
+        if grep -qE "indexers.gcpapi: GCP indexer backend: 'gcpapi'" run_sh_output.log container_logs.log 2>/dev/null; then
+          echo "OK   baseline: native gcpapi backend ran"
+        else
+          echo "FAIL baseline: native gcpapi backend did not run (expected gcpIndexerBackend=gcpapi)"
+          fail=1
+        fi
+
+        # 2. The project anchor must be present (resource_type 'project').
+        n=$(sqlite3 "$DB" \
+          "SELECT count(*) FROM resources WHERE platform='gcp' AND resource_type='project' AND name='${GCP_PROJECT}';" \
+          2>/dev/null || echo 0)
+        if [ "$n" -lt 1 ]; then
+          echo "FAIL baseline: project anchor '${GCP_PROJECT}' not in resource store"
+          fail=1
+        else
+          echo "OK   baseline: project anchor '${GCP_PROJECT}' present (${n} row)"
+        fi
+
+        # 3. At least a few GCP resources overall (anchor + real resources).
+        total=$(sqlite3 "$DB" \
+          "SELECT count(*) FROM resources WHERE platform='gcp';" \
+          2>/dev/null || echo 0)
+        if [ "$total" -lt 3 ]; then
+          echo "FAIL baseline: expected >= 3 gcp resources, found ${total}"
+          fail=1
+        else
+          echo "OK   baseline: ${total} gcp resources in store (>= 3)"
+        fi
+
+        # 4. Typed collectors (storage buckets + GKE clusters) populate the
+        #    persistent sandbox infra. Assert presence (>= 1), not exact counts,
+        #    so the test stays stable as buckets come and go.
+        for rtype in gcp_storage_buckets gcp_container_clusters; do
+          n=$(sqlite3 "$DB" \
+            "SELECT count(*) FROM resources WHERE platform='gcp' AND resource_type='${rtype}';" \
+            2>/dev/null || echo 0)
+          if [ "$n" -lt 1 ]; then
+            echo "FAIL baseline: expected >= 1 ${rtype}, found ${n}"
+            fail=1
+          else
+            echo "OK   baseline: ${rtype} present (${n} row)"
+          fi
+        done
+
+        exit "$fail"

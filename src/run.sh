@@ -54,13 +54,14 @@ fi
 touch "$LOCK_FILE"
 
 # Construct components string based on whether --disable-cloudquery is set
-# `azureapi` / `gcpapi` are the native Azure / GCP SDK indexers; each is a
-# no-op unless its backend is selected in workspaceInfo.yaml
-# (azureIndexerBackend=azureapi, gcpIndexerBackend=gcpapi). Including them here
-# unconditionally lets users opt in via config without changing the CLI.
-COMPONENTS="load_resources,kubeapi,azureapi,gcpapi,azure_devops,generation_rules,render_output_items,dump_resources"
+# `azureapi` / `gcpapi` / `awsapi` are the native Azure / GCP / AWS SDK
+# indexers; each is a no-op unless its backend is selected in
+# workspaceInfo.yaml (azureIndexerBackend=azureapi, gcpIndexerBackend=gcpapi,
+# awsIndexerBackend=awsapi). Including them here unconditionally lets users opt
+# in via config without changing the CLI.
+COMPONENTS="load_resources,kubeapi,azureapi,gcpapi,awsapi,azure_devops,generation_rules,render_output_items,dump_resources"
 if [ $DISABLE_CLOUDQUERY -eq 0 ]; then
-    COMPONENTS="load_resources,kubeapi,azureapi,gcpapi,cloudquery,azure_devops,generation_rules,render_output_items,dump_resources"
+    COMPONENTS="load_resources,kubeapi,azureapi,gcpapi,awsapi,cloudquery,azure_devops,generation_rules,render_output_items,dump_resources"
 fi
 
 # Run the Python script with your specified arguments

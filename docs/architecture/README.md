@@ -27,6 +27,7 @@ Per-platform deep dives.
 
 * [Azure indexer internals](./azure-indexer-internals.md)
 * [GCP indexer internals](./gcp-indexer-internals.md)
+* [AWS indexer internals](./aws-indexer-internals.md)
 * [Kubernetes Level-of-Detail internals](./kubernetes-lod/README.md)
   * [Configuration internals](./kubernetes-lod/configuration.md)
   * [Decision flowchart](./kubernetes-lod/flowchart.md)

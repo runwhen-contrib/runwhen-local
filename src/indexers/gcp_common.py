@@ -154,15 +154,51 @@ def gcp_get_credentials_and_projects(platform_config_data: dict[str, Any]) -> di
             with os.fdopen(fd, "w") as fh:
                 fh.write(key_text)
             env["GOOGLE_APPLICATION_CREDENTIALS"] = tmp_path
-    elif app_creds_file and os.path.exists(app_creds_file):
-        try:
-            with open(app_creds_file, "r", encoding="utf-8") as fh:
-                credentials = _service_account_key_to_credentials(fh.read())
-        except Exception as e:  # pragma: no cover - defensive
-            logger.warning(
-                f"Failed to load SA credentials from applicationCredentialsFile: {e}"
-            )
-        env["GOOGLE_APPLICATION_CREDENTIALS"] = app_creds_file
+    elif app_creds_file:
+        # ``applicationCredentialsFile`` reaches the indexers in one of two
+        # shapes:
+        #   * a real path on disk (e.g. a pre-existing ADC file), or
+        #   * the credentials file *content*, base64-encoded - the exact shape
+        #     CloudQuery's ``GCPPlatformHandler.transform_cloud_config`` decodes
+        #     before it writes a temp file. The native indexer runs *before*
+        #     that transform, so it must decode the content itself (raw JSON is
+        #     accepted too for robustness).
+        key_text: Optional[str] = None
+        if os.path.exists(app_creds_file):
+            try:
+                with open(app_creds_file, "r", encoding="utf-8") as fh:
+                    key_text = fh.read()
+            except Exception as e:  # pragma: no cover - defensive
+                logger.warning(
+                    f"Failed to read applicationCredentialsFile path: {e}"
+                )
+            else:
+                env["GOOGLE_APPLICATION_CREDENTIALS"] = app_creds_file
+        else:
+            text = app_creds_file
+            if not text.lstrip().startswith("{"):
+                try:
+                    text = base64.b64decode(app_creds_file).decode("utf-8")
+                except Exception:
+                    text = app_creds_file
+            if text.lstrip().startswith("{"):
+                key_text = text
+
+        if key_text:
+            try:
+                credentials = _service_account_key_to_credentials(key_text)
+            except Exception as e:  # pragma: no cover - defensive
+                logger.warning(
+                    f"Failed to load SA credentials from applicationCredentialsFile: {e}"
+                )
+            else:
+                # When the value was inline content (not a path), persist it so
+                # gcloud / ADC consumers downstream agree on the same key.
+                if "GOOGLE_APPLICATION_CREDENTIALS" not in env:
+                    fd, tmp_path = tempfile.mkstemp(prefix="gcp-sa-", suffix=".json")
+                    with os.fdopen(fd, "w") as fh:
+                        fh.write(key_text)
+                    env["GOOGLE_APPLICATION_CREDENTIALS"] = tmp_path
 
     # Resolve the project list.
     project_ids = _normalize_projects(platform_config_data.get("projects"))

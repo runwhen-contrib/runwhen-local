@@ -1,0 +1,10 @@
+# Never commit live credentials or run artifacts for this fixture.
+aws.secret
+workspaceInfo.yaml
+output/
+run_sh_output.log
+container_logs.log
+slx_count.txt
+# Artifacts the workspace builder writes into the mounted dir during a run.
+.gitconfig
+.azure-devops/
