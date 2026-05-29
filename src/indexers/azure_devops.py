@@ -1,21 +1,28 @@
-from azure.devops.connection import Connection
-from azure.devops.v7_0.core.models import TeamProject
-from azure.devops.v7_0.git.models import GitRepository
-from azure.devops.v7_0.pipelines.models import Pipeline
-from azure.devops.v7_0.release.models import ReleaseDefinition
-from msrest.authentication import BasicAuthentication
-from azure.identity import DefaultAzureCredential, ClientSecretCredential
+from __future__ import annotations
+
 import logging
 import os
 import re
 import requests
 import base64
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from component import Context, SettingDependency
 from resources import Registry, REGISTRY_PROPERTY_NAME
 from .common import CLOUD_CONFIG_SETTING
 from k8s_utils import get_secret
+
+if TYPE_CHECKING:
+    # Imported only for static type checking. The Azure DevOps SDK has an
+    # import-time filesystem side effect (azure/devops/_file_cache.py calls
+    # os.makedirs($HOME/.azure-devops)), so importing it at module scope can
+    # crash the whole REST service on startup when $HOME is not writable.
+    # Keep these imports lazy (inside the functions that instantiate them).
+    from azure.devops.connection import Connection
+    from azure.devops.v7_0.core.models import TeamProject
+    from azure.devops.v7_0.git.models import GitRepository
+    from azure.devops.v7_0.pipelines.models import Pipeline
+    from azure.devops.v7_0.release.models import ReleaseDefinition
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +107,8 @@ class DiscoveryScope:
 
 def get_azure_devops_access_token_from_service_principal(tenant_id: str, client_id: str, client_secret: str) -> str:
     """Get an Azure DevOps access token using service principal credentials."""
+    from azure.identity import ClientSecretCredential
+
     try:
         credential = ClientSecretCredential(tenant_id, client_id, client_secret)
         token = credential.get_token("499b84ac-1321-427f-aa17-267ca6975798/.default")
@@ -110,11 +119,17 @@ def get_azure_devops_access_token_from_service_principal(tenant_id: str, client_
 
 def get_azure_devops_connection_with_pat(organization_url: str, personal_access_token: str) -> Connection:
     """Create an Azure DevOps connection using Personal Access Token."""
+    from azure.devops.connection import Connection
+    from msrest.authentication import BasicAuthentication
+
     credentials = BasicAuthentication('', personal_access_token)
     return Connection(base_url=organization_url, creds=credentials)
 
 def get_azure_devops_connection_with_service_principal(organization_url: str, access_token: str) -> Connection:
     """Create an Azure DevOps connection using Azure AD access token."""
+    from azure.devops.connection import Connection
+    from msrest.authentication import BasicAuthentication
+
     credentials = BasicAuthentication('', access_token)
     return Connection(base_url=organization_url, creds=credentials)
 
@@ -244,6 +259,8 @@ def index(context: Context) -> None:
     if not connection:
         logger.info("Trying DefaultAzureCredential for Azure DevOps authentication")
         try:
+            from azure.identity import DefaultAzureCredential
+
             credential = DefaultAzureCredential()
             token = credential.get_token("499b84ac-1321-427f-aa17-267ca6975798/.default")
             connection = get_azure_devops_connection_with_service_principal(organization_url, token.token)

@@ -113,8 +113,13 @@ tasks:
         set +a
 
         echo "Starting new container $CONTAINER_NAME..."
+        # AZURE_DEVOPS_CACHE_DIR points the azure-devops SDK's import-time file
+        # cache (azure/devops/_file_cache.get_cache_dir) at a writable path.
+        # Defense-in-depth: even if some module eagerly imports azure.devops,
+        # the os.makedirs no longer targets the read-only /shared (=$HOME) mount.
         docker run -d \
           -e DEBUG_LOGGING=false \
+          -e AZURE_DEVOPS_CACHE_DIR=/tmp/.azure-devops \
           -e AWS_ACCESS_KEY_ID \
           -e AWS_SECRET_ACCESS_KEY \
           -e AWS_SESSION_TOKEN \

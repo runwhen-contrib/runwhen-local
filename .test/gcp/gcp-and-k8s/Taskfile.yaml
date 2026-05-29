@@ -132,7 +132,11 @@ tasks:
 
         echo "Starting new container $CONTAINER_NAME..."
 
-        docker run -e DEBUG_LOGGING=false --name $CONTAINER_NAME -p 8000:8000 -v $(pwd):/shared -d runwhen-local:test || {
+        # AZURE_DEVOPS_CACHE_DIR points the azure-devops SDK's import-time file
+        # cache (azure/devops/_file_cache.get_cache_dir) at a writable path.
+        # Defense-in-depth: even if some module eagerly imports azure.devops,
+        # the os.makedirs no longer targets the read-only /shared (=$HOME) mount.
+        docker run -e DEBUG_LOGGING=false -e AZURE_DEVOPS_CACHE_DIR=/tmp/.azure-devops --name $CONTAINER_NAME -p 8000:8000 -v $(pwd):/shared -d runwhen-local:test || {
           echo "Failed to start container"; exit 1;
         }
 
