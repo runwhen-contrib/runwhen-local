@@ -90,7 +90,8 @@ tasks:
     silent: true
     cmds:
       - |
-        out=$(task check-terraform-infra | tee /dev/tty)
+        out=$(task check-terraform-infra)
+        echo "$out"
         if echo "$out" | grep -q "Deployed infrastructure detected"; then
           task cleanup-terraform-infra
         else
