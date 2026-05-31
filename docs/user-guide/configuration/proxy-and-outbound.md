@@ -38,7 +38,7 @@ As new CloudQuery indexers are added, additional URLS may need to be added to th
 
 ### Disabling CloudQuery Indexing
 
-By Default, RunWhen Local will perform Kubernetes and CloudQuery based discovery. If your RunWhen Local instance is intended to perform discovery for on-premise Kubernetes clusters **only**, then the CloudQuery discovery component can be disabled. The following example will override the default entrypoint to disable cloudquery:&#x20;
+By default, RunWhen Local performs Kubernetes plus cloud resource discovery. Cloud discovery now uses the native SDK indexers (`azureapi` / `gcpapi` / `awsapi`) by default, and the CloudQuery component still runs but is a no-op unless a cloud's `*IndexerBackend` is explicitly set to `cloudquery`. If your RunWhen Local instance is intended to perform discovery for on-premise Kubernetes clusters **only**, then the CloudQuery discovery component can be disabled entirely. The following example will override the default entrypoint to disable cloudquery:&#x20;
 
 ```
         

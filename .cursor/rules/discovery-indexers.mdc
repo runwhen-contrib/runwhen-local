@@ -7,9 +7,13 @@ alwaysApply: false
 # Discovery indexer contract
 
 RunWhen Local discovers resources via native SDK indexers (`azureapi`,
-`gcpapi`, future `awsapi`) plus the legacy `cloudquery` indexer. The native
-indexers exist to remove the CloudQuery dependency entirely. When editing any
-indexer, enforce every rule below.
+`gcpapi`, `awsapi`) plus the legacy `cloudquery` indexer. The native indexers
+are now the **default** backend for all three clouds (`azureIndexerBackend`,
+`gcpIndexerBackend`, `awsIndexerBackend` default to `azureapi`/`gcpapi`/`awsapi`;
+the resource store defaults to `sqlite`). CloudQuery is retained only as an
+explicit opt-in (`*IndexerBackend: cloudquery`) and exists to be removed
+entirely. By default the CloudQuery indexer skips all three clouds. When editing
+any indexer, enforce every rule below.
 
 For full workflows use the `extend-discovery-type` and `add-discovery-type`
 skills. Worked examples: `docs/architecture/{azure,gcp}-indexer-internals.md`.

@@ -3,22 +3,23 @@
 RunWhen Local can discover GCP resources two ways, selected by
 `gcpIndexerBackend` in `workspaceInfo.yaml`:
 
-* **`cloudquery`** (default): invokes the
-  [CloudQuery GCP plugin](https://hub.cloudquery.io/plugins/source/cloudquery/gcp)
-  against the project(s) you've configured and reads the resulting SQLite
-  intermediate.
-* **`gcpapi`**: the native indexer — uses first-party `google-cloud-*` SDK
-  collectors as its functional baseline, plus an optional Google Cloud Asset
+* **`gcpapi`** (default): the native indexer — uses first-party `google-cloud-*`
+  SDK collectors as its functional baseline, plus an optional Google Cloud Asset
   Inventory accelerator, with no CloudQuery binary or `gcloud`
   subprocesses. It discovers only the resource types your generation rules
   reference, per project, and respects per-project `projectLevelOfDetails`
   (projects with LOD `none` are skipped). See
   [GCP indexer internals](../../architecture/gcp-indexer-internals.md) for the
   design.
+* **`cloudquery`** (legacy/fallback): invokes the
+  [CloudQuery GCP plugin](https://hub.cloudquery.io/plugins/source/cloudquery/gcp)
+  against the project(s) you've configured and reads the resulting SQLite
+  intermediate. Set this explicitly to opt back into the CloudQuery path.
 
 ```yaml
 # workspaceInfo.yaml
-gcpIndexerBackend: gcpapi
+# gcpapi is the default; set this to 'cloudquery' to use the legacy backend.
+gcpIndexerBackend: cloudquery
 ```
 
 Either way the CodeBundle-facing contract is the same: generation rules
@@ -147,9 +148,37 @@ table lists the baseline types that are discovered with or without CAI. The full
 of CloudQuery table → CAI asset type lives in the generated registry
 (`src/indexers/gcp_resource_type_registry.yaml`).
 
+## GKE clusters: indexing Kubernetes resources inside them
+
+Discovering the `gcp_container_clusters` resource (above) indexes the GKE
+cluster *object* in GCP. To also index the **Kubernetes resources running
+inside** those clusters, RunWhen Local can build a kubeconfig at discovery time
+from your GCP service account, mirroring how Azure AKS and AWS EKS work.
+
+Configure clusters under `cloudConfig.gcp.gkeClusters` (explicit `clusters`
+and/or `autoDiscover: true`). At discovery time RunWhen Local builds the
+kubeconfig using the **native Google SDKs — no `gcloud`**: it calls the GKE
+Container API (`google-cloud-container`'s `ClusterManagerClient`, using
+`get_cluster` for explicit clusters and `list_clusters` for `autoDiscover`) to
+fetch each cluster's endpoint + CA, mints a short-lived OAuth bearer token from
+the service account (`google-auth`), tags each cluster entry with a
+`workspace-builder` extension (`cluster_type: gke`, `auth_type`, `project_id`,
+`location`) so the `gcp-auth` / `gcp-tags` templates and the Kubernetes indexer
+recognize them, and merges the result into `~/.kube/gke-kubeconfig`.
+
+Per-cluster Level of Detail is honored just like AKS and EKS: each cluster's
+`defaultNamespaceLOD` and `namespaceLODs` apply to that cluster's namespaces,
+overriding the global `defaultLOD`.
+
+This **discovery-time** kubeconfig generation is distinct from the **runtime**
+`custom.gke_clusters` secret-provider auth (the `gcp-kubernetes-auth.yaml` /
+`gcp:sa@kubeconfig:...` templates used to re-authenticate generated tasks). See
+[GCP Discovery → GKE Cluster Discovery](../../user-guide/cloud-discovery/gcp.md#gke-cluster-discovery)
+for the full configuration reference.
+
 ## Roadmap
 
 The native `gcpapi` indexer is the path toward removing the CloudQuery
-dependency entirely (alongside `azureapi` and a future native AWS indexer).
-`cloudquery` remains the default backend until the native path has been
-validated across the contrib CodeBundles.
+dependency entirely (alongside `azureapi` and `awsapi`). It is now the default
+backend for GCP; `cloudquery` remains available as a legacy/fallback opt-in via
+`gcpIndexerBackend: cloudquery`.

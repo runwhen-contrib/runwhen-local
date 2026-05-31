@@ -10,10 +10,10 @@ the future local-DB / REST substrate is a drop-in swap.
 Coexists with the CloudQuery indexer behind the ``AZURE_INDEXER_BACKEND``
 setting:
 
-* ``"cloudquery"`` (default): this indexer is a no-op; CloudQuery handles
-  Azure as it does today.
-* ``"azureapi"``:              this indexer discovers Azure resources and the
+* ``"azureapi"`` (default):    this indexer discovers Azure resources and the
                                CloudQuery indexer skips the Azure block.
+* ``"cloudquery"``:            this indexer is a no-op; CloudQuery handles
+                               Azure (legacy/fallback opt-in).
 
 Component name: ``azureapi``. Stage: ``INDEXER``.
 """
@@ -69,9 +69,9 @@ AZURE_INDEXER_BACKEND_SETTING = Setting(
     "azureIndexerBackend",
     Setting.Type.STRING,
     "Selects the backend used to discover Azure resources. "
-    "'cloudquery' (default) uses the legacy CloudQuery-based path; "
-    "'azureapi' uses the native azure-mgmt-* SDK indexer.",
-    "cloudquery",
+    "'azureapi' (default) uses the native azure-mgmt-* SDK indexer; "
+    "'cloudquery' opts back into the legacy CloudQuery-based path.",
+    "azureapi",
 )
 
 SETTINGS = (

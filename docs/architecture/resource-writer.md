@@ -34,17 +34,17 @@ class ResourceWriter(Protocol):
 
 ## Implementations
 
-### `InMemoryRegistryWriter` (default)
+### `InMemoryRegistryWriter` (opt-in via `resourceStoreBackend: memory`)
 
-Wraps the `Registry` carried on `Context` under the `registry` property. Delegates to `Registry.add_resource(...)` and runs `resolve_deferred_azure_relationships(...)` on `finalize()`. This is the default writer.
+Wraps the `Registry` carried on `Context` under the `registry` property. Delegates to `Registry.add_resource(...)` and runs `resolve_deferred_azure_relationships(...)` on `finalize()`. Selected by setting `resourceStoreBackend: memory`.
 
 The legacy `cloudquery` indexer still writes to the registry directly (intentional — we don't want to perturb the existing path during the Azure SDK migration). It will migrate in a follow-up once AWS / GCP indexers are also native, at which point all indexers go through `ResourceWriter`.
 
-### `SqliteResourceWriter` (opt-in)
+### `SqliteResourceWriter` (default)
 
 A *dual* writer: it composes `InMemoryRegistryWriter` and forwards every `add_resource` / `finalize` call to it (so enrichers / renderers keep reading from the in-memory `Registry` unchanged), and on `finalize()` it snapshots the **full** registry into a local SQLite database. The DB lands wherever non-SQL artefacts go (filesystem dir or tar archive) via the active `Outputter`.
 
-Selected by setting `resourceStoreBackend: sqlite` (see [Selecting a writer](#selecting-a-writer)). Lives in [`src/indexers/sqlite_resource_writer.py`](../../src/indexers/sqlite_resource_writer.py).
+This is now the **default** writer (`resourceStoreBackend: sqlite`); set `resourceStoreBackend: memory` to fall back to the in-memory-only writer (see [Selecting a writer](#selecting-a-writer)). Lives in [`src/indexers/sqlite_resource_writer.py`](../../src/indexers/sqlite_resource_writer.py).
 
 #### Schema
 
@@ -153,11 +153,11 @@ The resulting SQLite file lands next to `resource-dump.yaml` in the workspace ou
 
 ## Migration roadmap
 
-1. **Done:** `InMemoryRegistryWriter` is the default. `azureapi` indexer writes through it. Legacy `cloudquery` still writes directly.
-2. **Done:** `SqliteResourceWriter` ships as an opt-in dual writer (`resourceStoreBackend: sqlite`). It composes the in-memory writer and snapshots the registry to SQLite on `finalize()`.
-3. **Next:** AWS / GCP native indexers (`awsapi`, `gcpapi`) — also write through `ResourceWriter`.
-4. **Then:** Delete the CloudQuery code path entirely; every indexer goes through `ResourceWriter`. At that point, `SqliteResourceWriter`'s snapshot is the **complete** resource graph for every active backend.
-5. **Then:** Make `SqliteResourceWriter` the default and treat the DB as the source of truth; the `Registry` becomes a hydrated cache in front of the DB.
+1. **Done:** `InMemoryRegistryWriter` ships as the writer seam. `azureapi` indexer writes through it. Legacy `cloudquery` still writes directly.
+2. **Done:** `SqliteResourceWriter` ships as a dual writer (`resourceStoreBackend: sqlite`). It composes the in-memory writer and snapshots the registry to SQLite on `finalize()`.
+3. **Done:** AWS / GCP native indexers (`awsapi`, `gcpapi`) also write through `ResourceWriter`, and the native indexers are now the **default** backend for all three clouds.
+4. **Done:** `SqliteResourceWriter` is now the **default** (`resourceStoreBackend: sqlite`); set `resourceStoreBackend: memory` to opt out. The legacy CloudQuery code path is retained as an opt-in (`*IndexerBackend: cloudquery`) and not yet deleted.
+5. **Next:** Treat the DB as the source of truth; the `Registry` becomes a hydrated cache in front of the DB.
 6. **Then:** Extend the FastAPI REST service in front of the DB for read-only resource queries. The `/run/` endpoint continues to call `run_components(...)` via the SDK.
 
 Throughout, the `Resource` shape that `parse_resource_data` produces — and that generation rules consume — does not change.

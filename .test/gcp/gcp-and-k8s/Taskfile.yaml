@@ -47,6 +47,47 @@ tasks:
         EOF
     silent: true
 
+  generate-rwl-config-gke-discovery:
+    desc: "Generate workspaceInfo.yaml that builds the kubeconfig from GCP creds via cloudConfig.gcp.gkeClusters (discovery-time GKE kubeconfig generation)."
+    env:
+      RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace"}}'
+    cmds:
+      - |
+        # Demonstrates discovery-time GKE kubeconfig generation: instead of
+        # mounting an explicit kubeconfig, RunWhen Local builds the kubeconfig
+        # for each listed cluster from the GCP service account
+        # (applicationCredentialsFile) using the native Google SDKs (the GKE
+        # Container API + a short-lived OAuth token) -- no gcloud required.
+        cat <<EOF > workspaceInfo.yaml
+        workspaceName: "$RW_WORKSPACE"
+        workspaceOwnerEmail: authors@runwhen.com
+        defaultLocation: location-01
+        defaultLOD: detailed
+        cloudConfig:
+          # Legacy explicit-kubeconfig fallback (uncomment to revert):
+          # kubernetes:
+          #   kubeconfigFile: /shared/kubeconfig.secret
+          #   contexts:
+          #     sandbox-cluster-1:
+          #       defaultNamespaceLOD: detailed
+          gcp:
+            applicationCredentialsFile: /shared/gcp.secret
+            projects:
+            - runwhen-nonprod-sandbox
+            projectLevelOfDetails:
+              runwhen-nonprod-sandbox: detailed
+            gkeClusters:
+              autoDiscover: false
+              clusters:
+                - name: sandbox-cluster-1
+                  location: us-central1-a
+                  defaultNamespaceLOD: detailed
+        codeCollections: []
+        custom: 
+          kubernetes_distribution_binary: kubectl
+        EOF
+    silent: true
+
   generate-rwl-config-basic:
     desc: "Generate RunWhen Local configuration (workspaceInfo.yaml)"
     env:
@@ -262,6 +303,11 @@ tasks:
           workspaceOwnerEmail: authors@runwhen.com
           defaultLocation: location-01
           defaultLOD: none
+          # Legacy CloudQuery coverage: native gcpapi is now the default, so pin
+          # this target to the CloudQuery path explicitly (with the in-memory
+          # store) to keep exercising the legacy backend.
+          gcpIndexerBackend: cloudquery
+          resourceStoreBackend: memory
           cloudConfig:
             kubernetes:             
               kubeconfigFile: /shared/kubeconfig.secret
@@ -301,6 +347,10 @@ tasks:
           workspaceOwnerEmail: authors@runwhen.com
           defaultLocation: location-01
           defaultLOD: none
+          # Legacy CloudQuery coverage: pin to the CloudQuery path + in-memory
+          # store now that native indexers are the default.
+          gcpIndexerBackend: cloudquery
+          resourceStoreBackend: memory
           cloudConfig:
             kubernetes:             
               kubeconfigFile: /shared/kubeconfig.secret
@@ -385,6 +435,11 @@ tasks:
         workspaceOwnerEmail: authors@runwhen.com
         defaultLocation: location-01
         defaultLOD: none
+        # Airgap mode is a CloudQuery feature, so force the CloudQuery GCP path
+        # (native gcpapi is now the default) + the in-memory store so CloudQuery
+        # actually runs and emits the airgap log lines this test asserts on.
+        gcpIndexerBackend: cloudquery
+        resourceStoreBackend: memory
         cloudConfig:
           kubernetes:             
             kubeconfigFile: /shared/kubeconfig.secret

@@ -3,20 +3,22 @@
 RunWhen Local can discover AWS resources two ways, selected by
 `awsIndexerBackend` in `workspaceInfo.yaml`:
 
-* **`cloudquery`** (default): invokes the
+* **`awsapi`** (default): the native indexer — uses the AWS Cloud Control API
+  plus first-party `boto3` SDKs, no CloudQuery binary. It discovers only the
+  resource types your generation rules reference, per account/region, and
+  respects per-account `accountLevelOfDetails` (an account with LOD `none` is
+  skipped). See
+  [AWS indexer internals](../../architecture/aws-indexer-internals.md) for
+  the design.
+* **`cloudquery`** (legacy/fallback): invokes the
   [CloudQuery AWS plugin](https://hub.cloudquery.io/plugins/source/cloudquery/aws)
   against the account(s) you've configured and reads the resulting SQLite
-  intermediate.
-* **`awsapi`**: the native indexer — uses the AWS Cloud Control API plus
-  first-party `boto3` SDKs, no CloudQuery binary. It discovers only the resource
-  types your generation rules reference, per account/region, and respects
-  per-account `accountLevelOfDetails` (an account with LOD `none` is skipped).
-  See [AWS indexer internals](../../architecture/aws-indexer-internals.md) for
-  the design.
+  intermediate. Set this explicitly to opt back into the CloudQuery path.
 
 ```yaml
 # workspaceInfo.yaml
-awsIndexerBackend: awsapi
+# awsapi is the default; set this to 'cloudquery' to use the legacy backend.
+awsIndexerBackend: cloudquery
 ```
 
 Either way the CodeBundle-facing contract is the same: generation rules
@@ -87,6 +89,6 @@ cloudConfig:
 ## Roadmap
 
 The native `awsapi` indexer is the path toward removing the CloudQuery
-dependency entirely (alongside `azureapi` and `gcpapi`). `cloudquery` remains
-the default backend until the native path has been validated across the contrib
-CodeBundles.
+dependency entirely (alongside `azureapi` and `gcpapi`). It is now the default
+backend for AWS; `cloudquery` remains available as a legacy/fallback opt-in via
+`awsIndexerBackend: cloudquery`.

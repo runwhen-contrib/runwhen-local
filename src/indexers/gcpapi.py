@@ -33,9 +33,10 @@ no resource-group dimension):
 
 Coexists with the CloudQuery indexer behind the ``GCP_INDEXER_BACKEND`` setting:
 
-* ``"cloudquery"`` (default): this indexer is a no-op; CloudQuery handles GCP.
-* ``"gcpapi"``:               this indexer discovers GCP resources and the
+* ``"gcpapi"`` (default):     this indexer discovers GCP resources and the
                               CloudQuery indexer skips the GCP block.
+* ``"cloudquery"``:           this indexer is a no-op; CloudQuery handles GCP
+                              (legacy/fallback opt-in).
 
 Component name: ``gcpapi``. Stage: ``INDEXER``.
 """
@@ -104,9 +105,9 @@ GCP_INDEXER_BACKEND_SETTING = Setting(
     "gcpIndexerBackend",
     Setting.Type.STRING,
     "Selects the backend used to discover GCP resources. "
-    "'cloudquery' (default) uses the legacy CloudQuery-based path; "
-    "'gcpapi' uses the native Cloud Asset Inventory + google-cloud-* indexer.",
-    "cloudquery",
+    "'gcpapi' (default) uses the native Cloud Asset Inventory + google-cloud-* "
+    "indexer; 'cloudquery' opts back into the legacy CloudQuery-based path.",
+    "gcpapi",
 )
 
 SETTINGS = (

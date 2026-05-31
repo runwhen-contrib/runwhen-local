@@ -393,14 +393,26 @@ class WriterTests(TestCase):
 
 
 class SelectorTests(TestCase):
-    def test_default_selector_returns_in_memory_writer(self):
+    def test_default_selector_returns_sqlite_writer(self):
+        # The default resourceStoreBackend is now 'sqlite', so with no explicit
+        # setting the selector must return the SQLite-backed writer.
+        from indexers.resource_writer import get_resource_writer
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            ctx = _make_context(tmpdir)
+            writer = get_resource_writer(ctx)
+            self.assertIsInstance(writer, SqliteResourceWriter)
+
+    def test_memory_backend_selected_by_setting(self):
         from indexers.resource_writer import (
             InMemoryRegistryWriter,
+            RESOURCE_STORE_BACKEND_SETTING,
             get_resource_writer,
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
             ctx = _make_context(tmpdir)
+            ctx.setting_values[RESOURCE_STORE_BACKEND_SETTING.name] = "memory"
             writer = get_resource_writer(ctx)
             self.assertIsInstance(writer, InMemoryRegistryWriter)
 

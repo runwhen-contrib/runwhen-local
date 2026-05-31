@@ -176,17 +176,19 @@ for the current flag list.
 | ------------ | -------------- | -------- |
 | Azure        | native `azureapi` (`azure-mgmt-*` SDKs) | 619 resource types — full parity with the legacy CloudQuery plugin. 25 with rich (typed) payloads, the rest via the ARM-resources catch-all. [Catalog](docs/authoring/indexed-resources/azure-resource-catalog.md). |
 | Kubernetes   | native (`kubernetes` Python client) | Standard kinds (Deployment, StatefulSet, Service, Pod, Ingress, etc.) plus user-listed CRDs, with per-namespace LOD. |
-| AWS          | CloudQuery AWS plugin | Every CloudQuery AWS table; gen rules match by table name. |
-| GCP          | CloudQuery GCP plugin | Every CloudQuery GCP table; gen rules match by table name. |
+| AWS          | native `awsapi` (Cloud Control API + `boto3`) | Parity with the CloudQuery AWS plugin; gen rules match by CloudQuery table name. |
+| GCP          | native `gcpapi` (Cloud Asset Inventory + `google-cloud-*`) | Parity with the CloudQuery GCP plugin; gen rules match by CloudQuery table name. |
 
 Per-indexer authoring reference:
 [`docs/authoring/indexed-resources/`](docs/authoring/indexed-resources/).
 
-The Azure CloudQuery backend still exists behind
-`azureIndexerBackend: cloudquery` for compatibility but is being phased
-out in favor of `azureIndexerBackend: azureapi`. Both backends emit a
-single grep-able info-level log line on every run so it's obvious which
-one ran.
+The native SDK indexers (`azureapi` / `gcpapi` / `awsapi`) are the **default**
+backend for every cloud, and the discovered resource graph is persisted to a
+local SQLite store by default (`resourceStoreBackend: sqlite`). The legacy
+CloudQuery backend still exists behind `*IndexerBackend: cloudquery` for
+compatibility but is being phased out; set it explicitly to opt back in. Both
+backends emit a single grep-able info-level log line on every run so it's
+obvious which one ran.
 
 ## Going to production with the RunWhen Platform
 

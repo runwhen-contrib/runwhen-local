@@ -55,10 +55,11 @@ touch "$LOCK_FILE"
 
 # Construct components string based on whether --disable-cloudquery is set
 # `azureapi` / `gcpapi` / `awsapi` are the native Azure / GCP / AWS SDK
-# indexers; each is a no-op unless its backend is selected in
-# workspaceInfo.yaml (azureIndexerBackend=azureapi, gcpIndexerBackend=gcpapi,
-# awsIndexerBackend=awsapi). Including them here unconditionally lets users opt
-# in via config without changing the CLI.
+# indexers and are now the DEFAULT backend for each cloud. To opt back into the
+# legacy CloudQuery path for a cloud, set its backend explicitly in
+# workspaceInfo.yaml (azureIndexerBackend=cloudquery, gcpIndexerBackend=cloudquery,
+# awsIndexerBackend=cloudquery). CloudQuery is still included below so the
+# override keeps working; by default it is a no-op for all three clouds.
 COMPONENTS="load_resources,kubeapi,azureapi,gcpapi,awsapi,azure_devops,generation_rules,render_output_items,dump_resources"
 if [ $DISABLE_CLOUDQUERY -eq 0 ]; then
     COMPONENTS="load_resources,kubeapi,azureapi,gcpapi,awsapi,cloudquery,azure_devops,generation_rules,render_output_items,dump_resources"

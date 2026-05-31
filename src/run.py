@@ -20,6 +20,7 @@ from utils import get_proxy_config
 from utils import get_request_verify
 from azure_utils import generate_kubeconfig_for_aks
 from aws_utils import generate_kubeconfig_for_eks
+from gcp_utils import generate_kubeconfig_for_gke
 
 
 SERVICE_NAME = "Workspace Builder"
@@ -192,6 +193,36 @@ def merge_kubeconfigs(kubeconfig_paths, output_path):
     else:
         print("No valid kubeconfig files were found to merge.")
 
+def clear_stale_kubeconfig_artifacts(cloud_config):
+    """Remove kubeconfig artifacts this tool generates from a previous run.
+
+    A persistent ``$HOME`` (e.g. a bind-mounted fixture dir) can retain
+    ``~/.kube/config`` and the per-cloud ``~/.kube/{azure,eks,gke}-kubeconfig``
+    temp files across runs. Clearing them up front guarantees discovery can
+    never silently reuse a stale kubeconfig when nothing was generated this run.
+
+    We only remove files THIS tool generates -- never a user-supplied
+    ``kubernetes.kubeconfigFile``, which lives at a different, user-pointed path
+    (e.g. ``/shared/kubeconfig.secret``). Returns the list of paths removed.
+    """
+    user_kubeconfig_file = (cloud_config.get('kubernetes') or {}).get('kubeconfigFile') if cloud_config else None
+    kube_dir = os.path.expanduser("~/.kube")
+    removed = []
+    for stale_name in ("config", "azure-kubeconfig", "eks-kubeconfig", "gke-kubeconfig"):
+        stale_path = os.path.join(kube_dir, stale_name)
+        if user_kubeconfig_file and os.path.abspath(stale_path) == os.path.abspath(user_kubeconfig_file):
+            # Never touch a user-supplied kubeconfig, even if it lives here.
+            continue
+        if os.path.exists(stale_path):
+            try:
+                os.remove(stale_path)
+                removed.append(stale_path)
+                print(f"Removed stale kubeconfig artifact from a previous run: {stale_path}")
+            except OSError as e:
+                print(f"Warning: could not remove stale kubeconfig {stale_path}: {e}")
+    return removed
+
+
 def coalesce(*vals):
     """Return the first non-empty value or None."""
     return next((v for v in vals if v not in (None, "")), None)
@@ -224,7 +255,7 @@ def main():
                         help=f'Host/port info for where the {SERVICE_NAME} REST service is running. '
                              f'Format is <host>:<port>')
     parser.add_argument('-c', '--components', action='store',
-                        default="load_resources,kubeapi,cloudquery,azure_devops,generation_rules,render_output_items,dump_resources")
+                        default="load_resources,kubeapi,azureapi,gcpapi,awsapi,cloudquery,azure_devops,generation_rules,render_output_items,dump_resources")
     parser.add_argument('-o', '--output', action='store', dest='output_path', default="output",
                         help="Path to output directory for generated files. "
                              "The path is relative to the base directory.")
@@ -470,6 +501,9 @@ def main():
     if cloud_config is None:
         raise ValueError("'cloudConfig' section is missing; discovery configuration must be explicit.")
 
+    # Defensive stale-kubeconfig cleanup before any cluster kubeconfig is
+    # generated, so a leftover file from a previous run can never leak in.
+    clear_stale_kubeconfig_artifacts(cloud_config)
 
     azure_config = None
     aks_clusters = None
@@ -535,6 +569,39 @@ def main():
     if not aws_config:
         print("AWS configuration not found in workspace_info.")
 
+    # Check GCP GKE configuration
+    gcp_config = None
+    gke_clusters = None
+    gke_kubeconfig_path = None
+    gke_auto_discover = False
+
+    if cloud_config:
+        gcp_config = workspace_info.get("cloudConfig", {}).get("gcp")
+        if gcp_config:
+            gke_clusters_config = gcp_config.get('gkeClusters', {})
+            gke_clusters = gke_clusters_config.get('clusters', [])
+            gke_auto_discover = gke_clusters_config.get('autoDiscover', False)
+
+            # Generate kubeconfig if there are explicit clusters OR if auto-discovery is enabled
+            if (isinstance(gke_clusters, list) and len(gke_clusters) > 0) or gke_auto_discover:
+                try:
+                    generate_kubeconfig_for_gke(gke_clusters, workspace_info)
+                    gke_kubeconfig_path_candidate = os.path.expanduser("~/.kube/gke-kubeconfig")
+                    # Only use the path if the file was actually created
+                    if os.path.exists(gke_kubeconfig_path_candidate):
+                        gke_kubeconfig_path = gke_kubeconfig_path_candidate
+                        print(f"GKE kubeconfig generated and saved to {gke_kubeconfig_path}")
+                    else:
+                        print(f"Warning: GKE kubeconfig was not created at {gke_kubeconfig_path_candidate}")
+                        gke_kubeconfig_path = None
+                except Exception as e:
+                    print(f"Error generating kubeconfig for GKE clusters: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    gke_kubeconfig_path = None
+            else:
+                print("GKE clusters not found or improperly formatted, and auto-discovery is disabled. Skipping Kubernetes discovery for GKE.")
+
     # Check Kubernetes configuration in cloudConfig
     kubernetes_config = cloud_config.get('kubernetes') if cloud_config else None
     kubeconfig_path = None
@@ -570,7 +637,7 @@ def main():
             final_kubeconfig_path = None
 
     # Continue only if valid kubeconfig paths are found
-    if (isinstance(aks_clusters, list) and len(aks_clusters) > 0) or auto_discover or (isinstance(eks_clusters, list) and len(eks_clusters) > 0) or eks_auto_discover or kubeconfig_path:
+    if (isinstance(aks_clusters, list) and len(aks_clusters) > 0) or auto_discover or (isinstance(eks_clusters, list) and len(eks_clusters) > 0) or eks_auto_discover or (isinstance(gke_clusters, list) and len(gke_clusters) > 0) or gke_auto_discover or kubeconfig_path:
         final_kubeconfig_path = os.path.expanduser("~/.kube/config")
         kubeconfigs_to_merge = []
 
@@ -584,6 +651,11 @@ def main():
                 kubeconfigs_to_merge.append(eks_kubeconfig_path)
                 print(f"Merging EKS kubeconfig into {final_kubeconfig_path}...")
 
+        if ((isinstance(gke_clusters, list) and len(gke_clusters) > 0) or gke_auto_discover) and gke_kubeconfig_path:
+            if os.path.exists(gke_kubeconfig_path):
+                kubeconfigs_to_merge.append(gke_kubeconfig_path)
+                print(f"Merging GKE kubeconfig into {final_kubeconfig_path}...")
+
         if kubeconfig_path and os.path.exists(kubeconfig_path):
             kubeconfigs_to_merge.append(kubeconfig_path)
             print(f"Merging user-provided kubeconfig into {final_kubeconfig_path}...")
@@ -591,9 +663,13 @@ def main():
         if kubeconfigs_to_merge:
             merge_kubeconfigs(kubeconfigs_to_merge, final_kubeconfig_path)
         else:
-            print("No valid kubeconfigs found to merge.")
+            # Nothing was generated or provided this run. Do NOT fall back to a
+            # possibly-stale ~/.kube/config left over from a previous run --
+            # skip Kubernetes indexing entirely instead.
+            print("No valid kubeconfigs found to merge; skipping Kubernetes discovery.")
+            final_kubeconfig_path = None
     else:
-        print("Skipping Kubernetes discovery due to missing kubeconfig, AKS clusters, or EKS clusters configuration.")
+        print("Skipping Kubernetes discovery due to missing kubeconfig, AKS clusters, EKS clusters, or GKE clusters configuration.")
         final_kubeconfig_path = None 
 
     if final_kubeconfig_path:

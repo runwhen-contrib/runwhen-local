@@ -10,15 +10,18 @@ a new typed collector), see
 [Azure indexer internals](../../architecture/azure-indexer-internals.md).
 
 > [!NOTE]
-> A second `cloudquery` backend exists for legacy reasons but is being
-> phased out. New workspaces should set `azureIndexerBackend: azureapi`.
+> `azureapi` is now the **default** backend. A second `cloudquery` backend
+> exists for legacy reasons but is being phased out; set
+> `azureIndexerBackend: cloudquery` only if you need to opt back into it.
 
 ## How to enable
 
-In your `workspaceInfo.yaml`:
+`azureapi` is the default, so no backend key is required. To pin it explicitly
+(or to opt into the legacy `cloudquery` backend) set `azureIndexerBackend` in
+your `workspaceInfo.yaml`:
 
 ```yaml
-azureIndexerBackend: azureapi
+azureIndexerBackend: azureapi   # default; use 'cloudquery' for the legacy path
 cloudConfig:
   azure:
     tenantId:     ${AZ_TENANT_ID}

@@ -125,6 +125,14 @@ cloudConfig:
 
 The GCP expansion introduces secret provider patterns for Robot Framework integration:
 
+{% hint style="info" %}
+These secret-provider patterns are a **runtime** mechanism: they re-authenticate
+a generated task to a cluster **at task-execution time**. They are **not** how
+RunWhen Local builds the kubeconfig during discovery — that is handled by
+`cloudConfig.gcp.gkeClusters`, which uses the native Google SDKs (no `gcloud`).
+See [GCP Discovery → GKE Cluster Discovery](gcp.md#gke-cluster-discovery).
+{% endhint %}
+
 #### Service Account Patterns
 - **CLI Authentication**: `gcp:sa@cli`
 - **Kubeconfig Generation**: `gcp:sa@kubeconfig:CLUSTER_NAME/ZONE_OR_REGION`
@@ -210,6 +218,14 @@ Multi Environment Example
 ```
 
 ## GKE Cluster Support
+
+{% hint style="info" %}
+The `custom.gke_clusters` block below configures **runtime** authentication for
+generated tasks. To have RunWhen Local generate the kubeconfig **at discovery
+time** from your GCP service account (instead of mounting an explicit
+kubeconfig), use `cloudConfig.gcp.gkeClusters` — see
+[GCP Discovery → GKE Cluster Discovery](gcp.md#gke-cluster-discovery).
+{% endhint %}
 
 ### Cluster Configuration
 
@@ -356,5 +372,14 @@ Potential future improvements to the GCP pattern:
 - Support for Workload Identity
 - Integration with Google Secret Manager
 - Multi-region cluster support
-- Automatic cluster discovery
-- Enhanced error messages and troubleshooting 
+- Enhanced error messages and troubleshooting
+
+> **Now available:** Automatic GKE cluster discovery and discovery-time
+> kubeconfig generation are supported via `cloudConfig.gcp.gkeClusters`
+> (`autoDiscover` + explicit `clusters`), built with the native Google SDKs
+> (`google-cloud-container` + `google-auth`) — **no `gcloud`** required — and
+> honoring per-cluster `defaultNamespaceLOD` / `namespaceLODs`. See
+> [GCP Discovery → GKE Cluster Discovery](gcp.md#gke-cluster-discovery). The
+> `custom.gke_clusters` configuration documented above remains the **runtime**
+> auth mechanism for generated tasks; `gkeClusters` is the **discovery-time**
+> mechanism that builds the kubeconfig RunWhen Local scans. 

@@ -6,7 +6,7 @@ AWS discovery is supported from 0.5.7 onwards and supports discovery of resource
 
 ## AWS Cloud Resource Discovery
 
-AWS discovery leverages [cloudquery](https://github.com/cloudquery/cloudquery) with the AWS source plugin to build up an inventory of cloud resources that should be matched with troubleshooting commands.
+AWS discovery builds up an inventory of cloud resources that should be matched with troubleshooting commands. By default it uses the native `awsapi` backend (AWS Cloud Control API + `boto3`), which removes the CloudQuery binary requirement. The legacy [cloudquery](https://github.com/cloudquery/cloudquery)-based backend is still available as a fallback — set `awsIndexerBackend: cloudquery` in `workspaceInfo.yaml` to opt back into it. Both backends produce the same registry shape, so generation rules and SLX templates do not change when switching.
 
 ## AWS Credentials
 

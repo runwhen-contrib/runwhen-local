@@ -33,8 +33,8 @@ cloudConfig:
 
 Azure discovery builds up an inventory of cloud resources that gets matched with troubleshooting commands. RunWhen Local supports two backends for Azure resource discovery:
 
-* **`cloudquery`** (default) — Uses [cloudquery](https://github.com/cloudquery/cloudquery) with the Azure source plugin. Long-standing path; still the default while the new backend bakes in.
-* **`azureapi`** — Uses the native Azure management SDK (`azure-mgmt-*`) directly. Removes the CloudQuery process / binary requirement, integrates better with airgapped images, and is the path forward for Azure (AWS / GCP migrations to follow).
+* **`azureapi`** (default) — Uses the native Azure management SDK (`azure-mgmt-*`) directly. Removes the CloudQuery process / binary requirement, integrates better with airgapped images, and is now the default backend for Azure (alongside the native AWS / GCP indexers).
+* **`cloudquery`** (legacy/fallback) — Uses [cloudquery](https://github.com/cloudquery/cloudquery) with the Azure source plugin. Set `azureIndexerBackend: cloudquery` to opt back into this legacy path.
 
 Both backends produce the same registry shape, so generation rules and SLX templates do not need to change when switching between them.
 
@@ -43,7 +43,7 @@ Both backends produce the same registry shape, so generation rules and SLX templ
 Set `azureIndexerBackend` in `workspaceInfo.yaml`:
 
 ```yaml
-azureIndexerBackend: azureapi   # or "cloudquery" (default)
+azureIndexerBackend: azureapi   # default; use "cloudquery" for the legacy path
 
 cloudConfig:
   azure:

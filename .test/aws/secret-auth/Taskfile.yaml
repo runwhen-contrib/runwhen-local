@@ -66,6 +66,11 @@ tasks:
         workspaceOwnerEmail: test@runwhen.com
         defaultLocation: location-01
         defaultLOD: detailed
+        # Legacy CloudQuery AWS path: pin to cloudquery + the in-memory store so
+        # this secret-based credential fixture keeps exercising the CloudQuery
+        # backend now that the native awsapi indexer is the default.
+        awsIndexerBackend: cloudquery
+        resourceStoreBackend: memory
         cloudConfig:
           aws:
             region: "${REGION}"

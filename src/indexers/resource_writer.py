@@ -31,15 +31,16 @@ DB-backed implementations would commit their transaction here.
 Implementations
 ---------------
 
-* :class:`InMemoryRegistryWriter` - the default writer; delegates to
+* :class:`InMemoryRegistryWriter` - the in-memory writer; delegates to
   ``Registry.add_resource`` and runs ``resolve_deferred_azure_relationships``
-  on ``finalize()``.
+  on ``finalize()``. Selected via ``resourceStoreBackend: memory``.
 
-* :class:`indexers.sqlite_resource_writer.SqliteResourceWriter` - dual writer
-  that composes the in-memory writer **and** snapshots the registry into a
-  local SQLite database on ``finalize()``. Selected via the
-  ``resourceStoreBackend`` setting. The DB lands in the workspace output via
-  the active ``Outputter`` so it works for both filesystem and tar runs.
+* :class:`indexers.sqlite_resource_writer.SqliteResourceWriter` - the default
+  writer; a dual writer that composes the in-memory writer **and** snapshots
+  the registry into a local SQLite database on ``finalize()``. Selected via the
+  ``resourceStoreBackend`` setting (now the default). The DB lands in the
+  workspace output via the active ``Outputter`` so it works for both
+  filesystem and tar runs.
 
 * ``RestApiResourceWriter`` - **future**. POST resources to a fast REST
   service so we can decouple workspace builder from the storage layer
@@ -78,11 +79,11 @@ RESOURCE_STORE_BACKEND_SETTING = Setting(
     "resourceStoreBackend",
     Setting.Type.STRING,
     "Selects the backend used by ResourceWriter for indexers that go through "
-    "the writer seam. 'memory' (default) keeps the in-memory Registry only; "
-    "'sqlite' additionally snapshots the discovered resource graph into a "
-    "local SQLite database (path configurable via 'resourceStorePath') so "
-    "the future read-only REST service has something to query.",
-    RESOURCE_STORE_BACKEND_MEMORY,
+    "the writer seam. 'sqlite' (default) snapshots the discovered resource "
+    "graph into a local SQLite database (path configurable via "
+    "'resourceStorePath') so the read-only REST service has something to "
+    "query; 'memory' keeps the in-memory Registry only.",
+    RESOURCE_STORE_BACKEND_SQLITE,
 )
 
 RESOURCE_STORE_PATH_SETTING = Setting(
@@ -178,11 +179,11 @@ def get_resource_writer(context: "Context") -> ResourceWriter:
     Centralised so indexers don't pick the implementation themselves. The
     backend is selected via the ``resourceStoreBackend`` setting:
 
-    * ``memory`` (default): :class:`InMemoryRegistryWriter`.
-    * ``sqlite``:           :class:`indexers.sqlite_resource_writer.SqliteResourceWriter`,
+    * ``sqlite`` (default): :class:`indexers.sqlite_resource_writer.SqliteResourceWriter`,
       which composes the in-memory writer (so reads via the ``Registry``
       keep working) and additionally snapshots the registry into a local
       SQLite database on ``finalize()``.
+    * ``memory``:           :class:`InMemoryRegistryWriter`.
 
     Unknown values fall back to the in-memory writer with a warning so a
     typo in ``workspaceInfo.yaml`` doesn't silently break indexing.

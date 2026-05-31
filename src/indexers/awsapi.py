@@ -26,9 +26,10 @@ Discovery model (the AWS scope dimension is account + region(s)):
 
 Coexists with the CloudQuery indexer behind the ``AWS_INDEXER_BACKEND`` setting:
 
-* ``"cloudquery"`` (default): this indexer is a no-op; CloudQuery handles AWS.
-* ``"awsapi"``:               this indexer discovers AWS resources and the
+* ``"awsapi"`` (default):     this indexer discovers AWS resources and the
                               CloudQuery indexer skips the AWS block.
+* ``"cloudquery"``:           this indexer is a no-op; CloudQuery handles AWS
+                              (legacy/fallback opt-in).
 
 Component name: ``awsapi``. Stage: ``INDEXER``.
 """
@@ -87,9 +88,9 @@ AWS_INDEXER_BACKEND_SETTING = Setting(
     "awsIndexerBackend",
     Setting.Type.STRING,
     "Selects the backend used to discover AWS resources. "
-    "'cloudquery' (default) uses the legacy CloudQuery-based path; "
-    "'awsapi' uses the native Cloud Control API + boto3 indexer.",
-    "cloudquery",
+    "'awsapi' (default) uses the native Cloud Control API + boto3 indexer; "
+    "'cloudquery' opts back into the legacy CloudQuery-based path.",
+    "awsapi",
 )
 
 SETTINGS = (
