@@ -106,8 +106,15 @@ tasks:
     cmds:
       - |
         BUILD_DIR=../../../src
-        docker buildx build --builder mybuilder --platform linux/amd64 \
-          -t runwhen-local:test -f "$BUILD_DIR/Dockerfile" "$BUILD_DIR" --load
+        # CI build-once optimization: when RWL_SKIP_BUILD is set (the CI test
+        # job has already pulled+tagged a prebuilt runwhen-local:test image),
+        # skip the local buildx build. Unset (local runs) builds as before.
+        if [ -n "${RWL_SKIP_BUILD:-}" ]; then
+          echo "RWL_SKIP_BUILD set; using existing runwhen-local:test image (skipping buildx build)."
+        else
+          docker buildx build --builder mybuilder --platform linux/amd64 \
+            -t runwhen-local:test -f "$BUILD_DIR/Dockerfile" "$BUILD_DIR" --load
+        fi
 
   run-rwl-discovery:
     desc: "Run RWL discovery against the current workspaceInfo.yaml. Container stays up so the explorer UI is reachable at http://localhost:8001/."

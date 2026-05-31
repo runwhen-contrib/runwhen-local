@@ -1,0 +1,426 @@
+# Consolidated native cloud-indexer smoke tests (Azure / GCP / AWS).
+#
+# This workflow replaces the three separate per-cloud workflows
+# (test-azure-indexer.yaml, test-gcp-indexer.yaml, test-aws-indexer.yaml).
+# Previously each of those built the same ~2GB runwhen-local:test image from
+# scratch, so a single src/** change rebuilt the identical image three times.
+#
+# Approach "B" - build once, share via GHCR:
+#   * build-image      builds the image ONCE (buildx + type=gha cache) and
+#                      pushes it to a per-run ephemeral GHCR tag.
+#   * azure/gcp/aws    pull that tag, retag it to runwhen-local:test (the name
+#                      the Taskfiles expect) and run their cloud's task
+#                      target(s) with RWL_SKIP_BUILD=1 so build-rwl is a no-op.
+#   * notify           posts a single Slack message summarizing every leg.
+#   * cleanup          best-effort deletes the ephemeral GHCR tag.
+#
+# The image is identical for all three clouds: every build-rwl target uses the
+# same Dockerfile and INCLUDE_CODE_COLLECTION_CACHE (which defaults to true in
+# the Dockerfile), so the single build is byte-for-byte what each leg built
+# before.
+#
+# Required repo/org secrets (unchanged from the old workflows):
+#   AZ_SANDBOX_CREDS       - Azure sandbox SP creds JSON (azure/login + tf.secret)
+#   GCP_SANDBOX_SA_JSON    - GCP sandbox service-account key JSON (gcp.secret)
+#   AWS_ACCESS_KEY_ID      - AWS sandbox access key id (aws.secret)
+#   AWS_SECRET_ACCESS_KEY  - AWS sandbox secret access key (aws.secret)
+#   SLACK_BOT_TOKEN        - Slack bot token for the #runwhen-local notification
+name: Discovery Cloud Indexer Tests
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "src/**"
+      - ".test/azure/no-aks-resources/**"
+      - ".test/gcp/gcp-and-k8s/**"
+      - ".test/aws/awsapi-baseline/**"
+      - ".github/workflows/test-cloud-indexers.yaml"
+      - ".github/actions/rwl-ci-setup/**"
+      - "!src/VERSION"
+
+# Least-privilege default; jobs widen as needed (packages: write to push/delete
+# the ephemeral GHCR tag, id-token/actions for the per-cloud test legs).
+permissions:
+  contents: read
+
+env:
+  # Ephemeral, per-run image tag. github.repository is lowercase
+  # (runwhen-contrib/runwhen-local) so it is a valid GHCR reference.
+  IMAGE_REF: ghcr.io/${{ github.repository }}:test-${{ github.run_id }}
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Build the RWL test image exactly once and push it to the ephemeral GHCR tag.
+  # ---------------------------------------------------------------------------
+  build-image:
+    name: Build & push RWL test image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: RWL CI setup (task + buildx + mybuilder)
+        uses: ./.github/actions/rwl-ci-setup
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push runwhen-local test image (once, gha-cached)
+        run: |
+          set -euo pipefail
+          docker buildx build \
+            --builder mybuilder \
+            --platform linux/amd64 \
+            --build-arg INCLUDE_CODE_COLLECTION_CACHE=true \
+            --cache-from type=gha \
+            --cache-to type=gha,mode=max \
+            -t "${IMAGE_REF}" \
+            -f src/Dockerfile src \
+            --push
+
+  # ---------------------------------------------------------------------------
+  # Azure leg: terraform-provisioned fixture, runs baseline/selective/tag-filter.
+  # ---------------------------------------------------------------------------
+  azure:
+    name: Azure indexer (no-aks)
+    needs: build-image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+      actions: read
+      packages: read
+    env:
+      TF_IN_AUTOMATION: "true"
+      RWL_SKIP_BUILD: "1"
+    defaults:
+      run:
+        working-directory: .test/azure/no-aks-resources
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: RWL CI setup (task + buildx + mybuilder)
+        uses: ./.github/actions/rwl-ci-setup
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull prebuilt image and tag as runwhen-local:test
+        run: |
+          set -euo pipefail
+          docker pull "${IMAGE_REF}"
+          docker tag "${IMAGE_REF}" runwhen-local:test
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZ_SANDBOX_CREDS }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Write terraform/tf.secret from sandbox credentials
+        run: |
+          set -euo pipefail
+          echo '${{ secrets.AZ_SANDBOX_CREDS }}' > /tmp/azure_creds.json
+          AZ_CLIENT_ID=$(jq -r '.clientId' /tmp/azure_creds.json)
+          AZ_CLIENT_SECRET=$(jq -r '.clientSecret' /tmp/azure_creds.json)
+          AZ_SUB_ID=$(jq -r '.subscriptionId' /tmp/azure_creds.json)
+          AZ_TENANT_ID=$(jq -r '.tenantId' /tmp/azure_creds.json)
+          SP_PRINCIPAL_ID=$(az ad sp list \
+            --filter "appId eq '$AZ_CLIENT_ID'" \
+            --query '[0].id' -o tsv)
+
+          cat > terraform/tf.secret <<EOF
+          export TF_VAR_subscription_id='$AZ_SUB_ID'
+          export TF_VAR_subscription_id_1='$AZ_SUB_ID'
+          export TF_VAR_subscription_id_2='$AZ_SUB_ID'
+          export AZ_TENANT_ID='$AZ_TENANT_ID'
+          export TF_VAR_tenant_id='$AZ_TENANT_ID'
+          export AZ_CLIENT_ID='$AZ_CLIENT_ID'
+          export AZ_CLIENT_SECRET='$AZ_CLIENT_SECRET'
+          export ARM_SUBSCRIPTION_ID='$AZ_SUB_ID'
+          export ARM_CLIENT_ID='$AZ_CLIENT_ID'
+          export ARM_CLIENT_SECRET='$AZ_CLIENT_SECRET'
+          export ARM_TENANT_ID='$AZ_TENANT_ID'
+          export TF_VAR_sp_principal_id='$SP_PRINCIPAL_ID'
+          EOF
+          rm /tmp/azure_creds.json
+
+      - name: Apply terraform infrastructure
+        run: task build-infra
+
+      - name: Run baseline discovery (defaultLOD=detailed, every resource indexed)
+        run: task ci-test-azureapi-baseline
+
+      - name: Run selective discovery (drop-rg LOD=none, must NOT appear)
+        run: task ci-test-azureapi-selective
+
+      - name: Run tag-filter discovery (excludeTags drops out-of-scope resources)
+        run: task ci-test-azureapi-tag-filter
+
+      - name: Upload discovery artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: no-aks-azureapi-logs-${{ github.run_id }}
+          path: |
+            .test/azure/no-aks-resources/output/
+            .test/azure/no-aks-resources/run_sh_output.log
+          retention-days: 7
+
+      - name: Destroy terraform infrastructure
+        if: always()
+        run: task check-and-cleanup-terraform
+
+  # ---------------------------------------------------------------------------
+  # GCP leg: static sandbox project, runs the native gcpapi baseline.
+  # ---------------------------------------------------------------------------
+  gcp:
+    name: GCP indexer (gcpapi)
+    needs: build-image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+      actions: read
+      packages: read
+    env:
+      RWL_SKIP_BUILD: "1"
+    defaults:
+      run:
+        working-directory: .test/gcp/gcp-and-k8s
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: RWL CI setup (task + buildx + mybuilder)
+        uses: ./.github/actions/rwl-ci-setup
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull prebuilt image and tag as runwhen-local:test
+        run: |
+          set -euo pipefail
+          docker pull "${IMAGE_REF}"
+          docker tag "${IMAGE_REF}" runwhen-local:test
+
+      - name: Write gcp.secret from sandbox service-account JSON
+        run: |
+          set -euo pipefail
+          # The SA JSON is committed nowhere; it comes from the repo secret.
+          # Single-quote wrapping is safe because service-account JSON never
+          # contains single quotes.
+          echo '${{ secrets.GCP_SANDBOX_SA_JSON }}' > gcp.secret
+          # Sanity-check it parses and never echo the key material.
+          python3 -c "import json; d=json.load(open('gcp.secret')); assert d.get('project_id'); print('gcp.secret OK for project', d['project_id'])"
+
+      - name: Run baseline discovery (gcpIndexerBackend=gcpapi, SQLite store assertions)
+        run: task ci-test-gcpapi-baseline
+
+      - name: Upload discovery artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gcpapi-logs-${{ github.run_id }}
+          path: |
+            .test/gcp/gcp-and-k8s/output/
+            .test/gcp/gcp-and-k8s/run_sh_output.log
+            .test/gcp/gcp-and-k8s/container_logs.log
+          retention-days: 7
+
+      - name: Remove gcp.secret
+        if: always()
+        run: rm -f gcp.secret
+
+  # ---------------------------------------------------------------------------
+  # AWS leg: static sandbox account, runs the native awsapi baseline.
+  # ---------------------------------------------------------------------------
+  aws:
+    name: AWS indexer (awsapi)
+    needs: build-image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+      actions: read
+      packages: read
+    env:
+      RWL_SKIP_BUILD: "1"
+    defaults:
+      run:
+        working-directory: .test/aws/awsapi-baseline
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: RWL CI setup (task + buildx + mybuilder)
+        uses: ./.github/actions/rwl-ci-setup
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull prebuilt image and tag as runwhen-local:test
+        run: |
+          set -euo pipefail
+          docker pull "${IMAGE_REF}"
+          docker tag "${IMAGE_REF}" runwhen-local:test
+
+      - name: Write aws.secret from sandbox credentials
+        run: |
+          set -euo pipefail
+          # Credentials come from repo secrets; nothing is committed or echoed.
+          cat > aws.secret <<EOF
+          export AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+          export AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          export AWS_DEFAULT_REGION=us-west-2
+          EOF
+          # Sanity-check the file has the expected keys (never echo the values).
+          grep -q '^export AWS_ACCESS_KEY_ID=.\+' aws.secret \
+            && grep -q '^export AWS_SECRET_ACCESS_KEY=.\+' aws.secret \
+            && echo "aws.secret OK (region us-west-2)"
+
+      - name: Run baseline discovery (awsIndexerBackend=awsapi, SQLite store assertions)
+        run: task ci-test-awsapi-baseline
+
+      - name: Upload discovery artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: awsapi-logs-${{ github.run_id }}
+          path: |
+            .test/aws/awsapi-baseline/output/
+            .test/aws/awsapi-baseline/run_sh_output.log
+            .test/aws/awsapi-baseline/container_logs.log
+          retention-days: 7
+
+      - name: Remove aws.secret
+        if: always()
+        run: rm -f aws.secret
+
+  # ---------------------------------------------------------------------------
+  # Single Slack notification summarizing every leg (replaces the 3 old notify
+  # jobs). Preserves the slackapi/slack-github-action@v1 + SLACK_BOT_TOKEN flow.
+  # ---------------------------------------------------------------------------
+  notify:
+    name: Slack notify
+    runs-on: ubuntu-latest
+    needs: [build-image, azure, gcp, aws]
+    if: always()
+    steps:
+      - name: Compose status summary
+        id: status
+        run: |
+          emoji() {
+            case "$1" in
+              success)   echo "✅";;
+              failure)   echo "❌";;
+              cancelled) echo "🚫";;
+              skipped)   echo "⏭️";;
+              *)         echo "❔";;
+            esac
+          }
+          BUILD='${{ needs.build-image.result }}'
+          AZURE='${{ needs.azure.result }}'
+          GCP='${{ needs.gcp.result }}'
+          AWS='${{ needs.aws.result }}'
+
+          if [ "$BUILD" = "failure" ] || [ "$AZURE" = "failure" ] \
+             || [ "$GCP" = "failure" ] || [ "$AWS" = "failure" ]; then
+            OVERALL="❌ *Failure*"
+          elif [ "$BUILD" = "cancelled" ] || [ "$AZURE" = "cancelled" ] \
+             || [ "$GCP" = "cancelled" ] || [ "$AWS" = "cancelled" ]; then
+            OVERALL="🚫 *Cancelled*"
+          else
+            OVERALL="✅ *Success*"
+          fi
+
+          LEGS="build-image $(emoji "$BUILD")  |  azure $(emoji "$AZURE")  |  gcp $(emoji "$GCP")  |  aws $(emoji "$AWS")"
+
+          {
+            echo "overall=$OVERALL"
+            echo "legs=$LEGS"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Send Slack Notification
+        uses: slackapi/slack-github-action@v1
+        with:
+          channel-id: "#runwhen-local"
+          slack-message: "${{ steps.status.outputs.overall }} - Workflow *${{ github.workflow }}* in repo *${{ github.repository }}* on branch *${{ github.ref_name }}*.\nLegs: ${{ steps.status.outputs.legs }}\nSee the run: <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+
+  # ---------------------------------------------------------------------------
+  # Best-effort cleanup of the ephemeral GHCR tag. Runs after every leg has
+  # pulled the image. Never fails the workflow.
+  # ---------------------------------------------------------------------------
+  cleanup:
+    name: Delete ephemeral GHCR tag
+    runs-on: ubuntu-latest
+    needs: [build-image, azure, gcp, aws]
+    if: always()
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Delete ephemeral image tag (best-effort)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          OWNER="${GITHUB_REPOSITORY%%/*}"
+          PKG="${GITHUB_REPOSITORY##*/}"
+          TAG="test-${GITHUB_RUN_ID}"
+          echo "Looking for ${PKG}:${TAG} to delete (owner=${OWNER})..."
+
+          # Find the package version whose tags contain our ephemeral tag.
+          # Try the org endpoint first, then fall back to the user endpoint.
+          find_version() {
+            local base="$1"
+            gh api --paginate "${base}/packages/container/${PKG}/versions" \
+              -q ".[] | select(.metadata.container.tags[]? == \"${TAG}\") | .id" \
+              2>/dev/null | head -n1
+          }
+
+          VID="$(find_version "/orgs/${OWNER}")"
+          BASE="/orgs/${OWNER}"
+          if [ -z "${VID}" ]; then
+            VID="$(find_version "/users/${OWNER}")"
+            BASE="/users/${OWNER}"
+          fi
+
+          if [ -z "${VID}" ]; then
+            echo "No GHCR version found for tag ${TAG}; nothing to delete (best-effort, OK)."
+            exit 0
+          fi
+
+          echo "Deleting ${PKG} version ${VID} (tag ${TAG})..."
+          gh api --method DELETE "${BASE}/packages/container/${PKG}/versions/${VID}" \
+            && echo "Deleted ephemeral tag ${TAG}." \
+            || echo "Could not delete ephemeral tag ${TAG} (best-effort, ignoring)."

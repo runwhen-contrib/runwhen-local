@@ -102,7 +102,14 @@ tasks:
         rm -rf output || { echo "Failed to remove output directory"; exit 1; }
         mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
         ## Building Container Image
-        docker buildx build --builder mybuilder --platform linux/amd64  --build-arg INCLUDE_CODE_COLLECTION_CACHE=true -t runwhen-local:test -f $BUILD_DIR/Dockerfile $BUILD_DIR --load
+        # CI build-once optimization: when RWL_SKIP_BUILD is set (the CI test
+        # job has already pulled+tagged a prebuilt runwhen-local:test image),
+        # skip the local buildx build. Unset (local runs) builds as before.
+        if [ -n "${RWL_SKIP_BUILD:-}" ]; then
+          echo "RWL_SKIP_BUILD set; using existing runwhen-local:test image (skipping buildx build)."
+        else
+          docker buildx build --builder mybuilder --platform linux/amd64  --build-arg INCLUDE_CODE_COLLECTION_CACHE=true -t runwhen-local:test -f $BUILD_DIR/Dockerfile $BUILD_DIR --load
+        fi
 
         ## Use this if you need to test both arm64/amd64 builds
         # docker buildx build --builder mybuilder --platform linux/amd64,linux/arm64  -t runwhen-local:test -f $BUILD_DIR/Dockerfile $BUILD_DIR
@@ -137,14 +144,17 @@ tasks:
         # Defense-in-depth: even if some module eagerly imports azure.devops,
         # the os.makedirs no longer targets the read-only /shared (=$HOME) mount.
         #
-        # GIT_CONFIG_* sets git safe.directory=* for the in-container 'runwhen'
-        # user. The local test code collection (gcpapi-test-codecollection) is a
-        # git repo on the bind-mounted /shared, created by the host runner uid;
-        # without this, the builder's GitPython clone fails with
-        # "fatal: detected dubious ownership" (exit 128) and the compute fallback
-        # generation rule is silently skipped. These env vars are inherited by
-        # the later 'docker exec ... run.sh' and its git subprocesses.
-        docker run -e DEBUG_LOGGING=false -e AZURE_DEVOPS_CACHE_DIR=/tmp/.azure-devops -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0='*' --name $CONTAINER_NAME -p 8000:8000 -v $(pwd):/shared -d runwhen-local:test || {
+        # NOTE on git "dubious ownership": the local test code collection
+        # (gcpapi-test-codecollection) is a git repo on the bind-mounted /shared
+        # owned by the host runner uid, so the in-container builder's GitPython
+        # 'git clone --mirror' would abort with "fatal: detected dubious
+        # ownership" (exit 128) and silently skip the compute fallback generation
+        # rule. This is fixed in the image itself (src/Dockerfile sets
+        # `git config --system safe.directory '*'`). It deliberately does NOT use
+        # GIT_CONFIG_COUNT/GIT_CONFIG_KEY_*/GIT_CONFIG_VALUE_* env vars here: git
+        # reports those as origin "command line" and IGNORES safe.directory unless
+        # it comes from a system/global config file.
+        docker run -e DEBUG_LOGGING=false -e AZURE_DEVOPS_CACHE_DIR=/tmp/.azure-devops --name $CONTAINER_NAME -p 8000:8000 -v $(pwd):/shared -d runwhen-local:test || {
           echo "Failed to start container"; exit 1;
         }
 

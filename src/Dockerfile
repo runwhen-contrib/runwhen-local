@@ -196,6 +196,25 @@ RUN set -eux; \
       done; \
     chown -R runwhen:runwhen "$CODE_COLLECTION_CACHE_ROOT"
 
+# Mark all repositories as safe for git's "dubious ownership" check.
+#
+# Local code collections (workspaceInfo codeCollections with a file:// repoURL,
+# e.g. the gcpapi-test-codecollection) live on the bind-mounted /shared, which
+# is owned by the *host* runner's uid. Inside the container the app runs as
+# uid 999 (runwhen), so that uid rarely matches the bind-mount owner and git
+# aborts the GitPython 'git clone --mirror' with
+# "fatal: detected dubious ownership" (exit 128), silently skipping the code
+# collection and its generation rules.
+#
+# This MUST be written to git's SYSTEM config (/etc/gitconfig). git only honors
+# safe.directory from system/global config files -- values injected via the
+# command line or GIT_CONFIG_COUNT/GIT_CONFIG_KEY_*/GIT_CONFIG_VALUE_* env vars
+# report origin "command line" and are deliberately IGNORED for safe.directory.
+# System config is also independent of HOME (=/shared, which is read-only for
+# the container uid when the host runner uid differs), so it works regardless of
+# the runner/container uid mismatch.
+RUN git config --system --add safe.directory '*'
+
 USER runwhen
 EXPOSE 8000
 ENTRYPOINT ["/bin/sh", "-c", "./entrypoint.sh"]

@@ -17,7 +17,7 @@ version: "3"
 # the access key / secret never land in workspaceInfo.yaml -- the native indexer
 # resolves them through the default credential chain from the container env.
 #
-# Required CI repo secrets (used by .github/workflows/test-aws-indexer.yaml):
+# Required CI repo secrets (used by .github/workflows/test-cloud-indexers.yaml):
 #   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY  - the sandbox IAM user's keys.
 
 tasks:
@@ -51,7 +51,14 @@ tasks:
         rm -rf output || { echo "Failed to remove output directory"; exit 1; }
         mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
         ## Building Container Image
-        docker buildx build --builder mybuilder --platform linux/amd64 --build-arg INCLUDE_CODE_COLLECTION_CACHE=true -t runwhen-local:test -f $BUILD_DIR/Dockerfile $BUILD_DIR --load
+        # CI build-once optimization: when RWL_SKIP_BUILD is set (the CI test
+        # job has already pulled+tagged a prebuilt runwhen-local:test image),
+        # skip the local buildx build. Unset (local runs) builds as before.
+        if [ -n "${RWL_SKIP_BUILD:-}" ]; then
+          echo "RWL_SKIP_BUILD set; using existing runwhen-local:test image (skipping buildx build)."
+        else
+          docker buildx build --builder mybuilder --platform linux/amd64 --build-arg INCLUDE_CODE_COLLECTION_CACHE=true -t runwhen-local:test -f $BUILD_DIR/Dockerfile $BUILD_DIR --load
+        fi
     silent: true
 
   generate-awsapi-baseline-config:
