@@ -136,7 +136,15 @@ tasks:
         # cache (azure/devops/_file_cache.get_cache_dir) at a writable path.
         # Defense-in-depth: even if some module eagerly imports azure.devops,
         # the os.makedirs no longer targets the read-only /shared (=$HOME) mount.
-        docker run -e DEBUG_LOGGING=false -e AZURE_DEVOPS_CACHE_DIR=/tmp/.azure-devops --name $CONTAINER_NAME -p 8000:8000 -v $(pwd):/shared -d runwhen-local:test || {
+        #
+        # GIT_CONFIG_* sets git safe.directory=* for the in-container 'runwhen'
+        # user. The local test code collection (gcpapi-test-codecollection) is a
+        # git repo on the bind-mounted /shared, created by the host runner uid;
+        # without this, the builder's GitPython clone fails with
+        # "fatal: detected dubious ownership" (exit 128) and the compute fallback
+        # generation rule is silently skipped. These env vars are inherited by
+        # the later 'docker exec ... run.sh' and its git subprocesses.
+        docker run -e DEBUG_LOGGING=false -e AZURE_DEVOPS_CACHE_DIR=/tmp/.azure-devops -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0='*' --name $CONTAINER_NAME -p 8000:8000 -v $(pwd):/shared -d runwhen-local:test || {
           echo "Failed to start container"; exit 1;
         }
 
