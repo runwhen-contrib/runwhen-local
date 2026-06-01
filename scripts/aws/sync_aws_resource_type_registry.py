@@ -197,9 +197,31 @@ def load_overrides(path: Path = OVERRIDES_PATH) -> dict:
         "service_cfn_names": payload.get("service_cfn_names") or {},
         "cfn_type_overrides": payload.get("cfn_type_overrides") or {},
         "aliases": payload.get("aliases") or {},
+        # Optional extra accepted names that are NOT functional aliases but
+        # should still match this type (rare; aliases already feed match_names).
+        "match_names": payload.get("match_names") or {},
         "typed_collectors": set(payload.get("typed_collectors") or []),
         "mandatory": set(payload.get("mandatory") or []),
     }
+
+
+def _accepted_match_names(
+    table_name: str,
+    aliases: list,
+    extra_match_names: list,
+) -> list:
+    """Build the explicit accepted-name set emitted into the registry YAML.
+
+    Canonical CloudQuery table name first, then aliases, then any extra
+    ``match_names`` overrides; deduplicated, order-preserving. This is the
+    set the alias-aware matcher and selective discovery key off, so it must
+    include every name generation rules have historically used for the type.
+    """
+    names: list = [table_name]
+    for candidate in [*(aliases or []), *(extra_match_names or [])]:
+        if candidate and candidate not in names:
+            names.append(candidate)
+    return names
 
 
 def tables_from_registry(path: Path = REGISTRY_PATH) -> list[str]:
@@ -265,6 +287,7 @@ def build_registry(
 ) -> dict:
     cfn_overrides: dict = overrides["cfn_type_overrides"]
     aliases: dict = overrides["aliases"]
+    match_names_overrides: dict = overrides["match_names"]
     typed_collectors: set[str] = overrides["typed_collectors"]
     mandatory: set[str] = overrides["mandatory"]
     service_cfn_names: dict = overrides["service_cfn_names"]
@@ -289,11 +312,15 @@ def build_registry(
         if cfn_type:
             cfn_types_assigned += 1
 
+        entry_aliases = list(aliases.get(name, []))
         types[name] = {
             "cfn_type": cfn_type,
             "cfn_type_source": cfn_type_source,
             "category": _category_for(name),
-            "aliases": list(aliases.get(name, [])),
+            "aliases": entry_aliases,
+            "match_names": _accepted_match_names(
+                name, entry_aliases, list(match_names_overrides.get(name, []))
+            ),
             "typed_collector": is_typed,
             "mandatory": is_mandatory,
         }

@@ -717,6 +717,16 @@ def _legacy_resource_type_name(entry: AzureResourceTypeEntry) -> str:
     ``cloudquery_table_name`` + ``aliases``; we prefer the first alias if
     one exists (the legacy short name) and fall back to the canonical CQ
     name otherwise.
+
+    NOTE (resource-type naming migration): this stored name no longer has to
+    equal what gen rules request. Matching is alias-aware via the registry's
+    ``match_names`` accepted-name set (see
+    ``docs/architecture/resource-type-naming-migration.md``), so a rule asking
+    for the canonical ``azure_compute_virtual_machines`` or the SINGULAR
+    ``azure_keyvault_keyvault`` matches a resource stored under any accepted
+    name. Flipping this to emit the canonical (then native) name is staged as
+    Phase 2; it is intentionally NOT done here because the literal legacy names
+    (``resource_group``...) are coupled into anchor linking / LOD / normalizers.
     """
     if entry.aliases:
         return entry.aliases[0]

@@ -20,12 +20,30 @@ skills. Worked examples: `docs/architecture/{azure,gcp}-indexer-internals.md`.
 
 ## CloudQuery parity is the public contract
 
-- The **CloudQuery table name** (e.g. `gcp_compute_instances`) is the
+- The **CloudQuery table name** (e.g. `gcp_compute_instances`) is the canonical
   `resource_type` used in generation rules. Native indexers MUST normalize
   payloads into the same CloudQuery-shaped dict so rules don't change when the
   backend flips.
 - Every CloudQuery table for a platform MUST resolve via the registry by its
   canonical name or a registered alias. Don't drop parity to simplify.
+
+## Resource-type matching is alias-aware (accepted-name set)
+
+- Each registry entry has an explicit **accepted-name set** (`match_names`) =
+  canonical CloudQuery/native name + every legacy/alias name rules have used.
+  The indexer stores **one canonical name** per resource and matching expands to
+  the accepted-name set at lookup, so a rule matches a resource if its requested
+  type is **any** accepted name (canonical OR legacy). Do NOT depend on
+  positional `aliases[0]` ordering for matching.
+- This is wired into BOTH the generation-rule matcher
+  (`PlatformHandler.get_resources`) AND selective discovery (`find_spec` ->
+  registry `find()`), via `src/resource_type_resolver.py`. Names unknown to
+  every cloud registry (Kubernetes, custom, `azure_devops`) fall back to
+  exact-string matching — preserve that fallback.
+- NOTE: the indexer today still stores the legacy `aliases[0]` name; flipping
+  stored values to the canonical (and then native) name is staged as Phase 2.
+  See `docs/architecture/resource-type-naming-migration.md` for the contract and
+  the phased plan.
 
 ## Generated registry — never hand-edit
 

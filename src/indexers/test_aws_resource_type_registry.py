@@ -128,6 +128,52 @@ class RegistryLoaderTests(TestCase):
         registry = load_registry()
         self.assertIn("aws_iam_accounts", registry.mandatory_tables())
 
+    def test_match_names_include_canonical_plus_aliases(self) -> None:
+        registry = load_registry()
+        accounts = registry.find("aws_iam_accounts")
+        self.assertEqual(accounts.match_names[0], "aws_iam_accounts")
+        self.assertIn("account", accounts.match_names)
+        self.assertIn("aws_account", accounts.match_names)
+
+    def test_match_names_are_pairwise_disjoint(self) -> None:
+        registry = load_registry()
+        all_names = registry.all_match_names()
+        self.assertEqual(
+            len(all_names),
+            len(set(all_names)),
+            "AWS accepted-name sets (match_names) are not pairwise disjoint",
+        )
+
+    def test_disjointness_invariant_raises_on_collision(self) -> None:
+        from indexers.aws_resource_type_registry import (
+            AwsResourceTypeEntry,
+            AwsResourceTypeRegistry,
+            AwsRegistryMetadata,
+        )
+
+        a = AwsResourceTypeEntry(
+            cloudquery_table_name="aws_alpha",
+            cfn_type="AWS::A::Thing",
+            cfn_type_source="heuristic",
+            category="a",
+            aliases=("shared_name",),
+            typed_collector=False,
+            mandatory=False,
+            match_names=("aws_alpha", "shared_name"),
+        )
+        b = AwsResourceTypeEntry(
+            cloudquery_table_name="aws_beta",
+            cfn_type="AWS::B::Thing",
+            cfn_type_source="heuristic",
+            category="b",
+            aliases=(),
+            typed_collector=False,
+            mandatory=False,
+            match_names=("aws_beta", "shared_name"),
+        )
+        with self.assertRaises(ValueError):
+            AwsResourceTypeRegistry(metadata=AwsRegistryMetadata(), entries=(a, b))
+
     def test_regions_table_has_no_cfn_type(self) -> None:
         # Tables with no Cloud Control equivalent are pinned to null in the
         # overrides so generic discovery skips them.

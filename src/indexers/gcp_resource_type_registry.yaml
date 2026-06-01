@@ -12,6 +12,8 @@ types:
     cai_asset_type_source: heuristic
     category: accessapproval
     aliases: []
+    match_names:
+    - gcp_accessapproval_folder_approval_requests
     typed_collector: false
     mandatory: false
   gcp_accessapproval_folder_service_accounts:
@@ -19,6 +21,8 @@ types:
     cai_asset_type_source: heuristic
     category: accessapproval
     aliases: []
+    match_names:
+    - gcp_accessapproval_folder_service_accounts
     typed_collector: false
     mandatory: false
   gcp_accessapproval_folder_settings:
@@ -26,6 +30,8 @@ types:
     cai_asset_type_source: heuristic
     category: accessapproval
     aliases: []
+    match_names:
+    - gcp_accessapproval_folder_settings
     typed_collector: false
     mandatory: false
   gcp_accessapproval_organization_approval_requests:
@@ -33,6 +39,8 @@ types:
     cai_asset_type_source: heuristic
     category: accessapproval
     aliases: []
+    match_names:
+    - gcp_accessapproval_organization_approval_requests
     typed_collector: false
     mandatory: false
   gcp_accessapproval_organization_service_accounts:
@@ -40,6 +48,8 @@ types:
     cai_asset_type_source: heuristic
     category: accessapproval
     aliases: []
+    match_names:
+    - gcp_accessapproval_organization_service_accounts
     typed_collector: false
     mandatory: false
   gcp_accessapproval_organization_settings:
@@ -47,6 +57,8 @@ types:
     cai_asset_type_source: heuristic
     category: accessapproval
     aliases: []
+    match_names:
+    - gcp_accessapproval_organization_settings
     typed_collector: false
     mandatory: false
   gcp_accessapproval_project_approval_requests:
@@ -54,6 +66,8 @@ types:
     cai_asset_type_source: heuristic
     category: accessapproval
     aliases: []
+    match_names:
+    - gcp_accessapproval_project_approval_requests
     typed_collector: false
     mandatory: false
   gcp_accessapproval_project_service_accounts:
@@ -61,6 +75,8 @@ types:
     cai_asset_type_source: heuristic
     category: accessapproval
     aliases: []
+    match_names:
+    - gcp_accessapproval_project_service_accounts
     typed_collector: false
     mandatory: false
   gcp_accessapproval_project_settings:
@@ -68,6 +84,8 @@ types:
     cai_asset_type_source: heuristic
     category: accessapproval
     aliases: []
+    match_names:
+    - gcp_accessapproval_project_settings
     typed_collector: false
     mandatory: false
   gcp_aiplatform_batch_prediction_jobs:
@@ -75,6 +93,8 @@ types:
     cai_asset_type_source: heuristic
     category: aiplatform
     aliases: []
+    match_names:
+    - gcp_aiplatform_batch_prediction_jobs
     typed_collector: false
     mandatory: false
   gcp_aiplatform_custom_jobs:
@@ -82,6 +102,8 @@ types:
     cai_asset_type_source: heuristic
     category: aiplatform
     aliases: []
+    match_names:
+    - gcp_aiplatform_custom_jobs
     typed_collector: false
     mandatory: false
   gcp_aiplatform_dataset_locations:
@@ -89,6 +111,8 @@ types:
     cai_asset_type_source: heuristic
     category: aiplatform
     aliases: []
+    match_names:
+    - gcp_aiplatform_dataset_locations
     typed_collector: false
     mandatory: false
   gcp_aiplatform_datasets:
@@ -96,6 +120,8 @@ types:
     cai_asset_type_source: heuristic
     category: aiplatform
     aliases: []
+    match_names:
+    - gcp_aiplatform_datasets
     typed_collector: false
     mandatory: false
   gcp_aiplatform_endpoint_locations:
@@ -103,6 +129,8 @@ types:
     cai_asset_type_source: heuristic
     category: aiplatform
     aliases: []
+    match_names:
+    - gcp_aiplatform_endpoint_locations
     typed_collector: false
     mandatory: false
   gcp_aiplatform_endpoints:
@@ -110,6 +138,8 @@ types:
     cai_asset_type_source: heuristic
     category: aiplatform
     aliases: []
+    match_names:
+    - gcp_aiplatform_endpoints
     typed_collector: false
     mandatory: false
   gcp_aiplatform_featurestore_locations:
@@ -117,6 +147,8 @@ types:
     cai_asset_type_source: heuristic
     category: aiplatform
     aliases: []
+    match_names:
+    - gcp_aiplatform_featurestore_locations
     typed_collector: false
     mandatory: false
   gcp_aiplatform_featurestores:
@@ -124,6 +156,8 @@ types:
     cai_asset_type_source: heuristic
     category: aiplatform
     aliases: []
+    match_names:
+    - gcp_aiplatform_featurestores
     typed_collector: false
     mandatory: false
   gcp_aiplatform_hyperparameter_tuning_jobs:
@@ -131,6 +165,8 @@ types:
     cai_asset_type_source: heuristic
     category: aiplatform
     aliases: []
+    match_names:
+    - gcp_aiplatform_hyperparameter_tuning_jobs
     typed_collector: false
     mandatory: false
   gcp_aiplatform_index_endpoints:
@@ -138,6 +174,8 @@ types:
     cai_asset_type_source: heuristic
     category: aiplatform
     aliases: []
+    match_names:
+    - gcp_aiplatform_index_endpoints
     typed_collector: false
     mandatory: false
   gcp_aiplatform_index_locations:
@@ -145,6 +183,8 @@ types:
     cai_asset_type_source: heuristic
     category: aiplatform
     aliases: []
+    match_names:
+    - gcp_aiplatform_index_locations
     typed_collector: false
     mandatory: false
   gcp_aiplatform_indexendpoint_locations:
@@ -152,6 +192,8 @@ types:
     cai_asset_type_source: heuristic
     category: aiplatform
     aliases: []
+    match_names:
+    - gcp_aiplatform_indexendpoint_locations
     typed_collector: false
     mandatory: false
   gcp_aiplatform_indexes:
@@ -159,6 +201,8 @@ types:
     cai_asset_type_source: heuristic
     category: aiplatform
     aliases: []
+    match_names:
+    - gcp_aiplatform_indexes
     typed_collector: false
     mandatory: false
   gcp_aiplatform_job_locations:
@@ -166,6 +210,8 @@ types:
     cai_asset_type_source: heuristic
     category: aiplatform
     aliases: []
+    match_names:
+    - gcp_aiplatform_job_locations
     typed_collector: false
     mandatory: false
   gcp_aiplatform_metadata_locations:
@@ -173,6 +219,8 @@ types:
     cai_asset_type_source: heuristic
     category: aiplatform
     aliases: []
+    match_names:
+    - gcp_aiplatform_metadata_locations
     typed_collector: false
     mandatory: false
   gcp_aiplatform_metadata_stores:
@@ -180,6 +228,8 @@ types:
     cai_asset_type_source: heuristic
     category: aiplatform
     aliases: []
+    match_names:
+    - gcp_aiplatform_metadata_stores
     typed_collector: false
     mandatory: false
   gcp_aiplatform_model_deployment_monitoring_jobs:
@@ -187,6 +237,8 @@ types:
     cai_asset_type_source: heuristic
     category: aiplatform
     aliases: []
+    match_names:
+    - gcp_aiplatform_model_deployment_monitoring_jobs
     typed_collector: false
     mandatory: false
   gcp_aiplatform_model_locations:
@@ -194,6 +246,8 @@ types:
     cai_asset_type_source: heuristic
     category: aiplatform
     aliases: []
+    match_names:
+    - gcp_aiplatform_model_locations
     typed_collector: false
     mandatory: false
   gcp_aiplatform_models:
@@ -201,6 +255,8 @@ types:
     cai_asset_type_source: heuristic
     category: aiplatform
     aliases: []
+    match_names:
+    - gcp_aiplatform_models
     typed_collector: false
     mandatory: false
   gcp_aiplatform_operations:
@@ -208,6 +264,8 @@ types:
     cai_asset_type_source: heuristic
     category: aiplatform
     aliases: []
+    match_names:
+    - gcp_aiplatform_operations
     typed_collector: false
     mandatory: false
   gcp_aiplatform_pipeline_jobs:
@@ -215,6 +273,8 @@ types:
     cai_asset_type_source: heuristic
     category: aiplatform
     aliases: []
+    match_names:
+    - gcp_aiplatform_pipeline_jobs
     typed_collector: false
     mandatory: false
   gcp_aiplatform_pipeline_locations:
@@ -222,6 +282,8 @@ types:
     cai_asset_type_source: heuristic
     category: aiplatform
     aliases: []
+    match_names:
+    - gcp_aiplatform_pipeline_locations
     typed_collector: false
     mandatory: false
   gcp_aiplatform_specialist_pools:
@@ -229,6 +291,8 @@ types:
     cai_asset_type_source: heuristic
     category: aiplatform
     aliases: []
+    match_names:
+    - gcp_aiplatform_specialist_pools
     typed_collector: false
     mandatory: false
   gcp_aiplatform_specialistpool_locations:
@@ -236,6 +300,8 @@ types:
     cai_asset_type_source: heuristic
     category: aiplatform
     aliases: []
+    match_names:
+    - gcp_aiplatform_specialistpool_locations
     typed_collector: false
     mandatory: false
   gcp_aiplatform_studies:
@@ -243,6 +309,8 @@ types:
     cai_asset_type_source: heuristic
     category: aiplatform
     aliases: []
+    match_names:
+    - gcp_aiplatform_studies
     typed_collector: false
     mandatory: false
   gcp_aiplatform_tensorboard_locations:
@@ -250,6 +318,8 @@ types:
     cai_asset_type_source: heuristic
     category: aiplatform
     aliases: []
+    match_names:
+    - gcp_aiplatform_tensorboard_locations
     typed_collector: false
     mandatory: false
   gcp_aiplatform_tensorboards:
@@ -257,6 +327,8 @@ types:
     cai_asset_type_source: heuristic
     category: aiplatform
     aliases: []
+    match_names:
+    - gcp_aiplatform_tensorboards
     typed_collector: false
     mandatory: false
   gcp_aiplatform_training_pipelines:
@@ -264,6 +336,8 @@ types:
     cai_asset_type_source: heuristic
     category: aiplatform
     aliases: []
+    match_names:
+    - gcp_aiplatform_training_pipelines
     typed_collector: false
     mandatory: false
   gcp_aiplatform_vizier_locations:
@@ -271,6 +345,8 @@ types:
     cai_asset_type_source: heuristic
     category: aiplatform
     aliases: []
+    match_names:
+    - gcp_aiplatform_vizier_locations
     typed_collector: false
     mandatory: false
   gcp_alloydb_clusters:
@@ -278,6 +354,8 @@ types:
     cai_asset_type_source: override
     category: alloydb
     aliases: []
+    match_names:
+    - gcp_alloydb_clusters
     typed_collector: false
     mandatory: false
   gcp_alloydb_instances:
@@ -285,6 +363,8 @@ types:
     cai_asset_type_source: override
     category: alloydb
     aliases: []
+    match_names:
+    - gcp_alloydb_instances
     typed_collector: false
     mandatory: false
   gcp_apigateway_apis:
@@ -292,6 +372,8 @@ types:
     cai_asset_type_source: heuristic
     category: apigateway
     aliases: []
+    match_names:
+    - gcp_apigateway_apis
     typed_collector: false
     mandatory: false
   gcp_apigateway_gateways:
@@ -299,6 +381,8 @@ types:
     cai_asset_type_source: heuristic
     category: apigateway
     aliases: []
+    match_names:
+    - gcp_apigateway_gateways
     typed_collector: false
     mandatory: false
   gcp_apikeys_keys:
@@ -306,6 +390,8 @@ types:
     cai_asset_type_source: heuristic
     category: apikeys
     aliases: []
+    match_names:
+    - gcp_apikeys_keys
     typed_collector: false
     mandatory: false
   gcp_appengine_apps:
@@ -313,6 +399,8 @@ types:
     cai_asset_type_source: override
     category: appengine
     aliases: []
+    match_names:
+    - gcp_appengine_apps
     typed_collector: false
     mandatory: false
   gcp_appengine_authorized_certificates:
@@ -320,6 +408,8 @@ types:
     cai_asset_type_source: heuristic
     category: appengine
     aliases: []
+    match_names:
+    - gcp_appengine_authorized_certificates
     typed_collector: false
     mandatory: false
   gcp_appengine_authorized_domains:
@@ -327,6 +417,8 @@ types:
     cai_asset_type_source: heuristic
     category: appengine
     aliases: []
+    match_names:
+    - gcp_appengine_authorized_domains
     typed_collector: false
     mandatory: false
   gcp_appengine_domain_mappings:
@@ -334,6 +426,8 @@ types:
     cai_asset_type_source: heuristic
     category: appengine
     aliases: []
+    match_names:
+    - gcp_appengine_domain_mappings
     typed_collector: false
     mandatory: false
   gcp_appengine_firewall_ingress_rules:
@@ -341,6 +435,8 @@ types:
     cai_asset_type_source: heuristic
     category: appengine
     aliases: []
+    match_names:
+    - gcp_appengine_firewall_ingress_rules
     typed_collector: false
     mandatory: false
   gcp_appengine_instances:
@@ -348,6 +444,8 @@ types:
     cai_asset_type_source: heuristic
     category: appengine
     aliases: []
+    match_names:
+    - gcp_appengine_instances
     typed_collector: false
     mandatory: false
   gcp_appengine_services:
@@ -355,6 +453,8 @@ types:
     cai_asset_type_source: override
     category: appengine
     aliases: []
+    match_names:
+    - gcp_appengine_services
     typed_collector: false
     mandatory: false
   gcp_appengine_versions:
@@ -362,6 +462,8 @@ types:
     cai_asset_type_source: override
     category: appengine
     aliases: []
+    match_names:
+    - gcp_appengine_versions
     typed_collector: false
     mandatory: false
   gcp_applicationintegration_authconfigs:
@@ -369,6 +471,8 @@ types:
     cai_asset_type_source: heuristic
     category: applicationintegration
     aliases: []
+    match_names:
+    - gcp_applicationintegration_authconfigs
     typed_collector: false
     mandatory: false
   gcp_applicationintegration_certificates:
@@ -376,6 +480,8 @@ types:
     cai_asset_type_source: heuristic
     category: applicationintegration
     aliases: []
+    match_names:
+    - gcp_applicationintegration_certificates
     typed_collector: false
     mandatory: false
   gcp_applicationintegration_integration_execution_suspensions:
@@ -383,6 +489,8 @@ types:
     cai_asset_type_source: heuristic
     category: applicationintegration
     aliases: []
+    match_names:
+    - gcp_applicationintegration_integration_execution_suspensions
     typed_collector: false
     mandatory: false
   gcp_applicationintegration_integration_executions:
@@ -390,6 +498,8 @@ types:
     cai_asset_type_source: heuristic
     category: applicationintegration
     aliases: []
+    match_names:
+    - gcp_applicationintegration_integration_executions
     typed_collector: false
     mandatory: false
   gcp_applicationintegration_integration_versions:
@@ -397,6 +507,8 @@ types:
     cai_asset_type_source: heuristic
     category: applicationintegration
     aliases: []
+    match_names:
+    - gcp_applicationintegration_integration_versions
     typed_collector: false
     mandatory: false
   gcp_applicationintegration_integrations:
@@ -404,6 +516,8 @@ types:
     cai_asset_type_source: heuristic
     category: applicationintegration
     aliases: []
+    match_names:
+    - gcp_applicationintegration_integrations
     typed_collector: false
     mandatory: false
   gcp_applicationintegration_sfdc_channels:
@@ -411,6 +525,8 @@ types:
     cai_asset_type_source: heuristic
     category: applicationintegration
     aliases: []
+    match_names:
+    - gcp_applicationintegration_sfdc_channels
     typed_collector: false
     mandatory: false
   gcp_applicationintegration_sfdc_instances:
@@ -418,6 +534,8 @@ types:
     cai_asset_type_source: heuristic
     category: applicationintegration
     aliases: []
+    match_names:
+    - gcp_applicationintegration_sfdc_instances
     typed_collector: false
     mandatory: false
   gcp_artifactregistry_docker_images:
@@ -425,6 +543,8 @@ types:
     cai_asset_type_source: heuristic
     category: artifactregistry
     aliases: []
+    match_names:
+    - gcp_artifactregistry_docker_images
     typed_collector: false
     mandatory: false
   gcp_artifactregistry_files:
@@ -432,6 +552,8 @@ types:
     cai_asset_type_source: heuristic
     category: artifactregistry
     aliases: []
+    match_names:
+    - gcp_artifactregistry_files
     typed_collector: false
     mandatory: false
   gcp_artifactregistry_locations:
@@ -439,6 +561,8 @@ types:
     cai_asset_type_source: heuristic
     category: artifactregistry
     aliases: []
+    match_names:
+    - gcp_artifactregistry_locations
     typed_collector: false
     mandatory: false
   gcp_artifactregistry_packages:
@@ -446,6 +570,8 @@ types:
     cai_asset_type_source: heuristic
     category: artifactregistry
     aliases: []
+    match_names:
+    - gcp_artifactregistry_packages
     typed_collector: false
     mandatory: false
   gcp_artifactregistry_repositories:
@@ -453,6 +579,8 @@ types:
     cai_asset_type_source: override
     category: artifactregistry
     aliases: []
+    match_names:
+    - gcp_artifactregistry_repositories
     typed_collector: false
     mandatory: false
   gcp_artifactregistry_tags:
@@ -460,6 +588,8 @@ types:
     cai_asset_type_source: heuristic
     category: artifactregistry
     aliases: []
+    match_names:
+    - gcp_artifactregistry_tags
     typed_collector: false
     mandatory: false
   gcp_artifactregistry_versions:
@@ -467,6 +597,8 @@ types:
     cai_asset_type_source: heuristic
     category: artifactregistry
     aliases: []
+    match_names:
+    - gcp_artifactregistry_versions
     typed_collector: false
     mandatory: false
   gcp_baremetalsolution_instances:
@@ -474,6 +606,8 @@ types:
     cai_asset_type_source: heuristic
     category: baremetalsolution
     aliases: []
+    match_names:
+    - gcp_baremetalsolution_instances
     typed_collector: false
     mandatory: false
   gcp_baremetalsolution_networks:
@@ -481,6 +615,8 @@ types:
     cai_asset_type_source: heuristic
     category: baremetalsolution
     aliases: []
+    match_names:
+    - gcp_baremetalsolution_networks
     typed_collector: false
     mandatory: false
   gcp_baremetalsolution_nfs_shares:
@@ -488,6 +624,8 @@ types:
     cai_asset_type_source: heuristic
     category: baremetalsolution
     aliases: []
+    match_names:
+    - gcp_baremetalsolution_nfs_shares
     typed_collector: false
     mandatory: false
   gcp_baremetalsolution_volume_luns:
@@ -495,6 +633,8 @@ types:
     cai_asset_type_source: heuristic
     category: baremetalsolution
     aliases: []
+    match_names:
+    - gcp_baremetalsolution_volume_luns
     typed_collector: false
     mandatory: false
   gcp_baremetalsolution_volumes:
@@ -502,6 +642,8 @@ types:
     cai_asset_type_source: heuristic
     category: baremetalsolution
     aliases: []
+    match_names:
+    - gcp_baremetalsolution_volumes
     typed_collector: false
     mandatory: false
   gcp_batch_jobs:
@@ -509,6 +651,8 @@ types:
     cai_asset_type_source: heuristic
     category: batch
     aliases: []
+    match_names:
+    - gcp_batch_jobs
     typed_collector: false
     mandatory: false
   gcp_batch_task_groups:
@@ -516,6 +660,8 @@ types:
     cai_asset_type_source: heuristic
     category: batch
     aliases: []
+    match_names:
+    - gcp_batch_task_groups
     typed_collector: false
     mandatory: false
   gcp_batch_tasks:
@@ -523,6 +669,8 @@ types:
     cai_asset_type_source: heuristic
     category: batch
     aliases: []
+    match_names:
+    - gcp_batch_tasks
     typed_collector: false
     mandatory: false
   gcp_beyondcorp_app_connections:
@@ -530,6 +678,8 @@ types:
     cai_asset_type_source: heuristic
     category: beyondcorp
     aliases: []
+    match_names:
+    - gcp_beyondcorp_app_connections
     typed_collector: false
     mandatory: false
   gcp_beyondcorp_app_connectors:
@@ -537,6 +687,8 @@ types:
     cai_asset_type_source: heuristic
     category: beyondcorp
     aliases: []
+    match_names:
+    - gcp_beyondcorp_app_connectors
     typed_collector: false
     mandatory: false
   gcp_beyondcorp_app_gateways:
@@ -544,6 +696,8 @@ types:
     cai_asset_type_source: heuristic
     category: beyondcorp
     aliases: []
+    match_names:
+    - gcp_beyondcorp_app_gateways
     typed_collector: false
     mandatory: false
   gcp_bigquery_datasets:
@@ -551,6 +705,8 @@ types:
     cai_asset_type_source: override
     category: bigquery
     aliases: []
+    match_names:
+    - gcp_bigquery_datasets
     typed_collector: false
     mandatory: false
   gcp_bigquery_tables:
@@ -558,6 +714,8 @@ types:
     cai_asset_type_source: override
     category: bigquery
     aliases: []
+    match_names:
+    - gcp_bigquery_tables
     typed_collector: false
     mandatory: false
   gcp_bigquerydatatransfer_configs:
@@ -565,6 +723,8 @@ types:
     cai_asset_type_source: heuristic
     category: bigquerydatatransfer
     aliases: []
+    match_names:
+    - gcp_bigquerydatatransfer_configs
     typed_collector: false
     mandatory: false
   gcp_bigquerydatatransfer_datasources:
@@ -572,6 +732,8 @@ types:
     cai_asset_type_source: heuristic
     category: bigquerydatatransfer
     aliases: []
+    match_names:
+    - gcp_bigquerydatatransfer_datasources
     typed_collector: false
     mandatory: false
   gcp_bigquerydatatransfer_locations:
@@ -579,6 +741,8 @@ types:
     cai_asset_type_source: heuristic
     category: bigquerydatatransfer
     aliases: []
+    match_names:
+    - gcp_bigquerydatatransfer_locations
     typed_collector: false
     mandatory: false
   gcp_bigquerydatatransfer_logs:
@@ -586,6 +750,8 @@ types:
     cai_asset_type_source: heuristic
     category: bigquerydatatransfer
     aliases: []
+    match_names:
+    - gcp_bigquerydatatransfer_logs
     typed_collector: false
     mandatory: false
   gcp_bigquerydatatransfer_runs:
@@ -593,6 +759,8 @@ types:
     cai_asset_type_source: heuristic
     category: bigquerydatatransfer
     aliases: []
+    match_names:
+    - gcp_bigquerydatatransfer_runs
     typed_collector: false
     mandatory: false
   gcp_bigtableadmin_app_profiles:
@@ -600,6 +768,8 @@ types:
     cai_asset_type_source: override
     category: bigtableadmin
     aliases: []
+    match_names:
+    - gcp_bigtableadmin_app_profiles
     typed_collector: false
     mandatory: false
   gcp_bigtableadmin_backups:
@@ -607,6 +777,8 @@ types:
     cai_asset_type_source: heuristic
     category: bigtableadmin
     aliases: []
+    match_names:
+    - gcp_bigtableadmin_backups
     typed_collector: false
     mandatory: false
   gcp_bigtableadmin_clusters:
@@ -614,6 +786,8 @@ types:
     cai_asset_type_source: override
     category: bigtableadmin
     aliases: []
+    match_names:
+    - gcp_bigtableadmin_clusters
     typed_collector: false
     mandatory: false
   gcp_bigtableadmin_instances:
@@ -621,6 +795,8 @@ types:
     cai_asset_type_source: override
     category: bigtableadmin
     aliases: []
+    match_names:
+    - gcp_bigtableadmin_instances
     typed_collector: false
     mandatory: false
   gcp_bigtableadmin_tables:
@@ -628,6 +804,8 @@ types:
     cai_asset_type_source: override
     category: bigtableadmin
     aliases: []
+    match_names:
+    - gcp_bigtableadmin_tables
     typed_collector: false
     mandatory: false
   gcp_billing_billing_account_subaccounts:
@@ -635,6 +813,8 @@ types:
     cai_asset_type_source: heuristic
     category: billing
     aliases: []
+    match_names:
+    - gcp_billing_billing_account_subaccounts
     typed_collector: false
     mandatory: false
   gcp_billing_billing_accounts:
@@ -642,6 +822,8 @@ types:
     cai_asset_type_source: override
     category: billing
     aliases: []
+    match_names:
+    - gcp_billing_billing_accounts
     typed_collector: false
     mandatory: false
   gcp_billing_budgets:
@@ -649,6 +831,8 @@ types:
     cai_asset_type_source: heuristic
     category: billing
     aliases: []
+    match_names:
+    - gcp_billing_budgets
     typed_collector: false
     mandatory: false
   gcp_billing_projects:
@@ -656,6 +840,8 @@ types:
     cai_asset_type_source: heuristic
     category: billing
     aliases: []
+    match_names:
+    - gcp_billing_projects
     typed_collector: false
     mandatory: false
   gcp_billing_service_skus:
@@ -663,6 +849,8 @@ types:
     cai_asset_type_source: heuristic
     category: billing
     aliases: []
+    match_names:
+    - gcp_billing_service_skus
     typed_collector: false
     mandatory: false
   gcp_billing_services:
@@ -670,6 +858,8 @@ types:
     cai_asset_type_source: heuristic
     category: billing
     aliases: []
+    match_names:
+    - gcp_billing_services
     typed_collector: false
     mandatory: false
   gcp_binaryauthorization_assertors:
@@ -677,6 +867,8 @@ types:
     cai_asset_type_source: heuristic
     category: binaryauthorization
     aliases: []
+    match_names:
+    - gcp_binaryauthorization_assertors
     typed_collector: false
     mandatory: false
   gcp_certificatemanager_certificate_issuance_configs:
@@ -684,6 +876,8 @@ types:
     cai_asset_type_source: heuristic
     category: certificatemanager
     aliases: []
+    match_names:
+    - gcp_certificatemanager_certificate_issuance_configs
     typed_collector: false
     mandatory: false
   gcp_certificatemanager_certificate_map_entries:
@@ -691,6 +885,8 @@ types:
     cai_asset_type_source: heuristic
     category: certificatemanager
     aliases: []
+    match_names:
+    - gcp_certificatemanager_certificate_map_entries
     typed_collector: false
     mandatory: false
   gcp_certificatemanager_certificate_maps:
@@ -698,6 +894,8 @@ types:
     cai_asset_type_source: heuristic
     category: certificatemanager
     aliases: []
+    match_names:
+    - gcp_certificatemanager_certificate_maps
     typed_collector: false
     mandatory: false
   gcp_certificatemanager_certificates:
@@ -705,6 +903,8 @@ types:
     cai_asset_type_source: heuristic
     category: certificatemanager
     aliases: []
+    match_names:
+    - gcp_certificatemanager_certificates
     typed_collector: false
     mandatory: false
   gcp_certificatemanager_dns_authorizations:
@@ -712,6 +912,8 @@ types:
     cai_asset_type_source: heuristic
     category: certificatemanager
     aliases: []
+    match_names:
+    - gcp_certificatemanager_dns_authorizations
     typed_collector: false
     mandatory: false
   gcp_cloudassetinventory_assets:
@@ -719,6 +921,8 @@ types:
     cai_asset_type_source: heuristic
     category: cloudassetinventory
     aliases: []
+    match_names:
+    - gcp_cloudassetinventory_assets
     typed_collector: false
     mandatory: false
   gcp_cloudassetinventory_assets_access_policies:
@@ -726,6 +930,8 @@ types:
     cai_asset_type_source: heuristic
     category: cloudassetinventory
     aliases: []
+    match_names:
+    - gcp_cloudassetinventory_assets_access_policies
     typed_collector: false
     mandatory: false
   gcp_cloudassetinventory_assets_history:
@@ -733,6 +939,8 @@ types:
     cai_asset_type_source: heuristic
     category: cloudassetinventory
     aliases: []
+    match_names:
+    - gcp_cloudassetinventory_assets_history
     typed_collector: false
     mandatory: false
   gcp_cloudassetinventory_assets_iam_policies:
@@ -740,6 +948,8 @@ types:
     cai_asset_type_source: heuristic
     category: cloudassetinventory
     aliases: []
+    match_names:
+    - gcp_cloudassetinventory_assets_iam_policies
     typed_collector: false
     mandatory: false
   gcp_cloudassetinventory_assets_org_policies:
@@ -747,6 +957,8 @@ types:
     cai_asset_type_source: heuristic
     category: cloudassetinventory
     aliases: []
+    match_names:
+    - gcp_cloudassetinventory_assets_org_policies
     typed_collector: false
     mandatory: false
   gcp_cloudassetinventory_assets_os_inventories:
@@ -754,6 +966,8 @@ types:
     cai_asset_type_source: heuristic
     category: cloudassetinventory
     aliases: []
+    match_names:
+    - gcp_cloudassetinventory_assets_os_inventories
     typed_collector: false
     mandatory: false
   gcp_cloudassetinventory_assets_relationships:
@@ -761,6 +975,8 @@ types:
     cai_asset_type_source: heuristic
     category: cloudassetinventory
     aliases: []
+    match_names:
+    - gcp_cloudassetinventory_assets_relationships
     typed_collector: false
     mandatory: false
   gcp_cloudassetinventory_assets_resources:
@@ -768,6 +984,8 @@ types:
     cai_asset_type_source: heuristic
     category: cloudassetinventory
     aliases: []
+    match_names:
+    - gcp_cloudassetinventory_assets_resources
     typed_collector: false
     mandatory: false
   gcp_cloudassetinventory_effective_iam_policies:
@@ -775,6 +993,8 @@ types:
     cai_asset_type_source: heuristic
     category: cloudassetinventory
     aliases: []
+    match_names:
+    - gcp_cloudassetinventory_effective_iam_policies
     typed_collector: false
     mandatory: false
   gcp_cloudassetinventory_feeds:
@@ -782,6 +1002,8 @@ types:
     cai_asset_type_source: heuristic
     category: cloudassetinventory
     aliases: []
+    match_names:
+    - gcp_cloudassetinventory_feeds
     typed_collector: false
     mandatory: false
   gcp_cloudassetinventory_org_assets:
@@ -789,6 +1011,8 @@ types:
     cai_asset_type_source: heuristic
     category: cloudassetinventory
     aliases: []
+    match_names:
+    - gcp_cloudassetinventory_org_assets
     typed_collector: false
     mandatory: false
   gcp_cloudassetinventory_org_assets_access_policies:
@@ -796,6 +1020,8 @@ types:
     cai_asset_type_source: heuristic
     category: cloudassetinventory
     aliases: []
+    match_names:
+    - gcp_cloudassetinventory_org_assets_access_policies
     typed_collector: false
     mandatory: false
   gcp_cloudassetinventory_org_assets_iam_policies:
@@ -803,6 +1029,8 @@ types:
     cai_asset_type_source: heuristic
     category: cloudassetinventory
     aliases: []
+    match_names:
+    - gcp_cloudassetinventory_org_assets_iam_policies
     typed_collector: false
     mandatory: false
   gcp_cloudassetinventory_org_assets_org_policies:
@@ -810,6 +1038,8 @@ types:
     cai_asset_type_source: heuristic
     category: cloudassetinventory
     aliases: []
+    match_names:
+    - gcp_cloudassetinventory_org_assets_org_policies
     typed_collector: false
     mandatory: false
   gcp_cloudassetinventory_org_assets_os_inventories:
@@ -817,6 +1047,8 @@ types:
     cai_asset_type_source: heuristic
     category: cloudassetinventory
     aliases: []
+    match_names:
+    - gcp_cloudassetinventory_org_assets_os_inventories
     typed_collector: false
     mandatory: false
   gcp_cloudassetinventory_org_assets_relationships:
@@ -824,6 +1056,8 @@ types:
     cai_asset_type_source: heuristic
     category: cloudassetinventory
     aliases: []
+    match_names:
+    - gcp_cloudassetinventory_org_assets_relationships
     typed_collector: false
     mandatory: false
   gcp_cloudassetinventory_org_assets_resources:
@@ -831,6 +1065,8 @@ types:
     cai_asset_type_source: heuristic
     category: cloudassetinventory
     aliases: []
+    match_names:
+    - gcp_cloudassetinventory_org_assets_resources
     typed_collector: false
     mandatory: false
   gcp_cloudassetinventory_savedqueries:
@@ -838,6 +1074,8 @@ types:
     cai_asset_type_source: heuristic
     category: cloudassetinventory
     aliases: []
+    match_names:
+    - gcp_cloudassetinventory_savedqueries
     typed_collector: false
     mandatory: false
   gcp_cloudbuild_builds:
@@ -845,6 +1083,8 @@ types:
     cai_asset_type_source: heuristic
     category: cloudbuild
     aliases: []
+    match_names:
+    - gcp_cloudbuild_builds
     typed_collector: false
     mandatory: false
   gcp_cloudbuild_connection_repositories:
@@ -852,6 +1092,8 @@ types:
     cai_asset_type_source: heuristic
     category: cloudbuild
     aliases: []
+    match_names:
+    - gcp_cloudbuild_connection_repositories
     typed_collector: false
     mandatory: false
   gcp_cloudbuild_connections:
@@ -859,6 +1101,8 @@ types:
     cai_asset_type_source: heuristic
     category: cloudbuild
     aliases: []
+    match_names:
+    - gcp_cloudbuild_connections
     typed_collector: false
     mandatory: false
   gcp_cloudbuild_triggers:
@@ -866,6 +1110,8 @@ types:
     cai_asset_type_source: heuristic
     category: cloudbuild
     aliases: []
+    match_names:
+    - gcp_cloudbuild_triggers
     typed_collector: false
     mandatory: false
   gcp_cloudbuild_worker_pools:
@@ -873,6 +1119,8 @@ types:
     cai_asset_type_source: heuristic
     category: cloudbuild
     aliases: []
+    match_names:
+    - gcp_cloudbuild_worker_pools
     typed_collector: false
     mandatory: false
   gcp_clouddeploy_delivery_pipelines:
@@ -880,6 +1128,8 @@ types:
     cai_asset_type_source: heuristic
     category: clouddeploy
     aliases: []
+    match_names:
+    - gcp_clouddeploy_delivery_pipelines
     typed_collector: false
     mandatory: false
   gcp_clouddeploy_job_runs:
@@ -887,6 +1137,8 @@ types:
     cai_asset_type_source: heuristic
     category: clouddeploy
     aliases: []
+    match_names:
+    - gcp_clouddeploy_job_runs
     typed_collector: false
     mandatory: false
   gcp_clouddeploy_releases:
@@ -894,6 +1146,8 @@ types:
     cai_asset_type_source: heuristic
     category: clouddeploy
     aliases: []
+    match_names:
+    - gcp_clouddeploy_releases
     typed_collector: false
     mandatory: false
   gcp_clouddeploy_rollouts:
@@ -901,6 +1155,8 @@ types:
     cai_asset_type_source: heuristic
     category: clouddeploy
     aliases: []
+    match_names:
+    - gcp_clouddeploy_rollouts
     typed_collector: false
     mandatory: false
   gcp_clouddeploy_targets:
@@ -908,6 +1164,8 @@ types:
     cai_asset_type_source: heuristic
     category: clouddeploy
     aliases: []
+    match_names:
+    - gcp_clouddeploy_targets
     typed_collector: false
     mandatory: false
   gcp_clouderrorreporting_error_events:
@@ -915,6 +1173,8 @@ types:
     cai_asset_type_source: heuristic
     category: clouderrorreporting
     aliases: []
+    match_names:
+    - gcp_clouderrorreporting_error_events
     typed_collector: false
     mandatory: false
   gcp_clouderrorreporting_error_group_stats:
@@ -922,6 +1182,8 @@ types:
     cai_asset_type_source: heuristic
     category: clouderrorreporting
     aliases: []
+    match_names:
+    - gcp_clouderrorreporting_error_group_stats
     typed_collector: false
     mandatory: false
   gcp_cloudresourcemanager_organizations:
@@ -929,6 +1191,8 @@ types:
     cai_asset_type_source: heuristic
     category: cloudresourcemanager
     aliases: []
+    match_names:
+    - gcp_cloudresourcemanager_organizations
     typed_collector: false
     mandatory: false
   gcp_cloudscheduler_jobs:
@@ -936,6 +1200,8 @@ types:
     cai_asset_type_source: heuristic
     category: cloudscheduler
     aliases: []
+    match_names:
+    - gcp_cloudscheduler_jobs
     typed_collector: false
     mandatory: false
   gcp_cloudscheduler_locations:
@@ -943,6 +1209,8 @@ types:
     cai_asset_type_source: heuristic
     category: cloudscheduler
     aliases: []
+    match_names:
+    - gcp_cloudscheduler_locations
     typed_collector: false
     mandatory: false
   gcp_cloudsupport_cases:
@@ -950,6 +1218,8 @@ types:
     cai_asset_type_source: heuristic
     category: cloudsupport
     aliases: []
+    match_names:
+    - gcp_cloudsupport_cases
     typed_collector: false
     mandatory: false
   gcp_cloudtasks_locations:
@@ -957,6 +1227,8 @@ types:
     cai_asset_type_source: heuristic
     category: cloudtasks
     aliases: []
+    match_names:
+    - gcp_cloudtasks_locations
     typed_collector: false
     mandatory: false
   gcp_cloudtasks_queues:
@@ -964,6 +1236,8 @@ types:
     cai_asset_type_source: heuristic
     category: cloudtasks
     aliases: []
+    match_names:
+    - gcp_cloudtasks_queues
     typed_collector: false
     mandatory: false
   gcp_cloudtasks_tasks:
@@ -971,6 +1245,8 @@ types:
     cai_asset_type_source: heuristic
     category: cloudtasks
     aliases: []
+    match_names:
+    - gcp_cloudtasks_tasks
     typed_collector: false
     mandatory: false
   gcp_cloudtrace_traces:
@@ -978,6 +1254,8 @@ types:
     cai_asset_type_source: heuristic
     category: cloudtrace
     aliases: []
+    match_names:
+    - gcp_cloudtrace_traces
     typed_collector: false
     mandatory: false
   gcp_composer_environments:
@@ -985,6 +1263,8 @@ types:
     cai_asset_type_source: heuristic
     category: composer
     aliases: []
+    match_names:
+    - gcp_composer_environments
     typed_collector: false
     mandatory: false
   gcp_composer_image_versions:
@@ -992,6 +1272,8 @@ types:
     cai_asset_type_source: heuristic
     category: composer
     aliases: []
+    match_names:
+    - gcp_composer_image_versions
     typed_collector: false
     mandatory: false
   gcp_composer_operations:
@@ -999,6 +1281,8 @@ types:
     cai_asset_type_source: heuristic
     category: composer
     aliases: []
+    match_names:
+    - gcp_composer_operations
     typed_collector: false
     mandatory: false
   gcp_compute_addresses:
@@ -1006,6 +1290,8 @@ types:
     cai_asset_type_source: override
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_addresses
     typed_collector: true
     mandatory: false
   gcp_compute_autoscalers:
@@ -1013,6 +1299,8 @@ types:
     cai_asset_type_source: override
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_autoscalers
     typed_collector: false
     mandatory: false
   gcp_compute_backend_buckets:
@@ -1020,6 +1308,8 @@ types:
     cai_asset_type_source: heuristic
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_backend_buckets
     typed_collector: false
     mandatory: false
   gcp_compute_backend_services:
@@ -1027,6 +1317,8 @@ types:
     cai_asset_type_source: override
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_backend_services
     typed_collector: false
     mandatory: false
   gcp_compute_disk_types:
@@ -1034,6 +1326,8 @@ types:
     cai_asset_type_source: heuristic
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_disk_types
     typed_collector: false
     mandatory: false
   gcp_compute_disks:
@@ -1041,6 +1335,8 @@ types:
     cai_asset_type_source: override
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_disks
     typed_collector: true
     mandatory: false
   gcp_compute_external_vpn_gateways:
@@ -1048,6 +1344,8 @@ types:
     cai_asset_type_source: heuristic
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_external_vpn_gateways
     typed_collector: false
     mandatory: false
   gcp_compute_firewalls:
@@ -1055,6 +1353,8 @@ types:
     cai_asset_type_source: override
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_firewalls
     typed_collector: true
     mandatory: false
   gcp_compute_forwarding_rules:
@@ -1062,6 +1362,8 @@ types:
     cai_asset_type_source: override
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_forwarding_rules
     typed_collector: false
     mandatory: false
   gcp_compute_global_addresses:
@@ -1069,6 +1371,8 @@ types:
     cai_asset_type_source: override
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_global_addresses
     typed_collector: false
     mandatory: false
   gcp_compute_global_forwarding_rules:
@@ -1076,6 +1380,8 @@ types:
     cai_asset_type_source: override
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_global_forwarding_rules
     typed_collector: false
     mandatory: false
   gcp_compute_health_checks:
@@ -1083,6 +1389,8 @@ types:
     cai_asset_type_source: heuristic
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_health_checks
     typed_collector: false
     mandatory: false
   gcp_compute_image_policies:
@@ -1090,6 +1398,8 @@ types:
     cai_asset_type_source: heuristic
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_image_policies
     typed_collector: false
     mandatory: false
   gcp_compute_images:
@@ -1097,6 +1407,8 @@ types:
     cai_asset_type_source: override
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_images
     typed_collector: false
     mandatory: false
   gcp_compute_instance_group_instances:
@@ -1104,6 +1416,8 @@ types:
     cai_asset_type_source: heuristic
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_instance_group_instances
     typed_collector: false
     mandatory: false
   gcp_compute_instance_group_managers:
@@ -1111,6 +1425,8 @@ types:
     cai_asset_type_source: heuristic
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_instance_group_managers
     typed_collector: false
     mandatory: false
   gcp_compute_instance_group_regional_instances:
@@ -1118,6 +1434,8 @@ types:
     cai_asset_type_source: heuristic
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_instance_group_regional_instances
     typed_collector: false
     mandatory: false
   gcp_compute_instance_groups:
@@ -1125,6 +1443,8 @@ types:
     cai_asset_type_source: override
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_instance_groups
     typed_collector: false
     mandatory: false
   gcp_compute_instance_tag_bindings:
@@ -1132,6 +1452,8 @@ types:
     cai_asset_type_source: heuristic
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_instance_tag_bindings
     typed_collector: false
     mandatory: false
   gcp_compute_instance_templates:
@@ -1139,6 +1461,8 @@ types:
     cai_asset_type_source: override
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_instance_templates
     typed_collector: false
     mandatory: false
   gcp_compute_instances:
@@ -1147,6 +1471,9 @@ types:
     category: compute
     aliases:
     - compute_instance
+    match_names:
+    - gcp_compute_instances
+    - compute_instance
     typed_collector: true
     mandatory: false
   gcp_compute_interconnect_attachments:
@@ -1154,6 +1481,8 @@ types:
     cai_asset_type_source: heuristic
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_interconnect_attachments
     typed_collector: false
     mandatory: false
   gcp_compute_interconnect_locations:
@@ -1161,6 +1490,8 @@ types:
     cai_asset_type_source: heuristic
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_interconnect_locations
     typed_collector: false
     mandatory: false
   gcp_compute_interconnect_remote_locations:
@@ -1168,6 +1499,8 @@ types:
     cai_asset_type_source: heuristic
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_interconnect_remote_locations
     typed_collector: false
     mandatory: false
   gcp_compute_interconnects:
@@ -1175,6 +1508,8 @@ types:
     cai_asset_type_source: heuristic
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_interconnects
     typed_collector: false
     mandatory: false
   gcp_compute_machine_types:
@@ -1182,6 +1517,8 @@ types:
     cai_asset_type_source: heuristic
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_machine_types
     typed_collector: false
     mandatory: false
   gcp_compute_network_endpoint_groups:
@@ -1189,6 +1526,8 @@ types:
     cai_asset_type_source: heuristic
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_network_endpoint_groups
     typed_collector: false
     mandatory: false
   gcp_compute_network_firewall_policies:
@@ -1196,6 +1535,8 @@ types:
     cai_asset_type_source: heuristic
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_network_firewall_policies
     typed_collector: false
     mandatory: false
   gcp_compute_networks:
@@ -1203,6 +1544,8 @@ types:
     cai_asset_type_source: override
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_networks
     typed_collector: true
     mandatory: false
   gcp_compute_osconfig_inventories:
@@ -1210,6 +1553,8 @@ types:
     cai_asset_type_source: heuristic
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_osconfig_inventories
     typed_collector: false
     mandatory: false
   gcp_compute_osconfig_os_patch_deployments:
@@ -1217,6 +1562,8 @@ types:
     cai_asset_type_source: heuristic
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_osconfig_os_patch_deployments
     typed_collector: false
     mandatory: false
   gcp_compute_osconfig_os_patch_jobs:
@@ -1224,6 +1571,8 @@ types:
     cai_asset_type_source: heuristic
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_osconfig_os_patch_jobs
     typed_collector: false
     mandatory: false
   gcp_compute_osconfig_os_patch_jobs_instance_details:
@@ -1231,6 +1580,8 @@ types:
     cai_asset_type_source: heuristic
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_osconfig_os_patch_jobs_instance_details
     typed_collector: false
     mandatory: false
   gcp_compute_osconfig_os_policy_assignment_reports:
@@ -1238,6 +1589,8 @@ types:
     cai_asset_type_source: heuristic
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_osconfig_os_policy_assignment_reports
     typed_collector: false
     mandatory: false
   gcp_compute_osconfig_os_policy_assignments:
@@ -1245,6 +1598,8 @@ types:
     cai_asset_type_source: heuristic
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_osconfig_os_policy_assignments
     typed_collector: false
     mandatory: false
   gcp_compute_osconfig_os_vulnerability_reports:
@@ -1252,6 +1607,8 @@ types:
     cai_asset_type_source: heuristic
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_osconfig_os_vulnerability_reports
     typed_collector: false
     mandatory: false
   gcp_compute_packet_mirrorings:
@@ -1259,6 +1616,8 @@ types:
     cai_asset_type_source: heuristic
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_packet_mirrorings
     typed_collector: false
     mandatory: false
   gcp_compute_projects:
@@ -1266,6 +1625,8 @@ types:
     cai_asset_type_source: heuristic
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_projects
     typed_collector: false
     mandatory: false
   gcp_compute_region_instance_templates:
@@ -1273,6 +1634,8 @@ types:
     cai_asset_type_source: heuristic
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_region_instance_templates
     typed_collector: false
     mandatory: false
   gcp_compute_region_network_firewall_policies:
@@ -1280,6 +1643,8 @@ types:
     cai_asset_type_source: heuristic
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_region_network_firewall_policies
     typed_collector: false
     mandatory: false
   gcp_compute_router_nat_mapping_infos:
@@ -1287,6 +1652,8 @@ types:
     cai_asset_type_source: heuristic
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_router_nat_mapping_infos
     typed_collector: false
     mandatory: false
   gcp_compute_routers:
@@ -1294,6 +1661,8 @@ types:
     cai_asset_type_source: override
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_routers
     typed_collector: false
     mandatory: false
   gcp_compute_routes:
@@ -1301,6 +1670,8 @@ types:
     cai_asset_type_source: override
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_routes
     typed_collector: false
     mandatory: false
   gcp_compute_security_policies:
@@ -1308,6 +1679,8 @@ types:
     cai_asset_type_source: heuristic
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_security_policies
     typed_collector: false
     mandatory: false
   gcp_compute_snapshots:
@@ -1315,6 +1688,8 @@ types:
     cai_asset_type_source: override
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_snapshots
     typed_collector: true
     mandatory: false
   gcp_compute_ssl_certificates:
@@ -1322,6 +1697,8 @@ types:
     cai_asset_type_source: override
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_ssl_certificates
     typed_collector: false
     mandatory: false
   gcp_compute_ssl_policies:
@@ -1329,6 +1706,8 @@ types:
     cai_asset_type_source: heuristic
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_ssl_policies
     typed_collector: false
     mandatory: false
   gcp_compute_subnetworks:
@@ -1336,6 +1715,8 @@ types:
     cai_asset_type_source: override
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_subnetworks
     typed_collector: true
     mandatory: false
   gcp_compute_target_grpc_proxies:
@@ -1343,6 +1724,8 @@ types:
     cai_asset_type_source: heuristic
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_target_grpc_proxies
     typed_collector: false
     mandatory: false
   gcp_compute_target_http_proxies:
@@ -1350,6 +1733,8 @@ types:
     cai_asset_type_source: heuristic
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_target_http_proxies
     typed_collector: false
     mandatory: false
   gcp_compute_target_https_proxies:
@@ -1357,6 +1742,8 @@ types:
     cai_asset_type_source: heuristic
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_target_https_proxies
     typed_collector: false
     mandatory: false
   gcp_compute_target_instances:
@@ -1364,6 +1751,8 @@ types:
     cai_asset_type_source: heuristic
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_target_instances
     typed_collector: false
     mandatory: false
   gcp_compute_target_pools:
@@ -1371,6 +1760,8 @@ types:
     cai_asset_type_source: override
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_target_pools
     typed_collector: false
     mandatory: false
   gcp_compute_target_ssl_proxies:
@@ -1378,6 +1769,8 @@ types:
     cai_asset_type_source: heuristic
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_target_ssl_proxies
     typed_collector: false
     mandatory: false
   gcp_compute_target_tcp_proxies:
@@ -1385,6 +1778,8 @@ types:
     cai_asset_type_source: heuristic
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_target_tcp_proxies
     typed_collector: false
     mandatory: false
   gcp_compute_target_vpn_gateways:
@@ -1392,6 +1787,8 @@ types:
     cai_asset_type_source: heuristic
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_target_vpn_gateways
     typed_collector: false
     mandatory: false
   gcp_compute_url_maps:
@@ -1399,6 +1796,8 @@ types:
     cai_asset_type_source: override
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_url_maps
     typed_collector: false
     mandatory: false
   gcp_compute_vpn_gateways:
@@ -1406,6 +1805,8 @@ types:
     cai_asset_type_source: override
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_vpn_gateways
     typed_collector: false
     mandatory: false
   gcp_compute_vpn_tunnels:
@@ -1413,6 +1814,8 @@ types:
     cai_asset_type_source: override
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_vpn_tunnels
     typed_collector: false
     mandatory: false
   gcp_compute_zones:
@@ -1420,6 +1823,8 @@ types:
     cai_asset_type_source: heuristic
     category: compute
     aliases: []
+    match_names:
+    - gcp_compute_zones
     typed_collector: false
     mandatory: false
   gcp_container_clusters:
@@ -1427,6 +1832,8 @@ types:
     cai_asset_type_source: override
     category: container
     aliases: []
+    match_names:
+    - gcp_container_clusters
     typed_collector: true
     mandatory: false
   gcp_container_node_pools:
@@ -1434,6 +1841,8 @@ types:
     cai_asset_type_source: override
     category: container
     aliases: []
+    match_names:
+    - gcp_container_node_pools
     typed_collector: false
     mandatory: false
   gcp_containeranalysis_occurrences:
@@ -1441,6 +1850,8 @@ types:
     cai_asset_type_source: heuristic
     category: containeranalysis
     aliases: []
+    match_names:
+    - gcp_containeranalysis_occurrences
     typed_collector: false
     mandatory: false
   gcp_databasemigration_locations:
@@ -1448,6 +1859,8 @@ types:
     cai_asset_type_source: heuristic
     category: databasemigration
     aliases: []
+    match_names:
+    - gcp_databasemigration_locations
     typed_collector: false
     mandatory: false
   gcp_databasemigration_migration_jobs:
@@ -1455,6 +1868,8 @@ types:
     cai_asset_type_source: heuristic
     category: databasemigration
     aliases: []
+    match_names:
+    - gcp_databasemigration_migration_jobs
     typed_collector: false
     mandatory: false
   gcp_databasemigration_operations:
@@ -1462,6 +1877,8 @@ types:
     cai_asset_type_source: heuristic
     category: databasemigration
     aliases: []
+    match_names:
+    - gcp_databasemigration_operations
     typed_collector: false
     mandatory: false
   gcp_dataflow_job_messages:
@@ -1469,6 +1886,8 @@ types:
     cai_asset_type_source: heuristic
     category: dataflow
     aliases: []
+    match_names:
+    - gcp_dataflow_job_messages
     typed_collector: false
     mandatory: false
   gcp_dataflow_job_metrics:
@@ -1476,6 +1895,8 @@ types:
     cai_asset_type_source: heuristic
     category: dataflow
     aliases: []
+    match_names:
+    - gcp_dataflow_job_metrics
     typed_collector: false
     mandatory: false
   gcp_dataflow_jobs:
@@ -1483,6 +1904,8 @@ types:
     cai_asset_type_source: heuristic
     category: dataflow
     aliases: []
+    match_names:
+    - gcp_dataflow_jobs
     typed_collector: false
     mandatory: false
   gcp_dataflow_snapshots:
@@ -1490,6 +1913,8 @@ types:
     cai_asset_type_source: heuristic
     category: dataflow
     aliases: []
+    match_names:
+    - gcp_dataflow_snapshots
     typed_collector: false
     mandatory: false
   gcp_datafusion_available_versions:
@@ -1497,6 +1922,8 @@ types:
     cai_asset_type_source: heuristic
     category: datafusion
     aliases: []
+    match_names:
+    - gcp_datafusion_available_versions
     typed_collector: false
     mandatory: false
   gcp_datafusion_instance_operations:
@@ -1504,6 +1931,8 @@ types:
     cai_asset_type_source: heuristic
     category: datafusion
     aliases: []
+    match_names:
+    - gcp_datafusion_instance_operations
     typed_collector: false
     mandatory: false
   gcp_datafusion_instances:
@@ -1511,6 +1940,8 @@ types:
     cai_asset_type_source: heuristic
     category: datafusion
     aliases: []
+    match_names:
+    - gcp_datafusion_instances
     typed_collector: false
     mandatory: false
   gcp_dataproc_autoscaling_policies:
@@ -1518,6 +1949,8 @@ types:
     cai_asset_type_source: heuristic
     category: dataproc
     aliases: []
+    match_names:
+    - gcp_dataproc_autoscaling_policies
     typed_collector: false
     mandatory: false
   gcp_dataproc_cluster_nodegroups:
@@ -1525,6 +1958,8 @@ types:
     cai_asset_type_source: heuristic
     category: dataproc
     aliases: []
+    match_names:
+    - gcp_dataproc_cluster_nodegroups
     typed_collector: false
     mandatory: false
   gcp_dataproc_clusters:
@@ -1532,6 +1967,8 @@ types:
     cai_asset_type_source: heuristic
     category: dataproc
     aliases: []
+    match_names:
+    - gcp_dataproc_clusters
     typed_collector: false
     mandatory: false
   gcp_dataproc_jobs:
@@ -1539,6 +1976,8 @@ types:
     cai_asset_type_source: heuristic
     category: dataproc
     aliases: []
+    match_names:
+    - gcp_dataproc_jobs
     typed_collector: false
     mandatory: false
   gcp_dataproc_regions:
@@ -1546,6 +1985,8 @@ types:
     cai_asset_type_source: heuristic
     category: dataproc
     aliases: []
+    match_names:
+    - gcp_dataproc_regions
     typed_collector: false
     mandatory: false
   gcp_deploymentmanager_deployments:
@@ -1553,6 +1994,8 @@ types:
     cai_asset_type_source: heuristic
     category: deploymentmanager
     aliases: []
+    match_names:
+    - gcp_deploymentmanager_deployments
     typed_collector: false
     mandatory: false
   gcp_deploymentmanager_manifests:
@@ -1560,6 +2003,8 @@ types:
     cai_asset_type_source: heuristic
     category: deploymentmanager
     aliases: []
+    match_names:
+    - gcp_deploymentmanager_manifests
     typed_collector: false
     mandatory: false
   gcp_deploymentmanager_operations:
@@ -1567,6 +2012,8 @@ types:
     cai_asset_type_source: heuristic
     category: deploymentmanager
     aliases: []
+    match_names:
+    - gcp_deploymentmanager_operations
     typed_collector: false
     mandatory: false
   gcp_deploymentmanager_resources:
@@ -1574,6 +2021,8 @@ types:
     cai_asset_type_source: heuristic
     category: deploymentmanager
     aliases: []
+    match_names:
+    - gcp_deploymentmanager_resources
     typed_collector: false
     mandatory: false
   gcp_deploymentmanager_types:
@@ -1581,6 +2030,8 @@ types:
     cai_asset_type_source: heuristic
     category: deploymentmanager
     aliases: []
+    match_names:
+    - gcp_deploymentmanager_types
     typed_collector: false
     mandatory: false
   gcp_dns_managed_zones:
@@ -1588,6 +2039,8 @@ types:
     cai_asset_type_source: override
     category: dns
     aliases: []
+    match_names:
+    - gcp_dns_managed_zones
     typed_collector: false
     mandatory: false
   gcp_dns_policies:
@@ -1595,6 +2048,8 @@ types:
     cai_asset_type_source: override
     category: dns
     aliases: []
+    match_names:
+    - gcp_dns_policies
     typed_collector: false
     mandatory: false
   gcp_dns_resource_record_sets:
@@ -1602,6 +2057,8 @@ types:
     cai_asset_type_source: heuristic
     category: dns
     aliases: []
+    match_names:
+    - gcp_dns_resource_record_sets
     typed_collector: false
     mandatory: false
   gcp_domains_registrations:
@@ -1609,6 +2066,8 @@ types:
     cai_asset_type_source: heuristic
     category: domains
     aliases: []
+    match_names:
+    - gcp_domains_registrations
     typed_collector: false
     mandatory: false
   gcp_essentialcontacts_folder_contacts:
@@ -1616,6 +2075,8 @@ types:
     cai_asset_type_source: heuristic
     category: essentialcontacts
     aliases: []
+    match_names:
+    - gcp_essentialcontacts_folder_contacts
     typed_collector: false
     mandatory: false
   gcp_essentialcontacts_organization_contacts:
@@ -1623,6 +2084,8 @@ types:
     cai_asset_type_source: heuristic
     category: essentialcontacts
     aliases: []
+    match_names:
+    - gcp_essentialcontacts_organization_contacts
     typed_collector: false
     mandatory: false
   gcp_essentialcontacts_project_contacts:
@@ -1630,6 +2093,8 @@ types:
     cai_asset_type_source: heuristic
     category: essentialcontacts
     aliases: []
+    match_names:
+    - gcp_essentialcontacts_project_contacts
     typed_collector: false
     mandatory: false
   gcp_eventarc_channels:
@@ -1637,6 +2102,8 @@ types:
     cai_asset_type_source: heuristic
     category: eventarc
     aliases: []
+    match_names:
+    - gcp_eventarc_channels
     typed_collector: false
     mandatory: false
   gcp_eventarc_providers:
@@ -1644,6 +2111,8 @@ types:
     cai_asset_type_source: heuristic
     category: eventarc
     aliases: []
+    match_names:
+    - gcp_eventarc_providers
     typed_collector: false
     mandatory: false
   gcp_eventarc_triggers:
@@ -1651,6 +2120,8 @@ types:
     cai_asset_type_source: heuristic
     category: eventarc
     aliases: []
+    match_names:
+    - gcp_eventarc_triggers
     typed_collector: false
     mandatory: false
   gcp_filestore_backups:
@@ -1658,6 +2129,8 @@ types:
     cai_asset_type_source: override
     category: filestore
     aliases: []
+    match_names:
+    - gcp_filestore_backups
     typed_collector: false
     mandatory: false
   gcp_filestore_instances:
@@ -1665,6 +2138,8 @@ types:
     cai_asset_type_source: override
     category: filestore
     aliases: []
+    match_names:
+    - gcp_filestore_instances
     typed_collector: false
     mandatory: false
   gcp_filestore_locations:
@@ -1672,6 +2147,8 @@ types:
     cai_asset_type_source: heuristic
     category: filestore
     aliases: []
+    match_names:
+    - gcp_filestore_locations
     typed_collector: false
     mandatory: false
   gcp_filestore_operations:
@@ -1679,6 +2156,8 @@ types:
     cai_asset_type_source: heuristic
     category: filestore
     aliases: []
+    match_names:
+    - gcp_filestore_operations
     typed_collector: false
     mandatory: false
   gcp_filestore_snapshots:
@@ -1686,6 +2165,8 @@ types:
     cai_asset_type_source: heuristic
     category: filestore
     aliases: []
+    match_names:
+    - gcp_filestore_snapshots
     typed_collector: false
     mandatory: false
   gcp_firebase_hosting_site_channels:
@@ -1693,6 +2174,8 @@ types:
     cai_asset_type_source: heuristic
     category: firebase
     aliases: []
+    match_names:
+    - gcp_firebase_hosting_site_channels
     typed_collector: false
     mandatory: false
   gcp_firebase_hosting_site_custom_domains:
@@ -1700,6 +2183,8 @@ types:
     cai_asset_type_source: heuristic
     category: firebase
     aliases: []
+    match_names:
+    - gcp_firebase_hosting_site_custom_domains
     typed_collector: false
     mandatory: false
   gcp_firebase_hosting_site_releases:
@@ -1707,6 +2192,8 @@ types:
     cai_asset_type_source: heuristic
     category: firebase
     aliases: []
+    match_names:
+    - gcp_firebase_hosting_site_releases
     typed_collector: false
     mandatory: false
   gcp_firebase_hosting_site_versions:
@@ -1714,6 +2201,8 @@ types:
     cai_asset_type_source: heuristic
     category: firebase
     aliases: []
+    match_names:
+    - gcp_firebase_hosting_site_versions
     typed_collector: false
     mandatory: false
   gcp_firebase_hosting_sites:
@@ -1721,6 +2210,8 @@ types:
     cai_asset_type_source: heuristic
     category: firebase
     aliases: []
+    match_names:
+    - gcp_firebase_hosting_sites
     typed_collector: false
     mandatory: false
   gcp_firebase_rules_releases:
@@ -1728,6 +2219,8 @@ types:
     cai_asset_type_source: heuristic
     category: firebase
     aliases: []
+    match_names:
+    - gcp_firebase_rules_releases
     typed_collector: false
     mandatory: false
   gcp_firebase_rules_rulesets:
@@ -1735,6 +2228,8 @@ types:
     cai_asset_type_source: heuristic
     category: firebase
     aliases: []
+    match_names:
+    - gcp_firebase_rules_rulesets
     typed_collector: false
     mandatory: false
   gcp_firebaseappcheck_app_attest_configs:
@@ -1742,6 +2237,8 @@ types:
     cai_asset_type_source: heuristic
     category: firebaseappcheck
     aliases: []
+    match_names:
+    - gcp_firebaseappcheck_app_attest_configs
     typed_collector: false
     mandatory: false
   gcp_firebaseappcheck_device_check_configs:
@@ -1749,6 +2246,8 @@ types:
     cai_asset_type_source: heuristic
     category: firebaseappcheck
     aliases: []
+    match_names:
+    - gcp_firebaseappcheck_device_check_configs
     typed_collector: false
     mandatory: false
   gcp_firebaseappcheck_play_integrity_configs:
@@ -1756,6 +2255,8 @@ types:
     cai_asset_type_source: heuristic
     category: firebaseappcheck
     aliases: []
+    match_names:
+    - gcp_firebaseappcheck_play_integrity_configs
     typed_collector: false
     mandatory: false
   gcp_firebaseappcheck_recaptcha_configs:
@@ -1763,6 +2264,8 @@ types:
     cai_asset_type_source: heuristic
     category: firebaseappcheck
     aliases: []
+    match_names:
+    - gcp_firebaseappcheck_recaptcha_configs
     typed_collector: false
     mandatory: false
   gcp_firebaseappcheck_recaptcha_enterprise_configs:
@@ -1770,6 +2273,8 @@ types:
     cai_asset_type_source: heuristic
     category: firebaseappcheck
     aliases: []
+    match_names:
+    - gcp_firebaseappcheck_recaptcha_enterprise_configs
     typed_collector: false
     mandatory: false
   gcp_firebaseappcheck_safety_net_configs:
@@ -1777,6 +2282,8 @@ types:
     cai_asset_type_source: heuristic
     category: firebaseappcheck
     aliases: []
+    match_names:
+    - gcp_firebaseappcheck_safety_net_configs
     typed_collector: false
     mandatory: false
   gcp_firestore_databases:
@@ -1784,6 +2291,8 @@ types:
     cai_asset_type_source: heuristic
     category: firestore
     aliases: []
+    match_names:
+    - gcp_firestore_databases
     typed_collector: false
     mandatory: false
   gcp_functions_function_policies:
@@ -1791,6 +2300,8 @@ types:
     cai_asset_type_source: heuristic
     category: functions
     aliases: []
+    match_names:
+    - gcp_functions_function_policies
     typed_collector: false
     mandatory: false
   gcp_functions_functions:
@@ -1798,6 +2309,8 @@ types:
     cai_asset_type_source: override
     category: functions
     aliases: []
+    match_names:
+    - gcp_functions_functions
     typed_collector: false
     mandatory: false
   gcp_functionsv2_function_policies:
@@ -1805,6 +2318,8 @@ types:
     cai_asset_type_source: heuristic
     category: functionsv2
     aliases: []
+    match_names:
+    - gcp_functionsv2_function_policies
     typed_collector: false
     mandatory: false
   gcp_functionsv2_functions:
@@ -1812,6 +2327,8 @@ types:
     cai_asset_type_source: override
     category: functionsv2
     aliases: []
+    match_names:
+    - gcp_functionsv2_functions
     typed_collector: false
     mandatory: false
   gcp_iam_deny_policies:
@@ -1819,6 +2336,8 @@ types:
     cai_asset_type_source: heuristic
     category: iam
     aliases: []
+    match_names:
+    - gcp_iam_deny_policies
     typed_collector: false
     mandatory: false
   gcp_iam_organizational_roles:
@@ -1826,6 +2345,8 @@ types:
     cai_asset_type_source: heuristic
     category: iam
     aliases: []
+    match_names:
+    - gcp_iam_organizational_roles
     typed_collector: false
     mandatory: false
   gcp_iam_predefined_roles:
@@ -1833,6 +2354,8 @@ types:
     cai_asset_type_source: heuristic
     category: iam
     aliases: []
+    match_names:
+    - gcp_iam_predefined_roles
     typed_collector: false
     mandatory: false
   gcp_iam_roles:
@@ -1840,6 +2363,8 @@ types:
     cai_asset_type_source: override
     category: iam
     aliases: []
+    match_names:
+    - gcp_iam_roles
     typed_collector: false
     mandatory: false
   gcp_iam_service_account_keys:
@@ -1847,6 +2372,8 @@ types:
     cai_asset_type_source: heuristic
     category: iam
     aliases: []
+    match_names:
+    - gcp_iam_service_account_keys
     typed_collector: false
     mandatory: false
   gcp_iam_service_account_policies:
@@ -1854,6 +2381,8 @@ types:
     cai_asset_type_source: heuristic
     category: iam
     aliases: []
+    match_names:
+    - gcp_iam_service_account_policies
     typed_collector: false
     mandatory: false
   gcp_iam_service_accounts:
@@ -1861,6 +2390,8 @@ types:
     cai_asset_type_source: override
     category: iam
     aliases: []
+    match_names:
+    - gcp_iam_service_accounts
     typed_collector: true
     mandatory: false
   gcp_iam_workload_identity_pool_providers:
@@ -1868,6 +2399,8 @@ types:
     cai_asset_type_source: heuristic
     category: iam
     aliases: []
+    match_names:
+    - gcp_iam_workload_identity_pool_providers
     typed_collector: false
     mandatory: false
   gcp_iam_workload_identity_pools:
@@ -1875,6 +2408,8 @@ types:
     cai_asset_type_source: heuristic
     category: iam
     aliases: []
+    match_names:
+    - gcp_iam_workload_identity_pools
     typed_collector: false
     mandatory: false
   gcp_identitytoolkit_accounts:
@@ -1882,6 +2417,8 @@ types:
     cai_asset_type_source: heuristic
     category: identitytoolkit
     aliases: []
+    match_names:
+    - gcp_identitytoolkit_accounts
     typed_collector: false
     mandatory: false
   gcp_identitytoolkit_default_supported_idps:
@@ -1889,6 +2426,8 @@ types:
     cai_asset_type_source: heuristic
     category: identitytoolkit
     aliases: []
+    match_names:
+    - gcp_identitytoolkit_default_supported_idps
     typed_collector: false
     mandatory: false
   gcp_identitytoolkit_inbound_saml_configs:
@@ -1896,6 +2435,8 @@ types:
     cai_asset_type_source: heuristic
     category: identitytoolkit
     aliases: []
+    match_names:
+    - gcp_identitytoolkit_inbound_saml_configs
     typed_collector: false
     mandatory: false
   gcp_identitytoolkit_oauth_idp_configs:
@@ -1903,6 +2444,8 @@ types:
     cai_asset_type_source: heuristic
     category: identitytoolkit
     aliases: []
+    match_names:
+    - gcp_identitytoolkit_oauth_idp_configs
     typed_collector: false
     mandatory: false
   gcp_identitytoolkit_project_configs:
@@ -1910,6 +2453,8 @@ types:
     cai_asset_type_source: heuristic
     category: identitytoolkit
     aliases: []
+    match_names:
+    - gcp_identitytoolkit_project_configs
     typed_collector: false
     mandatory: false
   gcp_identitytoolkit_project_public_configs:
@@ -1917,6 +2462,8 @@ types:
     cai_asset_type_source: heuristic
     category: identitytoolkit
     aliases: []
+    match_names:
+    - gcp_identitytoolkit_project_public_configs
     typed_collector: false
     mandatory: false
   gcp_identitytoolkit_recaptcha_params:
@@ -1924,6 +2471,8 @@ types:
     cai_asset_type_source: heuristic
     category: identitytoolkit
     aliases: []
+    match_names:
+    - gcp_identitytoolkit_recaptcha_params
     typed_collector: false
     mandatory: false
   gcp_identitytoolkit_tenants:
@@ -1931,6 +2480,8 @@ types:
     cai_asset_type_source: heuristic
     category: identitytoolkit
     aliases: []
+    match_names:
+    - gcp_identitytoolkit_tenants
     typed_collector: false
     mandatory: false
   gcp_kms_crypto_key_versions:
@@ -1938,6 +2489,8 @@ types:
     cai_asset_type_source: override
     category: kms
     aliases: []
+    match_names:
+    - gcp_kms_crypto_key_versions
     typed_collector: false
     mandatory: false
   gcp_kms_crypto_keys:
@@ -1945,6 +2498,8 @@ types:
     cai_asset_type_source: override
     category: kms
     aliases: []
+    match_names:
+    - gcp_kms_crypto_keys
     typed_collector: false
     mandatory: false
   gcp_kms_ekm_connections:
@@ -1952,6 +2507,8 @@ types:
     cai_asset_type_source: heuristic
     category: kms
     aliases: []
+    match_names:
+    - gcp_kms_ekm_connections
     typed_collector: false
     mandatory: false
   gcp_kms_import_jobs:
@@ -1959,6 +2516,8 @@ types:
     cai_asset_type_source: override
     category: kms
     aliases: []
+    match_names:
+    - gcp_kms_import_jobs
     typed_collector: false
     mandatory: false
   gcp_kms_keyrings:
@@ -1966,6 +2525,8 @@ types:
     cai_asset_type_source: override
     category: kms
     aliases: []
+    match_names:
+    - gcp_kms_keyrings
     typed_collector: false
     mandatory: false
   gcp_kms_locations:
@@ -1973,6 +2534,8 @@ types:
     cai_asset_type_source: heuristic
     category: kms
     aliases: []
+    match_names:
+    - gcp_kms_locations
     typed_collector: false
     mandatory: false
   gcp_livestream_channels:
@@ -1980,6 +2543,8 @@ types:
     cai_asset_type_source: heuristic
     category: livestream
     aliases: []
+    match_names:
+    - gcp_livestream_channels
     typed_collector: false
     mandatory: false
   gcp_livestream_inputs:
@@ -1987,6 +2552,8 @@ types:
     cai_asset_type_source: heuristic
     category: livestream
     aliases: []
+    match_names:
+    - gcp_livestream_inputs
     typed_collector: false
     mandatory: false
   gcp_logging_audit_logs:
@@ -1994,6 +2561,8 @@ types:
     cai_asset_type_source: heuristic
     category: logging
     aliases: []
+    match_names:
+    - gcp_logging_audit_logs
     typed_collector: false
     mandatory: false
   gcp_logging_metrics:
@@ -2001,6 +2570,8 @@ types:
     cai_asset_type_source: heuristic
     category: logging
     aliases: []
+    match_names:
+    - gcp_logging_metrics
     typed_collector: false
     mandatory: false
   gcp_logging_sinks:
@@ -2008,6 +2579,8 @@ types:
     cai_asset_type_source: heuristic
     category: logging
     aliases: []
+    match_names:
+    - gcp_logging_sinks
     typed_collector: false
     mandatory: false
   gcp_looker_instance_operations:
@@ -2015,6 +2588,8 @@ types:
     cai_asset_type_source: heuristic
     category: looker
     aliases: []
+    match_names:
+    - gcp_looker_instance_operations
     typed_collector: false
     mandatory: false
   gcp_looker_instances:
@@ -2022,6 +2597,8 @@ types:
     cai_asset_type_source: heuristic
     category: looker
     aliases: []
+    match_names:
+    - gcp_looker_instances
     typed_collector: false
     mandatory: false
   gcp_memorystore_instances:
@@ -2029,6 +2606,8 @@ types:
     cai_asset_type_source: heuristic
     category: memorystore
     aliases: []
+    match_names:
+    - gcp_memorystore_instances
     typed_collector: false
     mandatory: false
   gcp_memorystore_locations:
@@ -2036,6 +2615,8 @@ types:
     cai_asset_type_source: heuristic
     category: memorystore
     aliases: []
+    match_names:
+    - gcp_memorystore_locations
     typed_collector: false
     mandatory: false
   gcp_memorystore_operations:
@@ -2043,6 +2624,8 @@ types:
     cai_asset_type_source: heuristic
     category: memorystore
     aliases: []
+    match_names:
+    - gcp_memorystore_operations
     typed_collector: false
     mandatory: false
   gcp_monitoring_alert_policies:
@@ -2050,6 +2633,8 @@ types:
     cai_asset_type_source: heuristic
     category: monitoring
     aliases: []
+    match_names:
+    - gcp_monitoring_alert_policies
     typed_collector: false
     mandatory: false
   gcp_networkconnectivity_internal_ranges:
@@ -2057,6 +2642,8 @@ types:
     cai_asset_type_source: heuristic
     category: networkconnectivity
     aliases: []
+    match_names:
+    - gcp_networkconnectivity_internal_ranges
     typed_collector: false
     mandatory: false
   gcp_networkconnectivity_locations:
@@ -2064,6 +2651,8 @@ types:
     cai_asset_type_source: heuristic
     category: networkconnectivity
     aliases: []
+    match_names:
+    - gcp_networkconnectivity_locations
     typed_collector: false
     mandatory: false
   gcp_networkintelligencecenter_connectivity_tests:
@@ -2071,6 +2660,8 @@ types:
     cai_asset_type_source: heuristic
     category: networkintelligencecenter
     aliases: []
+    match_names:
+    - gcp_networkintelligencecenter_connectivity_tests
     typed_collector: false
     mandatory: false
   gcp_networkintelligencecenter_locations:
@@ -2078,6 +2669,8 @@ types:
     cai_asset_type_source: heuristic
     category: networkintelligencecenter
     aliases: []
+    match_names:
+    - gcp_networkintelligencecenter_locations
     typed_collector: false
     mandatory: false
   gcp_networkintelligencecenter_operations:
@@ -2085,6 +2678,8 @@ types:
     cai_asset_type_source: heuristic
     category: networkintelligencecenter
     aliases: []
+    match_names:
+    - gcp_networkintelligencecenter_operations
     typed_collector: false
     mandatory: false
   gcp_networksecurity_address_groups:
@@ -2092,6 +2687,8 @@ types:
     cai_asset_type_source: heuristic
     category: networksecurity
     aliases: []
+    match_names:
+    - gcp_networksecurity_address_groups
     typed_collector: false
     mandatory: false
   gcp_networksecurity_firewall_endpoints:
@@ -2099,6 +2696,8 @@ types:
     cai_asset_type_source: heuristic
     category: networksecurity
     aliases: []
+    match_names:
+    - gcp_networksecurity_firewall_endpoints
     typed_collector: false
     mandatory: false
   gcp_networksecurity_security_profile_groups:
@@ -2106,6 +2705,8 @@ types:
     cai_asset_type_source: heuristic
     category: networksecurity
     aliases: []
+    match_names:
+    - gcp_networksecurity_security_profile_groups
     typed_collector: false
     mandatory: false
   gcp_networksecurity_security_profiles:
@@ -2113,6 +2714,8 @@ types:
     cai_asset_type_source: heuristic
     category: networksecurity
     aliases: []
+    match_names:
+    - gcp_networksecurity_security_profiles
     typed_collector: false
     mandatory: false
   gcp_networksecurity_tls_inspection_policies:
@@ -2120,6 +2723,8 @@ types:
     cai_asset_type_source: heuristic
     category: networksecurity
     aliases: []
+    match_names:
+    - gcp_networksecurity_tls_inspection_policies
     typed_collector: false
     mandatory: false
   gcp_networkservices_endpoint_policies:
@@ -2127,6 +2732,8 @@ types:
     cai_asset_type_source: heuristic
     category: networkservices
     aliases: []
+    match_names:
+    - gcp_networkservices_endpoint_policies
     typed_collector: false
     mandatory: false
   gcp_networkservices_gateways:
@@ -2134,6 +2741,8 @@ types:
     cai_asset_type_source: heuristic
     category: networkservices
     aliases: []
+    match_names:
+    - gcp_networkservices_gateways
     typed_collector: false
     mandatory: false
   gcp_networkservices_grpc_routes:
@@ -2141,6 +2750,8 @@ types:
     cai_asset_type_source: heuristic
     category: networkservices
     aliases: []
+    match_names:
+    - gcp_networkservices_grpc_routes
     typed_collector: false
     mandatory: false
   gcp_networkservices_http_routes:
@@ -2148,6 +2759,8 @@ types:
     cai_asset_type_source: heuristic
     category: networkservices
     aliases: []
+    match_names:
+    - gcp_networkservices_http_routes
     typed_collector: false
     mandatory: false
   gcp_networkservices_meshes:
@@ -2155,6 +2768,8 @@ types:
     cai_asset_type_source: heuristic
     category: networkservices
     aliases: []
+    match_names:
+    - gcp_networkservices_meshes
     typed_collector: false
     mandatory: false
   gcp_networkservices_service_bindings:
@@ -2162,6 +2777,8 @@ types:
     cai_asset_type_source: heuristic
     category: networkservices
     aliases: []
+    match_names:
+    - gcp_networkservices_service_bindings
     typed_collector: false
     mandatory: false
   gcp_networkservices_tcp_routes:
@@ -2169,6 +2786,8 @@ types:
     cai_asset_type_source: heuristic
     category: networkservices
     aliases: []
+    match_names:
+    - gcp_networkservices_tcp_routes
     typed_collector: false
     mandatory: false
   gcp_networkservices_tls_routes:
@@ -2176,6 +2795,8 @@ types:
     cai_asset_type_source: heuristic
     category: networkservices
     aliases: []
+    match_names:
+    - gcp_networkservices_tls_routes
     typed_collector: false
     mandatory: false
   gcp_organization_folders_policies:
@@ -2183,6 +2804,8 @@ types:
     cai_asset_type_source: heuristic
     category: organization
     aliases: []
+    match_names:
+    - gcp_organization_folders_policies
     typed_collector: false
     mandatory: false
   gcp_organization_policies:
@@ -2190,6 +2813,8 @@ types:
     cai_asset_type_source: heuristic
     category: organization
     aliases: []
+    match_names:
+    - gcp_organization_policies
     typed_collector: false
     mandatory: false
   gcp_organization_projects_policies:
@@ -2197,6 +2822,8 @@ types:
     cai_asset_type_source: heuristic
     category: organization
     aliases: []
+    match_names:
+    - gcp_organization_projects_policies
     typed_collector: false
     mandatory: false
   gcp_policyanalyzer_activities:
@@ -2204,6 +2831,8 @@ types:
     cai_asset_type_source: heuristic
     category: policyanalyzer
     aliases: []
+    match_names:
+    - gcp_policyanalyzer_activities
     typed_collector: false
     mandatory: false
   gcp_privateca_authorities:
@@ -2211,6 +2840,8 @@ types:
     cai_asset_type_source: heuristic
     category: privateca
     aliases: []
+    match_names:
+    - gcp_privateca_authorities
     typed_collector: false
     mandatory: false
   gcp_privateca_certificates:
@@ -2218,6 +2849,8 @@ types:
     cai_asset_type_source: heuristic
     category: privateca
     aliases: []
+    match_names:
+    - gcp_privateca_certificates
     typed_collector: false
     mandatory: false
   gcp_privateca_pools:
@@ -2225,6 +2858,8 @@ types:
     cai_asset_type_source: heuristic
     category: privateca
     aliases: []
+    match_names:
+    - gcp_privateca_pools
     typed_collector: false
     mandatory: false
   gcp_projects:
@@ -2233,6 +2868,9 @@ types:
     category: projects
     aliases:
     - project
+    match_names:
+    - gcp_projects
+    - project
     typed_collector: true
     mandatory: true
   gcp_pubsub_schema_revisions:
@@ -2240,6 +2878,8 @@ types:
     cai_asset_type_source: heuristic
     category: pubsub
     aliases: []
+    match_names:
+    - gcp_pubsub_schema_revisions
     typed_collector: false
     mandatory: false
   gcp_pubsub_schemas:
@@ -2247,6 +2887,8 @@ types:
     cai_asset_type_source: heuristic
     category: pubsub
     aliases: []
+    match_names:
+    - gcp_pubsub_schemas
     typed_collector: false
     mandatory: false
   gcp_pubsub_snapshots:
@@ -2254,6 +2896,8 @@ types:
     cai_asset_type_source: override
     category: pubsub
     aliases: []
+    match_names:
+    - gcp_pubsub_snapshots
     typed_collector: false
     mandatory: false
   gcp_pubsub_subscriptions:
@@ -2261,6 +2905,8 @@ types:
     cai_asset_type_source: override
     category: pubsub
     aliases: []
+    match_names:
+    - gcp_pubsub_subscriptions
     typed_collector: true
     mandatory: false
   gcp_pubsub_topics:
@@ -2268,6 +2914,8 @@ types:
     cai_asset_type_source: override
     category: pubsub
     aliases: []
+    match_names:
+    - gcp_pubsub_topics
     typed_collector: true
     mandatory: false
   gcp_recommendations_folders:
@@ -2275,6 +2923,8 @@ types:
     cai_asset_type_source: heuristic
     category: recommendations
     aliases: []
+    match_names:
+    - gcp_recommendations_folders
     typed_collector: false
     mandatory: false
   gcp_recommendations_folders_insights:
@@ -2282,6 +2932,8 @@ types:
     cai_asset_type_source: heuristic
     category: recommendations
     aliases: []
+    match_names:
+    - gcp_recommendations_folders_insights
     typed_collector: false
     mandatory: false
   gcp_recommendations_folders_locations:
@@ -2289,6 +2941,8 @@ types:
     cai_asset_type_source: heuristic
     category: recommendations
     aliases: []
+    match_names:
+    - gcp_recommendations_folders_locations
     typed_collector: false
     mandatory: false
   gcp_recommendations_organizations:
@@ -2296,6 +2950,8 @@ types:
     cai_asset_type_source: heuristic
     category: recommendations
     aliases: []
+    match_names:
+    - gcp_recommendations_organizations
     typed_collector: false
     mandatory: false
   gcp_recommendations_organizations_insights:
@@ -2303,6 +2959,8 @@ types:
     cai_asset_type_source: heuristic
     category: recommendations
     aliases: []
+    match_names:
+    - gcp_recommendations_organizations_insights
     typed_collector: false
     mandatory: false
   gcp_recommendations_organizations_locations:
@@ -2310,6 +2968,8 @@ types:
     cai_asset_type_source: heuristic
     category: recommendations
     aliases: []
+    match_names:
+    - gcp_recommendations_organizations_locations
     typed_collector: false
     mandatory: false
   gcp_recommendations_projects:
@@ -2317,6 +2977,8 @@ types:
     cai_asset_type_source: heuristic
     category: recommendations
     aliases: []
+    match_names:
+    - gcp_recommendations_projects
     typed_collector: false
     mandatory: false
   gcp_recommendations_projects_insights:
@@ -2324,6 +2986,8 @@ types:
     cai_asset_type_source: heuristic
     category: recommendations
     aliases: []
+    match_names:
+    - gcp_recommendations_projects_insights
     typed_collector: false
     mandatory: false
   gcp_recommendations_projects_locations:
@@ -2331,6 +2995,8 @@ types:
     cai_asset_type_source: heuristic
     category: recommendations
     aliases: []
+    match_names:
+    - gcp_recommendations_projects_locations
     typed_collector: false
     mandatory: false
   gcp_redis_instances:
@@ -2338,6 +3004,8 @@ types:
     cai_asset_type_source: override
     category: redis
     aliases: []
+    match_names:
+    - gcp_redis_instances
     typed_collector: false
     mandatory: false
   gcp_resourcemanager_folder_policies:
@@ -2345,6 +3013,8 @@ types:
     cai_asset_type_source: heuristic
     category: resourcemanager
     aliases: []
+    match_names:
+    - gcp_resourcemanager_folder_policies
     typed_collector: false
     mandatory: false
   gcp_resourcemanager_folders:
@@ -2352,6 +3022,8 @@ types:
     cai_asset_type_source: override
     category: resourcemanager
     aliases: []
+    match_names:
+    - gcp_resourcemanager_folders
     typed_collector: false
     mandatory: false
   gcp_resourcemanager_organization_policies:
@@ -2359,6 +3031,8 @@ types:
     cai_asset_type_source: heuristic
     category: resourcemanager
     aliases: []
+    match_names:
+    - gcp_resourcemanager_organization_policies
     typed_collector: false
     mandatory: false
   gcp_resourcemanager_organization_projects:
@@ -2366,6 +3040,8 @@ types:
     cai_asset_type_source: heuristic
     category: resourcemanager
     aliases: []
+    match_names:
+    - gcp_resourcemanager_organization_projects
     typed_collector: false
     mandatory: false
   gcp_resourcemanager_organization_tag_keys:
@@ -2373,6 +3049,8 @@ types:
     cai_asset_type_source: heuristic
     category: resourcemanager
     aliases: []
+    match_names:
+    - gcp_resourcemanager_organization_tag_keys
     typed_collector: false
     mandatory: false
   gcp_resourcemanager_organization_tag_values:
@@ -2380,6 +3058,8 @@ types:
     cai_asset_type_source: heuristic
     category: resourcemanager
     aliases: []
+    match_names:
+    - gcp_resourcemanager_organization_tag_values
     typed_collector: false
     mandatory: false
   gcp_resourcemanager_project_policies:
@@ -2387,6 +3067,8 @@ types:
     cai_asset_type_source: heuristic
     category: resourcemanager
     aliases: []
+    match_names:
+    - gcp_resourcemanager_project_policies
     typed_collector: false
     mandatory: false
   gcp_resourcemanager_project_tag_bindings:
@@ -2394,6 +3076,8 @@ types:
     cai_asset_type_source: heuristic
     category: resourcemanager
     aliases: []
+    match_names:
+    - gcp_resourcemanager_project_tag_bindings
     typed_collector: false
     mandatory: false
   gcp_resourcemanager_project_tag_keys:
@@ -2401,6 +3085,8 @@ types:
     cai_asset_type_source: heuristic
     category: resourcemanager
     aliases: []
+    match_names:
+    - gcp_resourcemanager_project_tag_keys
     typed_collector: false
     mandatory: false
   gcp_resourcemanager_project_tag_values:
@@ -2408,6 +3094,8 @@ types:
     cai_asset_type_source: heuristic
     category: resourcemanager
     aliases: []
+    match_names:
+    - gcp_resourcemanager_project_tag_values
     typed_collector: false
     mandatory: false
   gcp_resourcemanager_projects:
@@ -2415,6 +3103,8 @@ types:
     cai_asset_type_source: override
     category: resourcemanager
     aliases: []
+    match_names:
+    - gcp_resourcemanager_projects
     typed_collector: false
     mandatory: false
   gcp_resourcemanager_projects_search:
@@ -2422,6 +3112,8 @@ types:
     cai_asset_type_source: heuristic
     category: resourcemanager
     aliases: []
+    match_names:
+    - gcp_resourcemanager_projects_search
     typed_collector: false
     mandatory: false
   gcp_resourcemanager_subfolders:
@@ -2429,6 +3121,8 @@ types:
     cai_asset_type_source: heuristic
     category: resourcemanager
     aliases: []
+    match_names:
+    - gcp_resourcemanager_subfolders
     typed_collector: false
     mandatory: false
   gcp_run_executions:
@@ -2436,6 +3130,8 @@ types:
     cai_asset_type_source: heuristic
     category: run
     aliases: []
+    match_names:
+    - gcp_run_executions
     typed_collector: false
     mandatory: false
   gcp_run_job_policies:
@@ -2443,6 +3139,8 @@ types:
     cai_asset_type_source: heuristic
     category: run
     aliases: []
+    match_names:
+    - gcp_run_job_policies
     typed_collector: false
     mandatory: false
   gcp_run_jobs:
@@ -2450,6 +3148,8 @@ types:
     cai_asset_type_source: override
     category: run
     aliases: []
+    match_names:
+    - gcp_run_jobs
     typed_collector: false
     mandatory: false
   gcp_run_locations:
@@ -2457,6 +3157,8 @@ types:
     cai_asset_type_source: heuristic
     category: run
     aliases: []
+    match_names:
+    - gcp_run_locations
     typed_collector: false
     mandatory: false
   gcp_run_revisions:
@@ -2464,6 +3166,8 @@ types:
     cai_asset_type_source: heuristic
     category: run
     aliases: []
+    match_names:
+    - gcp_run_revisions
     typed_collector: false
     mandatory: false
   gcp_run_service_policies:
@@ -2471,6 +3175,8 @@ types:
     cai_asset_type_source: heuristic
     category: run
     aliases: []
+    match_names:
+    - gcp_run_service_policies
     typed_collector: false
     mandatory: false
   gcp_run_services:
@@ -2478,6 +3184,8 @@ types:
     cai_asset_type_source: override
     category: run
     aliases: []
+    match_names:
+    - gcp_run_services
     typed_collector: false
     mandatory: false
   gcp_run_tasks:
@@ -2485,6 +3193,8 @@ types:
     cai_asset_type_source: heuristic
     category: run
     aliases: []
+    match_names:
+    - gcp_run_tasks
     typed_collector: false
     mandatory: false
   gcp_run_worker_pool_policies:
@@ -2492,6 +3202,8 @@ types:
     cai_asset_type_source: heuristic
     category: run
     aliases: []
+    match_names:
+    - gcp_run_worker_pool_policies
     typed_collector: false
     mandatory: false
   gcp_run_worker_pools:
@@ -2499,6 +3211,8 @@ types:
     cai_asset_type_source: heuristic
     category: run
     aliases: []
+    match_names:
+    - gcp_run_worker_pools
     typed_collector: false
     mandatory: false
   gcp_secretmanager_secrets:
@@ -2506,6 +3220,8 @@ types:
     cai_asset_type_source: override
     category: secretmanager
     aliases: []
+    match_names:
+    - gcp_secretmanager_secrets
     typed_collector: false
     mandatory: false
   gcp_securitycenter_folder_event_threat_detection:
@@ -2513,6 +3229,8 @@ types:
     cai_asset_type_source: heuristic
     category: securitycenter
     aliases: []
+    match_names:
+    - gcp_securitycenter_folder_event_threat_detection
     typed_collector: false
     mandatory: false
   gcp_securitycenter_folder_findings:
@@ -2520,6 +3238,8 @@ types:
     cai_asset_type_source: heuristic
     category: securitycenter
     aliases: []
+    match_names:
+    - gcp_securitycenter_folder_findings
     typed_collector: false
     mandatory: false
   gcp_securitycenter_org_event_threat_detection_settings:
@@ -2527,6 +3247,8 @@ types:
     cai_asset_type_source: heuristic
     category: securitycenter
     aliases: []
+    match_names:
+    - gcp_securitycenter_org_event_threat_detection_settings
     typed_collector: false
     mandatory: false
   gcp_securitycenter_organization_findings:
@@ -2534,6 +3256,8 @@ types:
     cai_asset_type_source: heuristic
     category: securitycenter
     aliases: []
+    match_names:
+    - gcp_securitycenter_organization_findings
     typed_collector: false
     mandatory: false
   gcp_securitycenter_project_event_threat_detection:
@@ -2541,6 +3265,8 @@ types:
     cai_asset_type_source: heuristic
     category: securitycenter
     aliases: []
+    match_names:
+    - gcp_securitycenter_project_event_threat_detection
     typed_collector: false
     mandatory: false
   gcp_securitycenter_project_findings:
@@ -2548,6 +3274,8 @@ types:
     cai_asset_type_source: heuristic
     category: securitycenter
     aliases: []
+    match_names:
+    - gcp_securitycenter_project_findings
     typed_collector: false
     mandatory: false
   gcp_servicehealth_events:
@@ -2555,6 +3283,8 @@ types:
     cai_asset_type_source: heuristic
     category: servicehealth
     aliases: []
+    match_names:
+    - gcp_servicehealth_events
     typed_collector: false
     mandatory: false
   gcp_servicehealth_locations:
@@ -2562,6 +3292,8 @@ types:
     cai_asset_type_source: heuristic
     category: servicehealth
     aliases: []
+    match_names:
+    - gcp_servicehealth_locations
     typed_collector: false
     mandatory: false
   gcp_serviceusage_service_project_quota_metrics:
@@ -2569,6 +3301,8 @@ types:
     cai_asset_type_source: heuristic
     category: serviceusage
     aliases: []
+    match_names:
+    - gcp_serviceusage_service_project_quota_metrics
     typed_collector: false
     mandatory: false
   gcp_serviceusage_services:
@@ -2576,6 +3310,8 @@ types:
     cai_asset_type_source: heuristic
     category: serviceusage
     aliases: []
+    match_names:
+    - gcp_serviceusage_services
     typed_collector: false
     mandatory: false
   gcp_sourcerepo_config:
@@ -2583,6 +3319,8 @@ types:
     cai_asset_type_source: heuristic
     category: sourcerepo
     aliases: []
+    match_names:
+    - gcp_sourcerepo_config
     typed_collector: false
     mandatory: false
   gcp_sourcerepo_repos:
@@ -2590,6 +3328,8 @@ types:
     cai_asset_type_source: heuristic
     category: sourcerepo
     aliases: []
+    match_names:
+    - gcp_sourcerepo_repos
     typed_collector: false
     mandatory: false
   gcp_spanner_databases:
@@ -2597,6 +3337,8 @@ types:
     cai_asset_type_source: override
     category: spanner
     aliases: []
+    match_names:
+    - gcp_spanner_databases
     typed_collector: false
     mandatory: false
   gcp_spanner_instances:
@@ -2604,6 +3346,8 @@ types:
     cai_asset_type_source: override
     category: spanner
     aliases: []
+    match_names:
+    - gcp_spanner_instances
     typed_collector: false
     mandatory: false
   gcp_sql_backups:
@@ -2611,6 +3355,8 @@ types:
     cai_asset_type_source: heuristic
     category: sql
     aliases: []
+    match_names:
+    - gcp_sql_backups
     typed_collector: false
     mandatory: false
   gcp_sql_databases:
@@ -2618,6 +3364,8 @@ types:
     cai_asset_type_source: heuristic
     category: sql
     aliases: []
+    match_names:
+    - gcp_sql_databases
     typed_collector: false
     mandatory: false
   gcp_sql_instances:
@@ -2625,6 +3373,8 @@ types:
     cai_asset_type_source: override
     category: sql
     aliases: []
+    match_names:
+    - gcp_sql_instances
     typed_collector: false
     mandatory: false
   gcp_sql_ssl_certs:
@@ -2632,6 +3382,8 @@ types:
     cai_asset_type_source: heuristic
     category: sql
     aliases: []
+    match_names:
+    - gcp_sql_ssl_certs
     typed_collector: false
     mandatory: false
   gcp_sql_users:
@@ -2639,6 +3391,8 @@ types:
     cai_asset_type_source: heuristic
     category: sql
     aliases: []
+    match_names:
+    - gcp_sql_users
     typed_collector: false
     mandatory: false
   gcp_storage_bucket_objects:
@@ -2646,6 +3400,8 @@ types:
     cai_asset_type_source: heuristic
     category: storage
     aliases: []
+    match_names:
+    - gcp_storage_bucket_objects
     typed_collector: false
     mandatory: false
   gcp_storage_bucket_policies:
@@ -2653,6 +3409,8 @@ types:
     cai_asset_type_source: heuristic
     category: storage
     aliases: []
+    match_names:
+    - gcp_storage_bucket_policies
     typed_collector: false
     mandatory: false
   gcp_storage_bucket_tag_bindings:
@@ -2660,6 +3418,8 @@ types:
     cai_asset_type_source: heuristic
     category: storage
     aliases: []
+    match_names:
+    - gcp_storage_bucket_tag_bindings
     typed_collector: false
     mandatory: false
   gcp_storage_buckets:
@@ -2667,6 +3427,8 @@ types:
     cai_asset_type_source: override
     category: storage
     aliases: []
+    match_names:
+    - gcp_storage_buckets
     typed_collector: true
     mandatory: false
   gcp_storage_hmac_keys:
@@ -2674,6 +3436,8 @@ types:
     cai_asset_type_source: heuristic
     category: storage
     aliases: []
+    match_names:
+    - gcp_storage_hmac_keys
     typed_collector: false
     mandatory: false
   gcp_storagetransfer_agent_pools:
@@ -2681,6 +3445,8 @@ types:
     cai_asset_type_source: heuristic
     category: storagetransfer
     aliases: []
+    match_names:
+    - gcp_storagetransfer_agent_pools
     typed_collector: false
     mandatory: false
   gcp_storagetransfer_transfer_jobs:
@@ -2688,6 +3454,8 @@ types:
     cai_asset_type_source: heuristic
     category: storagetransfer
     aliases: []
+    match_names:
+    - gcp_storagetransfer_transfer_jobs
     typed_collector: false
     mandatory: false
   gcp_storagetransfer_transfer_operations:
@@ -2695,6 +3463,8 @@ types:
     cai_asset_type_source: heuristic
     category: storagetransfer
     aliases: []
+    match_names:
+    - gcp_storagetransfer_transfer_operations
     typed_collector: false
     mandatory: false
   gcp_translate_glossaries:
@@ -2702,6 +3472,8 @@ types:
     cai_asset_type_source: heuristic
     category: translate
     aliases: []
+    match_names:
+    - gcp_translate_glossaries
     typed_collector: false
     mandatory: false
   gcp_videotranscoder_job_templates:
@@ -2709,6 +3481,8 @@ types:
     cai_asset_type_source: heuristic
     category: videotranscoder
     aliases: []
+    match_names:
+    - gcp_videotranscoder_job_templates
     typed_collector: false
     mandatory: false
   gcp_videotranscoder_jobs:
@@ -2716,6 +3490,8 @@ types:
     cai_asset_type_source: heuristic
     category: videotranscoder
     aliases: []
+    match_names:
+    - gcp_videotranscoder_jobs
     typed_collector: false
     mandatory: false
   gcp_vision_product_reference_images:
@@ -2723,6 +3499,8 @@ types:
     cai_asset_type_source: heuristic
     category: vision
     aliases: []
+    match_names:
+    - gcp_vision_product_reference_images
     typed_collector: false
     mandatory: false
   gcp_vision_products:
@@ -2730,6 +3508,8 @@ types:
     cai_asset_type_source: heuristic
     category: vision
     aliases: []
+    match_names:
+    - gcp_vision_products
     typed_collector: false
     mandatory: false
   gcp_vmmigration_groups:
@@ -2737,6 +3517,8 @@ types:
     cai_asset_type_source: heuristic
     category: vmmigration
     aliases: []
+    match_names:
+    - gcp_vmmigration_groups
     typed_collector: false
     mandatory: false
   gcp_vmmigration_source_datacenter_connectors:
@@ -2744,6 +3526,8 @@ types:
     cai_asset_type_source: heuristic
     category: vmmigration
     aliases: []
+    match_names:
+    - gcp_vmmigration_source_datacenter_connectors
     typed_collector: false
     mandatory: false
   gcp_vmmigration_source_migrating_vm_clone_jobs:
@@ -2751,6 +3535,8 @@ types:
     cai_asset_type_source: heuristic
     category: vmmigration
     aliases: []
+    match_names:
+    - gcp_vmmigration_source_migrating_vm_clone_jobs
     typed_collector: false
     mandatory: false
   gcp_vmmigration_source_migrating_vm_cutover_jobs:
@@ -2758,6 +3544,8 @@ types:
     cai_asset_type_source: heuristic
     category: vmmigration
     aliases: []
+    match_names:
+    - gcp_vmmigration_source_migrating_vm_cutover_jobs
     typed_collector: false
     mandatory: false
   gcp_vmmigration_source_migrating_vms:
@@ -2765,6 +3553,8 @@ types:
     cai_asset_type_source: heuristic
     category: vmmigration
     aliases: []
+    match_names:
+    - gcp_vmmigration_source_migrating_vms
     typed_collector: false
     mandatory: false
   gcp_vmmigration_source_utilization_reports:
@@ -2772,6 +3562,8 @@ types:
     cai_asset_type_source: heuristic
     category: vmmigration
     aliases: []
+    match_names:
+    - gcp_vmmigration_source_utilization_reports
     typed_collector: false
     mandatory: false
   gcp_vmmigration_sources:
@@ -2779,6 +3571,8 @@ types:
     cai_asset_type_source: heuristic
     category: vmmigration
     aliases: []
+    match_names:
+    - gcp_vmmigration_sources
     typed_collector: false
     mandatory: false
   gcp_vmmigration_target_projects:
@@ -2786,6 +3580,8 @@ types:
     cai_asset_type_source: heuristic
     category: vmmigration
     aliases: []
+    match_names:
+    - gcp_vmmigration_target_projects
     typed_collector: false
     mandatory: false
   gcp_vpcaccess_connectors:
@@ -2793,6 +3589,8 @@ types:
     cai_asset_type_source: heuristic
     category: vpcaccess
     aliases: []
+    match_names:
+    - gcp_vpcaccess_connectors
     typed_collector: false
     mandatory: false
   gcp_vpcaccess_locations:
@@ -2800,6 +3598,8 @@ types:
     cai_asset_type_source: heuristic
     category: vpcaccess
     aliases: []
+    match_names:
+    - gcp_vpcaccess_locations
     typed_collector: false
     mandatory: false
   gcp_websecurityscanner_scan_config_scan_run_crawled_urls:
@@ -2807,6 +3607,8 @@ types:
     cai_asset_type_source: heuristic
     category: websecurityscanner
     aliases: []
+    match_names:
+    - gcp_websecurityscanner_scan_config_scan_run_crawled_urls
     typed_collector: false
     mandatory: false
   gcp_websecurityscanner_scan_config_scan_run_findings:
@@ -2814,6 +3616,8 @@ types:
     cai_asset_type_source: heuristic
     category: websecurityscanner
     aliases: []
+    match_names:
+    - gcp_websecurityscanner_scan_config_scan_run_findings
     typed_collector: false
     mandatory: false
   gcp_websecurityscanner_scan_config_scan_runs:
@@ -2821,6 +3625,8 @@ types:
     cai_asset_type_source: heuristic
     category: websecurityscanner
     aliases: []
+    match_names:
+    - gcp_websecurityscanner_scan_config_scan_runs
     typed_collector: false
     mandatory: false
   gcp_websecurityscanner_scan_configs:
@@ -2828,6 +3634,8 @@ types:
     cai_asset_type_source: heuristic
     category: websecurityscanner
     aliases: []
+    match_names:
+    - gcp_websecurityscanner_scan_configs
     typed_collector: false
     mandatory: false
   gcp_workflows_workflows:
@@ -2835,5 +3643,7 @@ types:
     cai_asset_type_source: heuristic
     category: workflows
     aliases: []
+    match_names:
+    - gcp_workflows_workflows
     typed_collector: false
     mandatory: false

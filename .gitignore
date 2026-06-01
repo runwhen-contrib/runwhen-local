@@ -66,3 +66,10 @@ src/rw-cli-codecollection-cache
 .test/gcp/gcp-and-k8s/container_logs.log
 # Ephemeral local code collection built by generate-gcpapi-test-codecollection
 .test/gcp/gcp-and-k8s/gcpapi-test-codecollection/
+.scratch/*
+
+# Ignore Python bytecode / caches
+**/__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/

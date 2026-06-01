@@ -155,6 +155,12 @@ def _legacy_resource_type_name(entry: AwsResourceTypeEntry) -> str:
     (``account``, ``ec2_instance``) and everything else by the CloudQuery table
     name. The registry encodes both via ``cloudquery_table_name`` + ``aliases``;
     prefer the first alias (legacy short name) when present.
+
+    NOTE (resource-type naming migration): matching is alias-aware via the
+    registry's ``match_names`` accepted-name set, so this stored name need not
+    equal what gen rules request. Flipping to the canonical/native name is
+    staged as Phase 2 (the ``account`` anchor name is coupled into linking);
+    see ``docs/architecture/resource-type-naming-migration.md``.
     """
     if entry.aliases:
         return entry.aliases[0]

@@ -133,6 +133,66 @@ class RegistryLoaderTests(TestCase):
         mandatory = registry.mandatory_tables()
         self.assertIn("azure_resources_resource_groups", mandatory)
 
+    def test_match_names_include_canonical_plus_aliases(self) -> None:
+        registry = load_registry()
+        vm = registry.find("azure_compute_virtual_machines")
+        # Canonical always first; legacy alias included.
+        self.assertEqual(vm.match_names[0], "azure_compute_virtual_machines")
+        self.assertIn("virtual_machine", vm.match_names)
+
+    def test_keyvault_match_names_cover_singular_and_plural(self) -> None:
+        # The exact divergent case that dropped SLXs: rules use the SINGULAR
+        # ``azure_keyvault_keyvault`` while the canonical CQ table is PLURAL.
+        registry = load_registry()
+        kv = registry.find("azure_keyvault_keyvaults")
+        self.assertEqual(kv.match_names[0], "azure_keyvault_keyvaults")
+        self.assertIn("azure_keyvault_keyvault", kv.match_names)  # singular
+        self.assertIn("azure_keyvault_vaults", kv.match_names)    # legacy stored
+        # All three accepted names resolve to the same entry.
+        self.assertIs(registry.find("azure_keyvault_keyvault"), kv)
+        self.assertIs(registry.find("azure_keyvault_vaults"), kv)
+
+    def test_match_names_are_pairwise_disjoint(self) -> None:
+        # The disjointness invariant: no accepted name maps to two types.
+        registry = load_registry()
+        all_names = registry.all_match_names()
+        self.assertEqual(
+            len(all_names),
+            len(set(all_names)),
+            "Azure accepted-name sets (match_names) are not pairwise disjoint",
+        )
+
+    def test_disjointness_invariant_raises_on_collision(self) -> None:
+        # A registry whose match_names collide across entries must fail to load.
+        from indexers.azure_resource_type_registry import (
+            AzureResourceTypeEntry,
+            AzureResourceTypeRegistry,
+            AzureRegistryMetadata,
+        )
+
+        a = AzureResourceTypeEntry(
+            cloudquery_table_name="azure_alpha",
+            arm_type="Microsoft.A/things",
+            arm_type_source="heuristic",
+            category="a",
+            aliases=("shared_name",),
+            typed_collector=False,
+            mandatory=False,
+            match_names=("azure_alpha", "shared_name"),
+        )
+        b = AzureResourceTypeEntry(
+            cloudquery_table_name="azure_beta",
+            arm_type="Microsoft.B/things",
+            arm_type_source="heuristic",
+            category="b",
+            aliases=(),
+            typed_collector=False,
+            mandatory=False,
+            match_names=("azure_beta", "shared_name"),
+        )
+        with self.assertRaises(ValueError):
+            AzureResourceTypeRegistry(metadata=AzureRegistryMetadata(), entries=(a, b))
+
 
 class RegistryFromTempYamlTests(TestCase):
     """Loader behavior tests that don't depend on the shipped registry."""
@@ -338,6 +398,21 @@ class AzureapiResourceTypesShimTests(TestCase):
         legacy = self.mod.find_spec("azure_keyvault_vaults")
         self.assertIs(legacy, canonical)
         self.assertEqual(legacy.resource_type_name, "azure_keyvault_vaults")
+
+    def test_keyvault_singular_resolves_via_find_spec_to_typed_collector(self) -> None:
+        # Selective discovery resolves the name a gen rule asks for to a spec
+        # (and thus a collector). The SINGULAR ``azure_keyvault_keyvault`` must
+        # route to the canonical typed Key Vault spec, not fall through as an
+        # unknown type.
+        singular = self.mod.find_spec("azure_keyvault_keyvault")
+        self.assertIsNotNone(singular)
+        self.assertEqual(singular.cloudquery_table_name, "azure_keyvault_keyvaults")
+        self.assertTrue(singular.typed)
+        # Canonical, legacy, and singular all route to the same spec object.
+        canonical = self.mod.find_spec("azure_keyvault_keyvaults")
+        legacy = self.mod.find_spec("azure_keyvault_vaults")
+        self.assertIs(singular, canonical)
+        self.assertIs(legacy, canonical)
 
     def test_unknown_name_returns_none(self) -> None:
         self.assertIsNone(self.mod.find_spec("totally_made_up"))

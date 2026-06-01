@@ -127,6 +127,51 @@ class RegistryLoaderTests(TestCase):
         registry = load_registry()
         self.assertIn("gcp_projects", registry.mandatory_tables())
 
+    def test_match_names_include_canonical_plus_aliases(self) -> None:
+        registry = load_registry()
+        projects = registry.find("gcp_projects")
+        self.assertEqual(projects.match_names[0], "gcp_projects")
+        self.assertIn("project", projects.match_names)
+
+    def test_match_names_are_pairwise_disjoint(self) -> None:
+        registry = load_registry()
+        all_names = registry.all_match_names()
+        self.assertEqual(
+            len(all_names),
+            len(set(all_names)),
+            "GCP accepted-name sets (match_names) are not pairwise disjoint",
+        )
+
+    def test_disjointness_invariant_raises_on_collision(self) -> None:
+        from indexers.gcp_resource_type_registry import (
+            GcpResourceTypeEntry,
+            GcpResourceTypeRegistry,
+            GcpRegistryMetadata,
+        )
+
+        a = GcpResourceTypeEntry(
+            cloudquery_table_name="gcp_alpha",
+            cai_asset_type="a.googleapis.com/Thing",
+            cai_asset_type_source="heuristic",
+            category="a",
+            aliases=("shared_name",),
+            typed_collector=False,
+            mandatory=False,
+            match_names=("gcp_alpha", "shared_name"),
+        )
+        b = GcpResourceTypeEntry(
+            cloudquery_table_name="gcp_beta",
+            cai_asset_type="b.googleapis.com/Thing",
+            cai_asset_type_source="heuristic",
+            category="b",
+            aliases=(),
+            typed_collector=False,
+            mandatory=False,
+            match_names=("gcp_beta", "shared_name"),
+        )
+        with self.assertRaises(ValueError):
+            GcpResourceTypeRegistry(metadata=GcpRegistryMetadata(), entries=(a, b))
+
     def test_billing_accounts_has_no_cai_type(self) -> None:
         # Tables with no Cloud Asset Inventory equivalent are pinned to null
         # in the overrides so generic discovery skips them.
