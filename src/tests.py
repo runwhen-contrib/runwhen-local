@@ -933,7 +933,7 @@ class RunbookDefaultsAreStringsTest(TestCase):
     leaves a JSON schema default as a raw number/bool/list/dict, YAML parses
     it as that native type and the runner barfs on the type mismatch."""
 
-    def _render(self, properties: dict) -> dict:
+    def _render(self, properties: dict, required: list | None = None) -> dict:
         import jinja2
         from indexers import mcp_tools
         from resources import Registry, REGISTRY_PROPERTY_NAME
@@ -942,6 +942,9 @@ class RunbookDefaultsAreStringsTest(TestCase):
         # Build a fake registry entry by running _emit_tool_resource directly
         # — no MCP server needed; we only care about template rendering.
         reg = Registry()
+        input_schema = {"type": "object", "properties": properties}
+        if required is not None:
+            input_schema["required"] = required
         mcp_tools._emit_tool_resource(
             reg,
             {"display_name": "srv",
@@ -949,7 +952,7 @@ class RunbookDefaultsAreStringsTest(TestCase):
              "secret_ref": "srv-token"},
             {"name": "do_thing",
              "description": "",
-             "inputSchema": {"type": "object", "properties": properties}},
+             "inputSchema": input_schema},
         )
         match_resource = next(iter(
             reg.lookup_resource_type("mcp", "mcp_tool").instances.values()))
@@ -1021,3 +1024,53 @@ class RunbookDefaultsAreStringsTest(TestCase):
         }))
         self.assertEqual(defaults["project"], "")
         self.assertIsInstance(defaults["project"], str)
+
+
+class RunbookRequiredParamMarkingTest(RunbookDefaultsAreStringsTest):
+    """The runbook template should mark required parameters in the rendered
+    description so downstream UI/agent surfaces know which inputs are
+    mandatory. JSON Schema lists required fields at the top level (not as a
+    per-property flag), so this needs the schema's `required` array."""
+
+    def _descriptions_by_name(self, parsed: dict) -> dict:
+        return {v["name"]: v["description"] for v in parsed["spec"]["runtimeVarsProvided"]}
+
+    def test_required_param_with_description_gets_suffix(self):
+        descs = self._descriptions_by_name(self._render(
+            {"project": {"type": "string", "description": "Project key"}},
+            required=["project"],
+        ))
+        self.assertEqual(descs["project"], "Project key (required)")
+
+    def test_required_param_with_empty_description_gets_sentence(self):
+        descs = self._descriptions_by_name(self._render(
+            {"project": {"type": "string"}},
+            required=["project"],
+        ))
+        self.assertEqual(descs["project"], "Required parameter.")
+
+    def test_optional_param_description_is_unchanged(self):
+        descs = self._descriptions_by_name(self._render(
+            {"summary": {"type": "string", "description": "Issue title"}},
+            required=["project"],  # different param required; summary is not
+        ))
+        self.assertEqual(descs["summary"], "Issue title")
+
+    def test_no_required_array_in_schema(self):
+        # Schemas may omit `required` entirely — must not crash, no suffix.
+        descs = self._descriptions_by_name(self._render(
+            {"project": {"type": "string", "description": "Project key"}},
+            required=None,
+        ))
+        self.assertEqual(descs["project"], "Project key")
+
+    def test_mixed_required_and_optional(self):
+        descs = self._descriptions_by_name(self._render(
+            {"project": {"type": "string", "description": "Project key"},
+             "summary": {"type": "string", "description": "Issue title"},
+             "labels":  {"type": "string", "description": "CSV labels"}},
+            required=["project", "summary"],
+        ))
+        self.assertEqual(descs["project"], "Project key (required)")
+        self.assertEqual(descs["summary"], "Issue title (required)")
+        self.assertEqual(descs["labels"], "CSV labels")
