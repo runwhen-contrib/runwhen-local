@@ -465,3 +465,612 @@ class CodeCollectionConfigTestCase(TestCase):
 #
 #     def test_no_code_bundle_config(self):
 #         pass
+
+
+# ---------------------------------------------------------------------------
+# mcp_tools indexer
+# ---------------------------------------------------------------------------
+
+import json
+import responses
+from unittest import mock
+
+from indexers import mcp_tools
+from enrichers.mcp import McpPlatformHandler, MCP_PLATFORM
+
+
+class McpPlatformHandlerTest(TestCase):
+    def setUp(self):
+        self.handler = McpPlatformHandler()
+
+    def test_platform_name_matches_indexer(self):
+        self.assertEqual(MCP_PLATFORM, mcp_tools.PLATFORM_NAME)
+        self.assertEqual(self.handler.name, MCP_PLATFORM)
+
+    def test_qualifier_value_pulled_from_spec(self):
+        class R:  # minimal resource stand-in
+            spec = {"server_display_name": "jira", "tool_name": "create_issue"}
+
+        self.assertEqual(
+            self.handler.get_resource_qualifier_value(R(), "server_display_name"),
+            "jira",
+        )
+        self.assertEqual(
+            self.handler.get_resource_qualifier_value(R(), "tool_name"),
+            "create_issue",
+        )
+
+    def test_qualifier_value_returns_none_when_missing(self):
+        class R:
+            spec = {"server_display_name": "jira"}
+
+        self.assertIsNone(self.handler.get_resource_qualifier_value(R(), "tool_name"))
+
+    def test_property_values_wrap_spec_value_in_list(self):
+        class R:
+            spec = {"tool_name": "create_issue"}
+
+        self.assertEqual(
+            self.handler.get_resource_property_values(R(), "tool_name"),
+            ["create_issue"],
+        )
+        self.assertIsNone(self.handler.get_resource_property_values(R(), "missing"))
+
+    def test_handles_resource_without_spec(self):
+        class R:
+            pass
+
+        self.assertIsNone(self.handler.get_resource_qualifier_value(R(), "tool_name"))
+        self.assertIsNone(self.handler.get_resource_property_values(R(), "tool_name"))
+
+
+class LoadServersFromSettingTest(TestCase):
+    def test_returns_servers_list_from_well_formed_config(self):
+        config = {"servers": [
+            {"display_name": "jira",
+             "url": "https://jira-mcp.internal/mcp",
+             "secret_ref": "jira-mcp-token"},
+            {"display_name": "linear",
+             "url": "https://linear-mcp.internal/mcp",
+             "secret_ref": "linear-mcp-token"},
+        ]}
+        servers = mcp_tools._load_servers_from_setting(config)
+        self.assertEqual(len(servers), 2)
+        self.assertEqual(servers[0]["display_name"], "jira")
+
+    def test_returns_empty_when_no_servers_key(self):
+        self.assertEqual(mcp_tools._load_servers_from_setting({}), [])
+        self.assertEqual(mcp_tools._load_servers_from_setting(None), [])
+
+    def test_skips_entries_missing_required_fields_and_warns(self):
+        warnings = []
+        config = {"servers": [
+            {"display_name": "ok",
+             "url": "https://ok.internal/mcp",
+             "secret_ref": "ok-token"},
+            {"display_name": "broken"},  # missing url + secret_ref
+            {"url": "https://anon.internal/mcp",
+             "secret_ref": "anon-token"},  # missing display_name
+        ]}
+        servers = mcp_tools._load_servers_from_setting(
+            config, on_warning=warnings.append)
+        self.assertEqual([s["display_name"] for s in servers], ["ok"])
+        self.assertEqual(len(warnings), 2)
+        self.assertTrue(any("broken" in w for w in warnings))
+
+
+class ListToolsTest(TestCase):
+    @responses.activate
+    def test_lists_tools_via_initialize_and_tools_list(self):
+        url = "https://jira-mcp.internal/mcp"
+
+        def init_cb(request):
+            body = json.loads(request.body)
+            assert body["method"] == "initialize"
+            return (200, {"Content-Type": "application/json",
+                          "Mcp-Session-Id": "s1"},
+                    json.dumps({"jsonrpc": "2.0", "id": body["id"],
+                                "result": {"protocolVersion": "2025-03-26",
+                                           "capabilities": {},
+                                           "serverInfo": {"name": "x", "version": "0"}}}))
+
+        def notify_or_list_cb(request):
+            body = json.loads(request.body)
+            if body.get("method") == "notifications/initialized":
+                return (200, {}, "")
+            assert body["method"] == "tools/list"
+            return (200, {"Content-Type": "application/json"},
+                    json.dumps({"jsonrpc": "2.0", "id": body["id"],
+                                "result": {"tools": [
+                                    {"name": "create_issue",
+                                     "description": "Create a Jira issue",
+                                     "inputSchema": {"type": "object",
+                                                     "properties": {"project": {"type": "string"}},
+                                                     "required": ["project"]}},
+                                ]}}))
+
+        responses.add_callback(responses.POST, url, callback=init_cb)
+        responses.add_callback(responses.POST, url, callback=notify_or_list_cb)
+        responses.add_callback(responses.POST, url, callback=notify_or_list_cb)
+
+        server = {"display_name": "jira", "url": url, "secret_ref": "tok"}
+        tools = mcp_tools._list_tools(server, fetch_secret=lambda _: "stub-token")
+        self.assertEqual(len(tools), 1)
+        self.assertEqual(tools[0]["name"], "create_issue")
+        self.assertEqual(tools[0]["inputSchema"]["required"], ["project"])
+
+    def test_verify_tls_flag_propagates_to_requests(self):
+        """verify_tls=False on a server entry should disable cert verification
+        on the per-request `verify=` kwarg (not just session-level), because
+        REQUESTS_CA_BUNDLE in the environment can override session.verify.
+        Default (omitted) stays True."""
+        captured = {"calls": []}
+        real_session_post = mcp_tools.requests.Session.post
+
+        def post_spy(self, url, **kwargs):
+            captured["calls"].append({
+                "session_verify": self.verify,
+                "kwarg_verify": kwargs.get("verify"),
+            })
+            class _Resp:
+                status_code = 200
+                headers = {}
+                def raise_for_status(self): pass
+                def json(self_inner): return {"jsonrpc": "2.0", "id": 1,
+                                              "result": {"tools": []}}
+            return _Resp()
+
+        mcp_tools.requests.Session.post = post_spy
+        try:
+            mcp_tools._list_tools(
+                {"display_name": "x", "url": "https://x.invalid/mcp",
+                 "secret_ref": "tok", "verify_tls": False},
+                fetch_secret=lambda _: "stub",
+            )
+            # Every post() call must carry verify=False as a kwarg so the
+            # env-var override path in requests is skipped.
+            self.assertTrue(captured["calls"])
+            for call in captured["calls"]:
+                self.assertEqual(call["session_verify"], False)
+                self.assertEqual(call["kwarg_verify"], False)
+
+            captured["calls"] = []
+            mcp_tools._list_tools(
+                {"display_name": "x", "url": "https://x.invalid/mcp",
+                 "secret_ref": "tok"},  # verify_tls omitted → default True
+                fetch_secret=lambda _: "stub",
+            )
+            for call in captured["calls"]:
+                self.assertEqual(call["session_verify"], True)
+                self.assertEqual(call["kwarg_verify"], True)
+        finally:
+            mcp_tools.requests.Session.post = real_session_post
+
+
+from resources import Registry, REGISTRY_PROPERTY_NAME
+from component import Context
+
+
+from renderers.render_output_items import compute_resource_path_from_hierarchy
+
+
+class ComputeResourcePathFromHierarchyTest(TestCase):
+    """The post-render hook in render_output_items.py derives `resourcePath`
+    from `additionalContext.hierarchy` + `tags` so they stay in sync. But
+    some platforms (e.g. mcp) need hierarchy and resourcePath at different
+    depths — 3-key hierarchy for UI grouping, 2-key resourcePath for the
+    underlying resource identity. Test that an explicit `resourcePath` in
+    the template is honored, while the auto-compute path stays unchanged
+    for templates that don't set it.
+    """
+
+    def _make_data(self, hierarchy, tags, explicit_resource_path=None):
+        additional_context = {"hierarchy": hierarchy}
+        if explicit_resource_path is not None:
+            additional_context["resourcePath"] = explicit_resource_path
+        return {"spec": {"additionalContext": additional_context, "tags": tags}}
+
+    def test_auto_computes_when_resource_path_not_set(self):
+        data = self._make_data(
+            hierarchy=["platform", "mcp_server", "mcp_tool"],
+            tags=[{"name": "platform", "value": "mcp"},
+                  {"name": "mcp_server", "value": "linear-mcp"},
+                  {"name": "mcp_tool", "value": "list_teams"}],
+        )
+        compute_resource_path_from_hierarchy(data)
+        self.assertEqual(
+            data["spec"]["additionalContext"]["resourcePath"],
+            "mcp/linear-mcp/list_teams")
+
+    def test_honors_explicit_resource_path_from_template(self):
+        # Same hierarchy as above, but template already set resourcePath to a
+        # different depth — must not be overwritten.
+        data = self._make_data(
+            hierarchy=["platform", "mcp_server", "mcp_tool"],
+            tags=[{"name": "platform", "value": "mcp"},
+                  {"name": "mcp_server", "value": "linear-mcp"},
+                  {"name": "mcp_tool", "value": "list_teams"}],
+            explicit_resource_path="mcp/linear-mcp",
+        )
+        compute_resource_path_from_hierarchy(data)
+        self.assertEqual(
+            data["spec"]["additionalContext"]["resourcePath"],
+            "mcp/linear-mcp")
+
+    def test_empty_explicit_resource_path_falls_through_to_auto_compute(self):
+        # `resourcePath: ""` in a template (e.g. when an upstream value was
+        # missing) should not block auto-compute — we only honor truthy values.
+        data = self._make_data(
+            hierarchy=["platform", "cluster"],
+            tags=[{"name": "platform", "value": "kubernetes"},
+                  {"name": "cluster", "value": "prod"}],
+            explicit_resource_path="",
+        )
+        compute_resource_path_from_hierarchy(data)
+        self.assertEqual(
+            data["spec"]["additionalContext"]["resourcePath"],
+            "kubernetes/prod")
+
+
+class ComputeAccessTest(TestCase):
+    def test_read_only_hint_true_is_authoritative(self):
+        tool = {"name": "create_issue", "annotations": {"readOnlyHint": True}}
+        self.assertEqual(mcp_tools._compute_access(tool), "read-only")
+
+    def test_read_only_hint_false_falls_back_to_name_heuristic(self):
+        # Hint says not read-only, but verb says it is — heuristic wins.
+        # Some MCP servers leave readOnlyHint at the default `false` even for
+        # tools that clearly only read; the verb is the more reliable signal.
+        tool = {"name": "list_teams", "annotations": {"readOnlyHint": False}}
+        self.assertEqual(mcp_tools._compute_access(tool), "read-only")
+
+    def test_missing_annotations_uses_name_heuristic(self):
+        for name in ("list_teams", "get_project", "search_documentation",
+                     "read_file", "describe_table", "fetch_user", "find_issue",
+                     "query_db", "show_status", "view_doc"):
+            self.assertEqual(mcp_tools._compute_access({"name": name}),
+                             "read-only", msg=name)
+
+    def test_write_verbs_default_to_read_write(self):
+        for name in ("create_issue", "update_project", "delete_attachment",
+                     "save_comment", "send_message", "post_status"):
+            self.assertEqual(mcp_tools._compute_access({"name": name}),
+                             "read-write", msg=name)
+
+    def test_heuristic_matches_kebab_case_names(self):
+        self.assertEqual(
+            mcp_tools._compute_access({"name": "list-teams"}), "read-only")
+        self.assertEqual(
+            mcp_tools._compute_access({"name": "create-issue"}), "read-write")
+
+    def test_heuristic_does_not_match_substring(self):
+        # `listen_for_events` starts with "listen", not "list_" — must not
+        # be flagged read-only just because "list" is a prefix of "listen".
+        self.assertEqual(
+            mcp_tools._compute_access({"name": "listen_for_events"}),
+            "read-write")
+        # Same for `gettysburg_addresses` — not "get_".
+        self.assertEqual(
+            mcp_tools._compute_access({"name": "gettysburg_addresses"}),
+            "read-write")
+
+    def test_empty_or_missing_name_defaults_to_read_write(self):
+        self.assertEqual(mcp_tools._compute_access({}), "read-write")
+        self.assertEqual(mcp_tools._compute_access({"name": ""}), "read-write")
+
+
+class EmitToolResourceTest(TestCase):
+    def test_emits_resource_with_expected_shape(self):
+        reg = Registry()
+        server = {"server_id": "u1", "display_name": "jira",
+                  "url": "https://jira-mcp.internal/mcp",
+                  "secret_ref": "jira-mcp-token"}
+        tool = {"name": "create_issue",
+                "description": "Create a Jira issue",
+                "inputSchema": {"type": "object",
+                                "properties": {"project": {"type": "string"}},
+                                "required": ["project"]}}
+        mcp_tools._emit_tool_resource(reg, server, tool)
+
+        rt = reg.lookup_resource_type("mcp", "mcp_tool")
+        self.assertIsNotNone(rt)
+        self.assertEqual(len(rt.instances), 1)
+        res = next(iter(rt.instances.values()))
+        self.assertEqual(res.spec["server_display_name"], "jira")
+        self.assertEqual(res.spec["tool_name"], "create_issue")
+        self.assertEqual(res.spec["secret_ref"], "jira-mcp-token")
+        self.assertEqual(res.spec["input_schema"]["required"], ["project"])
+        # `create_*` is a write verb → access defaults to read-write.
+        self.assertEqual(res.spec["access"], "read-write")
+
+    def test_emits_access_read_only_for_list_verb(self):
+        reg = Registry()
+        server = {"display_name": "jira",
+                  "url": "https://jira-mcp.internal/mcp",
+                  "secret_ref": "jira-mcp-token"}
+        mcp_tools._emit_tool_resource(
+            reg, server, {"name": "list_projects", "inputSchema": {}})
+        res = next(iter(
+            reg.lookup_resource_type("mcp", "mcp_tool").instances.values()))
+        self.assertEqual(res.spec["access"], "read-only")
+
+    def test_index_skips_when_config_empty(self):
+        ctx = Context({}, mock.MagicMock())
+        ctx.set_property(REGISTRY_PROPERTY_NAME, Registry())
+        mcp_tools.index(ctx)  # should not raise
+        reg = ctx.get_property(REGISTRY_PROPERTY_NAME)
+        self.assertEqual(reg.platforms, {})
+
+    def test_index_preserves_on_tools_list_failure(self):
+        # MCP_CONFIG lists one server; tools/list raises → no resources
+        # emitted, warning recorded, no exception propagated.
+        ctx = Context({
+            "MCP_CONFIG": {"servers": [
+                {"display_name": "jira",
+                 "url": "https://jira-mcp.internal/mcp",
+                 "secret_ref": "tok"},
+            ]},
+        }, mock.MagicMock())
+        ctx.set_property(REGISTRY_PROPERTY_NAME, Registry())
+        with mock.patch.object(mcp_tools, "_list_tools",
+                               side_effect=RuntimeError("boom")) as patched:
+            mcp_tools.index(ctx)
+            self.assertEqual(patched.call_count, 1)
+        reg = ctx.get_property(REGISTRY_PROPERTY_NAME)
+        self.assertEqual(reg.platforms, {})
+        self.assertTrue(any("boom" in w for w in ctx.warnings))
+
+
+import yaml as _yaml
+
+
+class EndToEndMcpIndexingTest(TestCase):
+    """Runs the full mcp_tools indexer against an in-memory MCP_CONFIG +
+    stub MCP server, then renders the rw-generic-codecollection templates
+    against the resulting registry and asserts the SLX + Runbook YAML
+    reflect the discovered tool."""
+
+    @responses.activate
+    def test_indexer_to_template_render(self):
+        # 1. Helm-provided MCP_CONFIG (single server)
+        mcp_config = {"servers": [
+            {"display_name": "jira",
+             "url": "https://jira-mcp.internal/mcp",
+             "secret_ref": "jira-mcp-token"},
+        ]}
+
+        # 2. Stub MCP tools/list
+        url = "https://jira-mcp.internal/mcp"
+
+        def init_cb(request):
+            body = json.loads(request.body)
+            return (200, {"Content-Type": "application/json",
+                          "Mcp-Session-Id": "s1"},
+                    json.dumps({"jsonrpc": "2.0", "id": body["id"],
+                                "result": {"protocolVersion": "2025-03-26",
+                                           "capabilities": {},
+                                           "serverInfo": {"name": "x", "version": "0"}}}))
+
+        def list_cb(request):
+            body = json.loads(request.body)
+            if body.get("method") == "notifications/initialized":
+                return (200, {}, "")
+            assert body["method"] == "tools/list"
+            return (200, {"Content-Type": "application/json"},
+                    json.dumps({"jsonrpc": "2.0", "id": body["id"],
+                                "result": {"tools": [
+                                    {"name": "create_issue",
+                                     "description": "Create a Jira issue",
+                                     "inputSchema": {
+                                         "type": "object",
+                                         "properties": {
+                                             "project": {"type": "string", "description": "Project key"},
+                                             "summary": {"type": "string"},
+                                         },
+                                         "required": ["project", "summary"]}},
+                                ]}}))
+
+        responses.add_callback(responses.POST, url, callback=init_cb)
+        responses.add_callback(responses.POST, url, callback=list_cb)
+        responses.add_callback(responses.POST, url, callback=list_cb)
+
+        # 3. Run indexer with the secret resolver stubbed out
+        ctx = Context({"MCP_CONFIG": mcp_config}, mock.MagicMock())
+        ctx.set_property(REGISTRY_PROPERTY_NAME, Registry())
+        with mock.patch.object(mcp_tools, "_resolve_secret",
+                               return_value="stub-token"):
+            mcp_tools.index(ctx)
+        reg = ctx.get_property(REGISTRY_PROPERTY_NAME)
+        instances = reg.lookup_resource_type("mcp", "mcp_tool").instances
+        self.assertEqual(len(instances), 1)
+        match_resource = next(iter(instances.values()))
+
+        # 4. Render Runbook template from the codecollection.
+        import jinja2
+        cb_path = os.environ.get(
+            "MCP_TOOL_PROXY_PATH",
+            "/Users/prats/Documents/work/rw-generic-codecollection/codebundles/mcp-tool-proxy",
+        )
+        env = jinja2.Environment(
+            loader=jinja2.FileSystemLoader(os.path.join(cb_path, ".runwhen/templates")),
+            undefined=jinja2.StrictUndefined,
+        )
+        t = env.get_template("mcp-tool-proxy-runbook.yaml")
+        out = t.render(slx_name="mcp-jira-create-issue",
+                       default_location="loc1",
+                       match_resource=match_resource)
+        parsed = _yaml.safe_load(out)
+        runtime_vars = parsed["spec"]["runtimeVarsProvided"]
+        names = {v["name"] for v in runtime_vars}
+        self.assertEqual(names, {"project", "summary"})
+        # RuntimeVarEntry only allows name/default/description/validation
+        # (corestate-operator api/v1/common_types.go) — guard against drift
+        # that would put unknown fields on the rendered Runbook.
+        allowed_fields = {"name", "default", "description", "validation"}
+        for v in runtime_vars:
+            extra = set(v.keys()) - allowed_fields
+            self.assertFalse(extra, f"runtimeVarsProvided[{v.get('name')}] has unexpected field(s): {extra}")
+            # Every var must carry a validation block with a CRD-allowed type
+            # (the CRD enum is {enum, regex}); when the MCP property has neither
+            # enum nor pattern the template falls back to regex .*
+            self.assertIn("validation", v, f"runtimeVarsProvided[{v['name']}] missing validation")
+            self.assertIn(v["validation"]["type"], {"enum", "regex"},
+                          f"runtimeVarsProvided[{v['name']}] has invalid validation.type")
+        # Static config var carries the input schema as JSON for the codebundle.
+        # MCP_VERIFY_TLS is forwarded from the indexer's per-server verify_tls
+        # flag — defaults to "true" when the field is omitted from mcpConfig.
+        config_names = {c["name"] for c in parsed["spec"]["configProvided"]}
+        self.assertEqual(
+            config_names,
+            {"MCP_SERVER_URL", "MCP_SERVER_DISPLAY_NAME", "MCP_TOOL_NAME",
+             "MCP_INPUT_SCHEMA", "MCP_VERIFY_TLS"},
+        )
+
+
+class RunbookDefaultsAreStringsTest(TestCase):
+    """The runbook template must coerce every runtimeVar `default` to a YAML
+    string. Robot Framework treats runtime vars as strings — if the template
+    leaves a JSON schema default as a raw number/bool/list/dict, YAML parses
+    it as that native type and the runner barfs on the type mismatch."""
+
+    def _render(self, properties: dict, required: list | None = None) -> dict:
+        import jinja2
+        from indexers import mcp_tools
+        from resources import Registry, REGISTRY_PROPERTY_NAME
+        from component import Context
+
+        # Build a fake registry entry by running _emit_tool_resource directly
+        # — no MCP server needed; we only care about template rendering.
+        reg = Registry()
+        input_schema = {"type": "object", "properties": properties}
+        if required is not None:
+            input_schema["required"] = required
+        mcp_tools._emit_tool_resource(
+            reg,
+            {"display_name": "srv",
+             "url": "https://srv.local/mcp",
+             "secret_ref": "srv-token"},
+            {"name": "do_thing",
+             "description": "",
+             "inputSchema": input_schema},
+        )
+        match_resource = next(iter(
+            reg.lookup_resource_type("mcp", "mcp_tool").instances.values()))
+
+        cb_path = os.environ.get(
+            "MCP_TOOL_PROXY_PATH",
+            "/Users/prats/Documents/work/rw-generic-codecollection/codebundles/mcp-tool-proxy",
+        )
+        env = jinja2.Environment(
+            loader=jinja2.FileSystemLoader(os.path.join(cb_path, ".runwhen/templates")),
+            undefined=jinja2.StrictUndefined,
+        )
+        t = env.get_template("mcp-tool-proxy-runbook.yaml")
+        out = t.render(slx_name="srv-do-thing",
+                       default_location="loc1",
+                       match_resource=match_resource)
+        return _yaml.safe_load(out)
+
+    def _defaults_by_name(self, parsed: dict) -> dict:
+        return {v["name"]: v["default"] for v in parsed["spec"]["runtimeVarsProvided"]}
+
+    def test_string_default_passes_through(self):
+        defaults = self._defaults_by_name(self._render({
+            "project": {"type": "string", "default": "RW"},
+        }))
+        self.assertEqual(defaults["project"], "RW")
+        self.assertIsInstance(defaults["project"], str)
+
+    def test_int_default_becomes_string(self):
+        defaults = self._defaults_by_name(self._render({
+            "limit": {"type": "integer", "default": 42},
+        }))
+        self.assertEqual(defaults["limit"], "42")
+        self.assertIsInstance(defaults["limit"], str)
+
+    def test_bool_default_becomes_lowercase_json_string(self):
+        # tojson on True yields "true" (JSON), not "True" (Python repr) —
+        # matters because Robot/downstream consumers expect JSON-shaped bools.
+        defaults = self._defaults_by_name(self._render({
+            "dry_run": {"type": "boolean", "default": True},
+        }))
+        self.assertEqual(defaults["dry_run"], "true")
+        self.assertIsInstance(defaults["dry_run"], str)
+
+    def test_list_default_becomes_json_string(self):
+        defaults = self._defaults_by_name(self._render({
+            "tags": {"type": "array", "default": ["a", "b"]},
+        }))
+        self.assertEqual(defaults["tags"], '["a", "b"]')
+        self.assertIsInstance(defaults["tags"], str)
+
+    def test_dict_default_becomes_json_string(self):
+        defaults = self._defaults_by_name(self._render({
+            "filters": {"type": "object", "default": {"k": "v"}},
+        }))
+        self.assertEqual(defaults["filters"], '{"k": "v"}')
+        self.assertIsInstance(defaults["filters"], str)
+
+    def test_missing_default_becomes_empty_string(self):
+        defaults = self._defaults_by_name(self._render({
+            "project": {"type": "string"},
+        }))
+        self.assertEqual(defaults["project"], "")
+        self.assertIsInstance(defaults["project"], str)
+
+    def test_null_default_becomes_empty_string(self):
+        defaults = self._defaults_by_name(self._render({
+            "project": {"type": "string", "default": None},
+        }))
+        self.assertEqual(defaults["project"], "")
+        self.assertIsInstance(defaults["project"], str)
+
+
+class RunbookRequiredParamMarkingTest(RunbookDefaultsAreStringsTest):
+    """The runbook template should mark required parameters in the rendered
+    description so downstream UI/agent surfaces know which inputs are
+    mandatory. JSON Schema lists required fields at the top level (not as a
+    per-property flag), so this needs the schema's `required` array."""
+
+    def _descriptions_by_name(self, parsed: dict) -> dict:
+        return {v["name"]: v["description"] for v in parsed["spec"]["runtimeVarsProvided"]}
+
+    def test_required_param_with_description_gets_suffix(self):
+        descs = self._descriptions_by_name(self._render(
+            {"project": {"type": "string", "description": "Project key"}},
+            required=["project"],
+        ))
+        self.assertEqual(descs["project"], "Project key (required)")
+
+    def test_required_param_with_empty_description_gets_sentence(self):
+        descs = self._descriptions_by_name(self._render(
+            {"project": {"type": "string"}},
+            required=["project"],
+        ))
+        self.assertEqual(descs["project"], "Required parameter.")
+
+    def test_optional_param_description_is_unchanged(self):
+        descs = self._descriptions_by_name(self._render(
+            {"summary": {"type": "string", "description": "Issue title"}},
+            required=["project"],  # different param required; summary is not
+        ))
+        self.assertEqual(descs["summary"], "Issue title")
+
+    def test_no_required_array_in_schema(self):
+        # Schemas may omit `required` entirely — must not crash, no suffix.
+        descs = self._descriptions_by_name(self._render(
+            {"project": {"type": "string", "description": "Project key"}},
+            required=None,
+        ))
+        self.assertEqual(descs["project"], "Project key")
+
+    def test_mixed_required_and_optional(self):
+        descs = self._descriptions_by_name(self._render(
+            {"project": {"type": "string", "description": "Project key"},
+             "summary": {"type": "string", "description": "Issue title"},
+             "labels":  {"type": "string", "description": "CSV labels"}},
+            required=["project", "summary"],
+        ))
+        self.assertEqual(descs["project"], "Project key (required)")
+        self.assertEqual(descs["summary"], "Issue title (required)")
+        self.assertEqual(descs["labels"], "CSV labels")

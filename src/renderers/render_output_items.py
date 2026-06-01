@@ -88,6 +88,16 @@ def compute_resource_path_from_hierarchy(data: dict) -> None:
         if name and name not in tag_lookup and value is not None:
             tag_lookup[name] = str(value)
 
+    # If the template already set an explicit resourcePath, honor it — some
+    # platforms (e.g. mcp) want hierarchy and resourcePath to be different
+    # depths (3-key hierarchy for UI grouping, 2-key resourcePath for the
+    # underlying resource identity). For platforms that don't set it, we
+    # still compute from hierarchy so they get the auto-behavior unchanged.
+    if additional_context.get('resourcePath'):
+        logger.debug(
+            f"Honoring explicit resourcePath from template: {additional_context['resourcePath']}")
+        return
+
     # Build resourcePath from the hierarchy entries in order.
     # resource_name always appears in the path even when its value duplicates
     # a parent entry — the hierarchy is the single source of truth.

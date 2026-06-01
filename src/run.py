@@ -226,7 +226,7 @@ def main():
                         help=f'Host/port info for where the {SERVICE_NAME} REST service is running. '
                              f'Format is <host>:<port>')
     parser.add_argument('-c', '--components', action='store',
-                        default="load_resources,kubeapi,cloudquery,azure_devops,generation_rules,render_output_items,dump_resources")
+                        default="load_resources,kubeapi,cloudquery,azure_devops,mcp_tools,generation_rules,render_output_items,dump_resources")
     parser.add_argument('-o', '--output', action='store', dest='output_path', default="output",
                         help="Path to output directory for generated files. "
                              "The path is relative to the base directory.")
@@ -433,6 +433,7 @@ def main():
     code_collections = workspace_info.get("codeCollections")
     overrides = workspace_info.get("overrides", {})
     task_tag_exclusions = workspace_info.get("taskTagExclusions")
+    mcp_config = workspace_info.get("mcpConfig")
 
     # ------------------------------------------------------------------ 4. validation guards
     missing = []
@@ -682,6 +683,8 @@ def main():
             request_data['codeCollections'] = code_collections
         if cloud_config:
             request_data['cloudConfig'] = cloud_config
+        if mcp_config:
+            request_data['mcpConfig'] = mcp_config
         if overrides:
             request_data['overrides'] = overrides
         if task_tag_exclusions:
