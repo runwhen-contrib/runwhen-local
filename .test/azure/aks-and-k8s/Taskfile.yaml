@@ -398,8 +398,12 @@ tasks:
             .values.outputs.cluster_rg.value')
           cluster_sub=$(terraform show -json  | jq -r '
             .values.outputs.cluster_sub.value')
-          node_pool_rg=$(terraform show -json  | jq -r '
-            .values.root_module.resources[] | select(.type == "azurerm_kubernetes_cluster") | .values.node_resource_group')
+          # Scope to the single cluster we write into workspaceInfo.yaml. The
+          # fixture deploys multiple AKS clusters, so an unscoped query returns
+          # several node_resource_group values; interpolating a multi-line value
+          # into the heredoc below corrupts the generated YAML.
+          node_pool_rg=$(terraform show -json  | jq -r --arg name "$cluster_name" '
+            .values.root_module.resources[] | select(.type == "azurerm_kubernetes_cluster" and .values.name == $name) | .values.node_resource_group' | head -n1)
           popd > /dev/null
 
           # Check if any of the required cluster variables are empty
@@ -477,8 +481,12 @@ tasks:
             .values.outputs.cluster_rg.value')
           cluster_sub=$(terraform show -json | jq -r '
             .values.outputs.cluster_sub.value')
-          node_pool_rg=$(terraform show -json  | jq -r '
-            .values.root_module.resources[] | select(.type == "azurerm_kubernetes_cluster") | .values.node_resource_group')
+          # Scope to the single cluster we write into workspaceInfo.yaml. The
+          # fixture deploys multiple AKS clusters, so an unscoped query returns
+          # several node_resource_group values; interpolating a multi-line value
+          # into the heredoc below corrupts the generated YAML.
+          node_pool_rg=$(terraform show -json  | jq -r --arg name "$cluster_name" '
+            .values.root_module.resources[] | select(.type == "azurerm_kubernetes_cluster" and .values.name == $name) | .values.node_resource_group' | head -n1)
 
           popd > /dev/null
 
