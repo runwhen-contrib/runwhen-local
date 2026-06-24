@@ -85,6 +85,81 @@ def call_rest_service_with_retries(rest_call_proc, max_attempts=10, retry_delay=
             print("Workspace builder REST service isn't available yet; waiting and trying again.")
             time.sleep(retry_delay)
 
+def _projected_service_account_token() -> str:
+    with open("/var/run/secrets/kubernetes.io/serviceaccount/token", "r") as f:
+        return f.read().strip()
+
+
+def _service_account_name_from_projected_token() -> str:
+    """Extract the service account name from the in-pod projected token JWT."""
+    token = _projected_service_account_token()
+    payload_segment = token.split(".")[1]
+    payload_segment += "=" * (-len(payload_segment) % 4)
+    claims = json.loads(base64.urlsafe_b64decode(payload_segment))
+    sa_name = claims.get("kubernetes.io/serviceaccount/service-account.name")
+    if not sa_name:
+        raise ValueError("projected service account token is missing service-account.name claim")
+    return sa_name
+
+
+def _service_account_name_for_kubeconfig_secret() -> str:
+    sa_name = os.environ.get("RW_KUBECONFIG_SERVICE_ACCOUNT")
+    if sa_name:
+        return sa_name
+    return _service_account_name_from_projected_token()
+
+
+def _long_lived_service_account_token(namespace: str, service_account_name: str) -> str:
+    """Return a SA token that survives workspace-builder pod restarts.
+
+    The projected pod token is bound to the current pod and is invalidated on
+    restart. Runner workers cache ``k8s:file@secret/kubeconfig:kubeconfig`` for
+    up to an hour, so publishing a pod-bound token causes auth failures until
+    workers are recycled.
+
+    The runwhen-local Helm chart provisions a ``{sa}-token`` secret (type
+    ``kubernetes.io/service-account-token``) with a long-lived token for the
+    workspace-builder service account. Prefer that token when publishing the
+    kubeconfig secret for runner tasks.
+    """
+    token_secret_name = f"{service_account_name}-token"
+    get_cmd = [
+        "kubectl", "get", "secret", token_secret_name,
+        "--namespace", namespace,
+        "-o", "jsonpath={.data.token}",
+    ]
+    result = subprocess.run(get_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"could not read long-lived token secret {token_secret_name}: {result.stderr.strip()}"
+        )
+    token_b64 = result.stdout.strip()
+    if not token_b64:
+        raise RuntimeError(f"long-lived token secret {token_secret_name} has no token data yet")
+    return base64.b64decode(token_b64).decode("utf-8")
+
+
+def _resolve_kubeconfig_token(namespace: str, create_secret: bool) -> str:
+    if not create_secret:
+        return _projected_service_account_token()
+
+    service_account_name = _service_account_name_for_kubeconfig_secret()
+    try:
+        token = _long_lived_service_account_token(namespace, service_account_name)
+        print(
+            f"Using long-lived service account token from secret/{service_account_name}-token "
+            "for runner kubeconfig secret"
+        )
+        return token
+    except (RuntimeError, ValueError) as exc:
+        print(
+            f"Warning: falling back to projected pod token for kubeconfig secret "
+            f"({exc}); runner tasks may fail after workspace-builder restarts until "
+            "worker pods are recycled"
+        )
+        return _projected_service_account_token()
+
+
 def create_kubeconfig():
     create_secret = os.environ.get("RW_CREATE_KUBECONFIG_SECRET") == "true"
     api_server_host = os.environ.get("KUBERNETES_SERVICE_HOST")
@@ -93,11 +168,10 @@ def create_kubeconfig():
     default_cluster_name = "default"
     cluster_name = os.environ.get("KUBERNETES_CLUSTER_NAME", default_cluster_name)
 
-    with open("/var/run/secrets/kubernetes.io/serviceaccount/token", "r") as f:
-        token = f.read().strip()
-
     with open("/var/run/secrets/kubernetes.io/serviceaccount/namespace", "r") as f:
         namespace = f.read().strip()
+
+    token = _resolve_kubeconfig_token(namespace, create_secret)
 
     with open("/var/run/secrets/kubernetes.io/serviceaccount/ca.crt", "rb") as f:
         ca_cert = base64.b64encode(f.read()).decode('utf-8')
