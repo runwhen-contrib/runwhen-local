@@ -440,7 +440,7 @@ task test-multi-kubeconfig
 1. Check total SLXs generated
 2. Verify both contexts processed the target namespaces
 3. Review logs for LOD determination messages
-4. Inspect generated SLXs in `output/workspaces/`
+4. Inspect generated SLXs in the explorer UI (`http://localhost:8000/explorer/`) or `sqlite3 output/resources.sqlite` (rendered files are not written to `output/workspaces/` unless `writeWorkspaceFilesToDisk: true`)
 
 **Expected Log Output**:
 ```

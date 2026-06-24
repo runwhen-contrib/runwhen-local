@@ -127,7 +127,7 @@ tasks:
         fi
         
         # Check for SLX files
-        SLX_COUNT=$(find output -name "*.yaml" -path "*/slxs/*" 2>/dev/null | wc -l)
+        SLX_COUNT=$(python3 ../../lib/slx_db.py --db output/resources.sqlite count 2>/dev/null || echo 0)
         echo "Found $SLX_COUNT SLX files"
         
         echo "=== Verification complete ==="
@@ -138,7 +138,7 @@ tasks:
       MIN_SLX_COUNT: '{{.MIN_SLX_COUNT | default "1"}}'
     cmds:
       - |
-        SLX_COUNT=$(find output -name "*.yaml" -path "*/slxs/*" 2>/dev/null | wc -l)
+        SLX_COUNT=$(python3 ../../lib/slx_db.py --db output/resources.sqlite count 2>/dev/null || echo 0)
         if [ "$SLX_COUNT" -ge "{{.MIN_SLX_COUNT}}" ]; then
           echo "SUCCESS: Found $SLX_COUNT SLXs (minimum: {{.MIN_SLX_COUNT}})"
         else

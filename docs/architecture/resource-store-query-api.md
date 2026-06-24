@@ -1,9 +1,11 @@
 # Resource store query API
 
-When discovery runs with `resourceStoreBackend: sqlite`, RunWhen Local writes a single SQLite file (default `output/resources.sqlite`) containing:
+When discovery runs with `resourceStoreBackend: sqlite` (the default), RunWhen Local writes a single SQLite file (default `output/resources.sqlite`) containing:
 
 1. **Discovered resources** — Kubernetes and cloud objects from indexers (`resources` table).
 2. **Rendered workspace files** — SLX, SLI, runbook, and workspace YAML from `render_output_items` (`workspace_artifacts` table).
+
+This database is the **canonical** home for rendered SLX/SLI/runbook/workspace content. By default (`writeWorkspaceFilesToDisk: false`) the render phase does **not** write the `output/workspaces/<ws>/` file tree to disk — to inspect rendered SLXs use the explorer UI ([http://localhost:8000/explorer/](http://localhost:8000/explorer/), the **Rendered workspace** / **SLX Bundles** tabs), the `/explorer/api/*` endpoints, or `sqlite3 output/resources.sqlite`. Set `writeWorkspaceFilesToDisk: true` if you still want the on-disk file tree (see [the skip-disk section](#writeworkspacefilestodisk-default-false)).
 
 The workspace-builder FastAPI service exposes read-only JSON endpoints under `/explorer/api/*`, and the same data can be queried directly with SQL or the Python helpers in `indexers/sqlite_resource_writer.py`.
 
@@ -56,6 +58,41 @@ Primary key: `(platform, resource_type, qualified_name)`.
 Primary key: `(workspace_name, relative_path)`.
 
 **Listing all SLXs** means filtering `artifact_kind = 'slx'`. Each SLX directory normally also has sibling rows with `artifact_kind` of `sli` and `runbook` sharing the same `slx_directory`.
+
+## DB-sourced packaging and the skip-disk fast path
+
+Because `workspace_artifacts` holds the **full** rendered text of every workspace
+file, the on-disk copy is redundant. Everything that used to read the rendered
+file tree now reads the DB when the sqlite store is active, falling back to disk
+only when files were explicitly written:
+
+- **Platform upload tar** — built directly from `workspace_artifacts` rows
+  (`indexers/workspace_artifacts_tar.build_upload_tar_gz_from_db_file`) instead
+  of re-tarring `output/workspaces/<ws>` from disk. The resulting archive is
+  behaviour-equivalent (same file members + byte-identical contents) to the
+  disk tar. This holds for both `run --upload` and the standalone `upload`
+  subcommand (which locates the extracted `resources.sqlite` in the output
+  directory left by a prior `run`).
+- **SLX count** — `COUNT(*) WHERE artifact_kind = 'slx'` instead of `listdir`
+  of the `slxs/` directory.
+- **Human inspection** — the explorer UI/API and `sqlite3` (see the top of this
+  document), since the file tree is not written by default.
+
+### `writeWorkspaceFilesToDisk` (default `false`)
+
+Rendered files are **not** written to `output/workspaces/<ws>/` by default; the
+DB is canonical. This avoids thousands of small-file syscalls plus the
+tar-from-disk walk during upload on large workspaces, and there is no on-disk
+tree to inspect — use the explorer UI/API or `sqlite3` instead.
+
+Set `writeWorkspaceFilesToDisk: true` in `workspaceInfo.yaml` (or
+`WB_WRITE_WORKSPACE_FILES_TO_DISK=true`) to **opt back into** the on-disk file
+tree, for debugging or for file-based consumers (e.g. tooling that `cat`s
+`slxs/<name>/slx.yaml`). The files are written *in addition to* the DB rows.
+
+- **Guardrail:** if left at the default `false` while `resourceStoreBackend` is
+  *not* `sqlite`, the render phase logs a warning and forces file writes back on,
+  so the rendered output is never lost (there would be no DB to fall back to).
 
 ## HTTP API
 

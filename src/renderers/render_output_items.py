@@ -4,11 +4,15 @@ import logging
 import time
 from typing import Any, Callable, Optional, List
 
-from component import Context, SettingDependency, WORKSPACE_NAME_SETTING, \
+from component import Context, Setting, SettingDependency, WORKSPACE_NAME_SETTING, \
     LOCATION_ID_SETTING, WORKSPACE_OUTPUT_PATH_SETTING
 from template import render_template_file
 from exceptions import WorkspaceBuilderException
 from renderers.rendered_artifacts import init_rendered_artifacts, record_rendered_artifact
+from indexers.resource_writer import (
+    RESOURCE_STORE_BACKEND_SETTING,
+    RESOURCE_STORE_BACKEND_SQLITE,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -20,11 +24,38 @@ else:
 
 DOCUMENTATION = "Render templated output items"
 
+# The SQLite ``workspace_artifacts`` table is the canonical home for rendered
+# workspace files. By default (``False``) the render phase relies solely on that
+# DB and skips the per-file writes through the outputter, avoiding the small-file
+# IO (and, on the CLI side, the on-disk tree the upload tar would otherwise be
+# re-packaged from). Human inspection of rendered SLXs moves to the explorer
+# UI/API (``/explorer/``, backed by ``workspace_artifacts``) or ``sqlite3
+# output/resources.sqlite``. Set ``writeWorkspaceFilesToDisk: true`` to opt back
+# into the on-disk ``output/workspaces/<ws>/`` tree for debugging or file-based
+# consumers. The skip is only safe when the sqlite store is active; with any
+# other backend disk writes are forced ON (see ``resolve_write_files_to_disk``).
+WRITE_WORKSPACE_FILES_TO_DISK_SETTING = Setting(
+    "WRITE_WORKSPACE_FILES_TO_DISK",
+    "writeWorkspaceFilesToDisk",
+    Setting.Type.BOOLEAN,
+    "When False (default) AND 'resourceStoreBackend' is 'sqlite', the per-file "
+    "workspace writes are skipped: the DB (workspace_artifacts) is the canonical "
+    "source of rendered content and consumers read from it (upload tar, SLX "
+    "count) while humans inspect via the explorer UI/API or sqlite3. Set to True "
+    "to additionally write the rendered files to the output/workspaces/<ws>/ tree "
+    "(opt-in for debugging / file-based consumers). Ignored (forced True) when "
+    "the store is not sqlite, since the rendered output would otherwise be lost "
+    "entirely.",
+    False,
+)
+
 # FIXME: Not sure these settings dependencies are still needed/valid?
 SETTINGS = (
     SettingDependency(LOCATION_ID_SETTING, True),
     SettingDependency(WORKSPACE_NAME_SETTING, True),
     SettingDependency(WORKSPACE_OUTPUT_PATH_SETTING, True),
+    SettingDependency(WRITE_WORKSPACE_FILES_TO_DISK_SETTING, False),
+    SettingDependency(RESOURCE_STORE_BACKEND_SETTING, False),
 )
 
 OUTPUT_ITEMS_PROPERTY = "output_items"
@@ -292,10 +323,43 @@ def _slx_first_sort_key(item: OutputItem) -> tuple:
     return (dirname, 0 if basename == 'slx.yaml' else 1, basename)
 
 
+def resolve_write_files_to_disk(context: Context) -> bool:
+    """Decide whether the render phase should write files via the outputter.
+
+    Honors the ``writeWorkspaceFilesToDisk`` setting but applies the guardrail:
+    skipping disk writes is only safe when the sqlite store is active (that is
+    where the rendered content is persisted). If the flag is False but the store
+    is not sqlite, the rendered output would be lost entirely, so we log a clear
+    warning and force writes back on.
+    """
+    write_files = context.get_setting(WRITE_WORKSPACE_FILES_TO_DISK_SETTING)
+    if write_files is None:
+        write_files = WRITE_WORKSPACE_FILES_TO_DISK_SETTING.default_value
+    if write_files:
+        return True
+
+    backend = (context.get_setting(RESOURCE_STORE_BACKEND_SETTING) or "").strip().lower()
+    if backend != RESOURCE_STORE_BACKEND_SQLITE:
+        logger.warning(
+            "writeWorkspaceFilesToDisk=False requires resourceStoreBackend='sqlite' "
+            "(current backend=%r); forcing workspace file writes ON to avoid losing "
+            "the rendered output.",
+            backend or "memory",
+        )
+        return True
+
+    logger.info(
+        "writeWorkspaceFilesToDisk=False with sqlite store: skipping per-file "
+        "workspace writes; rendered content is captured in workspace_artifacts."
+    )
+    return False
+
+
 def render(context: Context):
     output_items: dict[str, OutputItem] = context.get_property(OUTPUT_ITEMS_PROPERTY, {})
     skipped_templates: List[dict] = []
     failed_slx_dirs: set = set()
+    write_files_to_disk = resolve_write_files_to_disk(context)
     
     # Initialize render statistics tracking
     render_stats = {
@@ -330,7 +394,8 @@ def render(context: Context):
         try:
             if output_item.raw_content is not None:
                 output_text = output_item.raw_content
-                context.write_file(output_item.path, output_text)
+                if write_files_to_disk:
+                    context.write_file(output_item.path, output_text)
                 record_rendered_artifact(context, output_item.path, output_text)
                 render_stats['successfully_rendered'] += 1
                 continue
@@ -347,7 +412,8 @@ def render(context: Context):
             deduplicated_output = apply_config_provided_overrides(context, deduplicated_output, output_item)
 
             # Write the deduplicated output to the file
-            context.write_file(output_item.path, deduplicated_output)
+            if write_files_to_disk:
+                context.write_file(output_item.path, deduplicated_output)
             record_rendered_artifact(context, output_item.path, deduplicated_output)
             render_stats['successfully_rendered'] += 1
         except WorkspaceBuilderException as e:

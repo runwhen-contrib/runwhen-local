@@ -174,10 +174,11 @@ tasks:
         # the failure artifact.
         docker logs "$CONTAINER_NAME" > container_logs.log 2>&1 || true
 
-        echo "Review generated config files under output/workspaces/"
-        slx_root=$(find 'output/' -type d -name 'slxs' 2>/dev/null)
-        if [ -n "$slx_root" ]; then
-          total_slxs=$(find $slx_root -mindepth 1 -type d | wc -l)
+        echo "Review rendered SLXs via the explorer UI (http://localhost:8000/explorer/) or output/resources.sqlite"
+        # Rendered files are no longer written to disk by default
+        # (writeWorkspaceFilesToDisk=False); count SLXs from the sqlite store.
+        if [ -f output/resources.sqlite ]; then
+          total_slxs=$(python3 ../../lib/slx_db.py --db output/resources.sqlite count)
         else
           total_slxs=0
         fi

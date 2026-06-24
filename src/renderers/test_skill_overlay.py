@@ -59,6 +59,9 @@ class RawContentRenderingTests(unittest.TestCase):
                 "WORKSPACE_NAME": "demo-ws",
                 "LOCATION_ID": "location-01",
                 "WORKSPACE_OUTPUT_PATH": "workspaces",
+                # Disk writes are opt-out by default now; this test asserts the
+                # on-disk verbatim write path, so opt back in explicitly.
+                "WRITE_WORKSPACE_FILES_TO_DISK": True,
             },
             outputter=FileSystemOutputter(output_dir),
         )

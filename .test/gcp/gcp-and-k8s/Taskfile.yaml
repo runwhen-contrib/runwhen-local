@@ -235,8 +235,10 @@ tasks:
         # the failure artifact.
         docker logs $CONTAINER_NAME > container_logs.log 2>&1 || true
 
-        echo "Review generated config files under output/workspaces/"
-        total_slxs=$(find $(find 'output/' -type d -name 'slxs') -mindepth 1 -type d | wc -l)
+        echo "Review rendered SLXs via the explorer UI (http://localhost:8000/explorer/) or output/resources.sqlite"
+        # Rendered files are no longer written to disk by default
+        # (writeWorkspaceFilesToDisk=False); count SLXs from the sqlite store.
+        total_slxs=$(python3 ../../lib/slx_db.py --db output/resources.sqlite count)
         echo "Total SLXs: $total_slxs"
         echo "$total_slxs" > slx_count.txt
     silent: true
@@ -282,8 +284,10 @@ tasks:
         docker stop "$CONTAINER_NAME"
         docker rm "$CONTAINER_NAME"        
 
-        echo "Review generated config files under output/workspaces/"
-        total_slxs=$(find $(find 'output/' -type d -name 'slxs') -mindepth 1 -type d | wc -l)
+        echo "Review rendered SLXs via the explorer UI (http://localhost:8000/explorer/) or output/resources.sqlite"
+        # Rendered files are no longer written to disk by default
+        # (writeWorkspaceFilesToDisk=False); count SLXs from the sqlite store.
+        total_slxs=$(python3 ../../lib/slx_db.py --db output/resources.sqlite count)
         echo "Total SLXs: $total_slxs"
         echo "$total_slxs" > slx_count.txt
     silent: true
@@ -394,31 +398,33 @@ tasks:
     desc: "Validate that rendered content is as intended"
     cmds: 
       - | 
+        # Rendered SLX/SLI/runbook content lives in output/resources.sqlite
+        # (workspace_artifacts), not an on-disk workspaces/<ws>/ tree which is
+        # no longer written by default (writeWorkspaceFilesToDisk=False).
+        SLX_DB="../../lib/slx_db.py"
         echo "Validate Runbook location configuration"
-        RUNBOOK_FILE=$(find . -type f -name "runbook.yaml" | head -n 1)
-        if [ -z "$RUNBOOK_FILE" ]; then
-          echo "Error: No runbook.yaml file found in subdirectories." >&2
+        LOCATION=$(python3 "$SLX_DB" --db output/resources.sqlite location runbook)
+        if [ -z "$LOCATION" ]; then
+          echo "Error: No runbook artifact found in the resource store." >&2
           exit 1
         fi
-        LOCATION=$(yq e '.spec.location' "$RUNBOOK_FILE")
         if [ "$LOCATION" = "missing_workspaceInfo_custom_variable" ]; then
-          echo "Error: runbook.yaml contains an invalid spec.location value." >&2
+          echo "Error: runbook contains an invalid spec.location value." >&2
           exit 1
         fi
-        echo "Validation successful: $RUNBOOK_FILE has a valid spec.location."
+        echo "Validation successful: runbook has a valid spec.location ($LOCATION)."
 
         echo "Validate SLI location configuration"
-        SLI_FILE=$(find . -type f -name "sli.yaml" | head -n 1)
-        if [ -z "$SLI_FILE" ]; then
-          echo "Error: No sli.yaml file found in subdirectories." >&2
+        LOCATION=$(python3 "$SLX_DB" --db output/resources.sqlite location sli)
+        if [ -z "$LOCATION" ]; then
+          echo "Error: No sli artifact found in the resource store." >&2
           exit 1
         fi
-        LOCATION=$(yq e '.spec.location' "$SLI_FILE")
         if [ "$LOCATION" = "missing_workspaceInfo_custom_variable" ]; then
-          echo "Error: runbook.yaml contains an invalid spec.location value." >&2
+          echo "Error: sli contains an invalid spec.location value." >&2
           exit 1
         fi
-        echo "Validation successful: $SLI_FILE has a valid spec.location."
+        echo "Validation successful: sli has a valid spec.location ($LOCATION)."
     silent: true
 
   ci-test-airgap-disabled:
@@ -530,8 +536,10 @@ tasks:
         docker stop "$CONTAINER_NAME"
         docker rm "$CONTAINER_NAME"        
 
-        echo "Review generated config files under output/workspaces/"
-        total_slxs=$(find $(find 'output/' -type d -name 'slxs') -mindepth 1 -type d | wc -l)
+        echo "Review rendered SLXs via the explorer UI (http://localhost:8000/explorer/) or output/resources.sqlite"
+        # Rendered files are no longer written to disk by default
+        # (writeWorkspaceFilesToDisk=False); count SLXs from the sqlite store.
+        total_slxs=$(python3 ../../lib/slx_db.py --db output/resources.sqlite count)
         echo "Total SLXs: $total_slxs"
         echo "$total_slxs" > slx_count.txt
     silent: true

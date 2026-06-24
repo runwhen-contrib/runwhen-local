@@ -92,7 +92,7 @@ if [ -n "$AUTORUN_WORKSPACE_BUILDER_INTERVAL" ];
 then
     echo "AUTORUN_WORKSPACE_BUILDER_INTERVAL is set. Running workspace-builder"
     uvicorn workspace_builder.api:app --host 0.0.0.0 --port 8000 &
-    sleep 60
+    sleep 5
     
     # Configure which files to watch for changes (inclusive list)
     # Can be overridden via RW_WATCH_FILES environment variable (colon-separated)

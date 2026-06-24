@@ -119,7 +119,7 @@ tasks:
 
         echo "Starting new container $CONTAINER_NAME..."
 
-        docker run -e DEBUG_LOGGING=false --add-host github.com:0.0.0.0 --name $CONTAINER_NAME -p 8000:8000 -v $(pwd):/shared -d runwhen-local:test || {
+        docker run -e DEBUG_LOGGING=false -e WB_WRITE_WORKSPACE_FILES_TO_DISK=true --add-host github.com:0.0.0.0 --name $CONTAINER_NAME -p 8000:8000 -v $(pwd):/shared -d runwhen-local:test || {
           echo "Failed to start container"; exit 1;
         }
 
@@ -156,7 +156,7 @@ tasks:
 
         echo "Starting new container $CONTAINER_NAME..."
 
-        docker run -e DEBUG_LOGGING=false --name $CONTAINER_NAME -p 8000:8000 -v $(pwd):/shared -d runwhen-local:test || {
+        docker run -e DEBUG_LOGGING=false -e WB_WRITE_WORKSPACE_FILES_TO_DISK=true --name $CONTAINER_NAME -p 8000:8000 -v $(pwd):/shared -d runwhen-local:test || {
           echo "Failed to start container"; exit 1;
         }
 
@@ -196,6 +196,7 @@ tasks:
         # 1. Start container in the background
         docker run -d \
           -e DEBUG_LOGS=true \
+          -e WB_WRITE_WORKSPACE_FILES_TO_DISK=true \
           --name "$CONTAINER_NAME" \
           -p 8000:8000 \
           -v "$(pwd):/shared" \
@@ -248,6 +249,7 @@ tasks:
         # 1. Start container with github.com/api.github.com blocked via /etc/hosts
         docker run -d \
           -e DEBUG_LOGS=true \
+          -e WB_WRITE_WORKSPACE_FILES_TO_DISK=true \
           --add-host github.com:0.0.0.0 \
           --add-host api.github.com:0.0.0.0 \
           --name "$CONTAINER_NAME" \

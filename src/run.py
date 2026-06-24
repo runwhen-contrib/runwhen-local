@@ -228,6 +228,24 @@ def coalesce(*vals):
     return next((v for v in vals if v not in (None, "")), None)
 
 
+def resource_store_db_file(output_path, resource_store_backend, resource_store_path):
+    """Return the path to the extracted sqlite resource store, or None.
+
+    The render phase persists every rendered workspace file into the
+    ``workspace_artifacts`` table of this DB, so when it is present the upload
+    tar and SLX count can be sourced from it instead of from the on-disk file
+    tree. Returns None when the sqlite backend is not active or the file is
+    absent, so callers fall back to the disk-based path. The default backend is
+    sqlite, so an unset value is treated as sqlite.
+    """
+    backend = (resource_store_backend or "sqlite").strip().lower()
+    if backend != "sqlite":
+        return None
+    rel_path = resource_store_path or "resources.sqlite"
+    candidate = os.path.join(output_path, rel_path)
+    return candidate if os.path.exists(candidate) else None
+
+
 def main():
     parser = ArgumentParser(description="Run onboarding script to generate initial workspace and SLX info")
     parser.add_argument('command', action='store', choices=[INFO_COMMAND, RUN_COMMAND, UPLOAD_COMMAND],
@@ -481,6 +499,10 @@ def main():
     aws_indexer_backend = coalesce(
         workspace_info.get("awsIndexerBackend"),
         os.getenv("WB_AWS_INDEXER_BACKEND"),
+    )
+    write_workspace_files_to_disk = coalesce(
+        workspace_info.get("writeWorkspaceFilesToDisk"),
+        os.getenv("WB_WRITE_WORKSPACE_FILES_TO_DISK"),
     )
 
     # ------------------------------------------------------------------ 4. validation guards
@@ -797,6 +819,10 @@ def main():
             request_data['gcpIndexerBackend'] = gcp_indexer_backend
         if aws_indexer_backend:
             request_data['awsIndexerBackend'] = aws_indexer_backend
+        if write_workspace_files_to_disk is not None:
+            # Accept bool or a "true"/"false" string from workspaceInfo/env; the
+            # server's Setting.convert_value handles both representations.
+            request_data['writeWorkspaceFilesToDisk'] = write_workspace_files_to_disk
 
         # Invoke the workspace builder /run REST endpoint
         run_url = f"http://{rest_service_host}:{rest_service_port}/run/"
@@ -834,12 +860,26 @@ def main():
         message = response_data.get("message", "Workspace data generated successfully.")
         warnings = response_data.get("warnings", list())
         
-        # Count the number of SLXs (folders in the slxs directory)
-        slxs_path = os.path.join(output_path, "workspaces", workspace_name, "slxs")
-        slx_count = 0
-        if os.path.exists(slxs_path) and os.path.isdir(slxs_path):
-            slx_count = len([name for name in os.listdir(slxs_path) if os.path.isdir(os.path.join(slxs_path, name))])
-        
+        # Count the number of SLXs. Prefer the sqlite resource store (one
+        # slx.yaml artifact per SLX directory) so the count is correct even when
+        # the per-file disk writes were skipped; fall back to scanning the slxs
+        # directory when the store isn't available.
+        slx_count = None
+        store_db_path = resource_store_db_file(output_path, resource_store_backend, resource_store_path)
+        if store_db_path:
+            try:
+                from indexers.workspace_artifacts_tar import count_slxs_from_db_file
+                slx_count = count_slxs_from_db_file(store_db_path, workspace_name)
+            except Exception as e:
+                print(f"WARNING: could not count SLXs from resource store DB ({e}); "
+                      "falling back to directory scan")
+                slx_count = None
+        if slx_count is None:
+            slxs_path = os.path.join(output_path, "workspaces", workspace_name, "slxs")
+            slx_count = 0
+            if os.path.exists(slxs_path) and os.path.isdir(slxs_path):
+                slx_count = len([name for name in os.listdir(slxs_path) if os.path.isdir(os.path.join(slxs_path, name))])
+
         print(f"{message} Total SLXs: {slx_count}")
         for warning in warnings:
             print("WARNING: " + warning)
@@ -852,7 +892,18 @@ def main():
         # where we upload the generated data to the RunWhen server.
         # This assumes that there's been a previous "run" subcommand that
         # generated content to the specified output directory.
-        if not os.path.exists(output_path) or len(os.listdir(output_path)) == 0:
+        #
+        # The canonical source for the upload tar is the extracted
+        # ``resources.sqlite`` (workspace_artifacts table) that the prior `run`
+        # left in output_path; with writeWorkspaceFilesToDisk=False there is no
+        # ``workspaces/<ws>`` tree on disk, so the precondition keys off the
+        # presence of that DB when the sqlite store is active. Fall back to a
+        # non-empty output-dir check for the disk-based (non-sqlite) path.
+        store_db_path = resource_store_db_file(output_path, resource_store_backend, resource_store_path)
+        have_content = store_db_path is not None or (
+            os.path.exists(output_path) and len(os.listdir(output_path)) > 0
+        )
+        if not have_content:
             fatal("There's no existing generated content to upload; "
                   "you need to execute a run subcommand first before you can use the upload subcommand")
     else:
@@ -867,22 +918,42 @@ def main():
         # contents of the output directory. So access the workload directory
         # and archive the data to be included in upload data.
         workspace_dir = os.path.join(output_path, "workspaces", workspace_name)
-        tar_bytes = io.BytesIO()
-        archive = tarfile.open(mode="x:gz", fileobj=tar_bytes)
-        # We need to set the working directory to the output directory for the tarfile
-        # to use the correct relative paths for the entries. Just to be safe, we
-        # save and restore the working directory even though, at least currently,
-        # I don't think anything else is affected by the working directory.
-        saved_working_directory = os.getcwd()
-        os.chdir(workspace_dir)
-        try:
-            archive.add(".")
-        except Exception as e:
-            fatal(f"Error creating archive from output directory contents: {e}")
-        finally:
-            os.chdir(saved_working_directory)
-        archive.close()
-        archive_bytes = tar_bytes.getvalue()
+        archive_bytes = None
+
+        # Prefer building the upload tar directly from the sqlite resource store
+        # (the workspace_artifacts table holds the full rendered content). This
+        # avoids the disk read + tar-from-disk walk and works even when the
+        # per-file disk writes were skipped (writeWorkspaceFilesToDisk=False).
+        store_db_path = resource_store_db_file(output_path, resource_store_backend, resource_store_path)
+        if store_db_path:
+            try:
+                from indexers.workspace_artifacts_tar import build_upload_tar_gz_from_db_file
+                archive_bytes = build_upload_tar_gz_from_db_file(store_db_path, workspace_name)
+            except Exception as e:
+                print(f"WARNING: could not build upload archive from resource store DB ({e}); "
+                      "falling back to on-disk archive")
+                archive_bytes = None
+
+        if archive_bytes is None:
+            # Fall back to the on-disk tree. We only send the workspace
+            # subdirectory, so we tar relative to the workspace dir.
+            tar_bytes = io.BytesIO()
+            archive = tarfile.open(mode="x:gz", fileobj=tar_bytes)
+            # We need to set the working directory to the output directory for the tarfile
+            # to use the correct relative paths for the entries. Just to be safe, we
+            # save and restore the working directory even though, at least currently,
+            # I don't think anything else is affected by the working directory.
+            saved_working_directory = os.getcwd()
+            os.chdir(workspace_dir)
+            try:
+                archive.add(".")
+            except Exception as e:
+                fatal(f"Error creating archive from output directory contents: {e}")
+            finally:
+                os.chdir(saved_working_directory)
+            archive.close()
+            archive_bytes = tar_bytes.getvalue()
+
         archive_text = base64.b64encode(archive_bytes).decode('utf-8')
 
         if not upload_token:
