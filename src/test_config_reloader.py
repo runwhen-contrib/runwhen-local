@@ -11,6 +11,7 @@ from config_reloader import (
     ConfigReloader,
     data_fingerprint,
     discover_mount_sources,
+    request_pod_restart,
     resolve_watch_targets,
     should_trigger_restart,
 )
@@ -108,6 +109,15 @@ class ConfigReloaderBehaviorTests(unittest.TestCase):
         ):
             self.assertFalse(reloader._poll_once())
         self.assertIn(("configmap", "workspace-builder"), reloader._initialized)
+
+
+class RequestPodRestartTests(unittest.TestCase):
+    @patch("config_reloader.sys.exit")
+    @patch("config_reloader.os.kill")
+    def test_signals_parent_and_exits(self, mock_kill, mock_exit):
+        request_pod_restart()
+        mock_kill.assert_called_once()
+        mock_exit.assert_called_once_with(0)
 
 
 if __name__ == "__main__":

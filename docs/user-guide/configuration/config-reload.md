@@ -90,6 +90,10 @@ EmptyDir volumes (`/shared/output`, `/tmp`) and script-generated files
 | `RW_CONFIG_RELOAD_POLL_INTERVAL` | `30` | Seconds between polls when `RW_CONFIG_RELOAD_MODE=poll` |
 | `RW_CONFIG_RELOAD_WATCH_TIMEOUT` | `300` | Watch stream timeout before reconnect (seconds) |
 | `RW_CONFIG_RELOAD_NAMESPACE` | _(pod ns)_ | Override namespace for watch API calls |
+| `RW_CONFIG_RELOAD_CHECK_INTERVAL` | `5` | Seconds between reloader checks while discovery runs |
+
+When a change is detected, the reloader signals the entrypoint (`SIGUSR1`) so the
+pod restarts immediately—even if a long discovery run is still in progress.
 
 ### Helm example: exclude a proxy CA secret
 
@@ -184,20 +188,21 @@ the container.
 
 ### Pod does not restart after ConfigMap change
 
-**Symptoms:** ConfigMap updated but pod keeps running with old config.
+**Symptoms:** Reloader logs a change but the pod keeps running.
 
 **Checks:**
 
-1. Confirm the ConfigMap is actually mounted as a pod volume (not only referenced in YAML text).
-2. Check reloader logs for RBAC errors (`Forbidden`, `cannot list/watch`).
-3. Try poll mode as a fallback:
+1. Confirm you see `ConfigMap/Secret change detected — exiting for pod restart` in logs. If only the Python reloader logs a change, you may be on an older image that waited for discovery to finish before restarting.
+2. Confirm the ConfigMap is actually mounted as a pod volume (not only referenced in YAML text).
+3. Check reloader logs for RBAC errors (`Forbidden`, `cannot list/watch`).
+4. Try poll mode as a fallback:
    ```yaml
    runwhenLocal:
      extraEnv:
        RW_CONFIG_RELOAD_MODE: "poll"
        RW_CONFIG_RELOAD_POLL_INTERVAL: "15"
    ```
-4. Verify the Deployment has `restartPolicy: Always` (default for Deployments).
+5. Verify the Deployment has `restartPolicy: Always` (default for Deployments).
 
 ### Reloader exits unexpectedly
 

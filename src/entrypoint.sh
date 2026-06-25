@@ -95,6 +95,10 @@ then
     sleep 5
 
     CONFIG_RELOADER_PID=""
+    CONFIG_RELOAD_POLL_SECONDS="${RW_CONFIG_RELOAD_CHECK_INTERVAL:-5}"
+
+    trap 'echo "ConfigMap/Secret change detected — exiting for pod restart"; exit 1' USR1
+
     start_config_reloader() {
         if [ "${RW_CONFIG_RELOAD_ENABLED:-auto}" = "false" ]; then
             return
@@ -122,6 +126,16 @@ then
         fi
     }
 
+    run_discovery_with_reload_watch() {
+        "$@" &
+        local discovery_pid=$!
+        while kill -0 "$discovery_pid" 2>/dev/null; do
+            check_config_reloader_exit
+            sleep "$CONFIG_RELOAD_POLL_SECONDS"
+        done
+        wait "$discovery_pid"
+    }
+
     # subPath-mounted ConfigMaps/Secrets never update in-place; watch via the API.
     start_config_reloader
 
@@ -132,21 +146,21 @@ then
         then
             echo "Merge Mode: keep-uploaded"
             while true; do
-                ./run.sh --upload --upload-merge-mode keep-uploaded --prune-stale-slxs
+                run_discovery_with_reload_watch ./run.sh --upload --upload-merge-mode keep-uploaded --prune-stale-slxs
                 check_config_reloader_exit
                 sleep $AUTORUN_WORKSPACE_BUILDER_INTERVAL
             done
         else
             echo "Merge Mode: keep-existing"
             while true; do
-                ./run.sh --upload --upload-merge-mode keep-existing --prune-stale-slxs
+                run_discovery_with_reload_watch ./run.sh --upload --upload-merge-mode keep-existing --prune-stale-slxs
                 check_config_reloader_exit
                 sleep $AUTORUN_WORKSPACE_BUILDER_INTERVAL
             done
         fi
     else
         while true; do
-            ./run.sh
+            run_discovery_with_reload_watch ./run.sh
             check_config_reloader_exit
             sleep $AUTORUN_WORKSPACE_BUILDER_INTERVAL
         done

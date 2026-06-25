@@ -14,6 +14,7 @@ import hashlib
 import json
 import logging
 import os
+import signal
 import sys
 import threading
 import time
@@ -85,6 +86,16 @@ def should_trigger_restart(event_type: str, *, initialized: bool) -> bool:
     if event_type == "MODIFIED":
         return initialized
     return False
+
+
+def request_pod_restart() -> None:
+    """Ask the entrypoint to terminate so kubelet restarts the pod."""
+    logger.info("Config change detected — requesting pod restart")
+    try:
+        os.kill(os.getppid(), signal.SIGUSR1)
+    except OSError as exc:
+        logger.warning("Could not signal entrypoint (pid %s): %s", os.getppid(), exc)
+    sys.exit(0)
 
 
 class ConfigReloader:
@@ -247,7 +258,7 @@ class ConfigReloader:
             logger.info("Polling every %ss for config changes", self.poll_interval)
             while True:
                 if self._poll_once():
-                    sys.exit(0)
+                    request_pod_restart()
                 time.sleep(self.poll_interval)
             return
 
@@ -277,8 +288,7 @@ class ConfigReloader:
                 sys.exit(2)
             time.sleep(1)
 
-        logger.info("Config change detected — exiting for pod restart")
-        sys.exit(0)
+        request_pod_restart()
 
 
 def build_reloader_from_env() -> ConfigReloader:
