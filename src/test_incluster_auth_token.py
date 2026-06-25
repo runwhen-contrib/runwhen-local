@@ -17,14 +17,42 @@ from run import (
 )
 
 
-def _make_sa_jwt(service_account_name: str = "workspace-builder") -> str:
+def _encode_jwt(claims: dict) -> str:
     header = base64.urlsafe_b64encode(json.dumps({"alg": "none"}).encode()).decode().rstrip("=")
-    payload = base64.urlsafe_b64encode(
-        json.dumps(
-            {"kubernetes.io/serviceaccount/service-account.name": service_account_name}
-        ).encode()
-    ).decode().rstrip("=")
+    payload = base64.urlsafe_b64encode(json.dumps(claims).encode()).decode().rstrip("=")
     return f"{header}.{payload}.signature"
+
+
+def _make_sa_jwt(service_account_name: str = "workspace-builder") -> str:
+    """Legacy non-expiring token: flat service-account.name claim."""
+    return _encode_jwt(
+        {"kubernetes.io/serviceaccount/service-account.name": service_account_name}
+    )
+
+
+def _make_bound_sa_jwt(
+    service_account_name: str = "workspace-builder",
+    namespace: str = "runwhen-local",
+) -> str:
+    """Modern bound/projected token: nested kubernetes.io claim + sub."""
+    return _encode_jwt(
+        {
+            "sub": f"system:serviceaccount:{namespace}:{service_account_name}",
+            "kubernetes.io": {
+                "namespace": namespace,
+                "serviceaccount": {"name": service_account_name, "uid": "abc-123"},
+                "pod": {"name": "wb-0", "uid": "def-456"},
+            },
+        }
+    )
+
+
+def _make_subject_only_jwt(
+    service_account_name: str = "workspace-builder",
+    namespace: str = "runwhen-local",
+) -> str:
+    """Token carrying only the standard subject claim."""
+    return _encode_jwt({"sub": f"system:serviceaccount:{namespace}:{service_account_name}"})
 
 
 class KubeconfigAuthTest(unittest.TestCase):
@@ -34,6 +62,25 @@ class KubeconfigAuthTest(unittest.TestCase):
             _service_account_name_from_projected_token(),
             "workspace-builder",
         )
+
+    @patch("run._projected_service_account_token", return_value=_make_bound_sa_jwt())
+    def test_service_account_name_from_bound_projected_token(self, _mock_token):
+        self.assertEqual(
+            _service_account_name_from_projected_token(),
+            "workspace-builder",
+        )
+
+    @patch("run._projected_service_account_token", return_value=_make_subject_only_jwt())
+    def test_service_account_name_from_subject_claim(self, _mock_token):
+        self.assertEqual(
+            _service_account_name_from_projected_token(),
+            "workspace-builder",
+        )
+
+    @patch("run._projected_service_account_token", return_value=_encode_jwt({"aud": ["x"]}))
+    def test_service_account_name_missing_raises(self, _mock_token):
+        with self.assertRaises(ValueError):
+            _service_account_name_from_projected_token()
 
     @patch.dict("os.environ", {"RW_KUBECONFIG_SERVICE_ACCOUNT": "custom-sa"}, clear=False)
     @patch(
@@ -88,6 +135,21 @@ class KubeconfigAuthTest(unittest.TestCase):
     def test_resolve_kubeconfig_token_falls_back_when_sa_secret_missing(
         self, _mock_sa, _mock_long_lived, _mock_projected
     ):
+        self.assertEqual(
+            _resolve_kubeconfig_token("runwhen-local", True),
+            "projected-token",
+        )
+
+    @patch("run._projected_service_account_token", return_value="projected-token")
+    @patch(
+        "run._service_account_name_for_kubeconfig_secret",
+        side_effect=ValueError("projected service account token is missing service-account.name claim"),
+    )
+    def test_resolve_kubeconfig_token_falls_back_when_sa_name_unresolvable(
+        self, _mock_sa, _mock_projected
+    ):
+        # Regression: a failure to determine the SA name must not crash
+        # discovery -- it must fall back to the projected pod token.
         self.assertEqual(
             _resolve_kubeconfig_token("runwhen-local", True),
             "projected-token",

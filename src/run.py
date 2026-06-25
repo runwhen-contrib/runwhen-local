@@ -91,15 +91,44 @@ def _projected_service_account_token() -> str:
 
 
 def _service_account_name_from_projected_token() -> str:
-    """Extract the service account name from the in-pod projected token JWT."""
+    """Extract the service account name from the in-pod service account token JWT.
+
+    Supports the claim layouts emitted by the different token types a pod can
+    receive:
+
+    * Modern bound/projected tokens (the default since Kubernetes 1.21) nest the
+      service account under the ``kubernetes.io`` claim, e.g.
+      ``{"kubernetes.io": {"serviceaccount": {"name": "..."}}}``.
+    * Legacy non-expiring tokens use a flat
+      ``kubernetes.io/serviceaccount/service-account.name`` claim.
+    * As a final fallback, every SA token carries the standard ``sub`` claim of
+      the form ``system:serviceaccount:<namespace>:<name>``.
+    """
     token = _projected_service_account_token()
     payload_segment = token.split(".")[1]
     payload_segment += "=" * (-len(payload_segment) % 4)
     claims = json.loads(base64.urlsafe_b64decode(payload_segment))
+
+    # Modern bound/projected tokens (the cluster default) nest the claim.
+    k8s_claim = claims.get("kubernetes.io")
+    if isinstance(k8s_claim, dict):
+        sa_name = (k8s_claim.get("serviceaccount") or {}).get("name")
+        if sa_name:
+            return sa_name
+
+    # Legacy non-expiring service account tokens use a flat claim.
     sa_name = claims.get("kubernetes.io/serviceaccount/service-account.name")
-    if not sa_name:
-        raise ValueError("projected service account token is missing service-account.name claim")
-    return sa_name
+    if sa_name:
+        return sa_name
+
+    # Standard subject claim: system:serviceaccount:<namespace>:<name>.
+    subject = claims.get("sub", "")
+    if isinstance(subject, str) and subject.startswith("system:serviceaccount:"):
+        sa_name = subject.split(":")[-1]
+        if sa_name:
+            return sa_name
+
+    raise ValueError("projected service account token is missing service-account.name claim")
 
 
 def _service_account_name_for_kubeconfig_secret() -> str:
@@ -143,8 +172,8 @@ def _resolve_kubeconfig_token(namespace: str, create_secret: bool) -> str:
     if not create_secret:
         return _projected_service_account_token()
 
-    service_account_name = _service_account_name_for_kubeconfig_secret()
     try:
+        service_account_name = _service_account_name_for_kubeconfig_secret()
         token = _long_lived_service_account_token(namespace, service_account_name)
         print(
             f"Using long-lived service account token from secret/{service_account_name}-token "
