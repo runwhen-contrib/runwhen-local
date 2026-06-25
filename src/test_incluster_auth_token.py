@@ -3,7 +3,7 @@ import json
 import os
 import sys
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 if _THIS_DIR not in sys.path:
@@ -102,6 +102,35 @@ class KubeconfigAuthTest(unittest.TestCase):
         cmd = mock_run.call_args.args[0]
         self.assertEqual(cmd[2:6], ["secret", "workspace-builder-token", "--namespace", "runwhen-local"])
 
+    @patch("run.time.sleep", return_value=None)
+    @patch("run.subprocess.run")
+    def test_long_lived_service_account_token_retries_until_populated(self, mock_run, _mock_sleep):
+        # The token controller may not have populated .data.token immediately
+        # after a pod restart: empty, then empty, then the real token.
+        not_ready = Mock(returncode=0, stdout="")
+        ready = Mock(
+            returncode=0, stdout=base64.b64encode(b"long-lived-token").decode()
+        )
+        mock_run.side_effect = [not_ready, not_ready, ready]
+
+        token = _long_lived_service_account_token(
+            "runwhen-local", "workspace-builder", max_attempts=5, retry_delay=0
+        )
+
+        self.assertEqual(token, "long-lived-token")
+        self.assertEqual(mock_run.call_count, 3)
+
+    @patch("run.time.sleep", return_value=None)
+    @patch("run.subprocess.run")
+    def test_long_lived_service_account_token_raises_after_retries(self, mock_run, _mock_sleep):
+        mock_run.return_value = Mock(returncode=0, stdout="")
+
+        with self.assertRaises(RuntimeError):
+            _long_lived_service_account_token(
+                "runwhen-local", "workspace-builder", max_attempts=3, retry_delay=0
+            )
+        self.assertEqual(mock_run.call_count, 3)
+
     @patch("run._projected_service_account_token", return_value="projected-token")
     @patch("run._long_lived_service_account_token", return_value="long-lived-token")
     @patch(
@@ -113,14 +142,14 @@ class KubeconfigAuthTest(unittest.TestCase):
     ):
         self.assertEqual(
             _resolve_kubeconfig_token("runwhen-local", True),
-            "long-lived-token",
+            ("long-lived-token", True),
         )
 
     @patch("run._projected_service_account_token", return_value="projected-token")
     def test_resolve_kubeconfig_token_uses_projected_without_secret(self, _mock_projected):
         self.assertEqual(
             _resolve_kubeconfig_token("runwhen-local", False),
-            "projected-token",
+            ("projected-token", False),
         )
 
     @patch("run._projected_service_account_token", return_value="projected-token")
@@ -135,9 +164,11 @@ class KubeconfigAuthTest(unittest.TestCase):
     def test_resolve_kubeconfig_token_falls_back_when_sa_secret_missing(
         self, _mock_sa, _mock_long_lived, _mock_projected
     ):
+        # Fallback returns the pod-bound token flagged as NOT long-lived, so the
+        # caller knows not to publish it over an existing runner secret.
         self.assertEqual(
             _resolve_kubeconfig_token("runwhen-local", True),
-            "projected-token",
+            ("projected-token", False),
         )
 
     @patch("run._projected_service_account_token", return_value="projected-token")
@@ -152,7 +183,7 @@ class KubeconfigAuthTest(unittest.TestCase):
         # discovery -- it must fall back to the projected pod token.
         self.assertEqual(
             _resolve_kubeconfig_token("runwhen-local", True),
-            "projected-token",
+            ("projected-token", False),
         )
 
 

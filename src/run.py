@@ -138,7 +138,12 @@ def _service_account_name_for_kubeconfig_secret() -> str:
     return _service_account_name_from_projected_token()
 
 
-def _long_lived_service_account_token(namespace: str, service_account_name: str) -> str:
+def _long_lived_service_account_token(
+    namespace: str,
+    service_account_name: str,
+    max_attempts: int = 5,
+    retry_delay: int = 2,
+) -> str:
     """Return a SA token that survives workspace-builder pod restarts.
 
     The projected pod token is bound to the current pod and is invalidated on
@@ -150,6 +155,11 @@ def _long_lived_service_account_token(namespace: str, service_account_name: str)
     ``kubernetes.io/service-account-token``) with a long-lived token for the
     workspace-builder service account. Prefer that token when publishing the
     kubeconfig secret for runner tasks.
+
+    Right after a pod (re)start the token controller may not have populated
+    ``.data.token`` yet. We retry briefly rather than immediately giving up,
+    because falling back to a pod-bound token is exactly what breaks runner
+    auth on the next restart.
     """
     token_secret_name = f"{service_account_name}-token"
     get_cmd = [
@@ -157,20 +167,38 @@ def _long_lived_service_account_token(namespace: str, service_account_name: str)
         "--namespace", namespace,
         "-o", "jsonpath={.data.token}",
     ]
-    result = subprocess.run(get_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    if result.returncode != 0:
-        raise RuntimeError(
-            f"could not read long-lived token secret {token_secret_name}: {result.stderr.strip()}"
-        )
-    token_b64 = result.stdout.strip()
-    if not token_b64:
-        raise RuntimeError(f"long-lived token secret {token_secret_name} has no token data yet")
-    return base64.b64decode(token_b64).decode("utf-8")
+    last_error = None
+    for attempt in range(1, max_attempts + 1):
+        result = subprocess.run(get_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        if result.returncode != 0:
+            last_error = (
+                f"could not read long-lived token secret {token_secret_name}: "
+                f"{result.stderr.strip()}"
+            )
+        else:
+            token_b64 = result.stdout.strip()
+            if token_b64:
+                return base64.b64decode(token_b64).decode("utf-8")
+            last_error = f"long-lived token secret {token_secret_name} has no token data yet"
+        if attempt < max_attempts:
+            print(
+                f"Long-lived token not ready yet ({last_error}); retrying "
+                f"({attempt}/{max_attempts - 1})..."
+            )
+            time.sleep(retry_delay)
+    raise RuntimeError(last_error)
 
 
-def _resolve_kubeconfig_token(namespace: str, create_secret: bool) -> str:
+def _resolve_kubeconfig_token(namespace: str, create_secret: bool):
+    """Resolve the token to embed in the kubeconfig.
+
+    Returns ``(token, is_long_lived)``. ``is_long_lived`` is True only when the
+    token came from the chart-provisioned ``{sa}-token`` secret and therefore
+    survives pod restarts; a pod-bound projected token returns False so callers
+    can avoid publishing it into the shared runner secret.
+    """
     if not create_secret:
-        return _projected_service_account_token()
+        return _projected_service_account_token(), False
 
     try:
         service_account_name = _service_account_name_for_kubeconfig_secret()
@@ -179,14 +207,14 @@ def _resolve_kubeconfig_token(namespace: str, create_secret: bool) -> str:
             f"Using long-lived service account token from secret/{service_account_name}-token "
             "for runner kubeconfig secret"
         )
-        return token
+        return token, True
     except (RuntimeError, ValueError) as exc:
         print(
-            f"Warning: falling back to projected pod token for kubeconfig secret "
-            f"({exc}); runner tasks may fail after workspace-builder restarts until "
-            "worker pods are recycled"
+            f"Warning: could not obtain a long-lived service account token "
+            f"({exc}); using the pod-bound projected token. This token is "
+            "invalidated when the workspace-builder pod restarts."
         )
-        return _projected_service_account_token()
+        return _projected_service_account_token(), False
 
 
 def create_kubeconfig():
@@ -200,7 +228,7 @@ def create_kubeconfig():
     with open("/var/run/secrets/kubernetes.io/serviceaccount/namespace", "r") as f:
         namespace = f.read().strip()
 
-    token = _resolve_kubeconfig_token(namespace, create_secret)
+    token, token_is_long_lived = _resolve_kubeconfig_token(namespace, create_secret)
 
     with open("/var/run/secrets/kubernetes.io/serviceaccount/ca.crt", "rb") as f:
         ca_cert = base64.b64encode(f.read()).decode('utf-8')
@@ -241,6 +269,20 @@ def create_kubeconfig():
         result = subprocess.run(get_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         exists = result.returncode == 0
 
+        # Never overwrite an existing runner kubeconfig secret with a pod-bound
+        # token: the existing secret very likely holds a still-valid long-lived
+        # token, and replacing it with a token bound to this pod would break
+        # cached runner auth on the next restart. Leave it untouched and keep
+        # using the pod-bound token only for this pod's own discovery below.
+        if exists and not token_is_long_lived:
+            print(
+                "Warning: keeping the existing kubeconfig secret unchanged; could "
+                "not obtain a long-lived service account token this run, and "
+                "publishing a pod-bound token would break runner auth after a "
+                "workspace-builder restart."
+            )
+            return kubeconfig
+
         secret_yaml = {
             "apiVersion": "v1",
             "kind": "Secret",
@@ -256,16 +298,13 @@ def create_kubeconfig():
 
         secret_yaml_str = yaml.dump(secret_yaml)
 
-        if exists:
-            # Delete the existing secret
-            del_cmd = ['kubectl', 'delete', 'secret', secret_name, '--namespace', namespace]
-            subprocess.run(del_cmd, check=True)
-            print("Secret deleted successfully.")
-
-        # Create the new secret
-        create_cmd = ['kubectl', 'create', '-f', '-']
-        subprocess.run(create_cmd, input=secret_yaml_str, check=True, text=True)
-        print("Secret created successfully.")
+        # Idempotent apply: when the (long-lived) token is unchanged this is a
+        # no-op, so restarts don't churn the secret and cached runner auth keeps
+        # working. apply also avoids the brief window where delete+create leaves
+        # the secret missing.
+        apply_cmd = ['kubectl', 'apply', '-f', '-']
+        subprocess.run(apply_cmd, input=secret_yaml_str, check=True, text=True)
+        print("Kubeconfig secret applied successfully.")
 
     return kubeconfig
 
