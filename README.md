@@ -164,7 +164,7 @@ Full reference and examples:
 
 - [`workspaceInfo.yaml` reference](docs/user-guide/configuration/workspace-info.md)
 - [Discovery level of detail](docs/user-guide/configuration/level-of-detail.md)
-- [Helm / proxy / private-registry / file-watching / config reload](docs/user-guide/configuration/)
+- [Helm / proxy / private-registry / config reload](docs/user-guide/configuration/)
 - [`workspaceinfo-overrides-example.yaml`](docs/user-guide/configuration/workspaceinfo-overrides-example.yaml)
 
 CLI invocation lives in [`src/run.sh`](src/run.sh); run with `--help`

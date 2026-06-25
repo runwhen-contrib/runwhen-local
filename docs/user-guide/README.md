@@ -19,7 +19,6 @@ and dip into the specific guides as needed.
 * [Discovery level of detail](./configuration/level-of-detail.md)
 * [Group / map customizations](./configuration/group-and-map-customizations.md)
 * [CodeCollection configuration](./configuration/codecollection.md)
-* [File-watching configuration](./configuration/file-watching.md) — Docker / bind-mount setups
 * [Kubernetes config reload](./configuration/config-reload.md) — automatic pod restart on ConfigMap/Secret changes
 * [Helm configuration](./configuration/helm.md)
 * [Proxy & outbound connections](./configuration/proxy-and-outbound.md)

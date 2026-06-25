@@ -11,6 +11,7 @@ if _THIS_DIR not in sys.path:
 
 from run import (
     _long_lived_service_account_token,
+    _publish_kubeconfig_secret,
     _service_account_name_from_projected_token,
     _service_account_name_for_kubeconfig_secret,
     _resolve_kubeconfig_token,
@@ -185,6 +186,43 @@ class KubeconfigAuthTest(unittest.TestCase):
             _resolve_kubeconfig_token("runwhen-local", True),
             ("projected-token", False),
         )
+
+
+class PublishKubeconfigSecretTests(unittest.TestCase):
+    @patch("run.subprocess.run")
+    def test_skips_update_when_unchanged(self, mock_run):
+        mock_run.return_value = Mock(returncode=0, stdout="YWJj", stderr="")
+
+        _publish_kubeconfig_secret("runwhen-local", "kubeconfig", "YWJj")
+
+        mock_run.assert_called_once()
+        self.assertEqual(mock_run.call_args.args[0][:3], ["kubectl", "get", "secret"])
+
+    @patch("run.subprocess.run")
+    def test_creates_when_missing(self, mock_run):
+        mock_run.side_effect = [
+            Mock(returncode=1, stdout="", stderr="not found"),
+            Mock(returncode=0, stdout="", stderr=""),
+        ]
+
+        _publish_kubeconfig_secret("runwhen-local", "kubeconfig", "YWJj")
+
+        self.assertEqual(mock_run.call_count, 2)
+        self.assertEqual(mock_run.call_args_list[1].args[0], ["kubectl", "create", "-f", "-"])
+
+    @patch("run.subprocess.run")
+    def test_delete_and_create_when_changed(self, mock_run):
+        mock_run.side_effect = [
+            Mock(returncode=0, stdout="b2xk", stderr=""),
+            Mock(returncode=0, stdout="", stderr=""),
+            Mock(returncode=0, stdout="", stderr=""),
+        ]
+
+        _publish_kubeconfig_secret("runwhen-local", "kubeconfig", "bmV3")
+
+        self.assertEqual(mock_run.call_count, 3)
+        self.assertEqual(mock_run.call_args_list[1].args[0][:2], ["kubectl", "delete"])
+        self.assertEqual(mock_run.call_args_list[2].args[0][:2], ["kubectl", "create"])
 
 
 if __name__ == "__main__":

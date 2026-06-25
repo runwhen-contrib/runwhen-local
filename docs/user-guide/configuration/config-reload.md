@@ -24,9 +24,8 @@ Kubernetes **never updates subPath mounts in-place**. After you
 `kubectl apply` a ConfigMap or Secret change, the file inside the running pod
 stays stale until the pod is recreated.
 
-The legacy file watcher (mtime / content hash under `/shared`) cannot detect
-these upstream changes. The config reloader watches the **source objects** in
-the Kubernetes API instead and triggers a controlled pod restart.
+The config reloader watches the **source objects** in the Kubernetes API and
+triggers a controlled pod restart.
 
 ## How it works
 
@@ -210,19 +209,15 @@ the container.
 2. API connectivity issues — verify network policies allow access to the Kubernetes API.
 3. Re-enable after fixing root cause; the entrypoint continues discovery without auto-reload until the pod is restarted cleanly.
 
-### File watcher vs config reloader
+### Docker / local deployments
 
-| Environment | Mechanism | On change |
-| ----------- | --------- | --------- |
-| Kubernetes (Helm) | Config reloader (API watch) | Pod restart |
-| Docker / bind mount | File watcher (SHA-256 hash) | Immediate discovery re-run |
-
-See [File-watching configuration](./file-watching.md) for Docker and bind-mount
-setups.
+The config reloader runs only in-cluster. For Docker or bind-mount setups with
+`AUTORUN_WORKSPACE_BUILDER_INTERVAL`, discovery re-runs on the configured
+interval only. Restart the container after changing `workspaceInfo.yaml` or
+credential files under `/shared`.
 
 ## Related
 
-- [File-watching configuration](./file-watching.md) — Docker / bind-mount file watching
 - [Helm configuration](./helm.md) — chart values and volume mounts
 - [`workspaceInfo.yaml` reference](./workspace-info.md)
 - Source: [`src/config_reloader.py`](../../../src/config_reloader.py),

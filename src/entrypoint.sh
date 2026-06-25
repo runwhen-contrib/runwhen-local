@@ -93,40 +93,6 @@ then
     echo "AUTORUN_WORKSPACE_BUILDER_INTERVAL is set. Running workspace-builder"
     uvicorn workspace_builder.api:app --host 0.0.0.0 --port 8000 &
     sleep 5
-    
-    # Configure which files to watch for changes (inclusive list)
-    # Can be overridden via RW_WATCH_FILES environment variable (colon-separated)
-    # or via /shared/watch-files.conf config file (one file per line)
-    # This prevents race conditions with script-generated files like kubeconfig
-    
-    if [ -f "/shared/watch-files.conf" ]; then
-        echo "Loading watch list from /shared/watch-files.conf"
-        mapfile -t WATCH_FILES < <(grep -v '^#' /shared/watch-files.conf | grep -v '^[[:space:]]*$')
-    elif [ -n "$RW_WATCH_FILES" ]; then
-        echo "Loading watch list from RW_WATCH_FILES environment variable"
-        IFS=':' read -ra WATCH_FILES <<< "$RW_WATCH_FILES"
-    else
-        echo "Using default watch list"
-        WATCH_FILES=(
-            "/shared/workspaceInfo.yaml"
-            "/shared/uploadInfo.yaml"
-        )
-    fi
-    
-    get_config_checksum() {
-        local checksum=""
-        
-        # Hash file contents (mtime is unreliable for Kubernetes projected volumes).
-        for file in "${WATCH_FILES[@]}"; do
-            if [ -f "$file" ]; then
-                local file_hash
-                file_hash=$(sha256sum "$file" 2>/dev/null | awk '{print $1}')
-                checksum="${checksum}${file}:${file_hash}|"
-            fi
-        done
-        
-        echo "$checksum"
-    }
 
     CONFIG_RELOADER_PID=""
     start_config_reloader() {
@@ -158,27 +124,7 @@ then
 
     # subPath-mounted ConfigMaps/Secrets never update in-place; watch via the API.
     start_config_reloader
-    
-    LAST_CONFIG_CHECKSUM=$(get_config_checksum)
-    
-    # Log which files are being watched from the watch list
-    echo "File watcher enabled with inclusive watch list..."
-    WATCHED_COUNT=0
-    for file in "${WATCH_FILES[@]}"; do
-        if [ -f "$file" ]; then
-            echo "  ✓ $file (found)"
-            WATCHED_COUNT=$((WATCHED_COUNT + 1))
-        else
-            echo "  ✗ $file (not found)"
-        fi
-    done
-    
-    if [ "$WATCHED_COUNT" -gt 0 ]; then
-        echo "Monitoring $WATCHED_COUNT file(s) from watch list for changes"
-    else
-        echo "No watched files found yet (files may not be mounted)"
-    fi
-    
+
     if [[ "${RW_LOCAL_UPLOAD_ENABLED,,}" == "true" ]]; 
     then
         echo "Upload to RunWhen Platform Enabled"
@@ -187,48 +133,22 @@ then
             echo "Merge Mode: keep-uploaded"
             while true; do
                 ./run.sh --upload --upload-merge-mode keep-uploaded --prune-stale-slxs
-                
                 check_config_reloader_exit
-                # File watcher covers bind-mounted configs (Docker); K8s subPath mounts
-                # are handled by the config reloader above.
-                CURRENT_CONFIG_CHECKSUM=$(get_config_checksum)
-                if [ "$CURRENT_CONFIG_CHECKSUM" != "$LAST_CONFIG_CHECKSUM" ]; then
-                    echo "Configuration change detected! Running discovery immediately..."
-                    LAST_CONFIG_CHECKSUM=$CURRENT_CONFIG_CHECKSUM
-                    sleep 5  # Short delay to allow potential cascading updates
-                else
-                    sleep $AUTORUN_WORKSPACE_BUILDER_INTERVAL
-                fi
+                sleep $AUTORUN_WORKSPACE_BUILDER_INTERVAL
             done
         else
             echo "Merge Mode: keep-existing"
             while true; do
                 ./run.sh --upload --upload-merge-mode keep-existing --prune-stale-slxs
-                
                 check_config_reloader_exit
-                CURRENT_CONFIG_CHECKSUM=$(get_config_checksum)
-                if [ "$CURRENT_CONFIG_CHECKSUM" != "$LAST_CONFIG_CHECKSUM" ]; then
-                    echo "Configuration change detected! Running discovery immediately..."
-                    LAST_CONFIG_CHECKSUM=$CURRENT_CONFIG_CHECKSUM
-                    sleep 5  # Short delay to allow potential cascading updates
-                else
-                    sleep $AUTORUN_WORKSPACE_BUILDER_INTERVAL
-                fi
+                sleep $AUTORUN_WORKSPACE_BUILDER_INTERVAL
             done
         fi
     else
         while true; do
             ./run.sh
-            
             check_config_reloader_exit
-            CURRENT_CONFIG_CHECKSUM=$(get_config_checksum)
-            if [ "$CURRENT_CONFIG_CHECKSUM" != "$LAST_CONFIG_CHECKSUM" ]; then
-                echo "Configuration change detected! Running discovery immediately..."
-                LAST_CONFIG_CHECKSUM=$CURRENT_CONFIG_CHECKSUM
-                sleep 5  # Short delay to allow potential cascading updates
-            else
-                sleep $AUTORUN_WORKSPACE_BUILDER_INTERVAL
-            fi
+            sleep $AUTORUN_WORKSPACE_BUILDER_INTERVAL
         done
     fi 
 else

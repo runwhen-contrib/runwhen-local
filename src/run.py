@@ -217,6 +217,49 @@ def _resolve_kubeconfig_token(namespace: str, create_secret: bool):
         return _projected_service_account_token(), False
 
 
+def _publish_kubeconfig_secret(namespace: str, secret_name: str, kubeconfig_b64: str) -> None:
+    """Create or replace the runner kubeconfig secret without patch/update RBAC.
+
+    ``kubectl apply`` patches existing secrets, which requires a ``patch`` verb
+    many namespace-scoped Roles omit. We compare the existing ``.data.kubeconfig``
+    value and only delete+create when the content actually changed.
+    """
+    get_cmd = [
+        "kubectl",
+        "get",
+        "secret",
+        secret_name,
+        "--namespace",
+        namespace,
+        "-o",
+        "jsonpath={.data.kubeconfig}",
+    ]
+    result = subprocess.run(get_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    if result.returncode == 0:
+        existing_b64 = result.stdout.strip()
+        if existing_b64 == kubeconfig_b64:
+            print("Kubeconfig secret unchanged; skipping update.")
+            return
+        delete_cmd = ["kubectl", "delete", "secret", secret_name, "--namespace", namespace]
+        subprocess.run(delete_cmd, check=True, text=True)
+
+    secret_yaml = {
+        "apiVersion": "v1",
+        "kind": "Secret",
+        "metadata": {
+            "name": secret_name,
+            "namespace": namespace,
+        },
+        "data": {
+            "kubeconfig": kubeconfig_b64,
+        },
+        "type": "Opaque",
+    }
+    create_cmd = ["kubectl", "create", "-f", "-"]
+    subprocess.run(create_cmd, input=yaml.dump(secret_yaml), check=True, text=True)
+    print("Kubeconfig secret created successfully.")
+
+
 def create_kubeconfig():
     create_secret = os.environ.get("RW_CREATE_KUBECONFIG_SECRET") == "true"
     api_server_host = os.environ.get("KUBERNETES_SERVICE_HOST")
@@ -283,28 +326,8 @@ def create_kubeconfig():
             )
             return kubeconfig
 
-        secret_yaml = {
-            "apiVersion": "v1",
-            "kind": "Secret",
-            "metadata": {
-                "name": secret_name,
-                "namespace": namespace
-            },
-            "data": {
-                "kubeconfig": base64.b64encode(kubeconfig_yaml.encode('utf-8')).decode('utf-8')
-            },
-            "type": "Opaque"
-        }
-
-        secret_yaml_str = yaml.dump(secret_yaml)
-
-        # Idempotent apply: when the (long-lived) token is unchanged this is a
-        # no-op, so restarts don't churn the secret and cached runner auth keeps
-        # working. apply also avoids the brief window where delete+create leaves
-        # the secret missing.
-        apply_cmd = ['kubectl', 'apply', '-f', '-']
-        subprocess.run(apply_cmd, input=secret_yaml_str, check=True, text=True)
-        print("Kubeconfig secret applied successfully.")
+        kubeconfig_b64 = base64.b64encode(kubeconfig_yaml.encode("utf-8")).decode("utf-8")
+        _publish_kubeconfig_secret(namespace, secret_name, kubeconfig_b64)
 
     return kubeconfig
 
