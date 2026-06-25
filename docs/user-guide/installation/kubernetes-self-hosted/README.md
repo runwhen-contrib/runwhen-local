@@ -145,6 +145,11 @@ helm install runwhen-local runwhen-contrib/runwhen-local  \
 	--set runwhenLocal.autoRun.uploadEnabled=true \
 	-n $namespace
 ```
+
+The built-in [config reloader](../../configuration/config-reload.md) watches the
+`uploadinfo` Secret (and other mounted ConfigMaps/Secrets) and restarts the
+workspace-builder pod automatically when they change.
+
 {% endtab %}
 {% endtabs %}
 

@@ -65,7 +65,7 @@ Deploying RunWhen Local to a Kubernetes cluster can be achieved with the followi
 
 * Deployment:
   * Supports an environment variable titled `AUTORUN_WORKSPACE_BUILDER_INTERVAL` to control how often discovery runs
-  * Includes automatic file watching for configuration changes - see [File Watching Configuration](../configuration/file-watching-configuration.md) for details
+  * Automatically restarts the pod when mounted ConfigMaps or Secrets change — see [Kubernetes config reload](../configuration/config-reload.md). For Docker/bind-mount setups, see [File watching](../configuration/file-watching.md).
   * Defines the following volumes to mount into the container:
     * configmap-volume: mounts the workspaceInto.yaml file into the container
     * kubeconfig: mounts the kubeconfig secret into the container

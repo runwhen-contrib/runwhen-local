@@ -116,17 +116,48 @@ then
     get_config_checksum() {
         local checksum=""
         
-        # Generate checksum only for files in the watch list
+        # Hash file contents (mtime is unreliable for Kubernetes projected volumes).
         for file in "${WATCH_FILES[@]}"; do
             if [ -f "$file" ]; then
-                # Use stat to get modification time (works on both Linux and macOS)
-                local mtime=$(stat -c %Y "$file" 2>/dev/null || stat -f %m "$file" 2>/dev/null)
-                checksum="${checksum}${file}:${mtime}|"
+                local file_hash
+                file_hash=$(sha256sum "$file" 2>/dev/null | awk '{print $1}')
+                checksum="${checksum}${file}:${file_hash}|"
             fi
         done
         
         echo "$checksum"
     }
+
+    CONFIG_RELOADER_PID=""
+    start_config_reloader() {
+        if [ "${RW_CONFIG_RELOAD_ENABLED:-auto}" = "false" ]; then
+            return
+        fi
+        if [ "${RW_CONFIG_RELOAD_ENABLED:-auto}" = "auto" ]; then
+            if [ ! -f /var/run/secrets/kubernetes.io/serviceaccount/token ]; then
+                return
+            fi
+        fi
+        echo "Starting Kubernetes config reloader (watches mounted ConfigMaps/Secrets)..."
+        python "$RUNWHEN_HOME/config_reloader.py" &
+        CONFIG_RELOADER_PID=$!
+    }
+
+    check_config_reloader_exit() {
+        if [ -n "${CONFIG_RELOADER_PID:-}" ] && ! kill -0 "$CONFIG_RELOADER_PID" 2>/dev/null; then
+            wait "$CONFIG_RELOADER_PID" 2>/dev/null
+            local exit_code=$?
+            if [ "$exit_code" -eq 0 ]; then
+                echo "ConfigMap/Secret change detected — exiting for pod restart"
+                exit 1
+            fi
+            echo "Config reloader exited unexpectedly (code $exit_code); continuing without auto-reload"
+            CONFIG_RELOADER_PID=""
+        fi
+    }
+
+    # subPath-mounted ConfigMaps/Secrets never update in-place; watch via the API.
+    start_config_reloader
     
     LAST_CONFIG_CHECKSUM=$(get_config_checksum)
     
@@ -157,7 +188,9 @@ then
             while true; do
                 ./run.sh --upload --upload-merge-mode keep-uploaded --prune-stale-slxs
                 
-                # Check for config changes and adjust sleep accordingly
+                check_config_reloader_exit
+                # File watcher covers bind-mounted configs (Docker); K8s subPath mounts
+                # are handled by the config reloader above.
                 CURRENT_CONFIG_CHECKSUM=$(get_config_checksum)
                 if [ "$CURRENT_CONFIG_CHECKSUM" != "$LAST_CONFIG_CHECKSUM" ]; then
                     echo "Configuration change detected! Running discovery immediately..."
@@ -172,7 +205,7 @@ then
             while true; do
                 ./run.sh --upload --upload-merge-mode keep-existing --prune-stale-slxs
                 
-                # Check for config changes and adjust sleep accordingly
+                check_config_reloader_exit
                 CURRENT_CONFIG_CHECKSUM=$(get_config_checksum)
                 if [ "$CURRENT_CONFIG_CHECKSUM" != "$LAST_CONFIG_CHECKSUM" ]; then
                     echo "Configuration change detected! Running discovery immediately..."
@@ -187,7 +220,7 @@ then
         while true; do
             ./run.sh
             
-            # Check for config changes and adjust sleep accordingly
+            check_config_reloader_exit
             CURRENT_CONFIG_CHECKSUM=$(get_config_checksum)
             if [ "$CURRENT_CONFIG_CHECKSUM" != "$LAST_CONFIG_CHECKSUM" ]; then
                 echo "Configuration change detected! Running discovery immediately..."

@@ -1,10 +1,24 @@
 # File Watching Configuration
 
-When RunWhen Local is configured with `AUTORUN_WORKSPACE_BUILDER_INTERVAL`, it automatically watches for changes to configuration files in the `/shared` directory and triggers workspace discovery when changes are detected. This feature allows for dynamic updates without manual intervention.
+When RunWhen Local is configured with `AUTORUN_WORKSPACE_BUILDER_INTERVAL`, it
+automatically reacts to configuration changes:
+
+- **Kubernetes (Helm / in-cluster):** restarts the pod when mounted ConfigMaps or
+  Secrets change. See [Kubernetes config reload](./config-reload.md) for full
+  details — this is the path used by default in Helm deployments.
+- **Docker / bind mounts:** re-runs discovery immediately when watched files
+  under `/shared` change (content hash, not mtime).
 
 ## Overview
 
-The file watcher monitors specific files for changes and immediately triggers a new discovery run when modifications are detected, rather than waiting for the next scheduled interval. This provides faster response times to configuration changes while preventing race conditions with script-generated files.
+| Environment | Mechanism | On change |
+| ----------- | --------- | --------- |
+| Kubernetes | [Config reloader](./config-reload.md) watches ConfigMap/Secret objects via the API | Pod restart |
+| Docker / Podman | File watcher hashes files listed in `watch-files.conf` or `RW_WATCH_FILES` | Immediate discovery run |
+
+The file watcher described below applies to **Docker and bind-mount**
+deployments. It does **not** detect changes to Kubernetes subPath mounts; use
+the [config reloader](./config-reload.md) for that.
 
 ## Configuration Methods
 
@@ -22,12 +36,13 @@ Create a `/shared/watch-files.conf` file in your working directory:
 /shared/workspaceInfo.yaml
 /shared/uploadInfo.yaml
 
-# Add ConfigMaps or Secrets that should trigger reloads
-/shared/my-configmap.yaml
-/shared/my-secret.yaml
+# Add credential files that should trigger reloads
+/shared/gcp.secret
+/shared/aws.secret
 ```
 
 **Example:**
+
 ```bash
 # In your working directory
 cat > shared/watch-files.conf << 'EOF'
@@ -35,42 +50,27 @@ cat > shared/watch-files.conf << 'EOF'
 /shared/workspaceInfo.yaml
 /shared/uploadInfo.yaml
 
-# Custom ConfigMaps/Secrets
-/shared/database-config.yaml
-/shared/api-keys-secret.yaml
+# Cloud credential files
+/shared/gcp.secret
 EOF
 ```
 
 ### 2. Environment Variable
 
-Set the `RW_WATCH_FILES` environment variable with a colon-separated list of files:
+Set the `RW_WATCH_FILES` environment variable with a colon-separated list of
+files:
 
 ```bash
-export RW_WATCH_FILES="/shared/workspaceInfo.yaml:/shared/uploadInfo.yaml:/shared/my-secret.yaml"
+export RW_WATCH_FILES="/shared/workspaceInfo.yaml:/shared/uploadInfo.yaml:/shared/gcp.secret"
 ```
 
 **Docker Example:**
+
 ```bash
-docker run -e RW_WATCH_FILES="/shared/workspaceInfo.yaml:/shared/my-config.yaml" \
+docker run -e AUTORUN_WORKSPACE_BUILDER_INTERVAL=300 \
+  -e RW_WATCH_FILES="/shared/workspaceInfo.yaml:/shared/gcp.secret" \
   -v $workdir/shared:/shared \
   runwhen-local:latest
-```
-
-**Kubernetes Example:**
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: runwhen-local
-spec:
-  template:
-    spec:
-      containers:
-      - name: runwhen-local
-        image: runwhen-local:latest
-        env:
-        - name: RW_WATCH_FILES
-          value: "/shared/workspaceInfo.yaml:/shared/uploadInfo.yaml:/shared/my-configmap.yaml"
 ```
 
 ### 3. Default Configuration
@@ -80,61 +80,62 @@ If no configuration is provided, the following files are watched by default:
 - `/shared/workspaceInfo.yaml`
 - `/shared/uploadInfo.yaml`
 
+## How detection works
+
+The entrypoint computes a SHA-256 hash of each watched file's contents after
+every discovery run. If the combined checksum changes, discovery runs again
+immediately instead of waiting for `AUTORUN_WORKSPACE_BUILDER_INTERVAL`.
+
+Modification time (`mtime`) is **not** used — it is unreliable for
+Kubernetes projected volumes and some network filesystems.
+
 ## Race Condition Prevention
 
-The file watcher is designed to prevent race conditions by **excluding** files that are created or modified by the RunWhen Local script itself. The following files are automatically excluded from watching:
+The file watcher is designed to prevent race conditions by **excluding** files
+that are created or modified by the RunWhen Local script itself. Do not add
+these to the watch list:
 
-- `kubeconfig` - Created by in-cluster authentication
-- `in_cluster_kubeconfig.yaml` - Temporary kubeconfig file
-- `db.sqlite3` - Database file
+- `kubeconfig` — created by in-cluster authentication
+- `in_cluster_kubeconfig.yaml` — temporary kubeconfig file
+- `db.sqlite3` — resource store database
+- Files under `/shared/output/`
 
-This prevents infinite loops where script-generated files trigger new discovery runs that generate the same files again.
+This prevents infinite loops where script-generated files trigger new discovery
+runs that regenerate the same files.
 
 ## Best Practices
 
-### Files to Include
-✅ **Configuration files** that should trigger reloads:
-- `workspaceInfo.yaml` - Main workspace configuration
-- `uploadInfo.yaml` - Upload configuration
-- ConfigMaps mounted from Kubernetes
-- Secrets mounted from Kubernetes
-- Custom configuration files
+### Files to include
 
-### Files to Exclude
-❌ **Script-generated files** that should NOT trigger reloads:
-- `kubeconfig` files created by in-cluster auth
+- `workspaceInfo.yaml` — main workspace configuration
+- `uploadInfo.yaml` — upload configuration
+- Cloud credential files (`gcp.secret`, `aws.secret`, …)
+- Custom configuration files bind-mounted into `/shared`
+
+### Files to exclude
+
+- Kubeconfig files created at runtime
 - Database files (`db.sqlite3`)
-- Output files in `/shared/output/`
+- Output artefacts in `/shared/output/`
 - Temporary files
 
-### Example Configurations
+### Example configurations
 
-**Basic Setup (Default):**
-```bash
-# No configuration needed - uses defaults
-# Watches: workspaceInfo.yaml, uploadInfo.yaml
-```
+**Basic setup (defaults):**
 
-**Kubernetes with ConfigMaps:**
-```bash
-# shared/watch-files.conf
-/shared/workspaceInfo.yaml
-/shared/uploadInfo.yaml
-/shared/database-config      # ConfigMap
-/shared/api-credentials      # Secret
-```
+No configuration needed — watches `workspaceInfo.yaml` and `uploadInfo.yaml`.
 
-**Multi-Environment Setup:**
+**Multi-environment Docker setup:**
+
 ```bash
-# Environment variable approach
 export RW_WATCH_FILES="/shared/workspaceInfo.yaml:/shared/env-config.yaml:/shared/feature-flags.yaml"
 ```
 
 ## Troubleshooting
 
-### Check What Files Are Being Watched
+### Check what files are being watched
 
-When RunWhen Local starts, it logs which files are being watched:
+When RunWhen Local starts, it logs which files are in the watch list:
 
 ```
 File watcher enabled with inclusive watch list...
@@ -144,31 +145,43 @@ File watcher enabled with inclusive watch list...
 Monitoring 2 file(s) from watch list for changes
 ```
 
-### Common Issues
+For Kubernetes deployments, also look for config reloader lines — see
+[config reload troubleshooting](./config-reload.md#troubleshooting).
 
-**Race Condition with kubeconfig:**
+### Common issues
+
+**Race condition with kubeconfig:**
+
 ```
-# Problem: Including kubeconfig in watch list
-RW_WATCH_FILES="/shared/workspaceInfo.yaml:/shared/kubeconfig"  # ❌ Don't do this
+# Problem: including kubeconfig in watch list
+RW_WATCH_FILES="/shared/workspaceInfo.yaml:/shared/kubeconfig"  # don't do this
 
-# Solution: Exclude script-generated files
-RW_WATCH_FILES="/shared/workspaceInfo.yaml:/shared/uploadInfo.yaml"  # ✅ Correct
+# Solution: exclude script-generated files
+RW_WATCH_FILES="/shared/workspaceInfo.yaml:/shared/uploadInfo.yaml"
 ```
 
-**Files Not Being Watched:**
+**Files not being watched:**
+
 1. Check file paths are absolute (start with `/shared/`)
-2. Verify files exist and are readable
+2. Verify files exist and are readable inside the container
 3. Check for typos in file names
-4. Review the startup logs for watch list confirmation
+4. Review startup logs for watch list confirmation
 
-**Configuration Not Loading:**
-1. Config file takes precedence over environment variable
-2. Check `/shared/watch-files.conf` syntax (no trailing spaces, proper line endings)
+**Configuration not loading:**
+
+1. `/shared/watch-files.conf` takes precedence over `RW_WATCH_FILES`
+2. Check config file syntax (no trailing spaces, Unix line endings)
 3. Verify environment variable format (colon-separated, no spaces)
+
+**Kubernetes ConfigMap updated but discovery unchanged:**
+
+subPath mounts do not update in-place. The file watcher cannot help here — see
+[Kubernetes config reload](./config-reload.md).
 
 ## Integration Examples
 
 ### Docker Compose
+
 ```yaml
 version: '3.8'
 services:
@@ -176,53 +189,30 @@ services:
     image: runwhen-local:latest
     environment:
       - AUTORUN_WORKSPACE_BUILDER_INTERVAL=300
-      - RW_WATCH_FILES=/shared/workspaceInfo.yaml:/shared/secrets.yaml
+      - RW_WATCH_FILES=/shared/workspaceInfo.yaml:/shared/gcp.secret
     volumes:
       - ./shared:/shared
 ```
 
-### Kubernetes Deployment
+### Kubernetes (Helm)
+
+For Helm deployments, use the built-in [config reloader](./config-reload.md)
+instead of `RW_WATCH_FILES`. ConfigMap and Secret changes trigger a pod
+restart automatically when `autoRun.discoveryInterval` is set.
+
+To add extra watch targets or tune behaviour:
+
 ```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: watch-config
-data:
-  watch-files.conf: |
-    /shared/workspaceInfo.yaml
-    /shared/uploadInfo.yaml
-    /shared/database-config
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: runwhen-local
-spec:
-  template:
-    spec:
-      containers:
-      - name: runwhen-local
-        image: runwhen-local:latest
-        env:
-        - name: AUTORUN_WORKSPACE_BUILDER_INTERVAL
-          value: "300"
-        volumeMounts:
-        - name: shared
-          mountPath: /shared
-        - name: watch-config
-          mountPath: /shared/watch-files.conf
-          subPath: watch-files.conf
-      volumes:
-      - name: shared
-        persistentVolumeClaim:
-          claimName: runwhen-shared
-      - name: watch-config
-        configMap:
-          name: watch-config
+runwhenLocal:
+  autoRun:
+    discoveryInterval: 14400
+  extraEnv:
+    RW_CONFIG_RELOAD_EXCLUDE: "proxy-ca-tls"
 ```
 
 ## Related Configuration
 
-- [AUTORUN_WORKSPACE_BUILDER_INTERVAL](./workspaceinfo-customization.md) - Controls the base polling interval
-- [Kubernetes Configuration](../cloud-discovery-configuration/kubernetes-configuration.md) - For in-cluster authentication setup
-- [WorkspaceInfo Customization](./workspaceinfo-customization.md) - Main configuration file format
+- [Kubernetes config reload](./config-reload.md) — pod restart on ConfigMap/Secret changes
+- [Helm configuration](./helm.md)
+- [`workspaceInfo.yaml` reference](./workspace-info.md)
+- [Kubernetes installation (standalone)](../installation/kubernetes-standalone.md)
