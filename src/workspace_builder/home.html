@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RunWhen Local</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #2F80ED;
+      --primary-dark: #1a365d;
+      --primary-light: #90cdf4;
+      --secondary: #faa629;
+      --bg: #ffffff;
+      --bg-alt: #f7fafc;
+      --paper: #ffffff;
+      --text: #1a202c;
+      --text-secondary: #4a5568;
+      --divider: #e2e8f0;
+      --hover: rgba(47, 128, 237, 0.08);
+      --shadow: 0 2px 4px rgba(0,0,0,0.1);
+      --shadow-lg: 0 4px 20px rgba(47, 128, 237, 0.15);
+      --success: #2e7d32;
+      --warning: #b46900;
+      --error: #c62828;
+    }
+    [data-theme="dark"] {
+      --bg: #0f172a;
+      --bg-alt: #1e293b;
+      --paper: #1e293b;
+      --text: #e2e8f0;
+      --text-secondary: #94a3b8;
+      --divider: rgba(255,255,255,0.12);
+      --hover: rgba(47, 128, 237, 0.12);
+      --shadow: 0 2px 4px rgba(0,0,0,0.4);
+      --shadow-lg: 0 4px 20px rgba(0,0,0,0.5);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+    .appbar {
+      position: sticky; top: 0; z-index: 50;
+      background: var(--primary); color: #fff;
+      padding: 0.75rem 1.5rem;
+      display: flex; align-items: center; gap: 1rem;
+      box-shadow: var(--shadow);
+    }
+    [data-theme="dark"] .appbar { background: #0f172a; border-bottom: 1px solid var(--divider); }
+    .brand { display: flex; align-items: center; gap: 0.625rem; font-weight: 700; font-size: 1.05rem; letter-spacing: 0.3px; }
+    .brand-mark {
+      width: 30px; height: 30px; border-radius: 8px;
+      background: linear-gradient(135deg, #fff 0%, var(--primary-light) 100%);
+      display: grid; place-items: center;
+      color: var(--primary-dark); font-weight: 800; font-size: 0.8rem;
+    }
+    .appbar-spacer { flex: 1; }
+    .appbar-actions { display: flex; gap: 0.5rem; align-items: center; }
+    .icon-btn {
+      background: transparent; border: 1px solid rgba(255,255,255,0.25);
+      color: #fff; width: 36px; height: 36px; border-radius: 8px;
+      cursor: pointer; display: grid; place-items: center;
+      transition: background 0.15s;
+    }
+    .icon-btn:hover { background: rgba(255,255,255,0.12); }
+    .nav-link {
+      color: #fff; text-decoration: none;
+      padding: 0.4rem 0.75rem; border-radius: 8px;
+      font-size: 0.875rem; font-weight: 500;
+      transition: background 0.15s;
+    }
+    .nav-link:hover { background: rgba(255,255,255,0.15); }
+    .hero {
+      padding: 2rem 1.5rem 1.25rem;
+      background: linear-gradient(180deg, var(--bg-alt) 0%, var(--bg) 100%);
+      border-bottom: 1px solid var(--divider);
+    }
+    .container { max-width: 1280px; margin: 0 auto; }
+    .hero h1 { margin: 0 0 0.5rem; font-size: 2rem; font-weight: 700; letter-spacing: -0.01em; }
+    .hero p { margin: 0; color: var(--text-secondary); font-size: 0.95rem; max-width: 760px; }
+    main { padding: 1.5rem; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 1.25rem;
+    }
+    .col-12 { grid-column: span 12; }
+    .col-8 { grid-column: span 8; }
+    .col-6 { grid-column: span 6; }
+    .col-4 { grid-column: span 4; }
+    @media (max-width: 1024px) {
+      .col-8, .col-6, .col-4 { grid-column: span 12; }
+    }
+
+    .card {
+      background: var(--paper);
+      border: 1px solid var(--divider);
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex; flex-direction: column;
+    }
+    .card-head {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--divider);
+      display: flex; align-items: center; gap: 0.75rem;
+    }
+    .card-head h2 {
+      margin: 0; font-size: 0.95rem; font-weight: 700;
+      letter-spacing: 0.01em;
+      flex: 1;
+    }
+    .card-head .head-actions { display: flex; gap: 0.5rem; }
+    .card-body { padding: 1.25rem; flex: 1; }
+    .card-body.tight { padding: 0.75rem 1.25rem 1rem; }
+
+    .link-card {
+      display: flex; flex-direction: column; gap: 0.5rem;
+      padding: 1.25rem;
+      background: var(--paper);
+      border: 1px solid var(--divider);
+      border-radius: 12px;
+      text-decoration: none; color: inherit;
+      transition: all 0.2s;
+      position: relative; overflow: hidden;
+    }
+    .link-card:hover {
+      border-color: var(--primary);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-lg);
+    }
+    .link-card.disabled {
+      opacity: 0.7;
+      cursor: default;
+      pointer-events: none;
+    }
+    .link-card .label {
+      display: flex; align-items: center; gap: 0.625rem;
+      font-weight: 700; font-size: 1rem;
+    }
+    .link-card .icon {
+      width: 32px; height: 32px; border-radius: 9px;
+      background: rgba(47, 128, 237, 0.12); color: var(--primary);
+      display: grid; place-items: center; font-size: 1rem;
+    }
+    .link-card.disabled .icon { background: var(--bg-alt); color: var(--text-secondary); }
+    .link-card .desc { font-size: 0.85rem; color: var(--text-secondary); }
+    .link-card .more {
+      margin-top: 0.25rem;
+      font-size: 0.8rem; font-weight: 600;
+      color: var(--primary); display: inline-flex; align-items: center; gap: 0.25rem;
+    }
+    .link-card.disabled .more { color: var(--text-secondary); }
+
+    .stat-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 0.75rem;
+    }
+    .stat-tile {
+      background: var(--bg-alt);
+      border: 1px solid var(--divider);
+      border-radius: 10px;
+      padding: 0.75rem 0.875rem;
+      display: flex; flex-direction: column; gap: 0.125rem;
+    }
+    .stat-tile .num {
+      font-size: 1.5rem; font-weight: 700; color: var(--primary); line-height: 1.1;
+    }
+    .stat-tile .lbl {
+      font-size: 0.72rem; font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase; letter-spacing: 0.04em;
+    }
+
+    .pill {
+      padding: 0.2rem 0.625rem; border-radius: 999px;
+      font-size: 0.7rem; font-weight: 700;
+      background: var(--bg-alt); color: var(--text-secondary);
+      border: 1px solid var(--divider);
+      text-transform: uppercase; letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+    .pill-blue { background: rgba(47, 128, 237, 0.12); color: var(--primary); border-color: transparent; }
+    .pill-green { background: rgba(46, 125, 50, 0.14); color: var(--success); border-color: transparent; }
+    .pill-orange { background: rgba(250, 166, 41, 0.18); color: var(--warning); border-color: transparent; }
+    .pill-red { background: rgba(198, 40, 40, 0.14); color: var(--error); border-color: transparent; }
+    .pill-grey { background: var(--bg-alt); color: var(--text-secondary); }
+
+    dl.kv {
+      display: grid;
+      grid-template-columns: max-content 1fr;
+      gap: 0.45rem 1rem;
+      font-size: 0.875rem;
+      margin: 0;
+    }
+    dl.kv dt { color: var(--text-secondary); font-weight: 500; }
+    dl.kv dd { margin: 0; word-break: break-word; }
+    dl.kv code { font-family: 'JetBrains Mono', Menlo, monospace; font-size: 0.82rem; }
+
+    ul.plain {
+      list-style: none; margin: 0; padding: 0;
+      display: flex; flex-direction: column; gap: 0.4rem;
+    }
+    ul.plain li {
+      background: var(--bg-alt);
+      border-left: 3px solid var(--primary);
+      border-radius: 8px;
+      padding: 0.55rem 0.75rem;
+      font-size: 0.85rem;
+    }
+    ul.plain li .meta { color: var(--text-secondary); font-size: 0.75rem; }
+    ul.plain li code { font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; }
+
+    .pre {
+      font-family: 'JetBrains Mono', Menlo, monospace;
+      background: var(--bg-alt);
+      border: 1px solid var(--divider);
+      border-radius: 8px;
+      padding: 0.75rem 0.875rem;
+      font-size: 0.78rem;
+      white-space: pre-wrap; word-break: break-word;
+      max-height: 480px; overflow: auto;
+      margin: 0;
+    }
+    details > summary {
+      cursor: pointer;
+      font-size: 0.8rem; font-weight: 600;
+      color: var(--primary);
+      padding: 0.4rem 0;
+      list-style: none;
+    }
+    details > summary::-webkit-details-marker { display: none; }
+    details > summary::before { content: "▸ "; }
+    details[open] > summary::before { content: "▾ "; }
+
+    .empty {
+      padding: 1.25rem; text-align: center;
+      color: var(--text-secondary); font-size: 0.875rem;
+    }
+    .empty.error {
+      color: var(--error);
+      background: rgba(198, 40, 40, 0.06);
+      border: 1px dashed rgba(198, 40, 40, 0.3);
+      border-radius: 8px;
+    }
+    .skeleton {
+      background: linear-gradient(90deg, var(--bg-alt) 25%, var(--hover) 50%, var(--bg-alt) 75%);
+      background-size: 200% 100%;
+      animation: skeleton 1.4s ease-in-out infinite;
+      border-radius: 8px;
+      height: 14px;
+      margin: 0.4rem 0;
+    }
+    @keyframes skeleton {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+    .footnote {
+      font-size: 0.75rem; color: var(--text-secondary);
+      margin-top: 0.75rem;
+    }
+  </style>
+</head>
+<body>
+  <header class="appbar">
+    <div class="brand">
+      <div class="brand-mark">RW</div>
+      <span>RunWhen Local</span>
+    </div>
+    <span class="appbar-spacer"></span>
+    <nav class="appbar-actions">
+      <a class="nav-link" href="/">Home</a>
+      <a class="nav-link" href="/explorer/">Explorer</a>
+      <a class="nav-link" href="/health/" target="_blank" rel="noopener">Health JSON</a>
+    </nav>
+    <button class="icon-btn" id="themeToggle" aria-label="Toggle theme" title="Toggle light / dark">◐</button>
+  </header>
+
+  <section class="hero">
+    <div class="container">
+      <h1>RunWhen Local control center</h1>
+      <p>
+        Browse what the workspace builder has discovered, check on the latest
+        run, and confirm what configuration the pod is using.
+        Troubleshooting tools and a richer discovery activity timeline are on
+        the way and will land here as separate cards.
+      </p>
+    </div>
+  </section>
+
+  <main>
+    <div class="container">
+      <div class="grid">
+        <!-- Tools / shortcuts row -->
+        <div class="col-4">
+          <a class="link-card" href="/explorer/">
+            <div class="label"><span class="icon">⌕</span>Workspace Explorer</div>
+            <div class="desc">
+              Browse every discovered resource, rendered SLX bundle and
+              workspace artifact. Search by display name, resource id or
+              file contents.
+            </div>
+            <div class="more">Open Explorer →</div>
+          </a>
+        </div>
+        <div class="col-4">
+          <div class="link-card disabled">
+            <div class="label"><span class="icon">⚙</span>Troubleshooting tools <span class="pill pill-grey">Coming soon</span></div>
+            <div class="desc">
+              Re-run a single code bundle, inspect generation-rule
+              evaluations against the live resource store, and trigger
+              on-demand discovery for a subset of platforms.
+            </div>
+            <div class="more">Planned</div>
+          </div>
+        </div>
+        <div class="col-4">
+          <div class="link-card disabled">
+            <div class="label"><span class="icon">⏱</span>Discovery activity <span class="pill pill-grey">Coming soon</span></div>
+            <div class="desc">
+              A chronological view of each discovery cycle: per-platform
+              durations, throttle events, code-collection clone results
+              and a diff of what changed.
+            </div>
+            <div class="more">Planned</div>
+          </div>
+        </div>
+
+        <!-- Latest run card -->
+        <div class="col-8">
+          <div class="card">
+            <div class="card-head">
+              <h2>Latest discovery run</h2>
+              <span id="runStatusPill"></span>
+            </div>
+            <div class="card-body" id="runBody">
+              <div class="skeleton" style="width:60%"></div>
+              <div class="skeleton" style="width:40%"></div>
+              <div class="skeleton" style="width:80%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Service / version card -->
+        <div class="col-4">
+          <div class="card">
+            <div class="card-head"><h2>Service</h2></div>
+            <div class="card-body" id="serviceBody">
+              <div class="skeleton" style="width:80%"></div>
+              <div class="skeleton" style="width:60%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Resource store card -->
+        <div class="col-8">
+          <div class="card">
+            <div class="card-head">
+              <h2>Discovered resources</h2>
+              <div class="head-actions">
+                <a class="nav-link" style="color:var(--primary);background:var(--hover);" href="/explorer/">Open in Explorer →</a>
+              </div>
+            </div>
+            <div class="card-body" id="storeBody">
+              <div class="skeleton" style="width:90%"></div>
+              <div class="skeleton" style="width:60%"></div>
+              <div class="skeleton" style="width:75%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent SLX bundles card -->
+        <div class="col-4">
+          <div class="card">
+            <div class="card-head"><h2>Recent SLX bundles</h2></div>
+            <div class="card-body tight" id="recentBundlesBody">
+              <div class="skeleton"></div>
+              <div class="skeleton"></div>
+              <div class="skeleton"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Configuration card -->
+        <div class="col-12">
+          <div class="card">
+            <div class="card-head">
+              <h2>Discovery configuration</h2>
+              <span id="configPathPill" class="pill pill-grey" style="font-size:0.7rem"></span>
+            </div>
+            <div class="card-body" id="configBody">
+              <div class="skeleton" style="width:50%"></div>
+              <div class="skeleton" style="width:70%"></div>
+              <div class="skeleton" style="width:60%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const $ = function (sel) { return document.querySelector(sel); };
+    const $$ = function (sel) { return Array.from(document.querySelectorAll(sel)); };
+
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str).replace(/[&<>"']/g, function (c) {
+        return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]);
+      });
+    }
+    function fmtNumber(n) {
+      if (n === null || n === undefined) return '—';
+      try { return Number(n).toLocaleString(); } catch (e) { return String(n); }
+    }
+    function fmtDuration(sec) {
+      if (sec === null || sec === undefined) return '—';
+      const s = Number(sec);
+      if (Number.isNaN(s)) return String(sec);
+      if (s < 1) return s.toFixed(2) + 's';
+      if (s < 60) return s.toFixed(1) + 's';
+      if (s < 3600) return Math.floor(s / 60) + 'm ' + Math.round(s % 60) + 's';
+      return Math.floor(s / 3600) + 'h ' + Math.floor((s % 3600) / 60) + 'm';
+    }
+    function fmtTime(iso) {
+      if (!iso) return '—';
+      try {
+        const d = new Date(iso);
+        if (Number.isNaN(d.getTime())) return iso;
+        return d.toLocaleString();
+      } catch (e) { return iso; }
+    }
+    function statusPill(status) {
+      if (!status) return '<span class="pill pill-grey">unknown</span>';
+      const s = String(status).toLowerCase();
+      const cls = s === 'completed' || s === 'healthy' ? 'pill-green'
+        : s === 'running' ? 'pill-blue'
+        : s === 'error' || s === 'failed' ? 'pill-red'
+        : 'pill-grey';
+      return '<span class="pill ' + cls + '">' + escapeHtml(status) + '</span>';
+    }
+
+    // ---------- theme ----------
+    function applyTheme(t) {
+      document.documentElement.setAttribute('data-theme', t);
+      try { localStorage.setItem('rwl-theme', t); } catch (e) {}
+    }
+    (function initTheme() {
+      let t = 'light';
+      try { t = localStorage.getItem('rwl-theme') || 'light'; } catch (e) {}
+      applyTheme(t);
+      $('#themeToggle').addEventListener('click', function () {
+        applyTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+      });
+    })();
+
+    // ---------- data load ----------
+    async function fetchJSON(url) {
+      const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
+      return res.json();
+    }
+
+    async function load() {
+      let data;
+      try {
+        data = await fetchJSON('/api/overview');
+      } catch (err) {
+        const msg = '<div class="empty error">Failed to load /api/overview: ' + escapeHtml(err.message) + '</div>';
+        $('#runBody').innerHTML = msg;
+        $('#storeBody').innerHTML = msg;
+        $('#serviceBody').innerHTML = msg;
+        $('#recentBundlesBody').innerHTML = msg;
+        $('#configBody').innerHTML = msg;
+        return;
+      }
+      renderRun(data.health || {});
+      renderService(data.health || {}, data.version || {});
+      renderStore(data.resource_store || {});
+      renderRecentBundles(data.resource_store || {});
+      renderConfig(data.workspace_info || {});
+    }
+
+    function renderRun(health) {
+      if (health.error) {
+        $('#runStatusPill').innerHTML = statusPill('unknown');
+        $('#runBody').innerHTML = '<div class="empty error">' + escapeHtml(health.error) + '</div>';
+        return;
+      }
+      const last = health.last_run;
+      $('#runStatusPill').innerHTML = statusPill(last ? last.status : 'idle');
+      if (!last) {
+        $('#runBody').innerHTML = '<div class="empty">No discovery has completed yet. The first <code>./run.sh</code> invocation will populate this card.</div>';
+        return;
+      }
+      const errors = [];
+      if (last.error_message) {
+        errors.push('<div class="empty error" style="margin-top:0.5rem">' + escapeHtml(last.error_message) + '</div>');
+      }
+      const components = (last.components_run || []).map(escapeHtml);
+      $('#runBody').innerHTML =
+        '<div class="stat-row" style="margin-bottom:1rem">' +
+          tile(fmtNumber(last.slx_count), 'SLXs') +
+          tile(fmtDuration(last.duration_seconds), 'Duration') +
+          tile(fmtNumber(last.warnings_count), 'Warnings') +
+          tile(fmtNumber(last.parsing_errors_count), 'Parse errors') +
+        '</div>' +
+        '<dl class="kv">' +
+          '<dt>Started</dt><dd>' + escapeHtml(fmtTime(last.start_time)) + '</dd>' +
+          '<dt>Ended</dt><dd>' + escapeHtml(fmtTime(last.end_time)) + '</dd>' +
+          '<dt>Components</dt><dd>' + (components.length ? components.map(function (c) { return '<span class="pill pill-blue" style="margin:0 0.25rem 0.25rem 0">' + c + '</span>'; }).join('') : '—') + '</dd>' +
+          (last.current_stage || last.current_component ?
+            '<dt>Stage</dt><dd>' + escapeHtml(last.current_stage || '—') + (last.current_component ? ' / ' + escapeHtml(last.current_component) : '') + '</dd>'
+            : '') +
+        '</dl>' + errors.join('');
+    }
+
+    function renderService(health, version) {
+      if (health.error) {
+        $('#serviceBody').innerHTML = '<div class="empty error">' + escapeHtml(health.error) + '</div>';
+        return;
+      }
+      const versionStr = version && version.version ? version.version : (version && version.name) || '—';
+      $('#serviceBody').innerHTML =
+        '<dl class="kv">' +
+          '<dt>Status</dt><dd>' + statusPill(health.service_status) + '</dd>' +
+          '<dt>Healthy</dt><dd>' + (health.is_healthy ? '<span class="pill pill-green">yes</span>' : '<span class="pill pill-red">no</span>') + '</dd>' +
+          '<dt>Ready</dt><dd>' + (health.is_ready ? '<span class="pill pill-green">yes</span>' : '<span class="pill pill-blue">running</span>') + '</dd>' +
+          '<dt>Uptime</dt><dd>' + escapeHtml(fmtDuration(health.uptime_seconds)) + '</dd>' +
+          '<dt>Started</dt><dd>' + escapeHtml(fmtTime(health.service_start_time)) + '</dd>' +
+          '<dt>Version</dt><dd><code>' + escapeHtml(versionStr) + '</code></dd>' +
+        '</dl>';
+    }
+
+    function tile(num, label) {
+      return '<div class="stat-tile"><div class="num">' + num + '</div><div class="lbl">' + label + '</div></div>';
+    }
+
+    function renderStore(store) {
+      if (store.error) {
+        $('#storeBody').innerHTML =
+          '<div class="empty">No resource store yet — discovery has not populated <code>resources.sqlite</code>.</div>' +
+          '<div class="footnote">' + escapeHtml(store.error) + '</div>';
+        return;
+      }
+      const platforms = (store.platforms || []).map(function (p) {
+        return '<span class="pill pill-blue" style="margin:0 0.25rem 0.25rem 0">' + escapeHtml(p) + '</span>';
+      }).join('') || '—';
+      $('#storeBody').innerHTML =
+        '<div class="stat-row" style="margin-bottom:1rem">' +
+          tile(fmtNumber(store.resource_count), 'Resources') +
+          tile(fmtNumber(store.resource_type_count), 'Types') +
+          tile(fmtNumber(store.artifact_count), 'Artifacts') +
+          tile(fmtNumber(store.slx_bundle_count), 'SLX bundles') +
+        '</div>' +
+        '<dl class="kv">' +
+          '<dt>Platforms</dt><dd>' + platforms + '</dd>' +
+          '<dt>DB path</dt><dd><code>' + escapeHtml(store.db_path || '—') + '</code></dd>' +
+        '</dl>';
+    }
+
+    function renderRecentBundles(store) {
+      if (store.error) {
+        $('#recentBundlesBody').innerHTML = '<div class="empty">No SLX bundles yet.</div>';
+        return;
+      }
+      const recent = store.recent_slx_bundles || [];
+      if (!recent.length) {
+        $('#recentBundlesBody').innerHTML = '<div class="empty">No SLX bundles yet — run discovery to populate them.</div>';
+        return;
+      }
+      $('#recentBundlesBody').innerHTML = '<ul class="plain">' + recent.map(function (b) {
+        const title = b.display_name || b.slx_name || '(unnamed)';
+        const internal = b.slx_name && b.slx_name !== b.display_name ? '<div class="meta"><code>' + escapeHtml(b.slx_name) + '</code></div>' : '';
+        const kinds = (b.kinds || []).map(function (k) { return '<span class="pill pill-grey" style="margin-right:0.25rem">' + escapeHtml(k) + '</span>'; }).join('');
+        return '<li>' +
+          '<div style="font-weight:600">' + escapeHtml(title) + '</div>' +
+          internal +
+          '<div style="margin-top:0.25rem">' + kinds + '</div>' +
+        '</li>';
+      }).join('') + '</ul>' +
+      '<div class="footnote">Showing the first ' + recent.length + ' bundles. <a href="/explorer/">Browse all in the Explorer →</a></div>';
+    }
+
+    function renderConfig(ws) {
+      if (ws.error) {
+        $('#configPathPill').textContent = ws.path || '';
+        $('#configBody').innerHTML = '<div class="empty error">' + escapeHtml(ws.error) + '</div>';
+        return;
+      }
+      $('#configPathPill').textContent = ws.path || '';
+      const s = ws.summary || {};
+      const platforms = (s.platforms || []).map(function (p) {
+        return '<span class="pill pill-blue" style="margin:0 0.25rem 0.25rem 0">' + escapeHtml(p) + '</span>';
+      }).join('') || '—';
+      const ccRows = (s.codeCollections || []).map(function (cc) {
+        const branch = cc.branch ? ' <span class="pill pill-grey" style="margin-left:0.25rem">' + escapeHtml(cc.branch) + '</span>' : '';
+        const action = cc.action && cc.action !== 'include' ? ' <span class="pill pill-orange" style="margin-left:0.25rem">' + escapeHtml(cc.action) + '</span>' : '';
+        return '<li><code>' + escapeHtml(cc.repoURL || '—') + '</code>' + branch + action + '</li>';
+      }).join('');
+      const backends = s.indexerBackends || {};
+      const backendBits = Object.keys(backends).map(function (k) {
+        const v = backends[k];
+        if (!v) return null;
+        return '<span class="pill pill-grey" style="margin-right:0.25rem">' + escapeHtml(k) + ': ' + escapeHtml(v) + '</span>';
+      }).filter(Boolean).join('') || '<span class="pill pill-grey">defaults</span>';
+
+      let yamlBlock = '';
+      if (ws.redacted) {
+        const text = jsonToYaml(ws.redacted);
+        yamlBlock = '<details style="margin-top:1rem"><summary>View full workspaceInfo.yaml (sensitive values redacted)</summary><pre class="pre">' + escapeHtml(text) + '</pre></details>';
+      }
+
+      $('#configBody').innerHTML =
+        '<dl class="kv">' +
+          '<dt>Workspace</dt><dd><code>' + escapeHtml(s.workspaceName || '—') + '</code></dd>' +
+          '<dt>Owner</dt><dd>' + escapeHtml(s.workspaceOwnerEmail || '—') + '</dd>' +
+          '<dt>Default LOD</dt><dd>' + escapeHtml(s.defaultLOD || '—') + '</dd>' +
+          '<dt>useLocalGit</dt><dd>' + (s.useLocalGit === true ? '<span class="pill pill-blue">true</span>' : s.useLocalGit === false ? '<span class="pill pill-grey">false</span>' : '—') + '</dd>' +
+          '<dt>Platforms</dt><dd>' + platforms + '</dd>' +
+          '<dt>Indexer backends</dt><dd>' + backendBits + '</dd>' +
+          '<dt>Code collections</dt><dd>' + (ccRows ? '<ul class="plain" style="margin-top:0.25rem">' + ccRows + '</ul>' : '—') + '</dd>' +
+        '</dl>' + yamlBlock +
+        '<div class="footnote">Values like client secrets, tokens and API keys are masked. Set <code>RW_WORKSPACE_INFO_PATH</code> to point at a non-default file.</div>';
+    }
+
+    // Minimal "good-enough" YAML emitter for the redacted payload. We use
+    // it instead of pulling in a third-party library so the explorer pages
+    // stay dependency-free; the output is for human inspection, not for
+    // re-parsing.
+    function jsonToYaml(value, indent) {
+      indent = indent || 0;
+      const pad = '  '.repeat(indent);
+      if (value === null || value === undefined) return 'null';
+      if (Array.isArray(value)) {
+        if (value.length === 0) return '[]';
+        return value.map(function (item) {
+          if (item !== null && typeof item === 'object') {
+            const sub = jsonToYaml(item, indent + 1);
+            return pad + '- ' + sub.trimStart();
+          }
+          return pad + '- ' + yamlScalar(item);
+        }).join('\n');
+      }
+      if (typeof value === 'object') {
+        const keys = Object.keys(value);
+        if (keys.length === 0) return '{}';
+        return keys.map(function (k) {
+          const v = value[k];
+          if (v !== null && typeof v === 'object' && Object.keys(v).length > 0) {
+            return pad + k + ':\n' + jsonToYaml(v, indent + 1);
+          }
+          if (Array.isArray(v) && v.length > 0) {
+            return pad + k + ':\n' + jsonToYaml(v, indent + 1);
+          }
+          return pad + k + ': ' + yamlScalar(v);
+        }).join('\n');
+      }
+      return yamlScalar(value);
+    }
+    function yamlScalar(v) {
+      if (v === null || v === undefined) return 'null';
+      if (typeof v === 'boolean') return v ? 'true' : 'false';
+      if (typeof v === 'number') return String(v);
+      const s = String(v);
+      if (s === '' || /[:#\-&*!|>%@`{}\[\],]/.test(s) || /^\s|\s$/.test(s) || /^(true|false|null|yes|no|~)$/i.test(s) || /^-?\d/.test(s)) {
+        return '"' + s.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
+      }
+      return s;
+    }
+
+    load();
+  </script>
+</body>
+</html>

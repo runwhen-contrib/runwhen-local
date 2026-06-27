@@ -3,11 +3,20 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
+import re
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterator, Optional
+
+try:
+    import yaml as _yaml  # PyYAML is already a runtime dep of workspace-builder
+except ImportError:  # pragma: no cover - PyYAML is a hard dep but be defensive
+    _yaml = None
+
+logger = logging.getLogger(__name__)
 
 from indexers.sqlite_resource_writer import (
     count_workspace_artifacts,
@@ -159,6 +168,45 @@ def json_safe(value: Any) -> Any:
     return str(value)
 
 
+# Fallback regex for ``spec.alias`` when PyYAML is unavailable or fails.
+# The renderer always emits the field as ``"alias": "<value>"`` (double-quoted
+# key and value) inside the ``"spec":`` block, but we keep the regex permissive
+# so unquoted keys / single-quoted values are still recognized.
+_ALIAS_REGEX = re.compile(
+    r'''^\s*["']?alias["']?\s*:\s*(?:"([^"\n]*)"|'([^'\n]*)'|([^\n#]+))''',
+    re.MULTILINE,
+)
+
+
+def extract_slx_display_name(slx_yaml_text: str) -> Optional[str]:
+    """Return the human-readable ``spec.alias`` from a rendered ``slx.yaml``.
+
+    Falls back to a permissive regex when PyYAML fails (e.g. truncated /
+    malformed content). Returns ``None`` when no alias can be recovered, in
+    which case callers should fall back to the on-disk SLX directory name.
+    """
+    if not slx_yaml_text:
+        return None
+    if _yaml is not None:
+        try:
+            parsed = _yaml.safe_load(slx_yaml_text)
+        except _yaml.YAMLError as exc:
+            logger.debug("slx.yaml parse failed; falling back to regex: %s", exc)
+            parsed = None
+        if isinstance(parsed, dict):
+            spec = parsed.get("spec")
+            if isinstance(spec, dict):
+                alias = spec.get("alias")
+                if isinstance(alias, str) and alias.strip():
+                    return alias.strip()
+    match = _ALIAS_REGEX.search(slx_yaml_text)
+    if match:
+        value = next((g for g in match.groups() if g is not None), None)
+        if value:
+            return value.strip().rstrip(",").strip()
+    return None
+
+
 def list_slx_bundles(
     conn: sqlite3.Connection,
     workspace_name: Optional[str] = None,
@@ -168,9 +216,16 @@ def list_slx_bundles(
 ) -> dict[str, Any]:
     """Group rendered artifacts by ``slx_directory`` into SLX bundles.
 
+    Each returned bundle includes a ``display_name`` field parsed from the
+    bundle's ``slx.yaml`` ``spec.alias`` (the human-readable label authored in
+    the generation rule). This is what the web explorer and MCP tooling show
+    instead of the cryptic on-disk SLX directory name (e.g.
+    ``cvbm-sc1-sa-check-8e362b02``). Falls back to ``slx_name`` when no alias
+    is recoverable.
+
     Returns a dict with ``items`` (each bundle has ``slx_directory``, ``slx_name``,
-    ``workspace_name``, file paths grouped by kind) and a ``total`` count of distinct
-    bundles matching the filter.
+    ``display_name``, ``workspace_name``, file paths grouped by kind) and a
+    ``total`` count of distinct bundles matching the filter.
     """
     where: list[str] = ["slx_directory IS NOT NULL"]
     params: list[Any] = []
@@ -178,6 +233,9 @@ def list_slx_bundles(
         where.append("workspace_name = ?")
         params.append(workspace_name)
     if q:
+        # ``content LIKE`` already matches anything inside the rendered SLX
+        # YAML, including ``spec.alias``, so the human-readable display name
+        # is searchable even though the WHERE clause keys off raw columns.
         where.append("(slx_directory LIKE ? OR relative_path LIKE ? OR content LIKE ?)")
         pattern = f"%{q}%"
         params.extend([pattern, pattern, pattern])
@@ -221,11 +279,30 @@ def list_slx_bundles(
             for row in conn.execute(files_sql, (ws, slx_dir))
         ]
         kinds = sorted({f["artifact_kind"] for f in files})
+        slx_name = os.path.basename(slx_dir) if slx_dir else None
+
+        # Pull just the SLX artifact's content (small string) so we can parse
+        # the ``spec.alias`` for display. Anything else would be too big to
+        # eagerly materialize in a list view.
+        display_name: Optional[str] = None
+        if "slx" in kinds:
+            alias_row = conn.execute(
+                "SELECT content FROM workspace_artifacts "
+                "WHERE workspace_name = ? AND slx_directory = ? "
+                "AND artifact_kind = 'slx' LIMIT 1",
+                (ws, slx_dir),
+            ).fetchone()
+            if alias_row and alias_row[0]:
+                display_name = extract_slx_display_name(alias_row[0])
+        if not display_name:
+            display_name = slx_name
+
         items.append(
             {
                 "workspace_name": ws,
                 "slx_directory": slx_dir,
-                "slx_name": os.path.basename(slx_dir) if slx_dir else None,
+                "slx_name": slx_name,
+                "display_name": display_name,
                 "file_count": file_count,
                 "kinds": kinds,
                 "has_slx": "slx" in kinds,

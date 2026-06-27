@@ -319,6 +319,18 @@ tasks:
           echo "FAIL: $DB not produced"
           exit 1
         fi
+        # Re-snapshot the container's main-process logs even if
+        # run-rwl-discovery already did so. The "selective discovery"
+        # and "skipped_lod_filter" lines are emitted by the indexer
+        # running inside the container's main FastAPI process, not by
+        # the exec'd run.sh, so they only land in `docker logs` -- not
+        # in run_sh_output.log. Doing this here (matching the AWS/GCP
+        # fixtures) keeps the assert self-contained and avoids the
+        # misleading "did not log selective discovery" failure when
+        # container_logs.log is missing or stale.
+        CONTAINER_NAME="RunWhenLocal-NoAks"
+        docker logs "$CONTAINER_NAME" > container_logs.log 2>&1 || true
+
         TFS_JSON=$(terraform -chdir=terraform show -json terraform.tfstate)
         keep_rg=$(echo "$TFS_JSON" | jq -r '.values.outputs.keep_rg_name.value')
         drop_rg=$(echo "$TFS_JSON" | jq -r '.values.outputs.drop_rg_name.value')
@@ -352,16 +364,29 @@ tasks:
             echo "OK   selective: '${name}' correctly absent"
           fi
         done
+        # Build the list of log files actually present so grep doesn't
+        # fail noisily (and ambiguously) when container_logs.log is
+        # somehow missing -- the docker logs snapshot at the top of
+        # this task should always create it, but treat the file as
+        # optional so a failed snapshot doesn't mask the real signal.
+        log_files=""
+        [ -f run_sh_output.log ] && log_files="$log_files run_sh_output.log"
+        [ -f container_logs.log ] && log_files="$log_files container_logs.log"
+        if [ -z "$log_files" ]; then
+          echo "FAIL selective: neither run_sh_output.log nor container_logs.log exists"
+          exit 1
+        fi
+
         # Verify the indexer logged that selective discovery actually ran.
-        if grep -qE "selective discovery, in-scope RGs" run_sh_output.log container_logs.log 2>/dev/null; then
+        if grep -qE "selective discovery, in-scope RGs" $log_files 2>/dev/null; then
           echo "OK   selective: indexer reported selective discovery mode"
         else
-          echo "FAIL selective: indexer did not log 'selective discovery' for any subscription"
+          echo "FAIL selective: indexer did not log 'selective discovery' for any subscription (searched:$log_files)"
           fail=1
         fi
         # The drop-rg itself is filtered post-list (only the RG enumeration is
         # subscription-wide), so we expect skipped_lod_filter >= 1 for the RG.
-        if grep -qE 'skipped_lod_filter=[1-9][0-9]*' run_sh_output.log container_logs.log 2>/dev/null; then
+        if grep -qE 'skipped_lod_filter=[1-9][0-9]*' $log_files 2>/dev/null; then
           echo "OK   selective: indexer reported skipped_lod_filter > 0"
         else
           echo "WARN selective: skipped_lod_filter is 0 - the drop-rg LOD post-filter didn't fire (unexpected if drop-rg exists)"
@@ -378,6 +403,12 @@ tasks:
           echo "FAIL: $DB not produced"
           exit 1
         fi
+        # See assert-selective: skipped_tag_filter is emitted by the
+        # indexer running in the container's main process, so always
+        # re-snapshot docker logs here. Matches the AWS/GCP fixtures.
+        CONTAINER_NAME="RunWhenLocal-NoAks"
+        docker logs "$CONTAINER_NAME" > container_logs.log 2>&1 || true
+
         TFS_JSON=$(terraform -chdir=terraform show -json terraform.tfstate)
         keep_st=$(echo "$TFS_JSON" | jq -r '.values.outputs.keep_storage_name.value')
         drop_st=$(echo "$TFS_JSON" | jq -r '.values.outputs.drop_storage_name.value')
@@ -401,11 +432,20 @@ tasks:
         else
           echo "OK   tag-filter: '${drop_st}' correctly absent"
         fi
+        # Same defensive file-list construction as assert-selective.
+        log_files=""
+        [ -f run_sh_output.log ] && log_files="$log_files run_sh_output.log"
+        [ -f container_logs.log ] && log_files="$log_files container_logs.log"
+        if [ -z "$log_files" ]; then
+          echo "FAIL tag-filter: neither run_sh_output.log nor container_logs.log exists"
+          exit 1
+        fi
+
         # Indexer must report skipped_tag_filter > 0.
-        if grep -E 'skipped_tag_filter=[1-9][0-9]*' run_sh_output.log container_logs.log >/dev/null 2>&1; then
+        if grep -qE 'skipped_tag_filter=[1-9][0-9]*' $log_files 2>/dev/null; then
           echo "OK   tag-filter: indexer reported skipped_tag_filter > 0"
         else
-          echo "FAIL tag-filter: indexer did not report a positive skipped_tag_filter count"
+          echo "FAIL tag-filter: indexer did not report a positive skipped_tag_filter count (searched:$log_files)"
           fail=1
         fi
         exit "$fail"

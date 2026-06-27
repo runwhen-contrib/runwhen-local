@@ -15,6 +15,7 @@ from utils import get_version_info
 from . import startup
 from .exceptions import build_error_response
 from .explorer import router as explorer_router
+from .home import router as home_router
 from .mcp.server import build_mcp_lifespan, build_streamable_http_app, is_mcp_enabled
 from .models import InfoResult
 from .run_handler import execute_run
@@ -35,6 +36,10 @@ logger = logging.getLogger("workspace_builder")
 _mcp_lifespan = build_mcp_lifespan() if is_mcp_enabled() else None
 
 app = FastAPI(title="RunWhen Local Workspace Builder", lifespan=_mcp_lifespan)
+# ``home_router`` owns ``GET /`` (the landing page) plus ``GET /api/overview``;
+# include it before ``explorer_router`` so the root path resolves to the home
+# page rather than 404.
+app.include_router(home_router)
 app.include_router(explorer_router)
 
 if _mcp_lifespan is not None:

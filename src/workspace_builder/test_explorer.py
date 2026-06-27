@@ -62,10 +62,21 @@ def _seed_database(db_path: str) -> None:
         )
         from renderers.rendered_artifacts import record_rendered_artifact
 
+        # The explorer surfaces the rendered ``spec.alias`` as the bundle's
+        # human-readable ``display_name``. Seed a realistic ServiceLevelX
+        # body so the parse path is exercised end-to-end.
         record_rendered_artifact(
             ctx,
             "workspaces/demo-ws/slxs/my-app/slx.yaml",
-            "kind: ServiceLevelX\n",
+            (
+                "apiVersion: runwhen.com/v1\n"
+                "kind: ServiceLevelX\n"
+                "metadata:\n"
+                "  name: demo-ws--my-app\n"
+                "spec:\n"
+                '  alias: "Demo App Service Account Check"\n'
+                "  statement: anything\n"
+            ),
         )
         persist_sqlite_store(ctx, db_path="resources.sqlite")
         with open(os.path.join(tmpdir, "resources.sqlite"), "rb") as src, open(db_path, "wb") as dst:
@@ -133,6 +144,40 @@ class ExplorerApiTests(unittest.TestCase):
                 self.assertIn("slx", bundle["kinds"])
                 self.assertTrue(bundle["has_slx"])
                 self.assertEqual(1, bundle["file_count"])
+                # ``display_name`` is the human-readable ``spec.alias`` from
+                # the rendered slx.yaml; this is what the web UI uses for
+                # the bundle title and detail header.
+                self.assertEqual("my-app", bundle["slx_name"])
+                self.assertEqual(
+                    "Demo App Service Account Check", bundle["display_name"]
+                )
+
+                # Searching by alias text still works (matches via content LIKE).
+                aliased = self.client.get(
+                    "/explorer/api/slx-bundles",
+                    params={"q": "Service Account Check"},
+                )
+                self.assertEqual(200, aliased.status_code)
+                hits = aliased.json()
+                self.assertGreaterEqual(hits["total"], 1)
+                self.assertEqual(
+                    "Demo App Service Account Check",
+                    hits["items"][0]["display_name"],
+                )
+
+    def test_display_name_falls_back_when_alias_missing(self):
+        from workspace_builder.resource_store_reader import extract_slx_display_name
+
+        self.assertIsNone(extract_slx_display_name(""))
+        self.assertIsNone(extract_slx_display_name("kind: ServiceLevelX\n"))
+        # Pure-regex fallback for malformed YAML that still carries an alias.
+        self.assertEqual(
+            "Broken But Aliased",
+            extract_slx_display_name(
+                "kind: ServiceLevelX\nspec:\n  alias: \"Broken But Aliased\"\n"
+                "  bad_indent: : : :"
+            ),
+        )
 
     def test_missing_database_returns_404(self):
         with patch.dict(

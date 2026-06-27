@@ -467,9 +467,9 @@
         html += '</ul>';
       } else {
         html += '<h3>SLX bundles</h3>';
-        html += '<p style="font-size:0.8125rem;color:var(--text-secondary);margin:0 0 1rem;">Each card groups the SLX, SLI and runbook files that share an SLX directory.</p>';
+        html += '<p style="font-size:0.8125rem;color:var(--text-secondary);margin:0 0 1rem;">Each card is titled with the SLX <strong>display name</strong> (the <code>spec.alias</code> from <code>slx.yaml</code>) and groups the SLX, SLI and runbook files that share an SLX directory.</p>';
         html += '<h3>Tip</h3>';
-        html += '<p style="font-size:0.8125rem;color:var(--text-secondary);margin:0;">Click a bundle to see all its rendered files inline. Use the search box to filter by directory or content.</p>';
+        html += '<p style="font-size:0.8125rem;color:var(--text-secondary);margin:0;">Click a bundle to see all its rendered files inline. The search box matches the display name, directory and file contents.</p>';
       }
       $('#sidebar').innerHTML = html;
       $$('#sidebar button').forEach(function (b) {
@@ -578,10 +578,20 @@
       }
       $('#list').innerHTML = data.items.map(function (b, i) {
         const extras = (b.kinds || []).filter(function (k) { return ['slx', 'sli', 'runbook', 'skill'].indexOf(k) === -1; }).map(kindPill).join('');
+        // Prefer the human-readable spec.alias from the rendered slx.yaml.
+        // Fall back to the on-disk slx_name (cryptic, short-hashed) and then
+        // the directory path so older / partially-rendered bundles still show.
+        const title = b.display_name || b.slx_name || b.slx_directory;
+        const showInternal = title !== b.slx_name && b.slx_name;
+        const metaBits = [];
+        if (showInternal) metaBits.push(escapeHtml(b.slx_name));
+        metaBits.push(escapeHtml(b.slx_directory));
+        metaBits.push(b.file_count + ' file' + (b.file_count === 1 ? '' : 's'));
+        metaBits.push('workspace ' + escapeHtml(b.workspace_name));
         return '<a class="item" href="#" data-idx="' + i + '" data-kind="bundle">' +
           '<div class="item-row">' +
-            '<div><div class="item-title">' + escapeHtml(b.slx_name || b.slx_directory) + '</div>' +
-            '<div class="item-meta">' + escapeHtml(b.slx_directory) + ' · ' + b.file_count + ' file' + (b.file_count === 1 ? '' : 's') + ' · workspace ' + escapeHtml(b.workspace_name) + '</div></div>' +
+            '<div><div class="item-title">' + escapeHtml(title) + '</div>' +
+            '<div class="item-meta">' + metaBits.join(' · ') + '</div></div>' +
             '<div class="item-tags">' +
               (b.has_slx ? kindPill('slx') : '') +
               (b.has_sli ? kindPill('sli') : '') +
@@ -645,7 +655,7 @@
         const params = new URLSearchParams({ workspace_name: item.workspace_name, relative_path: item.relative_path });
         api('/explorer/api/artifact?' + params.toString()).then(function (res) { currentDetail = res; renderArtifactDetail(res); }).catch(renderError);
       } else if (kind === 'bundle') {
-        $('#detailTitle').textContent = item.slx_name || item.slx_directory;
+        $('#detailTitle').textContent = item.display_name || item.slx_name || item.slx_directory;
         currentDetail = item;
         renderBundleDetail(item);
       }
@@ -682,9 +692,15 @@
         '<pre class="code">' + escapeHtml(a.content || '') + '</pre></div>';
     }
     function renderBundleDetail(b) {
+      // ``display_name`` is the human-readable spec.alias from the rendered
+      // slx.yaml; show both it and the internal slx_name so operators can
+      // correlate UI labels with on-disk directories when needed.
+      const displayName = b.display_name || b.slx_name || b.slx_directory;
       $('#detailBody').innerHTML =
         '<div class="detail-section"><h3>SLX bundle</h3>' +
         '<dl class="detail-meta">' +
+        '<dt>Display name</dt><dd>' + escapeHtml(displayName) + '</dd>' +
+        '<dt>Internal name</dt><dd>' + escapeHtml(b.slx_name || '—') + '</dd>' +
         '<dt>Workspace</dt><dd>' + escapeHtml(b.workspace_name) + '</dd>' +
         '<dt>SLX directory</dt><dd>' + escapeHtml(b.slx_directory) + '</dd>' +
         '<dt>Files</dt><dd>' + b.file_count + '</dd>' +
