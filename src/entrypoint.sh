@@ -97,6 +97,14 @@ then
     CONFIG_RELOADER_PID=""
     CONFIG_RELOAD_POLL_SECONDS="${RW_CONFIG_RELOAD_CHECK_INTERVAL:-5}"
 
+    # Failure-retry interval (seconds). When ./run.sh exits non-zero — most
+    # commonly because git clone of one or more code collections failed and
+    # useLocalGit is false — we don't want to wait the full
+    # $AUTORUN_WORKSPACE_BUILDER_INTERVAL before trying again (that interval
+    # is tuned for "successful run, pause before the next discovery sweep").
+    # Default is 5 minutes; tune via the helm/env var.
+    RW_RUN_RETRY_INTERVAL_SECONDS="${RW_RUN_RETRY_INTERVAL_SECONDS:-300}"
+
     trap 'echo "ConfigMap/Secret change detected — exiting for pod restart"; exit 1' USR1
 
     start_config_reloader() {
@@ -134,10 +142,48 @@ then
             sleep "$CONFIG_RELOAD_POLL_SECONDS"
         done
         wait "$discovery_pid"
+        return $?
+    }
+
+    # Sleep $1 seconds while still polling the config reloader so a
+    # ConfigMap/Secret change during a retry-backoff window doesn't have to
+    # wait the full sleep before triggering a pod restart.
+    sleep_with_reload_watch() {
+        local total=$1
+        local poll="$CONFIG_RELOAD_POLL_SECONDS"
+        local remaining=$total
+        while [ "$remaining" -gt 0 ]; do
+            check_config_reloader_exit
+            if [ "$remaining" -lt "$poll" ]; then
+                sleep "$remaining"
+                remaining=0
+            else
+                sleep "$poll"
+                remaining=$((remaining - poll))
+            fi
+        done
     }
 
     # subPath-mounted ConfigMaps/Secrets never update in-place; watch via the API.
     start_config_reloader
+
+    # Pick the sleep interval based on whether the previous run succeeded.
+    # Non-zero exit from ./run.sh means the workspace builder refused to
+    # produce a pack (most commonly: code-collection clone failure with
+    # useLocalGit=false). In that case we back off for the failure-retry
+    # interval (default 5 min) and try again, rather than spinning at the
+    # normal discovery cadence or — worse — uploading nothing.
+    run_loop_sleep() {
+        local exit_code=$1
+        local label=$2
+        if [ "$exit_code" -ne 0 ]; then
+            echo "Workspace builder ${label} failed (exit=${exit_code}); " \
+                 "retrying in ${RW_RUN_RETRY_INTERVAL_SECONDS}s."
+            sleep_with_reload_watch "$RW_RUN_RETRY_INTERVAL_SECONDS"
+        else
+            sleep_with_reload_watch "$AUTORUN_WORKSPACE_BUILDER_INTERVAL"
+        fi
+    }
 
     if [[ "${RW_LOCAL_UPLOAD_ENABLED,,}" == "true" ]]; 
     then
@@ -147,22 +193,25 @@ then
             echo "Merge Mode: keep-uploaded"
             while true; do
                 run_discovery_with_reload_watch ./run.sh --upload --upload-merge-mode keep-uploaded --prune-stale-slxs
+                run_exit=$?
                 check_config_reloader_exit
-                sleep $AUTORUN_WORKSPACE_BUILDER_INTERVAL
+                run_loop_sleep "$run_exit" "discovery+upload (keep-uploaded)"
             done
         else
             echo "Merge Mode: keep-existing"
             while true; do
                 run_discovery_with_reload_watch ./run.sh --upload --upload-merge-mode keep-existing --prune-stale-slxs
+                run_exit=$?
                 check_config_reloader_exit
-                sleep $AUTORUN_WORKSPACE_BUILDER_INTERVAL
+                run_loop_sleep "$run_exit" "discovery+upload (keep-existing)"
             done
         fi
     else
         while true; do
             run_discovery_with_reload_watch ./run.sh
+            run_exit=$?
             check_config_reloader_exit
-            sleep $AUTORUN_WORKSPACE_BUILDER_INTERVAL
+            run_loop_sleep "$run_exit" "discovery"
         done
     fi 
 else

@@ -40,6 +40,13 @@ from .azure_common import (
     has_excluded_tags,
     has_included_tags,
 )
+from .azure_throttle import (
+    DEFAULT_INITIAL_BACKOFF,
+    DEFAULT_MAX_ATTEMPTS,
+    DEFAULT_MAX_BACKOFF,
+    DEFAULT_MAX_TOTAL_WAIT,
+    call_with_throttle_retry,
+)
 from .azureapi_normalizers import normalize_azure_resource
 from .azureapi_resource_types import (
     AZURE_RESOURCE_TYPE_SPECS,
@@ -74,9 +81,49 @@ AZURE_INDEXER_BACKEND_SETTING = Setting(
     "azureapi",
 )
 
+AZURE_THROTTLE_MAX_ATTEMPTS_SETTING = Setting(
+    "AZURE_THROTTLE_MAX_ATTEMPTS",
+    "azureThrottleMaxAttempts",
+    Setting.Type.INTEGER,
+    "Maximum number of attempts the azureapi indexer makes for a single Azure "
+    "list call when ARM returns a throttle (HTTP 429 / "
+    "ResourceCollectionRequestsThrottled).",
+    DEFAULT_MAX_ATTEMPTS,
+)
+
+AZURE_THROTTLE_INITIAL_BACKOFF_SETTING = Setting(
+    "AZURE_THROTTLE_INITIAL_BACKOFF",
+    "azureThrottleInitialBackoff",
+    Setting.Type.FLOAT,
+    "Initial backoff (seconds) for the azureapi throttle retry. Used when ARM "
+    "does not return an explicit Retry-After hint.",
+    DEFAULT_INITIAL_BACKOFF,
+)
+
+AZURE_THROTTLE_MAX_BACKOFF_SETTING = Setting(
+    "AZURE_THROTTLE_MAX_BACKOFF",
+    "azureThrottleMaxBackoff",
+    Setting.Type.FLOAT,
+    "Cap (seconds) on a single sleep between azureapi throttle retries.",
+    DEFAULT_MAX_BACKOFF,
+)
+
+AZURE_THROTTLE_MAX_TOTAL_WAIT_SETTING = Setting(
+    "AZURE_THROTTLE_MAX_TOTAL_WAIT",
+    "azureThrottleMaxTotalWait",
+    Setting.Type.FLOAT,
+    "Cap (seconds) on the total time spent sleeping between retries for any "
+    "single Azure list call. Once exceeded, the call is dropped with a warning.",
+    DEFAULT_MAX_TOTAL_WAIT,
+)
+
 SETTINGS = (
     SettingDependency(CLOUD_CONFIG_SETTING, False),
     SettingDependency(AZURE_INDEXER_BACKEND_SETTING, False),
+    SettingDependency(AZURE_THROTTLE_MAX_ATTEMPTS_SETTING, False),
+    SettingDependency(AZURE_THROTTLE_INITIAL_BACKOFF_SETTING, False),
+    SettingDependency(AZURE_THROTTLE_MAX_BACKOFF_SETTING, False),
+    SettingDependency(AZURE_THROTTLE_MAX_TOTAL_WAIT_SETTING, False),
     # Expose the ResourceWriter backend selection on the azureapi component
     # (currently the only indexer that funnels through the writer seam) so
     # the settings appear in the active schema and can be set via
@@ -516,7 +563,46 @@ def index(context: Context) -> None:
         "skipped_parse_error": 0,
         "skipped_collector_error": 0,
         "skipped_rg_not_found": 0,
+        "skipped_throttled": 0,
     }
+
+    # Throttle retry policy. Pulled from settings so operators can dial it
+    # up for noisy subscriptions without code changes; the defaults are
+    # tuned for typical small/medium tenants. Stub Contexts in unit tests
+    # return None for unknown settings, so coalesce to the module defaults.
+    def _setting_or_default(setting, default, cast):
+        raw = context.get_setting(setting)
+        if raw is None or raw == "":
+            return cast(default)
+        try:
+            return cast(raw)
+        except (TypeError, ValueError):
+            return cast(default)
+
+    throttle_kwargs = {
+        "max_attempts": _setting_or_default(
+            AZURE_THROTTLE_MAX_ATTEMPTS_SETTING, DEFAULT_MAX_ATTEMPTS, int
+        ),
+        "initial_backoff": _setting_or_default(
+            AZURE_THROTTLE_INITIAL_BACKOFF_SETTING, DEFAULT_INITIAL_BACKOFF, float
+        ),
+        "max_backoff": _setting_or_default(
+            AZURE_THROTTLE_MAX_BACKOFF_SETTING, DEFAULT_MAX_BACKOFF, float
+        ),
+        "max_total_wait": _setting_or_default(
+            AZURE_THROTTLE_MAX_TOTAL_WAIT_SETTING, DEFAULT_MAX_TOTAL_WAIT, float
+        ),
+    }
+    logger.info(
+        "Azure throttle retry policy: max_attempts=%d initial_backoff=%.1fs "
+        "max_backoff=%.1fs max_total_wait=%.1fs",
+        throttle_kwargs["max_attempts"],
+        throttle_kwargs["initial_backoff"],
+        throttle_kwargs["max_backoff"],
+        throttle_kwargs["max_total_wait"],
+    )
+
+    from .azure_throttle import is_throttle_error as _is_throttle  # local alias
     # Track ARM IDs the typed pass already emitted so the generic pass
     # doesn't double-write the same resource with a sparser payload.
     typed_arm_ids: set[str] = set()
@@ -618,23 +704,34 @@ def index(context: Context) -> None:
                 typed_arm_ids.add(arm_id)
 
     def _list_subscription_wide(spec, subscription_id):
+        label = f"{spec.resource_type_name} in subscription {subscription_id}"
         try:
-            return list(spec.collector_all(credential, subscription_id))
+            return call_with_throttle_retry(
+                lambda: list(spec.collector_all(credential, subscription_id)),
+                label=label,
+                **throttle_kwargs,
+            )
         except Exception as e:
             stats["skipped_collector_error"] += 1
-            logger.error(
-                f"Failed to list {spec.resource_type_name} in subscription "
-                f"{subscription_id}: {e}"
-            )
-            context.add_warning(
-                f"Failed to list Azure {spec.resource_type_name} in "
-                f"subscription {subscription_id}: {e}"
-            )
+            if _is_throttle(e):
+                stats["skipped_throttled"] += 1
+            logger.error(f"Failed to list {label}: {e}")
+            context.add_warning(f"Failed to list Azure {label}: {e}")
             return None
 
     def _list_in_rg(spec, subscription_id, rg_name):
+        label = (
+            f"{spec.resource_type_name} in RG '{rg_name}' under "
+            f"subscription {subscription_id}"
+        )
         try:
-            return list(spec.collector_in_rg(credential, subscription_id, rg_name))
+            return call_with_throttle_retry(
+                lambda: list(
+                    spec.collector_in_rg(credential, subscription_id, rg_name)
+                ),
+                label=label,
+                **throttle_kwargs,
+            )
         except Exception as e:
             # 404 / RG-not-found is the most likely failure here: the
             # workspace declared an RG in scope that doesn't (yet) exist.
@@ -649,14 +746,10 @@ def index(context: Context) -> None:
                 )
                 return None
             stats["skipped_collector_error"] += 1
-            logger.error(
-                f"Failed to list {spec.resource_type_name} in RG '{rg_name}' "
-                f"under subscription {subscription_id}: {e}"
-            )
-            context.add_warning(
-                f"Failed to list Azure {spec.resource_type_name} in RG "
-                f"'{rg_name}' under subscription {subscription_id}: {e}"
-            )
+            if _is_throttle(e):
+                stats["skipped_throttled"] += 1
+            logger.error(f"Failed to list {label}: {e}")
+            context.add_warning(f"Failed to list Azure {label}: {e}")
             return None
 
     # Phase 1: enumerate resource groups subscription-wide and post-filter.
@@ -778,11 +871,16 @@ def index(context: Context) -> None:
             return spec
 
         def _generic_pass_for_rg(subscription_id: str, rg_name: str) -> None:
+            label = f"generic ARM resources in {subscription_id}/{rg_name}"
             try:
-                resources_iter = list(
-                    _collect_generic_resources_in_rg(
-                        credential, subscription_id, rg_name
-                    )
+                resources_iter = call_with_throttle_retry(
+                    lambda: list(
+                        _collect_generic_resources_in_rg(
+                            credential, subscription_id, rg_name
+                        )
+                    ),
+                    label=label,
+                    **throttle_kwargs,
                 )
             except Exception as e:
                 err_text = str(e)
@@ -797,10 +895,9 @@ def index(context: Context) -> None:
                     )
                     return
                 stats["skipped_collector_error"] += 1
-                logger.error(
-                    f"Generic ARM resources list failed for "
-                    f"{subscription_id}/{rg_name}: {e}"
-                )
+                if _is_throttle(e):
+                    stats["skipped_throttled"] += 1
+                logger.error(f"Generic ARM resources list failed for {label}: {e}")
                 context.add_warning(
                     f"Failed to list generic Azure resources in RG "
                     f"'{rg_name}' under subscription {subscription_id}: {e}"
@@ -809,16 +906,20 @@ def index(context: Context) -> None:
             _emit_generic_models(subscription_id, resources_iter, scope_label=f"{subscription_id}/{rg_name}")
 
         def _generic_pass_subscription_wide(subscription_id: str) -> None:
+            label = f"generic ARM resources in subscription {subscription_id}"
             try:
-                resources_iter = list(
-                    _collect_generic_resources_all(credential, subscription_id)
+                resources_iter = call_with_throttle_retry(
+                    lambda: list(
+                        _collect_generic_resources_all(credential, subscription_id)
+                    ),
+                    label=label,
+                    **throttle_kwargs,
                 )
             except Exception as e:
                 stats["skipped_collector_error"] += 1
-                logger.error(
-                    f"Generic ARM resources list failed for "
-                    f"subscription {subscription_id}: {e}"
-                )
+                if _is_throttle(e):
+                    stats["skipped_throttled"] += 1
+                logger.error(f"Generic ARM resources list failed for {label}: {e}")
                 context.add_warning(
                     f"Failed to list generic Azure resources in "
                     f"subscription {subscription_id}: {e}"
@@ -877,5 +978,6 @@ def index(context: Context) -> None:
         f"skipped_lod_filter={stats['skipped_lod_filter']}, "
         f"skipped_rg_not_found={stats['skipped_rg_not_found']}, "
         f"skipped_parse_error={stats['skipped_parse_error']}, "
-        f"skipped_collector_error={stats['skipped_collector_error']}"
+        f"skipped_collector_error={stats['skipped_collector_error']}, "
+        f"skipped_throttled={stats['skipped_throttled']}"
     )

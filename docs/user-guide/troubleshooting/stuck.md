@@ -140,6 +140,77 @@ KUBECONFIG=/some/test/file ./gen_rw_kubeconfig.sh
 {% endtab %}
 {% endtabs %}
 
+### Discovery Loop Keeps Failing With "Refusing to continue"
+
+**Symptom:** The auto-run loop is enabled, but every cycle ends with a log line similar to:
+
+```
+ERROR workspace_builder.api: WorkspaceBuilderException: Refusing to continue:
+  every code-collection clone failed and useLocalGit is false, which would
+  produce an empty workspace pack. No upload will be attempted; the entrypoint
+  will retry. Failures: https://github.com/runwhen-contrib/rw-cli-codecollection.git ...
+Workspace builder discovery+upload (keep-existing) failed (exit=1);
+  retrying in 300s.
+```
+
+This means RunWhen Local was unable to `git clone` any of the configured code collections, so it intentionally aborted the run instead of uploading an empty workspace pack to RunWhen Platform.
+
+**Checks:**
+
+1. Confirm the pod has outbound network access to the git host (most commonly `github.com:443`). Run a quick probe from inside the container:
+
+   ```bash
+   kubectl exec -n <ns> <pod> -- curl -sSI https://github.com
+   ```
+
+2. Check DNS resolution:
+
+   ```bash
+   kubectl exec -n <ns> <pod> -- getent hosts github.com
+   ```
+
+3. If you use a proxy, verify it is wired into the pod (see [Proxy & outbound connections](../configuration/proxy-and-outbound.md)).
+
+4. If the code collection is private, confirm the `authUser` / `authToken` in `workspaceInfo.yaml` is still valid. Rotated tokens are a common cause.
+
+5. For air-gapped clusters, switch to the bundled local mirror by setting `useLocalGit: true` and using a pre-built image with `INCLUDE_CODE_COLLECTION_CACHE=true`. See [CodeCollection configuration](../configuration/codecollection.md) and [Discovery resiliency](../configuration/discovery-resiliency.md).
+
+6. While debugging, you can shorten the retry interval so you don't have to wait 5 minutes between attempts:
+
+   ```yaml
+   runwhenLocal:
+     extraEnv:
+       RW_RUN_RETRY_INTERVAL_SECONDS: "60"
+   ```
+
+If only **some** collections fail to clone, the run still continues with the ones that loaded (look for `Code-collection clone failed for N of M collections (...); continuing` in the logs). In that case fix the failing collection or remove it from `codeCollections` in `workspaceInfo.yaml`.
+
+### Azure Discovery Shows "ResourceCollectionRequestsThrottled"
+
+**Symptom:** Azure discovery logs lines like:
+
+```
+WARNING: Failed to list Azure azure_storage_accounts in subscription 7ed8...:
+  (ResourceCollectionRequestsThrottled) Operation
+  'Microsoft.Storage/storageAccounts/read' failed as server encountered too
+  many requests. Please try after '11' seconds.
+```
+
+You may also see `INFO indexers.azure_throttle: Azure throttled <type> ... sleeping <N>s before retry`, which is the indexer doing the right thing — Azure Resource Manager pushed back and we are honoring the `Retry-After` hint. The end-of-run summary includes a `skipped_throttled` counter for types that ran out of retries.
+
+**Checks:**
+
+1. If `skipped_throttled` is `0` in the discovery summary, no action is needed — throttling was transient and absorbed by the retry helper.
+
+2. If `skipped_throttled` is non-zero, dial up the retry budget in `workspaceInfo.yaml`:
+
+   ```yaml
+   azureThrottleMaxAttempts: 10
+   azureThrottleMaxTotalWait: 600.0
+   ```
+
+3. If throttling is sustained even after dialing up the caps, narrow the discovery scope so the indexer makes fewer list calls per cycle: set per-RG `levelOfDetails: none` for resource groups you don't care about, or filter with `includeTags` / `excludeTags`. See [Discovery resiliency](../configuration/discovery-resiliency.md) and [Microsoft Azure](../cloud-discovery/azure.md#handling-azure-api-throttling).
+
 ### Network Issues
 
 In some cases, the configuration of your container runtime (e.g. docker/podman) might cause network issues. When attaching to the container, it might look like this:

@@ -20,6 +20,7 @@ and dip into the specific guides as needed.
 * [Group / map customizations](./configuration/group-and-map-customizations.md)
 * [CodeCollection configuration](./configuration/codecollection.md)
 * [Kubernetes config reload](./configuration/config-reload.md) — automatic pod restart on ConfigMap/Secret changes
+* [Discovery resiliency](./configuration/discovery-resiliency.md) — Azure throttle handling, code-collection clone failures, retry interval
 * [Helm configuration](./configuration/helm.md)
 * [Proxy & outbound connections](./configuration/proxy-and-outbound.md)
 * [Private container registry](./configuration/private-registry.md)

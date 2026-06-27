@@ -67,6 +67,37 @@ Out of the box the native backend can discover:
 
 Additional types can be added by registering a collector in `src/indexers/azureapi_resource_types.py`. If a generation rule references an Azure resource type with no registered collector under the `azureapi` backend, the build emits a warning and continues; under the legacy `cloudquery` backend the behavior is unchanged.
 
+### Handling Azure API throttling
+
+Azure Resource Manager applies per-subscription read limits and will return HTTP `429` with an error like:
+
+```
+(ResourceCollectionRequestsThrottled) Operation 'Microsoft.Storage/storageAccounts/read' failed as server encountered too many requests. Please try after '11' seconds.
+```
+
+The `azureapi` indexer automatically retries throttled list calls. The retry helper:
+
+* Detects throttles by status code (`408`, `429`, `500`, `502`, `503`, `504`) **and** by ARM throttle error codes in the message body (`ResourceCollectionRequestsThrottled`, `SubscriptionRequestsThrottled`, `TooManyRequests`, `ServerBusy`, `ServerTimeout`, `ResourceRequestsThrottled`, `RequestThrottled`).
+* Honors the `Retry-After` HTTP header when present.
+* Parses the `Please try after 'N' seconds` hint from the ARM message body when no header is present.
+* Falls back to exponential backoff with full jitter, capped at a per-sleep maximum.
+* Caps the total time spent waiting on any single list call, so a sustained throttle never wedges the build.
+* Logs each retry at `INFO` so operators can see exactly which resource type / scope is throttling.
+* Adds a `skipped_throttled` counter to the per-run discovery summary.
+
+The defaults (`6` attempts, `2s` initial backoff, `60s` per-sleep cap, `180s` total per call) work well for typical tenants. If you run very large subscriptions or hit sustained throttling, tune these in `workspaceInfo.yaml`:
+
+```yaml
+azureThrottleMaxAttempts: 10        # AZURE_THROTTLE_MAX_ATTEMPTS, default 6
+azureThrottleInitialBackoff: 2.0    # AZURE_THROTTLE_INITIAL_BACKOFF (seconds), default 2.0
+azureThrottleMaxBackoff: 120.0      # AZURE_THROTTLE_MAX_BACKOFF (seconds), default 60.0
+azureThrottleMaxTotalWait: 600.0    # AZURE_THROTTLE_MAX_TOTAL_WAIT (seconds), default 180.0
+```
+
+If you continue to see `Failed to list Azure …` errors with throttle codes in the message after raising these, the most likely cause is that one or more subscriptions has so many resources of a given type that even with backoff the read budget is exhausted within a single discovery cycle. In that case, narrow the discovery scope by setting per-RG `levelOfDetails` to `none` for resource groups that don't need indexing, or use `includeTags` / `excludeTags`, so the indexer makes fewer list calls per run.
+
+Set `LOG_LEVEL=DEBUG` to also see the per-page Azure SDK request logs; combined with the `Azure throttled …` INFO lines this gives a complete picture of which resource provider is rate-limiting the build.
+
 ## Azure Credentials
 
 Multiple authentication methods are available, including Service Principal and Managed Identity. If multiple authentication methods are available, the order is as follows:&#x20;

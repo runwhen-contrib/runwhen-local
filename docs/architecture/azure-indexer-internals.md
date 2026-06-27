@@ -31,6 +31,7 @@ src/indexers/
 ├── azureapi_resource_types.py          # 25 typed collectors + dispatch dict
 ├── azureapi_normalizers.py             # SDK model -> CQ-shaped dict
 ├── azure_common.py                     # credential resolution
+├── azure_throttle.py                   # 429 / Retry-After-aware retry helper
 ├── azure_resource_type_registry.py     # registry loader (data class)
 ├── azure_resource_type_registry.yaml   # GENERATED catalog of all CQ tables
 └── test_azureapi_*.py                  # unit tests
@@ -134,6 +135,45 @@ def _collect_postgresql_databases_all(credential, subscription_id):
 
 Per-server failures are swallowed so a single misconfigured server
 doesn't abort the whole subscription.
+
+### `azure_throttle.py` - throttle-aware retry
+
+`call_with_throttle_retry(func, *, label, ...)` wraps every list call
+made by the four dispatch helpers in `azureapi.py`
+(`_list_subscription_wide`, `_list_in_rg`,
+`_generic_pass_subscription_wide`, `_generic_pass_for_rg`). It is the
+*only* layer that owns retry policy; collectors stay declarative.
+
+Behavior:
+
+* Throttle classification (`is_throttle_error`) matches both HTTP status
+  (`408`, `429`, `500`, `502`, `503`, `504`) and ARM throttle codes in
+  the message body (`ResourceCollectionRequestsThrottled`,
+  `SubscriptionRequestsThrottled`, `ResourceRequestsThrottled`,
+  `TooManyRequests`, `ServerBusy`, `ServerTimeout`, `RequestThrottled`).
+* Wait time prefers an explicit hint (`Retry-After` header or the
+  `Please try after 'N' seconds` sentence in the ARM message) and
+  falls back to exponential backoff with full jitter, capped at
+  `max_backoff` per sleep.
+* Two-axis budget: `max_attempts` (default 6) and `max_total_wait`
+  (default 180s) bound how long a single list call can stall the
+  indexer. Either ceiling causes the helper to re-raise the last
+  throttle, which the dispatcher then converts to a per-type warning
+  via the existing `skipped_collector_error` path and increments the
+  new `skipped_throttled` stat for the run summary.
+* Non-throttle exceptions propagate immediately, preserving the
+  pre-existing semantics for `ResourceGroupNotFound` and other terminal
+  errors that the dispatchers special-case.
+* Each retry is logged at INFO (`Azure throttled <label> (attempt N/M);
+  sleeping <wait>s before retry: ...`). The `<label>` always includes
+  the resource type and scope (RG / subscription) so operators can pin
+  down which RP is rate-limiting the build.
+
+Operators can tune the policy in `workspaceInfo.yaml` via the
+`azureThrottleMaxAttempts`, `azureThrottleInitialBackoff`,
+`azureThrottleMaxBackoff`, and `azureThrottleMaxTotalWait` keys (also
+exposed as `AZURE_THROTTLE_*` env vars). Stub Contexts in unit tests
+that return `None` for these settings fall back to the module defaults.
 
 ### `azureapi_normalizers.py` - shape parity with CloudQuery
 

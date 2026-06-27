@@ -43,6 +43,7 @@ from resources import (
     ResourceTypeSpec,
 )
 from template import render_template_string
+from . import code_collection as _code_collection_module
 from .code_collection import (
     GenerationRuleFileSpec,
     CodeCollection,
@@ -1191,9 +1192,20 @@ def load(context: Context) -> None:
     resource_type_specs: dict[str, dict[ResourceTypeSpec, list[GenerationRuleInfo]]] = dict()
     collect_resource_types_visitor = CollectResourceTypeSpecsVisitor(resource_type_specs)
 
+    # Track code collections whose *initial clone* failed so we can refuse to
+    # continue (and refuse to build an upload pack) when none of the requested
+    # code collections were ever loaded. We deliberately distinguish:
+    #   * Initial clone failure -- repo never existed locally; gen rules from
+    #     this collection are completely missing this run.
+    #   * Fetch failure on an already-cloned repo -- we still have a usable
+    #     snapshot from the previous run, so warning + continue is fine.
+    # See ``_check_code_collection_clone_failures`` for the bail rules.
+    clone_failures: list[tuple[str, str, str]] = []  # (repo_url, ref_name, error)
+
     for code_collection_config in code_collection_configs:
         code_collection = get_code_collection(code_collection_config)
         ref_name = code_collection_config.ref_name
+        had_repo_before = code_collection.repo is not None
         try:
             code_collection.update_repo(ref_name)
         except Exception as e:
@@ -1201,6 +1213,12 @@ def load(context: Context) -> None:
                        f"(ref={ref_name}): {e}")
             logger.warning(message)
             context.add_warning(message)
+            if not had_repo_before and code_collection.repo is None:
+                # Initial clone failed; record so the post-loop check can
+                # decide whether to abort the run.
+                clone_failures.append(
+                    (code_collection_config.repo_url, ref_name, str(e))
+                )
             continue
         code_bundle_names = code_collection.get_code_bundle_names(ref_name, code_collection_config)
         for code_bundle_name in code_bundle_names:
@@ -1270,6 +1288,22 @@ def load(context: Context) -> None:
                         collect_resource_types_visitor.set_generation_rule_info(generation_rule_info)
                     generation_rule.match_predicate.accept(collect_resource_types_visitor)
 
+    # Resiliency: if the initial clone of any code collection failed and we
+    # are NOT using a local git mirror (i.e. we expected to talk to a remote),
+    # fail the whole run instead of silently producing a thin/empty workspace
+    # pack. Otherwise the subsequent upload step would happily ship an
+    # incomplete or empty pack to RunWhen Platform.
+    _check_code_collection_clone_failures(
+        clone_failures,
+        total_requested=len(code_collection_configs),
+        successfully_loaded=sum(
+            1
+            for ccc in code_collection_configs
+            if get_code_collection(ccc).repo is not None
+        ),
+        use_local_git=getattr(_code_collection_module, "USE_LOCAL_GIT", False),
+    )
+
     # Check for collisions in the generation of the shortened SLX base names
     # Collision are resolved by appending with an incrementing integer
     for slx_list in slxs_by_shortened_base_name.values():
@@ -1284,6 +1318,63 @@ def load(context: Context) -> None:
 
     context.set_property(GENERATION_RULES_PROPERTY, generation_rules)
     context.set_property(RESOURCE_TYPE_SPECS_PROPERTY, resource_type_specs)
+
+
+def _check_code_collection_clone_failures(
+    clone_failures: list[tuple[str, str, str]],
+    *,
+    total_requested: int,
+    successfully_loaded: int,
+    use_local_git: bool,
+) -> None:
+    """Decide whether code-collection clone failures should abort the run.
+
+    Rules:
+
+    * If ``use_local_git`` is True, never abort. The operator has explicitly
+      opted into the local-mirror path and the existing per-collection warning
+      is enough — we don't have a remote to retry against from this process.
+    * If there are no clone failures, never abort.
+    * If at least one collection cloned (or was already cached) AND there are
+      clone failures, log loudly but keep going. The pack will at least
+      contain what successfully loaded.
+    * If **every** requested collection failed to clone, abort. This is the
+      "empty pack" case that the upload step must not silently send.
+
+    Raises:
+        WorkspaceBuilderException: when the run must be aborted. The caller
+            translates this to a non-200 REST response, which short-circuits
+            the upload step in ``run.py`` and triggers the entrypoint's
+            5-minute retry loop.
+    """
+    if not clone_failures:
+        return
+    if use_local_git:
+        return
+    if successfully_loaded > 0:
+        # Partial success: keep going but make it obvious in the logs.
+        urls = ", ".join(url for url, _ref, _err in clone_failures)
+        logger.warning(
+            "Code-collection clone failed for %d of %d collections (%s); "
+            "continuing with the %d collections that loaded successfully.",
+            len(clone_failures),
+            total_requested,
+            urls,
+            successfully_loaded,
+        )
+        return
+    # All collections failed -> abort. The error message is intentionally
+    # explicit so the operator and the entrypoint logs make it clear *why*
+    # no upload happened.
+    details = "; ".join(
+        f"{url} (ref={ref}): {err}" for url, ref, err in clone_failures
+    )
+    raise WorkspaceBuilderException(
+        "Refusing to continue: every code-collection clone failed and "
+        "useLocalGit is false, which would produce an empty workspace pack. "
+        "No upload will be attempted; the entrypoint will retry. Failures: "
+        f"{details}"
+    )
 
 
 def enrich(context: Context) -> None:

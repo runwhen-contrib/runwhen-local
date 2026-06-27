@@ -44,3 +44,19 @@ Additional upload options are available to handle certain cases where the same S
     (default) - Preserve any configuration already in place in RunWhen Platform
 ```
 
+### Resiliency: clone failures block the upload
+
+The upload step is only allowed to run after a successful workspace-builder run. If `git clone` of every requested code collection fails (for example: a transient DNS outage, GitHub being unreachable from the cluster, or an auth token expiring), the workspace builder now **aborts the run** instead of producing a thin or empty pack that would then be uploaded.
+
+The behavior depends on whether the deployment is using the bundled local git mirror (`useLocalGit: true`) or talking to a remote:
+
+| Scenario | Behavior |
+| --- | --- |
+| `useLocalGit: true` (default for air-gapped / pre-built images) | Existing behavior — per-collection warnings, no abort. No remote retry is possible from this process. |
+| `useLocalGit: false` AND **all** code collections fail to clone | The `/run/` REST call returns an error, `./run.sh` exits non-zero, **no upload is attempted**. |
+| `useLocalGit: false` AND **some** code collections fail | Warning is logged listing the failed collections; the run continues using whatever loaded. The upload will still happen but the pack will be a known subset. |
+
+When the auto-run loop (`AUTORUN_WORKSPACE_BUILDER_INTERVAL` set) sees a non-zero exit from `./run.sh`, it backs off for `RW_RUN_RETRY_INTERVAL_SECONDS` (default `300` = 5 minutes) before trying again, instead of waiting the normal `AUTORUN_WORKSPACE_BUILDER_INTERVAL`. This gives transient network / DNS / GitHub outages time to resolve without spamming retries and without uploading an empty pack in the meantime. Tune `RW_RUN_RETRY_INTERVAL_SECONDS` (or `runRetryIntervalSeconds` in your Helm values) if you want a shorter or longer retry cadence.
+
+The pod retry loop also keeps polling the Kubernetes config reloader during the backoff window, so a `workspaceInfo.yaml` change still triggers an immediate pod restart even mid-retry.
+

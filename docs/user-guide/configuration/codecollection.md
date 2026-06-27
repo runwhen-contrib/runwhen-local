@@ -67,3 +67,13 @@ If you're developing new code bundles for one of the standard RunWhen code colle
 
 Individual code bundles may require additional information to generate the SLX files in the generated workspace. These settings go in the "custom" block in the workspace info file. Consult the documentation for the code collection for information about which custom settings are required for specific code bundles.
 
+#### Clone failures and the upload step
+
+The workspace builder clones every configured code collection at the start of each discovery run. When `useLocalGit: false` (i.e. RunWhen Local is reaching out to remote git providers like GitHub) and **all** of the configured code collections fail to clone — for example because of a DNS outage, GitHub being unreachable from the cluster, or an expired `authToken` — the run is aborted before any output is produced and **no upload is attempted**. Without this guard the upload step would ship an empty workspace pack and overwrite good data already on the platform.
+
+When the auto-run loop is enabled (Helm `runwhenLocal.autoRun.discoveryInterval`), the entrypoint backs off for `RW_RUN_RETRY_INTERVAL_SECONDS` (default 5 minutes) after a failed run, then retries. Partial failures (some collections clone, some don't) only log a warning and continue with whatever loaded.
+
+When `useLocalGit: true` (air-gapped / pre-built cache deployments) clone failures are tolerated as before, because there is no remote to retry against from this process.
+
+See [Discovery resiliency](./discovery-resiliency.md) for the full behavior table, log examples, and the `RW_RUN_RETRY_INTERVAL_SECONDS` tunable.
+
