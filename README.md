@@ -1,18 +1,31 @@
-# RunWhen Local
+<p align="center">
+  <img src="assets/rw-local-product.png" alt="RunWhen Local" width="640">
+</p>
 
-[![Join Slack](https://img.shields.io/badge/Join%20Slack-%23E01563.svg?&style=for-the-badge&logo=slack&logoColor=white)](https://runwhen.slack.com/join/shared_invite/zt-1l7t3tdzl-IzB8gXDsWtHkT8C5nufm2A)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Python 3.14](https://img.shields.io/badge/python-3.14-blue.svg)](https://www.python.org/downloads/)
-[![Docker](https://img.shields.io/badge/docker-supported-blue.svg)](https://www.docker.com/)
+<h1 align="center">RunWhen Local</h1>
 
-RunWhen Local is a **discovery tool** for cloud and Kubernetes
-infrastructure that turns the resources you already have into a tailored
-set of agentic **Skills** — small, AI-agent-readable runbooks bound to
-the specific things in *your* environment.
+<p align="center">
+  <strong>Discover your cloud &amp; Kubernetes infrastructure and turn it into
+  tailored, AI-agent-ready Skills.</strong><br>
+  One image — run it standalone on your desktop with a built-in MCP server,
+  or connect it to the RunWhen Platform for managed, production-grade execution.
+</p>
 
-Pair it with the [RunWhen Platform](https://www.runwhen.com) to manage
-and run those Skills safely in production: scheduled execution, audit,
-secrets, and team-level governance.
+<p align="center">
+  <a href="https://runwhen.slack.com/join/shared_invite/zt-1l7t3tdzl-IzB8gXDsWtHkT8C5nufm2A"><img src="https://img.shields.io/badge/Join%20Slack-%23E01563.svg?&style=for-the-badge&logo=slack&logoColor=white" alt="Join Slack"></a>
+  <a href="https://opensource.org/licenses/Apache-2.0"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License"></a>
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.14-blue.svg" alt="Python 3.14"></a>
+  <a href="https://www.docker.com/"><img src="https://img.shields.io/badge/docker-supported-blue.svg" alt="Docker"></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/runwhen-contrib/runwhen-local">GitHub</a> ·
+  <a href="https://github.com/orgs/runwhen-contrib/packages/container/package/runwhen-local">GHCR</a> ·
+  <a href="https://docs.runwhen.com/public/v/runwhen-local/">Docs</a> ·
+  <a href="https://runwhen-local.sandbox.runwhen.com/">Live sandbox</a>
+</p>
+
+---
 
 > Heads up: RunWhen Local is evolving quickly. The **discovery →
 > tailored Skills** workflow described below is the current core
@@ -22,11 +35,12 @@ secrets, and team-level governance.
 ## Table of Contents
 
 - [What it does](#what-it-does)
+- [Standalone vs. connected mode](#standalone-vs-connected-mode)
 - [How the pieces fit together](#how-the-pieces-fit-together)
-- [Quick start](#quick-start)
+- [Quick start (standalone: local Docker + MCP)](#quick-start-standalone-local-docker--mcp)
+- [Connected mode (RunWhen Platform via Helm)](#connected-mode-runwhen-platform-via-helm)
 - [Configuration](#configuration)
 - [What gets discovered](#what-gets-discovered)
-- [Going to production with the RunWhen Platform](#going-to-production-with-the-runwhen-platform)
 - [Documentation](#documentation)
 - [Contributing](#contributing)
 - [Community and support](#community-and-support)
@@ -65,6 +79,29 @@ secrets, and team-level governance.
    results into alerts or developer self-service flows. Local is fully
    useful standalone; the Platform turns it into a production runtime.
 
+## Standalone vs. connected mode
+
+RunWhen Local is **one image** that runs in two modes. The discovery
+engine and the generated Skills are identical in both — what changes is
+*how those Skills get consumed and executed*.
+
+| | **Standalone mode** | **Connected mode** |
+| --- | --- | --- |
+| **Where it runs** | Your laptop / a single Docker host | Your Kubernetes cluster (Helm) |
+| **What it's for** | Free, local exploration: discover your environment and hand the pre-configured Skills to an AI agent via the **built-in MCP server**, executed from your desktop. | Production: pair with the [RunWhen Platform](https://www.runwhen.com) for scheduled, governed, audited execution. |
+| **Skill execution** | You/your agent run the runbooks locally (MCP v1 is read-only: search, browse, preview). | The Platform runs SLXs behind RBAC, on a schedule, with managed secrets. |
+| **Account needed** | **None.** Just Docker. | A RunWhen Platform workspace. |
+| **How to install** | [`docker run` + point your MCP client at it](#quick-start-standalone-local-docker--mcp) | [Helm chart with the Runner enabled](#connected-mode-runwhen-platform-via-helm) |
+
+**Standalone mode** is the fastest way to get value with zero
+commitment: pull the image, run discovery against your cluster or cloud
+account, and let Claude Code / Cursor / Claude Desktop read your tailored
+Skills over MCP and help you operate your environment — all from your
+desktop, for free.
+
+**Connected mode** is the same discovery output, wired into the RunWhen
+Platform so a team can run those Skills safely in production.
+
 ## How the pieces fit together
 
 A short glossary; the [authoring/concepts
@@ -94,26 +131,15 @@ Discovered resources                Generated SLXs
               (live in CodeBundles)
 ```
 
-## Quick start
+## Quick start (standalone: local Docker + MCP)
 
-The fastest path is the published image. You'll need a
-`workspaceInfo.yaml` (sample below) and credentials for whatever
-platform(s) you want to discover.
+Run discovery on your desktop and hand the generated Skills to an AI
+agent over the built-in MCP server. No RunWhen account required — just
+Docker and credentials for whatever you want to discover.
 
-```bash
-docker pull ghcr.io/runwhen-contrib/runwhen-local:latest
-
-docker run --rm -it \
-  -p 8000:8000 \
-  -v "$(pwd):/shared" \
-  ghcr.io/runwhen-contrib/runwhen-local:latest
-```
-
-Once discovery finishes, the explorer UI is at
-`http://localhost:8000/explorer/`. Generated SLXs land in `./output/`.
-
-A minimal `workspaceInfo.yaml` to get started against a single
-Kubernetes cluster:
+**1. Write a minimal `workspaceInfo.yaml`** in an empty working
+directory (this single file is the source of truth — sample below for a
+single Kubernetes cluster):
 
 ```yaml
 workspaceName: "my-workspace"
@@ -134,8 +160,91 @@ codeCollections:
     branch: "main"
 ```
 
+Drop your `kubeconfig` next to it (the path above maps to `/shared`).
 For Azure, AWS, and GCP setup, see the per-platform pages in
 [`docs/user-guide/cloud-discovery/`](docs/user-guide/cloud-discovery/).
+
+**2. Run the image:**
+
+```bash
+docker pull ghcr.io/runwhen-contrib/runwhen-local:latest
+
+docker run --rm -it \
+  -p 8000:8000 \
+  -v "$(pwd):/shared" \
+  ghcr.io/runwhen-contrib/runwhen-local:latest
+```
+
+Once discovery finishes:
+
+- **Control center / landing page:** `http://localhost:8000/`
+- **Workspace Explorer:** `http://localhost:8000/explorer/`
+- **MCP endpoint:** `http://localhost:8000/mcp/`
+- Generated SLXs land in `./output/`.
+
+**3. Point your AI agent at the MCP server.** Add a remote MCP server
+entry to your client (the trailing slash matters):
+
+```json
+{
+  "mcpServers": {
+    "runwhen-local": {
+      "type": "http",
+      "url": "http://localhost:8000/mcp/"
+    }
+  }
+}
+```
+
+Now Claude Code, Cursor, Claude Desktop, or any MCP-compatible agent can
+search, browse, and read the Skills tailored to *your* environment and
+help you operate it from your desktop. See the
+[MCP server guide](docs/user-guide/features/mcp-server.md) for
+per-client config (including the `mcp-remote` bridge for Claude Desktop)
+and the full tool/prompt catalog.
+
+> Standalone MCP is **read-only** today (search, browse, preview) — it
+> grounds an agent in the resources you actually have. Governed,
+> scheduled *execution* lives in connected mode below; a sandboxed local
+> micro-runtime is on the roadmap.
+
+## Connected mode (RunWhen Platform via Helm)
+
+To run the generated Skills in production — scheduled, behind RBAC, with
+managed secrets and audit — deploy RunWhen Local into your cluster with
+the **Runner enabled** and connect it to a
+[RunWhen Platform](https://www.runwhen.com) workspace:
+
+```bash
+namespace=<namespace/project name>
+workspace=<my-runwhen-workspace>
+
+helm repo add runwhen-contrib https://runwhen-contrib.github.io/helm-charts
+helm repo update
+helm install runwhen-local runwhen-contrib/runwhen-local \
+  --set workspaceName=$workspace \
+  --set runner.enabled=true \
+  -n $namespace
+```
+
+This is the same discovery output as standalone mode, wired into the
+Platform so a team can run those Skills safely. Full walkthrough
+(workspace creation, proxies, OpenShift, chart values):
+
+- [Kubernetes Self-Hosted Runner (Connected)](docs/user-guide/installation/kubernetes-self-hosted/README.md)
+- [Helm chart values](https://github.com/runwhen-contrib/helm-charts/blob/main/charts/runwhen-local/values.yaml)
+- [Upload a generated workspace to the Platform](docs/user-guide/features/upload-to-runwhen-platform.md)
+
+The RunWhen Platform turns local discovery into a *managed* production
+runtime:
+
+- **Privately host** the Skills your team can run, with RBAC controls
+  on who can invoke what.
+- **Schedule** SLX runs and ingest the results into alerts /
+  developer-self-service flows.
+- **Manage secrets** centrally so credentials never live next to the
+  CodeBundle.
+- **Audit** every SLX execution for compliance.
 
 ## Configuration
 
@@ -189,25 +298,6 @@ CloudQuery backend still exists behind `*IndexerBackend: cloudquery` for
 compatibility but is being phased out; set it explicitly to opt back in. Both
 backends emit a single grep-able info-level log line on every run so it's
 obvious which one ran.
-
-## Going to production with the RunWhen Platform
-
-Local gives you discovered resources and tailored SLXs on disk. The
-[RunWhen Platform](https://www.runwhen.com) is the optional companion
-that turns those SLXs into a *managed* production runtime:
-
-- **Privately host** the Skills your team can run, with RBAC controls
-  on who can invoke what.
-- **Schedule** SLX runs and ingest the results into alerts /
-  developer-self-service flows.
-- **Manage secrets** centrally so credentials never live next to the
-  CodeBundle.
-- **Audit** every SLX execution for compliance.
-
-To upload the workspace generated by RunWhen Local to the Platform,
-pass `--upload` to `run.sh` (or the equivalent setting in
-`workspaceInfo.yaml`); see
-[`docs/user-guide/features/upload-to-runwhen-platform.md`](docs/user-guide/features/upload-to-runwhen-platform.md).
 
 ## Documentation
 
