@@ -1,0 +1,504 @@
+version: "3"
+
+# RunWhen Local - "no AKS" Azure indexer fixture.
+#
+# Provisions a small zoo of inexpensive Azure resources (resource groups,
+# storage accounts, vnet/nsg, key vault) and exercises the native ``azureapi``
+# indexer's scope-filter machinery end to end.
+#
+# Quick reference:
+#   task build-infra                   # terraform apply
+#   task ci-test-azureapi-baseline     # everything in scope
+#   task ci-test-azureapi-selective    # one RG marked LOD=none, must drop
+#   task ci-test-azureapi-tag-filter   # excludeTags drops drop-rg's resources
+#   task ci-test-azureapi-equivalence  # baseline cloudquery vs azureapi diff
+#   task clean                         # tear it all down
+#
+# Prerequisites:
+#   - terraform/tf.secret must exist and export AZ_TENANT_ID, AZ_CLIENT_ID,
+#     AZ_CLIENT_SECRET, TF_VAR_subscription_id, TF_VAR_tenant_id, and
+#     TF_VAR_sp_principal_id. The fixture symlinks tf.secret to the one in
+#     ../multi-subscription-aks/terraform/ so credentials are shared.
+#   - docker buildx with a builder named "mybuilder" available.
+
+tasks:
+
+  default:
+    desc: "Provision (if needed) and run the selective-indexing test."
+    cmds:
+      - task: build-infra
+      - task: ci-test-azureapi-selective
+
+  clean:
+    desc: "Destroy infra and remove discovery artifacts."
+    cmds:
+      - task: check-and-cleanup-terraform
+      - task: clean-rwl-discovery
+
+  # === Terraform lifecycle =================================================
+
+  build-infra:
+    desc: "Apply terraform (idempotent)."
+    cmds:
+      - task: build-terraform-infra
+
+  build-terraform-infra:
+    desc: "terraform apply"
+    silent: true
+    cmds:
+      - |
+        source terraform/tf.secret
+        if [ ! -d terraform ]; then
+          echo "terraform directory missing"; exit 1
+        fi
+        cd terraform
+        task format-and-init-terraform
+        echo "Applying terraform plan for no-aks-resources..."
+        terraform apply -auto-approve
+
+  check-terraform-infra:
+    desc: "Report whether terraform state has any deployed resources."
+    silent: true
+    cmds:
+      - |
+        source terraform/tf.secret
+        cd terraform
+        if [ ! -f terraform.tfstate ]; then
+          echo "No terraform state file found."
+          exit 0
+        fi
+        resources=$(terraform state list 2>/dev/null || true)
+        if [ -n "$resources" ]; then
+          echo "Deployed infrastructure detected."
+          echo "$resources"
+        else
+          echo "No deployed infrastructure found."
+        fi
+
+  cleanup-terraform-infra:
+    desc: "terraform destroy"
+    silent: true
+    cmds:
+      - |
+        source terraform/tf.secret
+        cd terraform
+        echo "Destroying no-aks-resources infrastructure..."
+        terraform destroy -auto-approve
+
+  check-and-cleanup-terraform:
+    desc: "Destroy any deployed terraform resources."
+    silent: true
+    cmds:
+      - |
+        out=$(task check-terraform-infra)
+        echo "$out"
+        if echo "$out" | grep -q "Deployed infrastructure detected"; then
+          task cleanup-terraform-infra
+        else
+          echo "No deployed infrastructure to clean up."
+        fi
+
+  # === RWL container lifecycle =============================================
+
+  build-rwl:
+    desc: "Build the RunWhen Local test image."
+    silent: true
+    cmds:
+      - |
+        BUILD_DIR=../../../src
+        # CI build-once optimization: when RWL_SKIP_BUILD is set (the CI test
+        # job has already pulled+tagged a prebuilt runwhen-local:test image),
+        # skip the local buildx build. Unset (local runs) builds as before.
+        if [ -n "${RWL_SKIP_BUILD:-}" ]; then
+          echo "RWL_SKIP_BUILD set; using existing runwhen-local:test image (skipping buildx build)."
+        else
+          docker buildx build --builder mybuilder --platform linux/amd64 \
+            -t runwhen-local:test -f "$BUILD_DIR/Dockerfile" "$BUILD_DIR" --load
+        fi
+
+  run-rwl-discovery:
+    desc: "Run RWL discovery against the current workspaceInfo.yaml. Container stays up so the explorer UI is reachable at http://localhost:8001/."
+    silent: true
+    cmds:
+      - |
+        rm -f run_sh_output.log container_logs.log
+        CONTAINER_NAME="RunWhenLocal-NoAks"
+        if docker ps -aq --filter "name=$CONTAINER_NAME" | grep -q .; then
+          docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
+        fi
+        rm -rf output && mkdir output && chmod 777 output
+        chmod 777 .
+        docker run -d \
+          -e DEBUG_LOGGING=true \
+          --name "$CONTAINER_NAME" -p 8001:8000 \
+          -v "$(pwd):/shared" \
+          runwhen-local:test
+        docker exec -w /workspace-builder "$CONTAINER_NAME" ./run.sh --verbose 2>&1 | tee run_sh_output.log
+        # Snapshot the FastAPI / indexer stdout into container_logs.log so
+        # the assert-* tasks (which grep for "selective discovery", etc.)
+        # have a fresh, deterministic file to read. Without this the
+        # internal [INFO] indexers.azureapi logs only live in docker logs.
+        docker logs "$CONTAINER_NAME" > container_logs.log 2>&1 || true
+        echo
+        echo "Discovery finished. Container '$CONTAINER_NAME' is still running."
+        echo "  - Explorer UI : http://localhost:8001/explorer/"
+        echo "  - Stop it with: docker rm -f $CONTAINER_NAME   (or 'task clean-rwl-discovery')"
+
+  clean-rwl-discovery:
+    desc: "Remove output/ and any generated workspaceInfo.yaml."
+    silent: true
+    cmds:
+      - |
+        rm -rf output
+        rm -f workspaceInfo.yaml run_sh_output.log container_logs.log
+
+  # === workspaceInfo.yaml generation =======================================
+  #
+  # All three configs target the azureapi indexer and the SQLite resource
+  # store so the assertions can query the persisted store directly.
+
+  generate-baseline-config:
+    desc: "Emit workspaceInfo.yaml with defaultLOD=detailed (everything in scope)."
+    silent: true
+    env:
+      RW_WORKSPACE: '{{.RW_WORKSPACE | default "no-aks-baseline"}}'
+    cmds:
+      - |
+        source terraform/tf.secret
+        cat > workspaceInfo.yaml <<EOF
+        workspaceName: "${RW_WORKSPACE}"
+        workspaceOwnerEmail: authors@runwhen.com
+        defaultLocation: location-01
+        defaultLOD: detailed
+        azureIndexerBackend: azureapi
+        resourceStoreBackend: sqlite
+        cloudConfig:
+          azure:
+            subscriptionId: "${TF_VAR_subscription_id}"
+            tenantId: "${AZ_TENANT_ID}"
+            clientId: "${AZ_CLIENT_ID}"
+            clientSecret: "${AZ_CLIENT_SECRET}"
+        codeCollections: []
+        custom:
+          kubernetes_distribution_binary: kubectl
+        EOF
+        echo "Wrote workspaceInfo.yaml (baseline / defaultLOD=detailed)"
+
+  generate-selective-config:
+    desc: "Emit workspaceInfo.yaml with defaultLOD=none + per-RG keep override."
+    silent: true
+    env:
+      RW_WORKSPACE: '{{.RW_WORKSPACE | default "no-aks-selective"}}'
+    cmds:
+      - |
+        source terraform/tf.secret
+        TFS_JSON=$(terraform -chdir=terraform show -json terraform.tfstate)
+        keep_rg=$(echo "$TFS_JSON" | jq -r '.values.outputs.keep_rg_name.value')
+        drop_rg=$(echo "$TFS_JSON" | jq -r '.values.outputs.drop_rg_name.value')
+        cat > workspaceInfo.yaml <<EOF
+        workspaceName: "${RW_WORKSPACE}"
+        workspaceOwnerEmail: authors@runwhen.com
+        defaultLocation: location-01
+        defaultLOD: none
+        azureIndexerBackend: azureapi
+        resourceStoreBackend: sqlite
+        cloudConfig:
+          azure:
+            subscriptionId: "${TF_VAR_subscription_id}"
+            tenantId: "${AZ_TENANT_ID}"
+            clientId: "${AZ_CLIENT_ID}"
+            clientSecret: "${AZ_CLIENT_SECRET}"
+            subscriptions:
+              - subscriptionId: "${TF_VAR_subscription_id}"
+                defaultLOD: none
+                resourceGroupLevelOfDetails:
+                  ${keep_rg}: detailed
+                  ${drop_rg}: none
+        codeCollections: []
+        custom:
+          kubernetes_distribution_binary: kubectl
+        EOF
+        echo "Wrote workspaceInfo.yaml (selective / keep=${keep_rg}, drop=${drop_rg})"
+
+  generate-tag-filter-config:
+    desc: "Emit workspaceInfo.yaml with excludeTags rejecting purpose=out-of-scope."
+    silent: true
+    env:
+      RW_WORKSPACE: '{{.RW_WORKSPACE | default "no-aks-tag-filter"}}'
+    cmds:
+      - |
+        source terraform/tf.secret
+        cat > workspaceInfo.yaml <<EOF
+        workspaceName: "${RW_WORKSPACE}"
+        workspaceOwnerEmail: authors@runwhen.com
+        defaultLocation: location-01
+        defaultLOD: detailed
+        azureIndexerBackend: azureapi
+        resourceStoreBackend: sqlite
+        cloudConfig:
+          azure:
+            subscriptionId: "${TF_VAR_subscription_id}"
+            tenantId: "${AZ_TENANT_ID}"
+            clientId: "${AZ_CLIENT_ID}"
+            clientSecret: "${AZ_CLIENT_SECRET}"
+            excludeTags:
+              purpose: out-of-scope
+        codeCollections: []
+        custom:
+          kubernetes_distribution_binary: kubectl
+        EOF
+        echo "Wrote workspaceInfo.yaml (tag-filter / excludeTags purpose=out-of-scope)"
+
+  # === CI assertions =======================================================
+
+  ci-test-azureapi-baseline:
+    desc: "End to end: discovery with everything in scope. SQLite store must contain every provisioned resource."
+    cmds:
+      - task: generate-baseline-config
+      - task: build-rwl
+      - task: run-rwl-discovery
+      - task: assert-baseline
+
+  ci-test-azureapi-selective:
+    desc: "End to end: drop-rg has LOD=none, must NOT appear in the SQLite store."
+    cmds:
+      - task: generate-selective-config
+      - task: build-rwl
+      - task: run-rwl-discovery
+      - task: assert-selective
+
+  ci-test-azureapi-tag-filter:
+    desc: "End to end: excludeTags drops every purpose=out-of-scope resource."
+    cmds:
+      - task: generate-tag-filter-config
+      - task: build-rwl
+      - task: run-rwl-discovery
+      - task: assert-tag-filter
+
+  assert-baseline:
+    desc: "Verify every provisioned resource is in output/resources.sqlite."
+    silent: true
+    cmds:
+      - |
+        DB=output/resources.sqlite
+        if [ ! -f "$DB" ]; then
+          echo "FAIL: $DB not produced"
+          exit 1
+        fi
+        # NB: `terraform show -json` needs the provider plugin schemas, which
+        # only live under terraform/.terraform/ once `terraform init` has run
+        # there. Use -chdir so the show executes in that directory.
+        TFS_JSON=$(terraform -chdir=terraform show -json terraform.tfstate)
+        keep_rg=$(echo "$TFS_JSON" | jq -r '.values.outputs.keep_rg_name.value')
+        drop_rg=$(echo "$TFS_JSON" | jq -r '.values.outputs.drop_rg_name.value')
+        keep_st=$(echo "$TFS_JSON" | jq -r '.values.outputs.keep_storage_name.value')
+        drop_st=$(echo "$TFS_JSON" | jq -r '.values.outputs.drop_storage_name.value')
+        kv=$(echo "$TFS_JSON" | jq -r '.values.outputs.key_vault_name.value')
+
+        fail=0
+        for name in "$keep_rg" "$drop_rg" "$keep_st" "$drop_st" "$kv"; do
+          n=$(sqlite3 "$DB" \
+            "SELECT count(*) FROM resources WHERE platform='azure' AND name='${name}';" \
+            2>/dev/null || echo 0)
+          if [ "$n" -lt 1 ]; then
+            echo "FAIL baseline: '${name}' not in resource store"
+            fail=1
+          else
+            echo "OK   baseline: '${name}' present (${n} row)"
+          fi
+        done
+        exit "$fail"
+
+  assert-selective:
+    desc: "Verify keep-rg lands and drop-rg + its resources are absent (per-RG SDK calls only)."
+    silent: true
+    cmds:
+      - |
+        DB=output/resources.sqlite
+        if [ ! -f "$DB" ]; then
+          echo "FAIL: $DB not produced"
+          exit 1
+        fi
+        # Re-snapshot the container's main-process logs even if
+        # run-rwl-discovery already did so. The "selective discovery"
+        # and "skipped_lod_filter" lines are emitted by the indexer
+        # running inside the container's main FastAPI process, not by
+        # the exec'd run.sh, so they only land in `docker logs` -- not
+        # in run_sh_output.log. Doing this here (matching the AWS/GCP
+        # fixtures) keeps the assert self-contained and avoids the
+        # misleading "did not log selective discovery" failure when
+        # container_logs.log is missing or stale.
+        CONTAINER_NAME="RunWhenLocal-NoAks"
+        docker logs "$CONTAINER_NAME" > container_logs.log 2>&1 || true
+
+        TFS_JSON=$(terraform -chdir=terraform show -json terraform.tfstate)
+        keep_rg=$(echo "$TFS_JSON" | jq -r '.values.outputs.keep_rg_name.value')
+        drop_rg=$(echo "$TFS_JSON" | jq -r '.values.outputs.drop_rg_name.value')
+        keep_st=$(echo "$TFS_JSON" | jq -r '.values.outputs.keep_storage_name.value')
+        drop_st=$(echo "$TFS_JSON" | jq -r '.values.outputs.drop_storage_name.value')
+
+        fail=0
+        # keep-rg + its storage MUST be present.
+        for name in "$keep_rg" "$keep_st"; do
+          n=$(sqlite3 "$DB" \
+            "SELECT count(*) FROM resources WHERE platform='azure' AND name='${name}';" \
+            2>/dev/null || echo 0)
+          if [ "$n" -lt 1 ]; then
+            echo "FAIL selective: '${name}' should be present, got 0 rows"
+            fail=1
+          else
+            echo "OK   selective: '${name}' present (${n} row)"
+          fi
+        done
+        # drop-rg + its storage MUST be absent. With selective discovery the
+        # indexer NEVER calls list_by_resource_group("drop-rg-*"), so these
+        # resources should never even be enumerated, let alone persisted.
+        for name in "$drop_rg" "$drop_st"; do
+          n=$(sqlite3 "$DB" \
+            "SELECT count(*) FROM resources WHERE platform='azure' AND name='${name}';" \
+            2>/dev/null || echo 0)
+          if [ "$n" -gt 0 ]; then
+            echo "FAIL selective: '${name}' should be absent, found ${n} row(s)"
+            fail=1
+          else
+            echo "OK   selective: '${name}' correctly absent"
+          fi
+        done
+        # Build the list of log files actually present so grep doesn't
+        # fail noisily (and ambiguously) when container_logs.log is
+        # somehow missing -- the docker logs snapshot at the top of
+        # this task should always create it, but treat the file as
+        # optional so a failed snapshot doesn't mask the real signal.
+        log_files=""
+        [ -f run_sh_output.log ] && log_files="$log_files run_sh_output.log"
+        [ -f container_logs.log ] && log_files="$log_files container_logs.log"
+        if [ -z "$log_files" ]; then
+          echo "FAIL selective: neither run_sh_output.log nor container_logs.log exists"
+          exit 1
+        fi
+
+        # Verify the indexer logged that selective discovery actually ran.
+        if grep -qE "selective discovery, in-scope RGs" $log_files 2>/dev/null; then
+          echo "OK   selective: indexer reported selective discovery mode"
+        else
+          echo "FAIL selective: indexer did not log 'selective discovery' for any subscription (searched:$log_files)"
+          fail=1
+        fi
+        # The drop-rg itself is filtered post-list (only the RG enumeration is
+        # subscription-wide), so we expect skipped_lod_filter >= 1 for the RG.
+        if grep -qE 'skipped_lod_filter=[1-9][0-9]*' $log_files 2>/dev/null; then
+          echo "OK   selective: indexer reported skipped_lod_filter > 0"
+        else
+          echo "WARN selective: skipped_lod_filter is 0 - the drop-rg LOD post-filter didn't fire (unexpected if drop-rg exists)"
+        fi
+        exit "$fail"
+
+  assert-tag-filter:
+    desc: "Verify purpose=out-of-scope resources are dropped and skipped_tag_filter > 0."
+    silent: true
+    cmds:
+      - |
+        DB=output/resources.sqlite
+        if [ ! -f "$DB" ]; then
+          echo "FAIL: $DB not produced"
+          exit 1
+        fi
+        # See assert-selective: skipped_tag_filter is emitted by the
+        # indexer running in the container's main process, so always
+        # re-snapshot docker logs here. Matches the AWS/GCP fixtures.
+        CONTAINER_NAME="RunWhenLocal-NoAks"
+        docker logs "$CONTAINER_NAME" > container_logs.log 2>&1 || true
+
+        TFS_JSON=$(terraform -chdir=terraform show -json terraform.tfstate)
+        keep_st=$(echo "$TFS_JSON" | jq -r '.values.outputs.keep_storage_name.value')
+        drop_st=$(echo "$TFS_JSON" | jq -r '.values.outputs.drop_storage_name.value')
+
+        fail=0
+        n=$(sqlite3 "$DB" \
+          "SELECT count(*) FROM resources WHERE platform='azure' AND name='${keep_st}';" \
+          2>/dev/null || echo 0)
+        if [ "$n" -lt 1 ]; then
+          echo "FAIL tag-filter: '${keep_st}' should be present, got 0 rows"
+          fail=1
+        else
+          echo "OK   tag-filter: '${keep_st}' present (${n} row)"
+        fi
+        n=$(sqlite3 "$DB" \
+          "SELECT count(*) FROM resources WHERE platform='azure' AND name='${drop_st}';" \
+          2>/dev/null || echo 0)
+        if [ "$n" -gt 0 ]; then
+          echo "FAIL tag-filter: '${drop_st}' should be absent, found ${n} row(s)"
+          fail=1
+        else
+          echo "OK   tag-filter: '${drop_st}' correctly absent"
+        fi
+        # Same defensive file-list construction as assert-selective.
+        log_files=""
+        [ -f run_sh_output.log ] && log_files="$log_files run_sh_output.log"
+        [ -f container_logs.log ] && log_files="$log_files container_logs.log"
+        if [ -z "$log_files" ]; then
+          echo "FAIL tag-filter: neither run_sh_output.log nor container_logs.log exists"
+          exit 1
+        fi
+
+        # Indexer must report skipped_tag_filter > 0.
+        if grep -qE 'skipped_tag_filter=[1-9][0-9]*' $log_files 2>/dev/null; then
+          echo "OK   tag-filter: indexer reported skipped_tag_filter > 0"
+        else
+          echo "FAIL tag-filter: indexer did not report a positive skipped_tag_filter count (searched:$log_files)"
+          fail=1
+        fi
+        exit "$fail"
+
+  # === Bonus: cross-backend equivalence ====================================
+
+  ci-test-azureapi-equivalence:
+    desc: "Run discovery once with the legacy CloudQuery backend and once with azureapi, then diff resource dumps."
+    cmds:
+      - task: generate-baseline-config
+      - |
+        BUILD_DIR=../../../src
+        IMAGE=runwhen-local:no-aks-equiv
+        BASELINE_OUT=output-cloudquery
+        CANDIDATE_OUT=output-azureapi
+
+        rm -rf "$BASELINE_OUT" "$CANDIDATE_OUT"
+        mkdir "$BASELINE_OUT" "$CANDIDATE_OUT"
+        chmod 777 "$BASELINE_OUT" "$CANDIDATE_OUT"
+
+        docker buildx build --builder mybuilder --platform linux/amd64 \
+          -t "$IMAGE" -f "$BUILD_DIR/Dockerfile" "$BUILD_DIR" --load
+
+        run_with_backend() {
+          local backend="$1"
+          local out_dir="$2"
+          local container="no-aks-equiv-$backend"
+
+          if grep -q "^azureIndexerBackend:" workspaceInfo.yaml; then
+            sed -i "s/^azureIndexerBackend:.*/azureIndexerBackend: $backend/" workspaceInfo.yaml
+          else
+            echo "azureIndexerBackend: $backend" >> workspaceInfo.yaml
+          fi
+
+          docker rm -f "$container" >/dev/null 2>&1 || true
+          rm -rf output && mkdir output && chmod 777 output
+
+          docker run --name "$container" -p 0:8000 -v "$(pwd):/shared" -d "$IMAGE"
+          docker exec -w /workspace-builder "$container" ./run.sh --verbose
+          docker stop "$container" >/dev/null
+          docker rm "$container" >/dev/null
+
+          cp -r output/* "$out_dir"/
+        }
+
+        run_with_backend cloudquery "$BASELINE_OUT"
+        run_with_backend azureapi   "$CANDIDATE_OUT"
+
+        if [ -f ../multi-subscription-aks/diff_resource_dump.py ]; then
+          python3 ../multi-subscription-aks/diff_resource_dump.py \
+            "$BASELINE_OUT/resource-dump.yaml" \
+            "$CANDIDATE_OUT/resource-dump.yaml"
+        else
+          echo "diff_resource_dump.py not available; compare $BASELINE_OUT/ and $CANDIDATE_OUT/ manually"
+        fi
+    silent: true
