@@ -101,126 +101,42 @@ tasks:
     desc: "Run RunWhen Local Discovery on test infrastructure"
     cmds:
       - |
-        rm slx_count.txt || true
-        CONTAINER_NAME="RunWhenLocal"    
-        if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
-          echo "Stopping and removing existing container $CONTAINER_NAME..."
-          docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME
-        elif docker ps -a -q --filter "name=$CONTAINER_NAME" | grep -q .; then
-          echo "Removing existing stopped container $CONTAINER_NAME..."
-          docker rm $CONTAINER_NAME
-        else
-          echo "No existing container named $CONTAINER_NAME found."
-        fi
-        
-        echo "Cleaning up output directory..."
-        rm -rf output || { echo "Failed to remove output directory"; exit 1; }
-        mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
-
-        echo "Starting new container $CONTAINER_NAME..."
-
-        docker run -e DEBUG_LOGGING=false -e WB_WRITE_WORKSPACE_FILES_TO_DISK=true --add-host github.com:0.0.0.0 --name $CONTAINER_NAME -p 8000:8000 -v $(pwd):/shared -d runwhen-local:test || {
-          echo "Failed to start container"; exit 1;
-        }
-
-        echo "Running workspace builder script in container..."
-        docker exec -w /workspace-builder $CONTAINER_NAME ./run.sh $1 --verbose || {
-          echo "Error executing script in container"; exit 1;
-        }
-
-        echo "Review generated config files under output/workspaces/"
-        total_slxs=$(find $(find 'output/' -type d -name 'slxs') -mindepth 1 -type d | wc -l)
-        echo "Total SLXs: $total_slxs"
-        echo "$total_slxs" > slx_count.txt
+        source _discovery_common.sh
+        CONTAINER_NAME="RunWhenLocal"
+        _rwl_prepare_container "$CONTAINER_NAME"
+        _rwl_start_container "$CONTAINER_NAME" --add-host github.com:0.0.0.0
+        _rwl_wait_for_rest "$CONTAINER_NAME"
+        _rwl_run_discovery "$CONTAINER_NAME" "$1"
+        _rwl_write_slx_count
     silent: true
 
   run-rwl-discovery:
     desc: "Run RunWhen Local Discovery on test infrastructure"
     cmds:
       - |
-        rm slx_count.txt || true
-        CONTAINER_NAME="RunWhenLocal"    
-        if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
-          echo "Stopping and removing existing container $CONTAINER_NAME..."
-          docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME
-        elif docker ps -a -q --filter "name=$CONTAINER_NAME" | grep -q .; then
-          echo "Removing existing stopped container $CONTAINER_NAME..."
-          docker rm $CONTAINER_NAME
-        else
-          echo "No existing container named $CONTAINER_NAME found."
-        fi
-        
-        echo "Cleaning up output directory..."
-        rm -rf output || { echo "Failed to remove output directory"; exit 1; }
-        mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
-
-        echo "Starting new container $CONTAINER_NAME..."
-
-        docker run -e DEBUG_LOGGING=false -e WB_WRITE_WORKSPACE_FILES_TO_DISK=true --name $CONTAINER_NAME -p 8000:8000 -v $(pwd):/shared -d runwhen-local:test || {
-          echo "Failed to start container"; exit 1;
-        }
-
-        echo "Running workspace builder script in container..."
-        docker exec -w /workspace-builder $CONTAINER_NAME ./run.sh $1 --verbose || {
-          echo "Error executing script in container"; exit 1;
-        }
-
-        echo "Review generated config files under output/workspaces/"
-        total_slxs=$(find $(find 'output/' -type d -name 'slxs') -mindepth 1 -type d | wc -l)
-        echo "Total SLXs: $total_slxs"
-        echo "$total_slxs" > slx_count.txt
+        source _discovery_common.sh
+        CONTAINER_NAME="RunWhenLocal"
+        _rwl_prepare_container "$CONTAINER_NAME"
+        _rwl_start_container "$CONTAINER_NAME"
+        _rwl_wait_for_rest "$CONTAINER_NAME"
+        _rwl_run_discovery "$CONTAINER_NAME" "$1"
+        _rwl_write_slx_count
     silent: true
 
   ci-run-rwl-discovery:
     desc: "Run RunWhen Local Discovery on test infrastructure"
     cmds:
       - |
-        rm slx_count.txt || true
-        CONTAINER_NAME="RunWhenLocal"    
-        if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
-          echo "Stopping and removing existing container $CONTAINER_NAME..."
-          docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME
-        elif docker ps -a -q --filter "name=$CONTAINER_NAME" | grep -q .; then
-          echo "Removing existing stopped container $CONTAINER_NAME..."
-          docker rm $CONTAINER_NAME
-        else
-          echo "No existing container named $CONTAINER_NAME found."
-        fi
-        
-        echo "Cleaning up output directory..."
-        rm -rf output || { echo "Failed to remove output directory"; exit 1; }
-        mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
-        chmod 777 . 
-        echo "Starting new container $CONTAINER_NAME..."
-        echo "User $(whoami)"
-        # 1. Start container in the background
-        docker run -d \
-          -e DEBUG_LOGS=true \
-          -e WB_WRITE_WORKSPACE_FILES_TO_DISK=true \
-          --name "$CONTAINER_NAME" \
-          -p 8000:8000 \
-          -v "$(pwd):/shared" \
-          runwhen-local:test
-
-        # 2. Follow the main container logs in the background (if you care about them)
-        docker logs -f "$CONTAINER_NAME" &
-
-        # 3. Now exec the script. Its stdout goes to your pipeline.
-        #    By default, docker exec prints to the current terminal/session.
-        docker exec -w /workspace-builder "$CONTAINER_NAME" ./run.sh "$1" --verbose 2>&1 | tee run_sh_output.log
-
-        # 3.5. Capture container logs before stopping (needed for git safe directory validation)
-        echo "Capturing container logs..."
-        docker logs "$CONTAINER_NAME" > container_logs.log 2>&1 || echo "Failed to capture container logs"
-
-        # 4. (Optional) Stop container if you no longer need it running
-        docker stop "$CONTAINER_NAME"
-        docker rm "$CONTAINER_NAME"        
-
-        echo "Review generated config files under output/workspaces/"
-        total_slxs=$(find $(find 'output/' -type d -name 'slxs') -mindepth 1 -type d | wc -l)
-        echo "Total SLXs: $total_slxs"
-        echo "$total_slxs" > slx_count.txt
+        source _discovery_common.sh
+        CONTAINER_NAME="RunWhenLocal"
+        _rwl_prepare_container "$CONTAINER_NAME"
+        chmod 777 .
+        _rwl_start_container "$CONTAINER_NAME"
+        _rwl_wait_for_rest "$CONTAINER_NAME"
+        _rwl_run_discovery "$CONTAINER_NAME" "$1"
+        _rwl_write_slx_count
+        docker stop "$CONTAINER_NAME" 2>/dev/null || true
+        docker rm "$CONTAINER_NAME" 2>/dev/null || true
     silent: true
 
 
@@ -228,53 +144,18 @@ tasks:
     desc: "Run RunWhen Local Discovery with github.com blocked (for local-git validation)"
     cmds:
       - |
-        rm slx_count.txt || true
-        CONTAINER_NAME="RunWhenLocal"    
-        if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
-          echo "Stopping and removing existing container $CONTAINER_NAME..."
-          docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME
-        elif docker ps -a -q --filter "name=$CONTAINER_NAME" | grep -q .; then
-          echo "Removing existing stopped container $CONTAINER_NAME..."
-          docker rm $CONTAINER_NAME
-        else
-          echo "No existing container named $CONTAINER_NAME found."
-        fi
-        
-        echo "Cleaning up output directory..."
-        rm -rf output || { echo "Failed to remove output directory"; exit 1; }
-        mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
-        chmod 777 . 
-        echo "Starting new container $CONTAINER_NAME (github.com blocked)..."
-        echo "User $(whoami)"
-        # 1. Start container with github.com/api.github.com blocked via /etc/hosts
-        docker run -d \
-          -e DEBUG_LOGS=true \
-          -e WB_WRITE_WORKSPACE_FILES_TO_DISK=true \
+        source _discovery_common.sh
+        CONTAINER_NAME="RunWhenLocal"
+        _rwl_prepare_container "$CONTAINER_NAME"
+        chmod 777 .
+        _rwl_start_container "$CONTAINER_NAME" \
           --add-host github.com:0.0.0.0 \
-          --add-host api.github.com:0.0.0.0 \
-          --name "$CONTAINER_NAME" \
-          -p 8000:8000 \
-          -v "$(pwd):/shared" \
-          runwhen-local:test
-
-        # 2. Follow the main container logs in the background
-        docker logs -f "$CONTAINER_NAME" &
-
-        # 3. Exec run.sh — its stdout goes to the pipeline
-        docker exec -w /workspace-builder "$CONTAINER_NAME" ./run.sh "$1" --verbose 2>&1 | tee run_sh_output.log
-
-        # 3.5. Capture container logs before stopping
-        echo "Capturing container logs..."
-        docker logs "$CONTAINER_NAME" > container_logs.log 2>&1 || echo "Failed to capture container logs"
-
-        # 4. Stop and remove container
-        docker stop "$CONTAINER_NAME"
-        docker rm "$CONTAINER_NAME"        
-
-        echo "Review generated config files under output/workspaces/"
-        total_slxs=$(find $(find 'output/' -type d -name 'slxs') -mindepth 1 -type d | wc -l)
-        echo "Total SLXs: $total_slxs"
-        echo "$total_slxs" > slx_count.txt
+          --add-host api.github.com:0.0.0.0
+        _rwl_wait_for_rest "$CONTAINER_NAME"
+        _rwl_run_discovery "$CONTAINER_NAME" "$1"
+        _rwl_write_slx_count
+        docker stop "$CONTAINER_NAME" 2>/dev/null || true
+        docker rm "$CONTAINER_NAME" 2>/dev/null || true
     silent: true
 
   ci-test-1:
@@ -611,38 +492,49 @@ tasks:
     cmds: 
       - | 
         echo "Validate Runbook location configuration"
-        RUNBOOK_FILE=$(find . -type f -name "runbook.yaml" | head -n 1)
-        if [ -z "$RUNBOOK_FILE" ]; then
-          echo "Error: No runbook.yaml file found in subdirectories." >&2
-          exit 1
+        if [ -f output/resources.sqlite ]; then
+          LOCATION=$(python3 ../../lib/slx_db.py --db output/resources.sqlite location runbook)
+          echo "Validation successful: runbook artifact has spec.location=$LOCATION"
+        else
+          RUNBOOK_FILE=$(find output -type f -name "runbook.yaml" | head -n 1)
+          if [ -z "$RUNBOOK_FILE" ]; then
+            echo "Error: No runbook.yaml found under output/." >&2
+            exit 1
+          fi
+          LOCATION=$(yq e '.spec.location' "$RUNBOOK_FILE")
+          echo "Validation successful: $RUNBOOK_FILE has a valid spec.location."
         fi
-        LOCATION=$(yq e '.spec.location' "$RUNBOOK_FILE")
         if [ "$LOCATION" = "missing_workspaceInfo_custom_variable" ]; then
-          echo "Error: runbook.yaml contains an invalid spec.location value." >&2
+          echo "Error: runbook contains an invalid spec.location value." >&2
           exit 1
         fi
-        echo "Validation successful: $RUNBOOK_FILE has a valid spec.location."
 
         echo "Validate SLI location configuration"
-        SLI_FILE=$(find . -type f -name "sli.yaml" | head -n 1)
-        if [ -z "$SLI_FILE" ]; then
-          echo "Error: No sli.yaml file found in subdirectories." >&2
-          exit 1
+        if [ -f output/resources.sqlite ]; then
+          LOCATION=$(python3 ../../lib/slx_db.py --db output/resources.sqlite location sli)
+          echo "Validation successful: sli artifact has spec.location=$LOCATION"
+        else
+          SLI_FILE=$(find output -type f -name "sli.yaml" | head -n 1)
+          if [ -z "$SLI_FILE" ]; then
+            echo "Error: No sli.yaml found under output/." >&2
+            exit 1
+          fi
+          LOCATION=$(yq e '.spec.location' "$SLI_FILE")
+          echo "Validation successful: $SLI_FILE has a valid spec.location."
         fi
-        LOCATION=$(yq e '.spec.location' "$SLI_FILE")
         if [ "$LOCATION" = "missing_workspaceInfo_custom_variable" ]; then
-          echo "Error: runbook.yaml contains an invalid spec.location value." >&2
+          echo "Error: sli contains an invalid spec.location value." >&2
           exit 1
         fi
-        echo "Validation successful: $SLI_FILE has a valid spec.location."
     silent: true
 
   clean-rwl-discovery:
     desc: "Check and clean up RunWhen Local discovery output"
     cmds:
       - |
+        docker rm -f RunWhenLocal 2>/dev/null || true
         rm -rf output
-        rm workspaceInfo.yaml
+        rm -f workspaceInfo.yaml run_sh_output.log container_logs.log slx_count.txt
     silent: true
 
   validate-k8s-yaml:
