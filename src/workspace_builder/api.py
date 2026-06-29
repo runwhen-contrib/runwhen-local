@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from component import Stage, get_all_settings
 from utils import get_version_info
@@ -41,6 +43,11 @@ app = FastAPI(title="RunWhen Local Workspace Builder", lifespan=_mcp_lifespan)
 # page rather than 404.
 app.include_router(home_router)
 app.include_router(explorer_router)
+app.mount(
+    "/static",
+    StaticFiles(directory=str(Path(__file__).resolve().parent / "static")),
+    name="static",
+)
 
 if _mcp_lifespan is not None:
     # JSON-RPC endpoint reachable at ``http://<host>:8000/mcp``. Inside

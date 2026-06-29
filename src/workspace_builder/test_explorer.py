@@ -125,6 +125,8 @@ class ExplorerApiTests(unittest.TestCase):
         response = self.client.get("/explorer/")
         self.assertEqual(200, response.status_code)
         self.assertIn("Workspace Explorer", response.text)
+        self.assertIn('src="/static/assets/white_runwhen_logo_transparent_bg.png"', response.text)
+        self.assertIn('href="/static/rw-ui.css"', response.text)
 
     def test_explorer_slx_bundles(self):
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -3,304 +3,32 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>RunWhen Local Workspace Explorer</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      --primary: #2F80ED;
-      --primary-dark: #1a365d;
-      --primary-light: #90cdf4;
-      --secondary: #faa629;
-      --bg: #ffffff;
-      --bg-alt: #f7fafc;
-      --paper: #ffffff;
-      --text: #1a202c;
-      --text-secondary: #4a5568;
-      --divider: #e2e8f0;
-      --hover: rgba(47, 128, 237, 0.08);
-      --shadow: 0 2px 4px rgba(0,0,0,0.1);
-      --shadow-lg: 0 4px 20px rgba(47, 128, 237, 0.15);
-    }
-    [data-theme="dark"] {
-      --bg: #0f172a;
-      --bg-alt: #1e293b;
-      --paper: #1e293b;
-      --text: #e2e8f0;
-      --text-secondary: #94a3b8;
-      --divider: rgba(255,255,255,0.12);
-      --hover: rgba(47, 128, 237, 0.12);
-      --shadow: 0 2px 4px rgba(0,0,0,0.4);
-      --shadow-lg: 0 4px 20px rgba(0,0,0,0.5);
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      line-height: 1.5;
-      transition: background 0.2s ease, color 0.2s ease;
-    }
-    .appbar {
-      position: sticky; top: 0; z-index: 50;
-      background: var(--primary); color: #fff;
-      padding: 0.75rem 1.5rem;
-      display: flex; align-items: center; gap: 1rem;
-      box-shadow: var(--shadow);
-    }
-    [data-theme="dark"] .appbar { background: #0f172a; border-bottom: 1px solid var(--divider); }
-    .brand { display: flex; align-items: center; gap: 0.625rem; font-weight: 700; font-size: 1.05rem; letter-spacing: 0.3px; }
-    .brand-mark {
-      width: 30px; height: 30px; border-radius: 8px;
-      background: linear-gradient(135deg, #fff 0%, var(--primary-light) 100%);
-      display: grid; place-items: center;
-      color: var(--primary-dark); font-weight: 800; font-size: 0.8rem;
-    }
-    .appbar-spacer { flex: 1; }
-    .appbar-actions { display: flex; gap: 0.5rem; align-items: center; }
-    .icon-btn {
-      background: transparent; border: 1px solid rgba(255,255,255,0.25);
-      color: #fff; width: 36px; height: 36px; border-radius: 8px;
-      cursor: pointer; display: grid; place-items: center;
-      transition: background 0.15s;
-    }
-    .icon-btn:hover { background: rgba(255,255,255,0.12); }
-    .hero {
-      padding: 2rem 1.5rem 1.5rem;
-      background: linear-gradient(180deg, var(--bg-alt) 0%, var(--bg) 100%);
-      border-bottom: 1px solid var(--divider);
-    }
-    .container { max-width: 1280px; margin: 0 auto; }
-    .hero h1 { margin: 0 0 0.5rem; font-size: 1.875rem; font-weight: 700; letter-spacing: -0.01em; }
-    .hero p { margin: 0 0 1.25rem; color: var(--text-secondary); font-size: 0.95rem; max-width: 720px; }
-    .search { position: relative; max-width: 640px; }
-    .search input {
-      width: 100%;
-      padding: 0.75rem 1rem 0.75rem 2.5rem;
-      border: 1.5px solid var(--divider); border-radius: 12px;
-      font-size: 0.95rem; font-family: inherit;
-      background: var(--paper); color: var(--text);
-      transition: border-color 0.15s, box-shadow 0.15s;
-    }
-    .search input:focus {
-      outline: none; border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(47, 128, 237, 0.15);
-    }
-    .search-icon {
-      position: absolute; left: 0.875rem; top: 50%;
-      transform: translateY(-50%); color: var(--text-secondary); pointer-events: none;
-    }
-    .stat-row {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 0.875rem; margin-top: 1.25rem;
-    }
-    .stat-card {
-      background: var(--paper); border: 1px solid var(--divider);
-      border-radius: 12px; padding: 0.875rem 1rem;
-      cursor: pointer; transition: all 0.2s;
-      text-decoration: none; color: inherit;
-      display: flex; flex-direction: column; gap: 0.25rem;
-    }
-    .stat-card:hover { border-color: var(--primary); transform: translateY(-2px); box-shadow: var(--shadow-lg); }
-    .stat-card.active { border-color: var(--primary); background: var(--hover); }
-    .stat-card-top { display: flex; align-items: center; justify-content: space-between; }
-    .stat-icon {
-      width: 28px; height: 28px; border-radius: 8px;
-      background: rgba(47, 128, 237, 0.1); color: var(--primary);
-      display: grid; place-items: center; font-size: 0.875rem;
-    }
-    .stat-count { font-size: 1.5rem; font-weight: 700; color: var(--primary); line-height: 1; }
-    .stat-label { font-size: 0.875rem; font-weight: 600; }
-    .stat-desc { font-size: 0.75rem; color: var(--text-secondary); }
-    main { padding: 1.5rem; }
-    .layout { display: grid; grid-template-columns: 280px 1fr; gap: 1.5rem; align-items: start; }
-    @media (max-width: 960px) { .layout { grid-template-columns: 1fr; } }
-    .sidebar {
-      background: var(--paper); border: 1px solid var(--divider);
-      border-radius: 12px; padding: 1rem;
-      position: sticky; top: 4.5rem;
-      max-height: calc(100vh - 6rem); overflow-y: auto;
-    }
-    .sidebar h3 {
-      font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em;
-      color: var(--text-secondary); margin: 0 0 0.5rem; font-weight: 600;
-    }
-    .sidebar ul { list-style: none; margin: 0 0 1rem; padding: 0; }
-    .sidebar li button {
-      width: 100%; text-align: left; background: transparent; border: none;
-      padding: 0.5rem 0.625rem; border-radius: 8px; cursor: pointer;
-      font: inherit; color: var(--text);
-      display: flex; justify-content: space-between; align-items: center;
-      transition: background 0.15s;
-    }
-    .sidebar li button:hover { background: var(--hover); }
-    .sidebar li button.active { background: var(--hover); color: var(--primary); font-weight: 600; }
-    .sidebar li.indent button { padding-left: 1.5rem; font-size: 0.875rem; }
-    .badge {
-      background: rgba(47, 128, 237, 0.12); color: var(--primary);
-      padding: 0.125rem 0.5rem; border-radius: 999px;
-      font-size: 0.75rem; font-weight: 600;
-    }
-    .content { background: var(--paper); border: 1px solid var(--divider); border-radius: 12px; overflow: hidden; }
-    .tabs {
-      display: flex; gap: 0.25rem; padding: 0.5rem;
-      border-bottom: 1px solid var(--divider);
-      background: var(--bg-alt); overflow-x: auto;
-    }
-    .tab {
-      background: transparent; border: none;
-      padding: 0.5rem 0.875rem; border-radius: 8px;
-      cursor: pointer; font: inherit; font-size: 0.875rem;
-      color: var(--text-secondary); font-weight: 500;
-      white-space: nowrap; transition: all 0.15s;
-    }
-    .tab:hover { background: var(--hover); color: var(--text); }
-    .tab.active { background: var(--primary); color: #fff; }
-    .toolbar {
-      display: flex; gap: 0.625rem;
-      padding: 0.875rem 1rem;
-      border-bottom: 1px solid var(--divider);
-      flex-wrap: wrap; align-items: center;
-    }
-    .toolbar input, .toolbar select {
-      padding: 0.5rem 0.75rem; border: 1px solid var(--divider);
-      border-radius: 8px; font: inherit; font-size: 0.875rem;
-      background: var(--paper); color: var(--text); min-width: 220px;
-    }
-    .toolbar input:focus, .toolbar select:focus { outline: none; border-color: var(--primary); }
-    .toolbar .grow { flex: 1; }
-    .pill {
-      padding: 0.25rem 0.625rem; border-radius: 999px;
-      font-size: 0.72rem; font-weight: 600;
-      background: var(--bg-alt); color: var(--text-secondary);
-      border: 1px solid var(--divider); white-space: nowrap;
-      text-transform: uppercase; letter-spacing: 0.04em;
-    }
-    .pill-blue { background: rgba(47, 128, 237, 0.12); color: var(--primary); border-color: transparent; }
-    .pill-orange { background: rgba(250, 166, 41, 0.18); color: #b46900; border-color: transparent; }
-    .pill-green { background: rgba(46, 125, 50, 0.14); color: #2e7d32; border-color: transparent; }
-    .pill-purple { background: rgba(123, 31, 162, 0.14); color: #7b1fa2; border-color: transparent; }
-    .pill-pink { background: rgba(236, 64, 122, 0.14); color: #c2185b; border-color: transparent; }
-    .list { padding: 0.5rem; min-height: 200px; }
-    .item {
-      display: block; padding: 0.875rem 1rem; border-radius: 10px;
-      border-left: 3px solid var(--primary);
-      background: rgba(82, 130, 241, 0.04);
-      margin-bottom: 0.5rem; cursor: pointer;
-      transition: all 0.2s; text-decoration: none; color: inherit;
-    }
-    [data-theme="dark"] .item { background: rgba(82, 130, 241, 0.08); }
-    .item:hover { background: rgba(82, 130, 241, 0.10); transform: translateX(3px); }
-    .item.selected { background: rgba(82, 130, 241, 0.16); box-shadow: var(--shadow-lg); }
-    .item-row { display: flex; gap: 0.875rem; justify-content: space-between; align-items: center; }
-    .item-title {
-      font-weight: 600; font-size: 0.95rem; color: var(--text); margin: 0 0 0.25rem;
-      font-family: 'JetBrains Mono', Menlo, monospace;
-      word-break: break-all;
-    }
-    .item-meta { font-size: 0.75rem; color: var(--text-secondary); word-break: break-all; }
-    .item-tags { display: flex; gap: 0.375rem; flex-wrap: wrap; flex-shrink: 0; }
-    .detail {
-      position: fixed; top: 0; right: 0;
-      width: min(720px, 95vw); height: 100vh;
-      background: var(--paper); border-left: 1px solid var(--divider);
-      box-shadow: -10px 0 30px rgba(0,0,0,0.15);
-      transform: translateX(100%); transition: transform 0.25s ease;
-      z-index: 100; display: flex; flex-direction: column;
-    }
-    .detail.open { transform: translateX(0); }
-    .detail-header {
-      padding: 1rem 1.25rem; border-bottom: 1px solid var(--divider);
-      display: flex; align-items: center; gap: 0.75rem;
-    }
-    .detail-header h2 {
-      margin: 0; font-size: 1rem; font-weight: 600; flex: 1;
-      font-family: 'JetBrains Mono', monospace; word-break: break-all;
-    }
-    .detail-body { flex: 1; overflow: auto; padding: 1rem 1.25rem; }
-    .detail-section { margin-bottom: 1.25rem; }
-    .detail-section h3 {
-      font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em;
-      color: var(--text-secondary); margin: 0 0 0.5rem; font-weight: 600;
-    }
-    .detail-meta { display: grid; grid-template-columns: max-content 1fr; gap: 0.5rem 1rem; font-size: 0.875rem; }
-    .detail-meta dt { color: var(--text-secondary); font-weight: 500; }
-    .detail-meta dd { margin: 0; word-break: break-word; }
-    pre.code {
-      background: var(--bg-alt); border: 1px solid var(--divider);
-      padding: 0.875rem; border-radius: 8px; overflow: auto;
-      font-family: 'JetBrains Mono', Menlo, monospace;
-      font-size: 0.8125rem; line-height: 1.55;
-      max-height: 60vh; margin: 0; white-space: pre;
-    }
-    .scrim {
-      position: fixed; inset: 0;
-      background: rgba(15, 23, 42, 0.4);
-      opacity: 0; pointer-events: none;
-      transition: opacity 0.2s; z-index: 99;
-    }
-    .scrim.open { opacity: 1; pointer-events: auto; }
-    .empty { padding: 2.5rem 1.5rem; text-align: center; color: var(--text-secondary); }
-    .empty h3 { margin: 0.5rem 0; color: var(--text); }
-    .pagination {
-      padding: 0.75rem 1rem; display: flex;
-      justify-content: space-between; align-items: center;
-      border-top: 1px solid var(--divider);
-      font-size: 0.875rem; color: var(--text-secondary);
-    }
-    .btn {
-      background: var(--primary); color: #fff; border: none;
-      padding: 0.4rem 0.875rem; border-radius: 8px;
-      cursor: pointer; font: inherit; font-size: 0.8125rem; font-weight: 600;
-      transition: filter 0.15s;
-    }
-    .btn:hover { filter: brightness(0.92); }
-    .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
-    .btn.outline { background: transparent; color: var(--primary); border: 1px solid var(--primary); }
-    .btn.outline:hover { background: var(--hover); }
-    .btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--divider); }
-    .btn.ghost:hover { background: var(--hover); }
-    .skeleton {
-      animation: shimmer 1.4s linear infinite;
-      background: linear-gradient(90deg, var(--bg-alt) 0%, var(--divider) 50%, var(--bg-alt) 100%);
-      background-size: 200% 100%; border-radius: 6px;
-      height: 18px; margin: 0.5rem 0;
-    }
-    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-    .toast {
-      position: fixed; bottom: 1.5rem; left: 50%;
-      transform: translateX(-50%) translateY(80px);
-      background: var(--text); color: var(--paper);
-      padding: 0.625rem 1rem; border-radius: 8px;
-      font-size: 0.875rem;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.25);
-      transition: transform 0.25s ease; z-index: 200;
-    }
-    .toast.show { transform: translateX(-50%) translateY(0); }
-  </style>
+  <title>RunWhen Local · Workspace Explorer</title>
+  <link rel="icon" type="image/png" href="/static/favicon.png">
+  <link rel="stylesheet" href="/static/rw-ui.css">
+  <link rel="stylesheet" href="/static/explorer.css">
+  <script src="/static/rw-ui.js" defer></script>
 </head>
-<body>
-  <div class="appbar">
-    <div class="brand">
-      <span class="brand-mark">RW</span>
-      <span>RunWhen Local · Workspace Explorer</span>
-    </div>
-    <div class="appbar-spacer"></div>
-    <div class="appbar-actions">
-      <button class="icon-btn" id="refreshBtn" title="Refresh">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-      </button>
-      <button class="icon-btn" id="themeBtn" title="Toggle theme">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-      </button>
-    </div>
-  </div>
+<body class="page-explorer">
+  <header class="appbar appbar--overlay">
+    <a class="brand" href="/">
+      <img class="brand-logo" src="/static/assets/white_runwhen_logo_transparent_bg.png" alt="RunWhen">
+      <span class="brand-title">Local · Explorer</span>
+    </a>
+    <span class="appbar-spacer"></span>
+    <nav class="appbar-actions">
+      <a class="nav-link" data-nav href="/">Home</a>
+      <a class="nav-link" data-nav href="/explorer/">Explorer</a>
+    </nav>
+    <button class="icon-btn" id="refreshBtn" type="button" title="Refresh">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+    </button>
+    <button class="icon-btn" id="themeBtn" type="button" aria-label="Toggle theme" title="Toggle theme">☾</button>
+  </header>
 
-  <section class="hero">
+  <section class="hero hero--brand">
     <div class="container">
+      <div class="hero-subtitle">RunWhen Local</div>
       <h1>Workspace Explorer</h1>
       <p>Browse the discovered cloud and Kubernetes resources, plus the SLXs, SLIs, runbooks and Skills that RunWhen Local rendered for them. Each SLX is an instance of a Skill defined by a CodeBundle, and every artifact below comes straight from the local SQLite resource store.</p>
       <form class="search" id="globalSearchForm" autocomplete="off">
@@ -331,6 +59,20 @@
       </div>
     </div>
   </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <a class="footer-link" href="https://github.com/runwhen-contrib/runwhen-local" target="_blank" rel="noopener">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        GitHub
+      </a>
+      <a class="footer-link" href="https://runwhen.slack.com" target="_blank" rel="noopener">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zm10.124 2.521a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.52 2.521h-2.522V8.834zm-1.271 0a2.528 2.528 0 0 1-2.521 2.521 2.528 2.528 0 0 1-2.521-2.521V2.522A2.528 2.528 0 0 1 15.166 0a2.528 2.528 0 0 1 2.521 2.522v6.312zm-2.521 10.124a2.528 2.528 0 0 1 2.521 2.522A2.528 2.528 0 0 1 15.166 24a2.528 2.528 0 0 1-2.521-2.52v-2.522h2.521zm0-1.271a2.528 2.528 0 0 1-2.521-2.521 2.528 2.528 0 0 1 2.521-2.521h6.312A2.528 2.528 0 0 1 24 15.165a2.528 2.528 0 0 1-2.52 2.521h-6.314z"/></svg>
+        Slack
+      </a>
+      <span class="footer-copy">© 2026 RunWhen Inc. All rights reserved.</span>
+    </div>
+  </footer>
 
   <div class="scrim" id="scrim"></div>
   <aside class="detail" id="detail" aria-hidden="true">
@@ -392,17 +134,6 @@
         t = setTimeout(function () { fn.apply(null, args); }, ms);
       };
     }
-
-    function initTheme() {
-      const saved = localStorage.getItem('explorer.theme') || 'light';
-      document.documentElement.setAttribute('data-theme', saved);
-    }
-    $('#themeBtn').addEventListener('click', function () {
-      const cur = document.documentElement.getAttribute('data-theme') || 'light';
-      const next = cur === 'light' ? 'dark' : 'light';
-      document.documentElement.setAttribute('data-theme', next);
-      localStorage.setItem('explorer.theme', next);
-    });
 
     async function loadSummary() {
       try {
@@ -792,7 +523,6 @@
       showToast('Refreshed');
     });
 
-    initTheme();
     (async function () {
       await loadSummary();
       renderToolbar();

@@ -102,7 +102,9 @@ class HomePageTests(unittest.TestCase):
     def test_home_page_loads_and_links_to_explorer(self):
         response = self.client.get("/")
         self.assertEqual(200, response.status_code)
-        self.assertIn("RunWhen Local control center", response.text)
+        self.assertIn("Control center", response.text)
+        self.assertIn('src="/static/assets/white_runwhen_logo_transparent_bg.png"', response.text)
+        self.assertIn('href="/static/rw-ui.css"', response.text)
         # The explorer card is the primary call-to-action.
         self.assertIn('href="/explorer/"', response.text)
         # Future-work cards are placeholders, not broken links.

@@ -4,289 +4,29 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>RunWhen Local</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      --primary: #2F80ED;
-      --primary-dark: #1a365d;
-      --primary-light: #90cdf4;
-      --secondary: #faa629;
-      --bg: #ffffff;
-      --bg-alt: #f7fafc;
-      --paper: #ffffff;
-      --text: #1a202c;
-      --text-secondary: #4a5568;
-      --divider: #e2e8f0;
-      --hover: rgba(47, 128, 237, 0.08);
-      --shadow: 0 2px 4px rgba(0,0,0,0.1);
-      --shadow-lg: 0 4px 20px rgba(47, 128, 237, 0.15);
-      --success: #2e7d32;
-      --warning: #b46900;
-      --error: #c62828;
-    }
-    [data-theme="dark"] {
-      --bg: #0f172a;
-      --bg-alt: #1e293b;
-      --paper: #1e293b;
-      --text: #e2e8f0;
-      --text-secondary: #94a3b8;
-      --divider: rgba(255,255,255,0.12);
-      --hover: rgba(47, 128, 237, 0.12);
-      --shadow: 0 2px 4px rgba(0,0,0,0.4);
-      --shadow-lg: 0 4px 20px rgba(0,0,0,0.5);
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      line-height: 1.5;
-      transition: background 0.2s ease, color 0.2s ease;
-    }
-    .appbar {
-      position: sticky; top: 0; z-index: 50;
-      background: var(--primary); color: #fff;
-      padding: 0.75rem 1.5rem;
-      display: flex; align-items: center; gap: 1rem;
-      box-shadow: var(--shadow);
-    }
-    [data-theme="dark"] .appbar { background: #0f172a; border-bottom: 1px solid var(--divider); }
-    .brand { display: flex; align-items: center; gap: 0.625rem; font-weight: 700; font-size: 1.05rem; letter-spacing: 0.3px; }
-    .brand-mark {
-      width: 30px; height: 30px; border-radius: 8px;
-      background: linear-gradient(135deg, #fff 0%, var(--primary-light) 100%);
-      display: grid; place-items: center;
-      color: var(--primary-dark); font-weight: 800; font-size: 0.8rem;
-    }
-    .appbar-spacer { flex: 1; }
-    .appbar-actions { display: flex; gap: 0.5rem; align-items: center; }
-    .icon-btn {
-      background: transparent; border: 1px solid rgba(255,255,255,0.25);
-      color: #fff; width: 36px; height: 36px; border-radius: 8px;
-      cursor: pointer; display: grid; place-items: center;
-      transition: background 0.15s;
-    }
-    .icon-btn:hover { background: rgba(255,255,255,0.12); }
-    .nav-link {
-      color: #fff; text-decoration: none;
-      padding: 0.4rem 0.75rem; border-radius: 8px;
-      font-size: 0.875rem; font-weight: 500;
-      transition: background 0.15s;
-    }
-    .nav-link:hover { background: rgba(255,255,255,0.15); }
-    .hero {
-      padding: 2rem 1.5rem 1.25rem;
-      background: linear-gradient(180deg, var(--bg-alt) 0%, var(--bg) 100%);
-      border-bottom: 1px solid var(--divider);
-    }
-    .container { max-width: 1280px; margin: 0 auto; }
-    .hero h1 { margin: 0 0 0.5rem; font-size: 2rem; font-weight: 700; letter-spacing: -0.01em; }
-    .hero p { margin: 0; color: var(--text-secondary); font-size: 0.95rem; max-width: 760px; }
-    main { padding: 1.5rem; }
-
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(12, minmax(0, 1fr));
-      gap: 1.25rem;
-    }
-    .col-12 { grid-column: span 12; }
-    .col-8 { grid-column: span 8; }
-    .col-6 { grid-column: span 6; }
-    .col-4 { grid-column: span 4; }
-    @media (max-width: 1024px) {
-      .col-8, .col-6, .col-4 { grid-column: span 12; }
-    }
-
-    .card {
-      background: var(--paper);
-      border: 1px solid var(--divider);
-      border-radius: 12px;
-      overflow: hidden;
-      display: flex; flex-direction: column;
-    }
-    .card-head {
-      padding: 1rem 1.25rem;
-      border-bottom: 1px solid var(--divider);
-      display: flex; align-items: center; gap: 0.75rem;
-    }
-    .card-head h2 {
-      margin: 0; font-size: 0.95rem; font-weight: 700;
-      letter-spacing: 0.01em;
-      flex: 1;
-    }
-    .card-head .head-actions { display: flex; gap: 0.5rem; }
-    .card-body { padding: 1.25rem; flex: 1; }
-    .card-body.tight { padding: 0.75rem 1.25rem 1rem; }
-
-    .link-card {
-      display: flex; flex-direction: column; gap: 0.5rem;
-      padding: 1.25rem;
-      background: var(--paper);
-      border: 1px solid var(--divider);
-      border-radius: 12px;
-      text-decoration: none; color: inherit;
-      transition: all 0.2s;
-      position: relative; overflow: hidden;
-    }
-    .link-card:hover {
-      border-color: var(--primary);
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-lg);
-    }
-    .link-card.disabled {
-      opacity: 0.7;
-      cursor: default;
-      pointer-events: none;
-    }
-    .link-card .label {
-      display: flex; align-items: center; gap: 0.625rem;
-      font-weight: 700; font-size: 1rem;
-    }
-    .link-card .icon {
-      width: 32px; height: 32px; border-radius: 9px;
-      background: rgba(47, 128, 237, 0.12); color: var(--primary);
-      display: grid; place-items: center; font-size: 1rem;
-    }
-    .link-card.disabled .icon { background: var(--bg-alt); color: var(--text-secondary); }
-    .link-card .desc { font-size: 0.85rem; color: var(--text-secondary); }
-    .link-card .more {
-      margin-top: 0.25rem;
-      font-size: 0.8rem; font-weight: 600;
-      color: var(--primary); display: inline-flex; align-items: center; gap: 0.25rem;
-    }
-    .link-card.disabled .more { color: var(--text-secondary); }
-
-    .stat-row {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-      gap: 0.75rem;
-    }
-    .stat-tile {
-      background: var(--bg-alt);
-      border: 1px solid var(--divider);
-      border-radius: 10px;
-      padding: 0.75rem 0.875rem;
-      display: flex; flex-direction: column; gap: 0.125rem;
-    }
-    .stat-tile .num {
-      font-size: 1.5rem; font-weight: 700; color: var(--primary); line-height: 1.1;
-    }
-    .stat-tile .lbl {
-      font-size: 0.72rem; font-weight: 600;
-      color: var(--text-secondary);
-      text-transform: uppercase; letter-spacing: 0.04em;
-    }
-
-    .pill {
-      padding: 0.2rem 0.625rem; border-radius: 999px;
-      font-size: 0.7rem; font-weight: 700;
-      background: var(--bg-alt); color: var(--text-secondary);
-      border: 1px solid var(--divider);
-      text-transform: uppercase; letter-spacing: 0.04em;
-      white-space: nowrap;
-    }
-    .pill-blue { background: rgba(47, 128, 237, 0.12); color: var(--primary); border-color: transparent; }
-    .pill-green { background: rgba(46, 125, 50, 0.14); color: var(--success); border-color: transparent; }
-    .pill-orange { background: rgba(250, 166, 41, 0.18); color: var(--warning); border-color: transparent; }
-    .pill-red { background: rgba(198, 40, 40, 0.14); color: var(--error); border-color: transparent; }
-    .pill-grey { background: var(--bg-alt); color: var(--text-secondary); }
-
-    dl.kv {
-      display: grid;
-      grid-template-columns: max-content 1fr;
-      gap: 0.45rem 1rem;
-      font-size: 0.875rem;
-      margin: 0;
-    }
-    dl.kv dt { color: var(--text-secondary); font-weight: 500; }
-    dl.kv dd { margin: 0; word-break: break-word; }
-    dl.kv code { font-family: 'JetBrains Mono', Menlo, monospace; font-size: 0.82rem; }
-
-    ul.plain {
-      list-style: none; margin: 0; padding: 0;
-      display: flex; flex-direction: column; gap: 0.4rem;
-    }
-    ul.plain li {
-      background: var(--bg-alt);
-      border-left: 3px solid var(--primary);
-      border-radius: 8px;
-      padding: 0.55rem 0.75rem;
-      font-size: 0.85rem;
-    }
-    ul.plain li .meta { color: var(--text-secondary); font-size: 0.75rem; }
-    ul.plain li code { font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; }
-
-    .pre {
-      font-family: 'JetBrains Mono', Menlo, monospace;
-      background: var(--bg-alt);
-      border: 1px solid var(--divider);
-      border-radius: 8px;
-      padding: 0.75rem 0.875rem;
-      font-size: 0.78rem;
-      white-space: pre-wrap; word-break: break-word;
-      max-height: 480px; overflow: auto;
-      margin: 0;
-    }
-    details > summary {
-      cursor: pointer;
-      font-size: 0.8rem; font-weight: 600;
-      color: var(--primary);
-      padding: 0.4rem 0;
-      list-style: none;
-    }
-    details > summary::-webkit-details-marker { display: none; }
-    details > summary::before { content: "▸ "; }
-    details[open] > summary::before { content: "▾ "; }
-
-    .empty {
-      padding: 1.25rem; text-align: center;
-      color: var(--text-secondary); font-size: 0.875rem;
-    }
-    .empty.error {
-      color: var(--error);
-      background: rgba(198, 40, 40, 0.06);
-      border: 1px dashed rgba(198, 40, 40, 0.3);
-      border-radius: 8px;
-    }
-    .skeleton {
-      background: linear-gradient(90deg, var(--bg-alt) 25%, var(--hover) 50%, var(--bg-alt) 75%);
-      background-size: 200% 100%;
-      animation: skeleton 1.4s ease-in-out infinite;
-      border-radius: 8px;
-      height: 14px;
-      margin: 0.4rem 0;
-    }
-    @keyframes skeleton {
-      0% { background-position: 200% 0; }
-      100% { background-position: -200% 0; }
-    }
-    .footnote {
-      font-size: 0.75rem; color: var(--text-secondary);
-      margin-top: 0.75rem;
-    }
-  </style>
+  <link rel="icon" type="image/png" href="/static/favicon.png">
+  <link rel="stylesheet" href="/static/rw-ui.css">
+  <script src="/static/rw-ui.js" defer></script>
 </head>
-<body>
-  <header class="appbar">
-    <div class="brand">
-      <div class="brand-mark">RW</div>
-      <span>RunWhen Local</span>
-    </div>
+<body class="page-home">
+  <header class="appbar appbar--overlay">
+    <a class="brand" href="/">
+      <img class="brand-logo" src="/static/assets/white_runwhen_logo_transparent_bg.png" alt="RunWhen">
+      <span class="brand-title">Local</span>
+    </a>
     <span class="appbar-spacer"></span>
     <nav class="appbar-actions">
-      <a class="nav-link" href="/">Home</a>
-      <a class="nav-link" href="/explorer/">Explorer</a>
+      <a class="nav-link" data-nav href="/">Home</a>
+      <a class="nav-link" data-nav href="/explorer/">Explorer</a>
       <a class="nav-link" href="/health/" target="_blank" rel="noopener">Health JSON</a>
     </nav>
-    <button class="icon-btn" id="themeToggle" aria-label="Toggle theme" title="Toggle light / dark">◐</button>
+    <button class="icon-btn" id="themeToggle" type="button" aria-label="Toggle theme" title="Toggle theme">☾</button>
   </header>
 
-  <section class="hero">
+  <section class="hero hero--brand">
     <div class="container">
-      <h1>RunWhen Local control center</h1>
+      <div class="hero-subtitle">RunWhen Local</div>
+      <h1>Control center</h1>
       <p>
         Browse what the workspace builder has discovered, check on the latest
         run, and confirm what configuration the pod is using.
@@ -366,7 +106,7 @@
             <div class="card-head">
               <h2>Discovered resources</h2>
               <div class="head-actions">
-                <a class="nav-link" style="color:var(--primary);background:var(--hover);" href="/explorer/">Open in Explorer →</a>
+                <a class="head-link" href="/explorer/">Open in Explorer →</a>
               </div>
             </div>
             <div class="card-body" id="storeBody">
@@ -406,6 +146,20 @@
       </div>
     </div>
   </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <a class="footer-link" href="https://github.com/runwhen-contrib/runwhen-local" target="_blank" rel="noopener">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        GitHub
+      </a>
+      <a class="footer-link" href="https://runwhen.slack.com" target="_blank" rel="noopener">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zm10.124 2.521a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.52 2.521h-2.522V8.834zm-1.271 0a2.528 2.528 0 0 1-2.521 2.521 2.528 2.528 0 0 1-2.521-2.521V2.522A2.528 2.528 0 0 1 15.166 0a2.528 2.528 0 0 1 2.521 2.522v6.312zm-2.521 10.124a2.528 2.528 0 0 1 2.521 2.522A2.528 2.528 0 0 1 15.166 24a2.528 2.528 0 0 1-2.521-2.52v-2.522h2.521zm0-1.271a2.528 2.528 0 0 1-2.521-2.521 2.528 2.528 0 0 1 2.521-2.521h6.312A2.528 2.528 0 0 1 24 15.165a2.528 2.528 0 0 1-2.52 2.521h-6.314z"/></svg>
+        Slack
+      </a>
+      <span class="footer-copy">© 2026 RunWhen Inc. All rights reserved.</span>
+    </div>
+  </footer>
 
   <script>
     const $ = function (sel) { return document.querySelector(sel); };
@@ -448,21 +202,7 @@
       return '<span class="pill ' + cls + '">' + escapeHtml(status) + '</span>';
     }
 
-    // ---------- theme ----------
-    function applyTheme(t) {
-      document.documentElement.setAttribute('data-theme', t);
-      try { localStorage.setItem('rwl-theme', t); } catch (e) {}
-    }
-    (function initTheme() {
-      let t = 'light';
-      try { t = localStorage.getItem('rwl-theme') || 'light'; } catch (e) {}
-      applyTheme(t);
-      $('#themeToggle').addEventListener('click', function () {
-        applyTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
-      });
-    })();
-
-    // ---------- data load ----------
+    // ── data load ──
     async function fetchJSON(url) {
       const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
       if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
