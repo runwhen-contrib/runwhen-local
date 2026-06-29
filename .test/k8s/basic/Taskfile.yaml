@@ -106,7 +106,7 @@ tasks:
         _rwl_prepare_container "$CONTAINER_NAME"
         _rwl_start_container "$CONTAINER_NAME" --add-host github.com:0.0.0.0
         _rwl_wait_for_rest "$CONTAINER_NAME"
-        _rwl_run_discovery "$CONTAINER_NAME" "$1"
+        _rwl_run_discovery "$CONTAINER_NAME" "{{.CLI_ARGS}}"
         _rwl_write_slx_count
     silent: true
 
@@ -119,7 +119,7 @@ tasks:
         _rwl_prepare_container "$CONTAINER_NAME"
         _rwl_start_container "$CONTAINER_NAME"
         _rwl_wait_for_rest "$CONTAINER_NAME"
-        _rwl_run_discovery "$CONTAINER_NAME" "$1"
+        _rwl_run_discovery "$CONTAINER_NAME" "{{.CLI_ARGS}}"
         _rwl_write_slx_count
     silent: true
 
@@ -133,7 +133,7 @@ tasks:
         chmod 777 .
         _rwl_start_container "$CONTAINER_NAME"
         _rwl_wait_for_rest "$CONTAINER_NAME"
-        _rwl_run_discovery "$CONTAINER_NAME" "$1"
+        _rwl_run_discovery "$CONTAINER_NAME" "{{.CLI_ARGS}}"
         _rwl_write_slx_count
         docker stop "$CONTAINER_NAME" 2>/dev/null || true
         docker rm "$CONTAINER_NAME" 2>/dev/null || true
@@ -152,7 +152,7 @@ tasks:
           --add-host github.com:0.0.0.0 \
           --add-host api.github.com:0.0.0.0
         _rwl_wait_for_rest "$CONTAINER_NAME"
-        _rwl_run_discovery "$CONTAINER_NAME" "$1"
+        _rwl_run_discovery "$CONTAINER_NAME" "{{.CLI_ARGS}}"
         _rwl_write_slx_count
         docker stop "$CONTAINER_NAME" 2>/dev/null || true
         docker rm "$CONTAINER_NAME" 2>/dev/null || true
