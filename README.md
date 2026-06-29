@@ -1,29 +1,19 @@
-<p align="center">
-  <img src="assets/rw-local-product.png" alt="RunWhen Local" width="640">
-</p>
+<div align="center">
 
-<h1 align="center">RunWhen Local</h1>
+![RunWhen Local banner](assets/banner.svg)
 
-<p align="center">
-  <strong>Discover your cloud &amp; Kubernetes infrastructure and turn it into
-  tailored, AI-agent-ready Skills.</strong><br>
-  One image — run it standalone on your desktop with a built-in MCP server,
-  or connect it to the RunWhen Platform for managed, production-grade execution.
-</p>
+# RunWhen Local
 
-<p align="center">
-  <a href="https://runwhen.slack.com/join/shared_invite/zt-1l7t3tdzl-IzB8gXDsWtHkT8C5nufm2A"><img src="https://img.shields.io/badge/Join%20Slack-%23E01563.svg?&style=for-the-badge&logo=slack&logoColor=white" alt="Join Slack"></a>
-  <a href="https://opensource.org/licenses/Apache-2.0"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License"></a>
-  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.14-blue.svg" alt="Python 3.14"></a>
-  <a href="https://www.docker.com/"><img src="https://img.shields.io/badge/docker-supported-blue.svg" alt="Docker"></a>
-</p>
+**RunWhen Local** discovers your cloud &amp; Kubernetes infrastructure and turns it into tailored, AI-agent-ready Skills. One image — run it standalone on your desktop with a built-in MCP server, or connect it to the [RunWhen Platform](https://www.runwhen.com) for managed, production-grade execution.
 
-<p align="center">
-  <a href="https://github.com/runwhen-contrib/runwhen-local">GitHub</a> ·
-  <a href="https://github.com/orgs/runwhen-contrib/packages/container/package/runwhen-local">GHCR</a> ·
-  <a href="https://docs.runwhen.com/public/v/runwhen-local/">Docs</a> ·
-  <a href="https://runwhen-local.sandbox.runwhen.com/">Live sandbox</a>
-</p>
+[![Join Slack](https://img.shields.io/badge/Join%20Slack-%23E01563.svg?&style=for-the-badge&logo=slack&logoColor=white)](https://runwhen.slack.com/join/shared_invite/zt-1l7t3tdzl-IzB8gXDsWtHkT8C5nufm2A)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Python 3.14](https://img.shields.io/badge/python-3.14-blue.svg)](https://www.python.org/downloads/)
+[![Docker](https://img.shields.io/badge/docker-supported-blue.svg)](https://www.docker.com/)
+
+[GitHub](https://github.com/runwhen-contrib/runwhen-local) · [GHCR](https://github.com/orgs/runwhen-contrib/packages/container/package/runwhen-local) · [Docs](https://docs.runwhen.com/public/v/runwhen-local/) · [Live sandbox](https://runwhen-local.sandbox.runwhen.com/)
+
+</div>
 
 ---
 
@@ -54,13 +44,12 @@
    native (no CloudQuery dependency) and indexes the full Azure resource
    catalog; AWS, GCP, and Kubernetes are supported.
 
-2. **Skill tailoring.** A library of CodeBundles (in [contrib
-   CodeCollections](https://github.com/runwhen-contrib)) ships
-   generation rules that match against discovered resources. The
-   workspace builder renders one **SLX** (a tailored Skill instance)
-   per match: a runbook bound to a specific resource, with its own
-   `SKILL.md` so an MCP-aware AI agent can read what it does and how to
-   invoke it.
+2. **Skill tailoring.** CodeBundles (from the [contrib
+   CodeCollections](https://github.com/runwhen-contrib)) are **Skill
+   templates**. The workspace builder matches them against your
+   discovered resources and renders a tailored **Skill** for each match —
+   bound to a specific resource and ready for an AI agent to read and
+   run.
 
 3. **Local explorer UI.** A FastAPI-backed UI at
    `http://localhost:8000/explorer/` lets you browse the discovered
