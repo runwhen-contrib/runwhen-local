@@ -22,7 +22,7 @@
   </svg>
 
   <text x="108" y="78" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="600" fill="#ffffff">RunWhen Local</text>
-  <text x="108" y="108" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="400" fill="#ffffff" opacity="0.6">Discover your infrastructure. Tailor agentic Skills.</text>
-  <text x="108" y="138" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#ffffff" opacity="0.45">Index your cloud &amp; Kubernetes resources and render</text>
-  <text x="108" y="155" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#ffffff" opacity="0.45">AI-agent-ready Skills  standalone via MCP or Platform-connected.</text>
+  <text x="108" y="108" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="400" fill="#ffffff" opacity="0.6">Ready-to-use Skills, tailored for your stack.</text>
+  <text x="108" y="138" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#ffffff" opacity="0.45">Discover your cloud &amp; Kubernetes resources and render</text>
+  <text x="108" y="155" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#ffffff" opacity="0.45">AI-agent-ready Skills &#8212; standalone via MCP or Platform-connected.</text>
 </svg>
