@@ -1,6 +1,9 @@
 {% if custom is defined and custom.gcp_credentials_key is defined %}
     - name: gcp_credentials
       workspaceKey: "{{ custom.gcp_credentials_key }}"
+{% elif custom is defined and custom.gcp_ops_suite_sa is defined and custom.gcp_ops_suite_sa | default('') not in ['none', ''] %}
+    - name: gcp_credentials
+      workspaceKey: "{{ custom.gcp_ops_suite_sa }}"
 {% elif secrets is defined and secrets.gcp_service_account is defined %}
     - name: gcp_credentials
       workspaceKey: "{{ secrets.gcp_service_account }}"
