@@ -108,23 +108,23 @@ def az_get_credentials_and_subscription_id(platform_config_data: dict[str, Any])
         tenant_id = platform_config_data.get("tenantId")
 
     # Detect the common foot-gun where the user supplies a Service Principal
-    # but one of the three SP fields renders as an empty string (e.g. an
-    # un-substituted ``"${AZ_CLIENT_SECRET}"`` or a redacted ``tf.secret``).
-    # Without this guard we silently fall through to Managed Identity /
-    # DefaultAzureCredential and the user is left chasing a 30-line
-    # ChainedTokenCredential traceback.
+    # but one of the three SP fields is missing. This covers both an empty
+    # string (e.g. an un-substituted ``"${AZ_CLIENT_SECRET}"`` or a redacted
+    # ``tf.secret``) and an absent/``None`` key. Without this guard we silently
+    # fall through to Managed Identity / DefaultAzureCredential and the user is
+    # left chasing a 30-line ChainedTokenCredential traceback.
     sp_fields = {
         "clientId": client_id,
         "clientSecret": client_secret,
         "tenantId": tenant_id,
     }
-    populated = {k: v for k, v in sp_fields.items() if v}
-    empty = [k for k, v in sp_fields.items() if v == ""]
-    if populated and empty:
+    populated = sorted(k for k, v in sp_fields.items() if v)
+    missing = sorted(k for k, v in sp_fields.items() if not v)
+    if populated and missing:
         raise WorkspaceBuilderException(
             "Azure Service Principal configuration is incomplete: "
-            f"{', '.join(sorted(populated))} provided but "
-            f"{', '.join(sorted(empty))} is empty. "
+            f"{', '.join(populated)} provided but "
+            f"{', '.join(missing)} is empty or missing. "
             "Verify that all of cloudConfig.azure.{clientId,clientSecret,tenantId} "
             "are set in workspaceInfo.yaml (or that the env vars referenced from "
             "your secret file are populated before the YAML is rendered)."
