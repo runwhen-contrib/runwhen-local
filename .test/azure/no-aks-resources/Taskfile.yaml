@@ -494,11 +494,13 @@ tasks:
         run_with_backend cloudquery "$BASELINE_OUT"
         run_with_backend azureapi   "$CANDIDATE_OUT"
 
-        if [ -f ../multi-subscription-aks/diff_resource_dump.py ]; then
-          python3 ../multi-subscription-aks/diff_resource_dump.py \
-            "$BASELINE_OUT/resource-dump.yaml" \
-            "$CANDIDATE_OUT/resource-dump.yaml"
-        else
-          echo "diff_resource_dump.py not available; compare $BASELINE_OUT/ and $CANDIDATE_OUT/ manually"
+        DIFF_TOOL=../multi-subscription-aks/diff_resource_dump.py
+        if [ ! -f "$DIFF_TOOL" ]; then
+          echo "FAIL: diff tool not found at $DIFF_TOOL; cannot verify cloudquery vs azureapi equivalence." >&2
+          echo "      ($BASELINE_OUT/ and $CANDIDATE_OUT/ were produced but not compared.)" >&2
+          exit 1
         fi
+        python3 "$DIFF_TOOL" \
+          "$BASELINE_OUT/resource-dump.yaml" \
+          "$CANDIDATE_OUT/resource-dump.yaml"
     silent: true

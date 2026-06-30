@@ -109,7 +109,7 @@ tasks:
     cmds:
       - task: generate-collision-test-config
       - |
-        BUILD_DIR=/home/runwhen/runwhen-local/src
+        BUILD_DIR=../../../src
         CONTAINER_NAME="RunWhenLocal-CollisionTest"
         CONFIG_FILE="workspaceInfo-collision-test.yaml"
         
@@ -251,7 +251,7 @@ tasks:
     desc: "Run RunWhen Local Discovery on test infrastructure"
     cmds:
       - |
-        BUILD_DIR=/home/runwhen/runwhen-local/src
+        BUILD_DIR=../../../src
         CONTAINER_NAME="RunWhenLocal"
         if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
           echo "Stopping and removing existing container $CONTAINER_NAME..."
@@ -394,7 +394,7 @@ tasks:
     cmds:
       - task: generate-rwl-config
       - |
-        BUILD_DIR=/home/runwhen/runwhen-local/src
+        BUILD_DIR=../../../src
         IMAGE=runwhen-local:azure-backend-test
         BASELINE_OUT=output-cloudquery
         CANDIDATE_OUT=output-azureapi

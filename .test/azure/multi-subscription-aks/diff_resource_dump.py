@@ -89,10 +89,6 @@ RESOURCE_RAW_REQUIRED_KEYS = (
 )
 
 
-class DiffError(Exception):
-    pass
-
-
 def _strip_cq_keys(node: Any) -> Any:
     """Recursively drop ``_cq_*`` keys from any nested mappings."""
     if isinstance(node, dict):

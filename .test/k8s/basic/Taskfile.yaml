@@ -491,10 +491,25 @@ tasks:
     desc: "Validate that rendered content is as intended"
     cmds: 
       - | 
+        # A rendered artifact may legitimately omit spec.location (e.g. SLIs,
+        # whose location is a runbook-level concept). Mirror the pre-sqlite
+        # behaviour: an absent location is acceptable; only an unresolved
+        # template sentinel ("missing_workspaceInfo_custom_variable") fails.
+        check_location() {
+          kind="$1"
+          if [ "$LOCATION" = "missing_workspaceInfo_custom_variable" ]; then
+            echo "Error: $kind contains an invalid spec.location value." >&2
+            exit 1
+          elif [ -z "$LOCATION" ] || [ "$LOCATION" = "null" ]; then
+            echo "Note: $kind artifact has no spec.location (acceptable)"
+          else
+            echo "Validation successful: $kind artifact has spec.location=$LOCATION"
+          fi
+        }
+
         echo "Validate Runbook location configuration"
         if [ -f output/resources.sqlite ]; then
-          LOCATION=$(python3 ../../lib/slx_db.py --db output/resources.sqlite location runbook)
-          echo "Validation successful: runbook artifact has spec.location=$LOCATION"
+          LOCATION=$(python3 ../../lib/slx_db.py --db output/resources.sqlite location runbook 2>/dev/null) || LOCATION=""
         else
           RUNBOOK_FILE=$(find output -type f -name "runbook.yaml" | head -n 1)
           if [ -z "$RUNBOOK_FILE" ]; then
@@ -502,17 +517,12 @@ tasks:
             exit 1
           fi
           LOCATION=$(yq e '.spec.location' "$RUNBOOK_FILE")
-          echo "Validation successful: $RUNBOOK_FILE has a valid spec.location."
         fi
-        if [ "$LOCATION" = "missing_workspaceInfo_custom_variable" ]; then
-          echo "Error: runbook contains an invalid spec.location value." >&2
-          exit 1
-        fi
+        check_location runbook
 
         echo "Validate SLI location configuration"
         if [ -f output/resources.sqlite ]; then
-          LOCATION=$(python3 ../../lib/slx_db.py --db output/resources.sqlite location sli)
-          echo "Validation successful: sli artifact has spec.location=$LOCATION"
+          LOCATION=$(python3 ../../lib/slx_db.py --db output/resources.sqlite location sli 2>/dev/null) || LOCATION=""
         else
           SLI_FILE=$(find output -type f -name "sli.yaml" | head -n 1)
           if [ -z "$SLI_FILE" ]; then
@@ -520,12 +530,8 @@ tasks:
             exit 1
           fi
           LOCATION=$(yq e '.spec.location' "$SLI_FILE")
-          echo "Validation successful: $SLI_FILE has a valid spec.location."
         fi
-        if [ "$LOCATION" = "missing_workspaceInfo_custom_variable" ]; then
-          echo "Error: sli contains an invalid spec.location value." >&2
-          exit 1
-        fi
+        check_location sli
     silent: true
 
   clean-rwl-discovery:

@@ -66,11 +66,12 @@ tasks:
         workspaceOwnerEmail: test@runwhen.com
         defaultLocation: location-01
         defaultLOD: detailed
-        # Legacy CloudQuery AWS path: pin to cloudquery + the in-memory store so
-        # this secret-based credential fixture keeps exercising the CloudQuery
-        # backend now that the native awsapi indexer is the default.
+        # Legacy CloudQuery AWS path: pin to cloudquery so this secret-based
+        # credential fixture keeps exercising the CloudQuery indexer now that the
+        # native awsapi indexer is the default. Use the sqlite resource store
+        # (the default) so SLX counting/verification can read output/resources.sqlite.
         awsIndexerBackend: cloudquery
-        resourceStoreBackend: memory
+        resourceStoreBackend: sqlite
         cloudConfig:
           aws:
             region: "${REGION}"
