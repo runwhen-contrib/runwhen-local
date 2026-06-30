@@ -100,7 +100,7 @@ tasks:
         docker run \
           -e DEBUG_LOGGING=true \
           -e CQ_DEBUG=true \
-          --name $CONTAINER_NAME -p 8081:8081 \
+          --name $CONTAINER_NAME -p 8000:8000 \
           -v $(pwd):/shared -d runwhen-local:test || {
           echo "Failed to start container"; exit 1;
         }
@@ -110,10 +110,11 @@ tasks:
           echo "Error executing script in container"; exit 1;
         }
 
-        echo "Review generated config files under output/workspaces/"
-        slxs_dir=$(find 'output/' -type d -name 'slxs' 2>/dev/null | head -1)
-        if [ -n "$slxs_dir" ] && [ -d "$slxs_dir" ]; then
-          total_slxs=$(find "$slxs_dir" -mindepth 1 -maxdepth 1 -type d | wc -l)
+        echo "Review rendered SLXs via the explorer UI (http://localhost:8000/explorer/) or output/resources.sqlite"
+        # Rendered files are no longer written to disk by default
+        # (writeWorkspaceFilesToDisk=False); count SLXs from the sqlite store.
+        if [ -f output/resources.sqlite ]; then
+          total_slxs=$(python3 ../../lib/slx_db.py --db output/resources.sqlite count)
         else
           total_slxs=0
         fi
@@ -146,7 +147,7 @@ tasks:
         docker run -d \
           -e DEBUG_LOGGING=true \
           -e CQ_DEBUG=true \
-          --name "$CONTAINER_NAME" -p 8081:8081 \
+          --name "$CONTAINER_NAME" -p 8000:8000 \
           -v "$(pwd):/shared" \
           runwhen-local:test || {
           echo "Failed to start container"; exit 1;
@@ -162,10 +163,11 @@ tasks:
         docker stop "$CONTAINER_NAME"
         docker rm "$CONTAINER_NAME"
 
-        echo "Review generated config files under output/workspaces/"
-        slxs_dir=$(find 'output/' -type d -name 'slxs' 2>/dev/null | head -1)
-        if [ -n "$slxs_dir" ] && [ -d "$slxs_dir" ]; then
-          total_slxs=$(find "$slxs_dir" -mindepth 1 -maxdepth 1 -type d | wc -l)
+        echo "Review rendered SLXs via the explorer UI (http://localhost:8000/explorer/) or output/resources.sqlite"
+        # Rendered files are no longer written to disk by default
+        # (writeWorkspaceFilesToDisk=False); count SLXs from the sqlite store.
+        if [ -f output/resources.sqlite ]; then
+          total_slxs=$(python3 ../../lib/slx_db.py --db output/resources.sqlite count)
         else
           total_slxs=0
         fi
@@ -191,6 +193,10 @@ tasks:
         workspaceOwnerEmail: authors@runwhen.com
         defaultLocation: location-01
         defaultLOD: none
+        # ci-test runs a file-based 10-point validation of the rendered tree
+        # (workspace.yaml / slxs / grep checks). Opt back into on-disk writes for
+        # this fixture; the DB remains canonical for normal runs.
+        writeWorkspaceFilesToDisk: true
         cloudConfig:
           azure:
             devops:
@@ -441,38 +447,17 @@ tasks:
     cmds:
       - task: check-rwp-config
       - |
-        BASE_DIR="output/workspaces/${RW_WORKSPACE}/slxs"
-        if [ ! -d "$BASE_DIR" ]; then
-          echo "Directory $BASE_DIR does not exist. Upload aborted."
-          exit 1
-        fi
-
-        for dir in "$BASE_DIR"/*; do
-          if [ -d "$dir" ]; then
-            SLX_NAME=$(basename "$dir")
-            PAYLOAD=$(jq -n --arg commitMsg "Creating new SLX $SLX_NAME" '{ commitMsg: $commitMsg, files: {} }')
-            for file in slx.yaml runbook.yaml sli.yaml; do
-              if [ -f "$dir/$file" ]; then
-                CONTENT=$(cat "$dir/$file")
-                PAYLOAD=$(echo "$PAYLOAD" | jq --arg fileContent "$CONTENT" --arg fileName "$file" '.files[$fileName] = $fileContent')
-              fi
-            done
-
-            URL="https://${RW_API_URL}/api/v3/workspaces/${RW_WORKSPACE}/branches/main/slxs/${SLX_NAME}"
-            echo "Uploading SLX: $SLX_NAME to $URL"
-            response=$(curl -v -X POST "$URL" \
-              -H "Authorization: Bearer $RW_PAT" \
-              -H "Content-Type: application/json" \
-              -d "$PAYLOAD" -w "%{http_code}" -o /dev/null -s 2>&1)
-
-            if [[ "$response" =~ 200|201 ]]; then
-              echo "Successfully uploaded SLX: $SLX_NAME"
-            else
-              echo "Failed to upload SLX: $SLX_NAME. Response:"
-              echo "$response"
-            fi
-          fi
-        done
+        # Rendered SLX/SLI/runbook content lives in output/resources.sqlite
+        # (workspace_artifacts) rather than an on-disk workspaces/<ws>/ tree.
+        # The helper rebuilds the same per-SLX {slx,runbook,sli}.yaml payload
+        # and POSTs to the identical branches/main/slxs/<name> URL.
+        python3 ../../lib/slx_db.py \
+          --db output/resources.sqlite \
+          --workspace "${RW_WORKSPACE}" \
+          upload \
+          --api "${RW_API_URL}" \
+          --pat "${RW_PAT}" \
+          --branch main
     silent: true
 
   delete-slxs:
@@ -484,15 +469,16 @@ tasks:
     cmds:
       - task: check-rwp-config
       - |
-        BASE_DIR="output/workspaces/${RW_WORKSPACE}/slxs"
-        if [ ! -d "$BASE_DIR" ]; then
-          echo "Directory $BASE_DIR does not exist. Deletion aborted."
+        # SLX names come from the sqlite resource store (workspace_artifacts),
+        # not an on-disk workspaces/<ws>/ tree which is no longer written by default.
+        SLX_NAMES=$(python3 ../../lib/slx_db.py --db output/resources.sqlite --workspace "${RW_WORKSPACE}" slx-names)
+        if [ -z "$SLX_NAMES" ]; then
+          echo "No SLXs found in output/resources.sqlite. Deletion aborted."
           exit 1
         fi
 
-        for dir in "$BASE_DIR"/*; do
-          if [ -d "$dir" ]; then
-            SLX_NAME=$(basename "$dir")
+        echo "$SLX_NAMES" | while read -r SLX_NAME; do
+          if [ -n "$SLX_NAME" ]; then
             URL="https://${RW_API_URL}/api/v3/workspaces/${RW_WORKSPACE}/branches/main/slxs/${SLX_NAME}"
             echo "Deleting SLX: $SLX_NAME from $URL"
             response=$(curl -v -X DELETE "$URL" \

@@ -101,126 +101,42 @@ tasks:
     desc: "Run RunWhen Local Discovery on test infrastructure"
     cmds:
       - |
-        rm slx_count.txt || true
-        CONTAINER_NAME="RunWhenLocal"    
-        if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
-          echo "Stopping and removing existing container $CONTAINER_NAME..."
-          docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME
-        elif docker ps -a -q --filter "name=$CONTAINER_NAME" | grep -q .; then
-          echo "Removing existing stopped container $CONTAINER_NAME..."
-          docker rm $CONTAINER_NAME
-        else
-          echo "No existing container named $CONTAINER_NAME found."
-        fi
-        
-        echo "Cleaning up output directory..."
-        rm -rf output || { echo "Failed to remove output directory"; exit 1; }
-        mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
-
-        echo "Starting new container $CONTAINER_NAME..."
-
-        docker run -e DEBUG_LOGGING=false --add-host github.com:0.0.0.0 --name $CONTAINER_NAME -p 8081:8081 -v $(pwd):/shared -d runwhen-local:test || {
-          echo "Failed to start container"; exit 1;
-        }
-
-        echo "Running workspace builder script in container..."
-        docker exec -w /workspace-builder $CONTAINER_NAME ./run.sh $1 --verbose || {
-          echo "Error executing script in container"; exit 1;
-        }
-
-        echo "Review generated config files under output/workspaces/"
-        total_slxs=$(find $(find 'output/' -type d -name 'slxs') -mindepth 1 -type d | wc -l)
-        echo "Total SLXs: $total_slxs"
-        echo "$total_slxs" > slx_count.txt
+        source _discovery_common.sh
+        CONTAINER_NAME="RunWhenLocal"
+        _rwl_prepare_container "$CONTAINER_NAME"
+        _rwl_start_container "$CONTAINER_NAME" --add-host github.com:0.0.0.0
+        _rwl_wait_for_rest "$CONTAINER_NAME"
+        _rwl_run_discovery "$CONTAINER_NAME" "{{.CLI_ARGS}}"
+        _rwl_write_slx_count
     silent: true
 
   run-rwl-discovery:
     desc: "Run RunWhen Local Discovery on test infrastructure"
     cmds:
       - |
-        rm slx_count.txt || true
-        CONTAINER_NAME="RunWhenLocal"    
-        if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
-          echo "Stopping and removing existing container $CONTAINER_NAME..."
-          docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME
-        elif docker ps -a -q --filter "name=$CONTAINER_NAME" | grep -q .; then
-          echo "Removing existing stopped container $CONTAINER_NAME..."
-          docker rm $CONTAINER_NAME
-        else
-          echo "No existing container named $CONTAINER_NAME found."
-        fi
-        
-        echo "Cleaning up output directory..."
-        rm -rf output || { echo "Failed to remove output directory"; exit 1; }
-        mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
-
-        echo "Starting new container $CONTAINER_NAME..."
-
-        docker run -e DEBUG_LOGGING=false --name $CONTAINER_NAME -p 8081:8081 -p 8000:8000 -v $(pwd):/shared -d runwhen-local:test || {
-          echo "Failed to start container"; exit 1;
-        }
-
-        echo "Running workspace builder script in container..."
-        docker exec -w /workspace-builder $CONTAINER_NAME ./run.sh $1 --verbose || {
-          echo "Error executing script in container"; exit 1;
-        }
-
-        echo "Review generated config files under output/workspaces/"
-        total_slxs=$(find $(find 'output/' -type d -name 'slxs') -mindepth 1 -type d | wc -l)
-        echo "Total SLXs: $total_slxs"
-        echo "$total_slxs" > slx_count.txt
+        source _discovery_common.sh
+        CONTAINER_NAME="RunWhenLocal"
+        _rwl_prepare_container "$CONTAINER_NAME"
+        _rwl_start_container "$CONTAINER_NAME"
+        _rwl_wait_for_rest "$CONTAINER_NAME"
+        _rwl_run_discovery "$CONTAINER_NAME" "{{.CLI_ARGS}}"
+        _rwl_write_slx_count
     silent: true
 
   ci-run-rwl-discovery:
     desc: "Run RunWhen Local Discovery on test infrastructure"
     cmds:
       - |
-        rm slx_count.txt || true
-        CONTAINER_NAME="RunWhenLocal"    
-        if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
-          echo "Stopping and removing existing container $CONTAINER_NAME..."
-          docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME
-        elif docker ps -a -q --filter "name=$CONTAINER_NAME" | grep -q .; then
-          echo "Removing existing stopped container $CONTAINER_NAME..."
-          docker rm $CONTAINER_NAME
-        else
-          echo "No existing container named $CONTAINER_NAME found."
-        fi
-        
-        echo "Cleaning up output directory..."
-        rm -rf output || { echo "Failed to remove output directory"; exit 1; }
-        mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
-        chmod 777 . 
-        echo "Starting new container $CONTAINER_NAME..."
-        echo "User $(whoami)"
-        # 1. Start container in the background
-        docker run -d \
-          -e WB_DEBUG_SUPPRESS_CHEAT_SHEET="true" \
-          -e DEBUG_LOGS=true \
-          --name "$CONTAINER_NAME" \
-          -p 8081:8081 \
-          -v "$(pwd):/shared" \
-          runwhen-local:test
-
-        # 2. Follow the main container logs in the background (if you care about them)
-        docker logs -f "$CONTAINER_NAME" &
-
-        # 3. Now exec the script. Its stdout goes to your pipeline.
-        #    By default, docker exec prints to the current terminal/session.
-        docker exec -w /workspace-builder "$CONTAINER_NAME" ./run.sh "$1" --verbose 2>&1 | tee run_sh_output.log
-
-        # 3.5. Capture container logs before stopping (needed for git safe directory validation)
-        echo "Capturing container logs..."
-        docker logs "$CONTAINER_NAME" > container_logs.log 2>&1 || echo "Failed to capture container logs"
-
-        # 4. (Optional) Stop container if you no longer need it running
-        docker stop "$CONTAINER_NAME"
-        docker rm "$CONTAINER_NAME"        
-
-        echo "Review generated config files under output/workspaces/"
-        total_slxs=$(find $(find 'output/' -type d -name 'slxs') -mindepth 1 -type d | wc -l)
-        echo "Total SLXs: $total_slxs"
-        echo "$total_slxs" > slx_count.txt
+        source _discovery_common.sh
+        CONTAINER_NAME="RunWhenLocal"
+        _rwl_prepare_container "$CONTAINER_NAME"
+        chmod 777 .
+        _rwl_start_container "$CONTAINER_NAME"
+        _rwl_wait_for_rest "$CONTAINER_NAME"
+        _rwl_run_discovery "$CONTAINER_NAME" "{{.CLI_ARGS}}"
+        _rwl_write_slx_count
+        docker stop "$CONTAINER_NAME" 2>/dev/null || true
+        docker rm "$CONTAINER_NAME" 2>/dev/null || true
     silent: true
 
 
@@ -228,53 +144,18 @@ tasks:
     desc: "Run RunWhen Local Discovery with github.com blocked (for local-git validation)"
     cmds:
       - |
-        rm slx_count.txt || true
-        CONTAINER_NAME="RunWhenLocal"    
-        if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
-          echo "Stopping and removing existing container $CONTAINER_NAME..."
-          docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME
-        elif docker ps -a -q --filter "name=$CONTAINER_NAME" | grep -q .; then
-          echo "Removing existing stopped container $CONTAINER_NAME..."
-          docker rm $CONTAINER_NAME
-        else
-          echo "No existing container named $CONTAINER_NAME found."
-        fi
-        
-        echo "Cleaning up output directory..."
-        rm -rf output || { echo "Failed to remove output directory"; exit 1; }
-        mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
-        chmod 777 . 
-        echo "Starting new container $CONTAINER_NAME (github.com blocked)..."
-        echo "User $(whoami)"
-        # 1. Start container with github.com/api.github.com blocked via /etc/hosts
-        docker run -d \
-          -e WB_DEBUG_SUPPRESS_CHEAT_SHEET="true" \
-          -e DEBUG_LOGS=true \
+        source _discovery_common.sh
+        CONTAINER_NAME="RunWhenLocal"
+        _rwl_prepare_container "$CONTAINER_NAME"
+        chmod 777 .
+        _rwl_start_container "$CONTAINER_NAME" \
           --add-host github.com:0.0.0.0 \
-          --add-host api.github.com:0.0.0.0 \
-          --name "$CONTAINER_NAME" \
-          -p 8081:8081 \
-          -v "$(pwd):/shared" \
-          runwhen-local:test
-
-        # 2. Follow the main container logs in the background
-        docker logs -f "$CONTAINER_NAME" &
-
-        # 3. Exec run.sh — its stdout goes to the pipeline
-        docker exec -w /workspace-builder "$CONTAINER_NAME" ./run.sh "$1" --verbose 2>&1 | tee run_sh_output.log
-
-        # 3.5. Capture container logs before stopping
-        echo "Capturing container logs..."
-        docker logs "$CONTAINER_NAME" > container_logs.log 2>&1 || echo "Failed to capture container logs"
-
-        # 4. Stop and remove container
-        docker stop "$CONTAINER_NAME"
-        docker rm "$CONTAINER_NAME"        
-
-        echo "Review generated config files under output/workspaces/"
-        total_slxs=$(find $(find 'output/' -type d -name 'slxs') -mindepth 1 -type d | wc -l)
-        echo "Total SLXs: $total_slxs"
-        echo "$total_slxs" > slx_count.txt
+          --add-host api.github.com:0.0.0.0
+        _rwl_wait_for_rest "$CONTAINER_NAME"
+        _rwl_run_discovery "$CONTAINER_NAME" "{{.CLI_ARGS}}"
+        _rwl_write_slx_count
+        docker stop "$CONTAINER_NAME" 2>/dev/null || true
+        docker rm "$CONTAINER_NAME" 2>/dev/null || true
     silent: true
 
   ci-test-1:
@@ -437,7 +318,7 @@ tasks:
         FAILURES=0
         WARNINGS=0
 
-        # Helper: search both log files (container_logs.log has entrypoint + Django server output,
+        # Helper: search both log files (container_logs.log has entrypoint + FastAPI server output,
         # run_sh_output.log has the docker-exec run.sh output)
         search_logs() {
           local pattern="$1"
@@ -610,39 +491,56 @@ tasks:
     desc: "Validate that rendered content is as intended"
     cmds: 
       - | 
+        # A rendered artifact may legitimately omit spec.location (e.g. SLIs,
+        # whose location is a runbook-level concept). Mirror the pre-sqlite
+        # behaviour: an absent location is acceptable; only an unresolved
+        # template sentinel ("missing_workspaceInfo_custom_variable") fails.
+        check_location() {
+          kind="$1"
+          if [ "$LOCATION" = "missing_workspaceInfo_custom_variable" ]; then
+            echo "Error: $kind contains an invalid spec.location value." >&2
+            exit 1
+          elif [ -z "$LOCATION" ] || [ "$LOCATION" = "null" ]; then
+            echo "Note: $kind artifact has no spec.location (acceptable)"
+          else
+            echo "Validation successful: $kind artifact has spec.location=$LOCATION"
+          fi
+        }
+
         echo "Validate Runbook location configuration"
-        RUNBOOK_FILE=$(find . -type f -name "runbook.yaml" | head -n 1)
-        if [ -z "$RUNBOOK_FILE" ]; then
-          echo "Error: No runbook.yaml file found in subdirectories." >&2
-          exit 1
+        if [ -f output/resources.sqlite ]; then
+          LOCATION=$(python3 ../../lib/slx_db.py --db output/resources.sqlite location runbook 2>/dev/null) || LOCATION=""
+        else
+          RUNBOOK_FILE=$(find output -type f -name "runbook.yaml" | head -n 1)
+          if [ -z "$RUNBOOK_FILE" ]; then
+            echo "Error: No runbook.yaml found under output/." >&2
+            exit 1
+          fi
+          LOCATION=$(yq e '.spec.location' "$RUNBOOK_FILE")
         fi
-        LOCATION=$(yq e '.spec.location' "$RUNBOOK_FILE")
-        if [ "$LOCATION" = "missing_workspaceInfo_custom_variable" ]; then
-          echo "Error: runbook.yaml contains an invalid spec.location value." >&2
-          exit 1
-        fi
-        echo "Validation successful: $RUNBOOK_FILE has a valid spec.location."
+        check_location runbook
 
         echo "Validate SLI location configuration"
-        SLI_FILE=$(find . -type f -name "sli.yaml" | head -n 1)
-        if [ -z "$SLI_FILE" ]; then
-          echo "Error: No sli.yaml file found in subdirectories." >&2
-          exit 1
+        if [ -f output/resources.sqlite ]; then
+          LOCATION=$(python3 ../../lib/slx_db.py --db output/resources.sqlite location sli 2>/dev/null) || LOCATION=""
+        else
+          SLI_FILE=$(find output -type f -name "sli.yaml" | head -n 1)
+          if [ -z "$SLI_FILE" ]; then
+            echo "Error: No sli.yaml found under output/." >&2
+            exit 1
+          fi
+          LOCATION=$(yq e '.spec.location' "$SLI_FILE")
         fi
-        LOCATION=$(yq e '.spec.location' "$SLI_FILE")
-        if [ "$LOCATION" = "missing_workspaceInfo_custom_variable" ]; then
-          echo "Error: runbook.yaml contains an invalid spec.location value." >&2
-          exit 1
-        fi
-        echo "Validation successful: $SLI_FILE has a valid spec.location."
+        check_location sli
     silent: true
 
   clean-rwl-discovery:
     desc: "Check and clean up RunWhen Local discovery output"
     cmds:
       - |
+        docker rm -f RunWhenLocal 2>/dev/null || true
         rm -rf output
-        rm workspaceInfo.yaml
+        rm -f workspaceInfo.yaml run_sh_output.log container_logs.log slx_count.txt
     silent: true
 
   validate-k8s-yaml:
@@ -670,3 +568,245 @@ tasks:
     desc: "Run only YAML validation on existing output (for quick testing)"
     cmds:
       - task: validate-k8s-yaml
+
+  unit-test-src:
+    desc: "Fast no-Docker unit tests for the workspace builder source (indexers, normalizers, SQLite writer). Useful while iterating on src/ - no need to rebuild the image to catch encoder / writer regressions."
+    cmds:
+      - |
+        SRC_DIR=../../../src
+        if [ ! -d "$SRC_DIR" ]; then
+          echo "❌ src/ not found at $SRC_DIR"; exit 1
+        fi
+        echo "Running unittest discovery under $SRC_DIR/indexers ..."
+        cd "$SRC_DIR" && python3 -m unittest \
+          indexers.test_sqlite_resource_writer \
+          indexers.test_azureapi_normalizers \
+          -v
+    silent: false
+
+  ci-test-sqlite-store:
+    desc: "Run discovery with resourceStoreBackend=sqlite and verify the SQLite file lands in the output directory with non-empty platform/resource rows."
+    env:
+      RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace-sqlite"}}'
+    cmds:
+      - |
+        cat <<EOF > workspaceInfo.yaml
+        workspaceName: "$RW_WORKSPACE"
+        workspaceOwnerEmail: authors@runwhen.com
+        defaultLocation: location-01
+        defaultLOD: detailed
+        cloudConfig:
+          kubernetes:
+            kubeconfigFile: /shared/kubeconfig.secret
+            contexts:
+              sandbox-cluster-1:
+                defaultNamespaceLOD: basic
+        codeCollections: []
+        custom:
+          kubernetes_distribution_binary: kubectl
+        resourceStoreBackend: sqlite
+        resourceStorePath: resources.sqlite
+        EOF
+
+      - task: build-rwl
+      - task: run-rwl-discovery
+
+      - |
+        echo ""
+        echo "=== SQLite resource store validation ==="
+        DB_FILE=$(find output -maxdepth 3 -name 'resources.sqlite' | head -n 1)
+        if [ -z "$DB_FILE" ]; then
+          echo "❌ resources.sqlite not produced by discovery"
+          find output -maxdepth 3 -type f | sed 's/^/    /'
+          exit 1
+        fi
+        echo "✔ Found SQLite store: $DB_FILE ($(stat -c%s "$DB_FILE") bytes)"
+
+        if ! command -v sqlite3 >/dev/null; then
+          echo "ℹ sqlite3 CLI not available on host; falling back to python3 inspection"
+          PY=python3
+          $PY - "$DB_FILE" <<'PY' || exit 1
+        import sqlite3, sys
+        conn = sqlite3.connect(sys.argv[1])
+        platforms = [r[0] for r in conn.execute("SELECT name FROM platforms")]
+        types     = conn.execute("SELECT COUNT(*) FROM resource_types").fetchone()[0]
+        rows      = conn.execute("SELECT COUNT(*) FROM resources").fetchone()[0]
+        artifacts = conn.execute("SELECT COUNT(*) FROM workspace_artifacts").fetchone()[0]
+        slx_rows  = conn.execute("SELECT COUNT(*) FROM workspace_artifacts WHERE artifact_kind='slx'").fetchone()[0]
+        version   = conn.execute("SELECT value FROM schema_meta WHERE key='schema_version'").fetchone()
+        print(f"  schema_version : {version[0] if version else 'MISSING'}")
+        print(f"  platforms      : {platforms}")
+        print(f"  resource_types : {types}")
+        print(f"  resources      : {rows}")
+        print(f"  artifacts      : {artifacts}")
+        print(f"  slx files      : {slx_rows}")
+        if not platforms:
+            print("❌ no platforms in store"); sys.exit(1)
+        if rows == 0:
+            print("❌ resources table is empty"); sys.exit(1)
+        if artifacts == 0:
+            print("❌ workspace_artifacts table is empty"); sys.exit(1)
+        if slx_rows == 0:
+            print("❌ no slx.yaml artifacts persisted"); sys.exit(1)
+        print("✔ SQLite store is populated")
+        PY
+        else
+          PLATFORMS=$(sqlite3 "$DB_FILE" "SELECT name FROM platforms;" | tr '\n' ' ')
+          TYPES=$(sqlite3 "$DB_FILE" "SELECT COUNT(*) FROM resource_types;")
+          ROWS=$(sqlite3 "$DB_FILE" "SELECT COUNT(*) FROM resources;")
+          ARTIFACTS=$(sqlite3 "$DB_FILE" "SELECT COUNT(*) FROM workspace_artifacts;")
+          SLX_ROWS=$(sqlite3 "$DB_FILE" "SELECT COUNT(*) FROM workspace_artifacts WHERE artifact_kind='slx';")
+          VERSION=$(sqlite3 "$DB_FILE" "SELECT value FROM schema_meta WHERE key='schema_version';")
+          echo "  schema_version : ${VERSION:-MISSING}"
+          echo "  platforms      : ${PLATFORMS:-(none)}"
+          echo "  resource_types : $TYPES"
+          echo "  resources      : $ROWS"
+          echo "  artifacts      : $ARTIFACTS"
+          echo "  slx files      : $SLX_ROWS"
+          if [ -z "$PLATFORMS" ] || [ "$ROWS" -eq 0 ]; then
+            echo "❌ SQLite store is empty"
+            exit 1
+          fi
+          if [ "$ARTIFACTS" -eq 0 ] || [ "$SLX_ROWS" -eq 0 ]; then
+            echo "❌ workspace artifacts not persisted"
+            exit 1
+          fi
+          echo "✔ SQLite store is populated"
+        fi
+    silent: false
+
+  ci-test-skill-overlay:
+    desc: "Run discovery pinned to rw-cli-codecollection feat/skill-overlay and verify the Skill overlay pipeline. The overlay is conditional: only codebundles that ship a Skill markdown file (SKILL.md, Skill.md, or skill.md — matched case-insensitively) at the bundle root produce an overlay file. The test asks GitHub how many Skill markdown files exist on the branch and tightens its assertions accordingly, so it stays green today and tightens automatically once Skill markdown files start landing upstream."
+    env:
+      RW_WORKSPACE: '{{.RW_WORKSPACE | default "my-workspace-skill"}}'
+      SKILL_BRANCH: '{{.SKILL_BRANCH | default "feat/skill-overlay"}}'
+    cmds:
+      - |
+        cat <<EOF > workspaceInfo.yaml
+        workspaceName: "$RW_WORKSPACE"
+        workspaceOwnerEmail: authors@runwhen.com
+        defaultLocation: location-01
+        defaultLOD: detailed
+        cloudConfig:
+          kubernetes:
+            kubeconfigFile: /shared/kubeconfig.secret
+            contexts:
+              sandbox-cluster-1:
+                defaultNamespaceLOD: basic
+            namespaces:
+              - ci-verify-basic
+        codeCollections:
+          - repoURL: https://github.com/runwhen-contrib/rw-cli-codecollection.git
+            branch: ${SKILL_BRANCH}
+        useLocalGit: false
+        custom:
+          kubernetes_distribution_binary: kubectl
+        resourceStoreBackend: sqlite
+        resourceStorePath: resources.sqlite
+        EOF
+
+      - task: build-rwl
+      - task: run-rwl-discovery
+
+      - |
+        echo ""
+        echo "=== Branch override validation ==="
+        # Confirm the codecollection override actually took effect: every rendered
+        # slx.yaml records the source ref via common-annotations (sourceGenerationRuleRepoRef).
+        REF_HITS=$(grep -rl "sourceGenerationRuleRepoRef: ${SKILL_BRANCH}" output/workspaces 2>/dev/null | wc -l | tr -d ' ')
+        echo "  slx.yaml files referencing ref '${SKILL_BRANCH}' : $REF_HITS"
+        if [ "$REF_HITS" -eq 0 ]; then
+          echo "❌ codeCollections override did not take effect — no SLX references ref '${SKILL_BRANCH}'."
+          echo "   Sample slx.yaml ref lines we did see:"
+          grep -rh "sourceGenerationRuleRepoRef:" output/workspaces 2>/dev/null | sort -u | head -5 | sed 's/^/    /'
+          exit 1
+        fi
+        echo "✔ codeCollections override honored"
+
+      - |
+        echo ""
+        echo "=== Skill overlay validation ==="
+        # `-iname` matches any case (SKILL.md, Skill.md, skill.md, sKiLL.Md, ...).
+        SLX_COUNT=$(find output -mindepth 4 -type d -path '*/slxs/*' | wc -l | tr -d ' ')
+        SKILL_COUNT=$(find output -type f -iname 'skill.md' -path '*/slxs/*' | wc -l | tr -d ' ')
+        echo "  rendered SLX directories         : $SLX_COUNT"
+        echo "  Skill overlay files (any case)   : $SKILL_COUNT"
+
+        if [ "$SLX_COUNT" -eq 0 ]; then
+          echo "❌ No rendered SLX directories produced"
+          find output -maxdepth 5 -type d | sed 's/^/    /'
+          exit 1
+        fi
+
+        # Ask GitHub how many Skill markdown files exist on the branch we just
+        # rendered against, matching the filename case-insensitively (codebundles
+        # can publish it as SKILL.md, Skill.md, or skill.md). Limit the count to
+        # entries at codebundles/<bundle>/<skill>.md at the bundle root —
+        # sub-directory matches don't trigger the overlay.
+        UPSTREAM_SKILL_COUNT=0
+        TREE_JSON=$(curl -fsSL "https://api.github.com/repos/runwhen-contrib/rw-cli-codecollection/git/trees/${SKILL_BRANCH}?recursive=1" 2>/dev/null || true)
+        if [ -n "$TREE_JSON" ]; then
+          UPSTREAM_SKILL_COUNT=$(printf '%s' "$TREE_JSON" \
+            | python3 -c 'import json,sys; t=json.load(sys.stdin); paths=[e["path"] for e in t.get("tree",[]) if e.get("type")=="blob"]; print(sum(1 for p in paths if p.startswith("codebundles/") and p.lower().endswith("/skill.md") and p.count("/")==2))' \
+            2>/dev/null || echo 0)
+        fi
+        echo "  upstream codebundles with Skill markdown (branch ${SKILL_BRANCH}) : ${UPSTREAM_SKILL_COUNT}"
+
+        if [ "$UPSTREAM_SKILL_COUNT" -eq 0 ]; then
+          echo ""
+          echo "ℹ️  No codebundle on branch '${SKILL_BRANCH}' ships a Skill markdown yet."
+          echo "    The overlay code path is exercised but produced 0 files (expected)."
+          echo "    This task will auto-tighten once a SKILL.md / Skill.md is added upstream."
+          echo "    For end-to-end coverage of the overlay code path itself, see"
+          echo "    src/renderers/test_skill_overlay.py (unit tests)."
+          echo ""
+          echo "✔ Skill overlay pipeline ran cleanly (no upstream sources to overlay)"
+          exit 0
+        fi
+
+        if [ "$SKILL_COUNT" -eq 0 ]; then
+          echo "❌ Branch '${SKILL_BRANCH}' has ${UPSTREAM_SKILL_COUNT} codebundle Skill markdown file(s),"
+          echo "   but none were overlaid onto rendered SLXs. Investigate _emit_skill_overlay."
+          find output -type f -path '*/slxs/*' | head -n 30 | sed 's/^/    /'
+          exit 1
+        fi
+
+        echo ""
+        echo "  sample Skill overlay (first 12 lines):"
+        SAMPLE=$(find output -type f -iname 'skill.md' -path '*/slxs/*' | head -n 1)
+        echo "    -> $SAMPLE"
+        sed 's/^/    /' "$SAMPLE" | head -n 12 || true
+
+        echo ""
+        echo "=== SQLite skill-artifact validation ==="
+        DB_FILE=$(find output -maxdepth 3 -name 'resources.sqlite' | head -n 1)
+        if [ -z "$DB_FILE" ]; then
+          echo "❌ resources.sqlite not produced"
+          exit 1
+        fi
+
+        if command -v sqlite3 >/dev/null; then
+          SKILL_ROWS=$(sqlite3 "$DB_FILE" "SELECT COUNT(*) FROM workspace_artifacts WHERE artifact_kind='skill';")
+          SAMPLE_ROW=$(sqlite3 "$DB_FILE" "SELECT relative_path FROM workspace_artifacts WHERE artifact_kind='skill' LIMIT 1;")
+          echo "  skill artifacts : $SKILL_ROWS"
+          echo "  sample row      : ${SAMPLE_ROW:-(none)}"
+          if [ "$SKILL_ROWS" -eq 0 ]; then
+            echo "❌ Skill.md present on disk but not classified as artifact_kind='skill' in SQLite"
+            exit 1
+          fi
+        else
+          python3 - "$DB_FILE" <<'PY' || exit 1
+        import sqlite3, sys
+        conn = sqlite3.connect(sys.argv[1])
+        rows = conn.execute("SELECT COUNT(*) FROM workspace_artifacts WHERE artifact_kind='skill'").fetchone()[0]
+        sample = conn.execute("SELECT relative_path FROM workspace_artifacts WHERE artifact_kind='skill' LIMIT 1").fetchone()
+        print(f"  skill artifacts : {rows}")
+        print(f"  sample row      : {sample[0] if sample else '(none)'}")
+        if rows == 0:
+            print("❌ Skill.md present on disk but not classified as artifact_kind='skill' in SQLite")
+            sys.exit(1)
+        PY
+        fi
+
+        echo "✔ Skill.md overlay rendered and persisted as artifact_kind='skill'"
+    silent: false

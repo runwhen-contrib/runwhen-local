@@ -1,0 +1,279 @@
+version: "3"
+
+# Smoke-test the native ``awsapi`` indexer end-to-end against a static AWS
+# sandbox account. Mirrors .test/gcp/gcp-and-k8s (the gcpapi baseline) which in
+# turn mirrors .test/azure/no-aks-resources: generate a workspaceInfo that
+# selects the native ``awsapi`` backend + the SQLite resource store, run
+# discovery, then assert directly against output/resources.sqlite (not the SLX
+# count).
+#
+# Unlike Azure there is no Terraform: the sandbox account already exists, so the
+# job just provides credentials, builds the RWL test image, runs discovery with
+# awsIndexerBackend=awsapi + the SQLite resource store, and asserts the
+# persisted resources directly.
+#
+# Credentials are read from ``aws.secret`` (shell-export format, the same shape
+# as .test/aws/basic/aws.secret). Only the AWS_* credential lines are consumed;
+# the access key / secret never land in workspaceInfo.yaml -- the native indexer
+# resolves them through the default credential chain from the container env.
+#
+# Required CI repo secrets (used by .github/workflows/test-cloud-indexers.yaml):
+#   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY  - the sandbox IAM user's keys.
+
+tasks:
+  default:
+    desc: "Generate workspaceInfo and run the native awsapi baseline"
+    cmds:
+      - task: ci-test-awsapi-baseline
+
+  clean:
+    desc: "Run cleanup tasks"
+    cmds:
+      - task: clean-rwl-discovery
+
+  build-rwl:
+    desc: "Build RWL test image"
+    cmds:
+      - |
+        BUILD_DIR=../../../src/
+        CONTAINER_NAME="RunWhenLocal"
+        if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Stopping and removing existing container $CONTAINER_NAME..."
+          docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME
+        elif docker ps -a -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Removing existing stopped container $CONTAINER_NAME..."
+          docker rm $CONTAINER_NAME || echo "Container removal failed, continuing..."
+        else
+          echo "No existing container named $CONTAINER_NAME found."
+        fi
+
+        echo "Cleaning up output directory..."
+        rm -rf output || { echo "Failed to remove output directory"; exit 1; }
+        mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
+        ## Building Container Image
+        # CI build-once optimization: when RWL_SKIP_BUILD is set (the CI test
+        # job has already pulled+tagged a prebuilt runwhen-local:test image),
+        # skip the local buildx build. Unset (local runs) builds as before.
+        if [ -n "${RWL_SKIP_BUILD:-}" ]; then
+          echo "RWL_SKIP_BUILD set; using existing runwhen-local:test image (skipping buildx build)."
+        else
+          docker buildx build --builder mybuilder --platform linux/amd64 --build-arg INCLUDE_CODE_COLLECTION_CACHE=true -t runwhen-local:test -f $BUILD_DIR/Dockerfile $BUILD_DIR --load
+        fi
+    silent: true
+
+  generate-awsapi-baseline-config:
+    desc: "Emit workspaceInfo.yaml selecting the native awsapi backend + SQLite store (defaultLOD=detailed)."
+    silent: true
+    env:
+      RW_WORKSPACE: '{{.RW_WORKSPACE | default "awsapi-baseline"}}'
+    cmds:
+      - |
+        if [ ! -f aws.secret ]; then
+          echo "aws.secret not found; expected shell-export credentials (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION)."
+          exit 1
+        fi
+        # Resolve the region from aws.secret (default us-east-1). The access key /
+        # secret are NOT written into workspaceInfo.yaml; the native indexer
+        # picks them up from the container env (default credential chain).
+        AWS_REGION_RESOLVED=$(grep -E '^export AWS_DEFAULT_REGION=' aws.secret | head -n1 | cut -d= -f2- | tr -d '"' || true)
+        AWS_REGION_RESOLVED=${AWS_REGION_RESOLVED:-us-east-1}
+        cat > workspaceInfo.yaml <<EOF
+        workspaceName: "${RW_WORKSPACE}"
+        workspaceOwnerEmail: authors@runwhen.com
+        defaultLocation: location-01
+        defaultLOD: detailed
+        awsIndexerBackend: awsapi
+        resourceStoreBackend: sqlite
+        cloudConfig:
+          aws:
+            regions:
+            - ${AWS_REGION_RESOLVED}
+        codeCollections: []
+        custom:
+          kubernetes_distribution_binary: kubectl
+        EOF
+        echo "Wrote workspaceInfo.yaml (awsapi baseline / region=${AWS_REGION_RESOLVED}, defaultLOD=detailed)"
+
+  run-rwl-discovery:
+    desc: "Run RunWhen Local discovery (native awsapi); injects AWS creds from aws.secret into the container env."
+    silent: true
+    cmds:
+      - |
+        rm -f run_sh_output.log container_logs.log slx_count.txt || true
+        CONTAINER_NAME="RunWhenLocal"
+        if docker ps -aq --filter "name=$CONTAINER_NAME" | grep -q .; then
+          echo "Removing existing container $CONTAINER_NAME..."
+          docker rm -f $CONTAINER_NAME || echo "Container removal failed, continuing..."
+        fi
+
+        echo "Cleaning up output directory..."
+        rm -rf output || { echo "Failed to remove output directory"; exit 1; }
+        mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
+
+        # Load only the AWS_* credential lines from aws.secret into this shell so
+        # they can be forwarded into the container env. Nothing is echoed.
+        set -a
+        if [ -f aws.secret ]; then
+          eval "$(grep -E '^export AWS_(ACCESS_KEY_ID|SECRET_ACCESS_KEY|SESSION_TOKEN|DEFAULT_REGION|REGION)=' aws.secret)"
+        fi
+        : "${AWS_REGION:=${AWS_DEFAULT_REGION:-}}"
+        set +a
+
+        echo "Starting new container $CONTAINER_NAME..."
+        # AZURE_DEVOPS_CACHE_DIR points the azure-devops SDK's import-time file
+        # cache (azure/devops/_file_cache.get_cache_dir) at a writable path.
+        # Defense-in-depth: even if some module eagerly imports azure.devops,
+        # the os.makedirs no longer targets the read-only /shared (=$HOME) mount.
+        docker run -d \
+          -e DEBUG_LOGGING=false \
+          -e AZURE_DEVOPS_CACHE_DIR=/tmp/.azure-devops \
+          -e AWS_ACCESS_KEY_ID \
+          -e AWS_SECRET_ACCESS_KEY \
+          -e AWS_SESSION_TOKEN \
+          -e AWS_DEFAULT_REGION \
+          -e AWS_REGION \
+          --name "$CONTAINER_NAME" \
+          -p 8000:8000 \
+          -v "$(pwd):/shared" \
+          runwhen-local:test || { echo "Failed to start container"; exit 1; }
+
+        # Wait for the REST service to actually come up. If uvicorn crashes on
+        # startup the container exits; dump its logs so the Python traceback is
+        # visible in CI instead of an opaque "Total SLXs: 0 / no sqlite".
+        echo "Waiting for workspace builder REST service..."
+        rest_ready=0
+        for i in $(seq 1 30); do
+          if ! docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+            echo "Container $CONTAINER_NAME exited during startup. Logs:"
+            docker logs "$CONTAINER_NAME" 2>&1 | tee container_logs.log
+            exit 1
+          fi
+          if docker exec "$CONTAINER_NAME" curl -sf http://localhost:8000/info/ >/dev/null 2>&1; then
+            rest_ready=1; break
+          fi
+          sleep 2
+        done
+        if [ "$rest_ready" -ne 1 ]; then
+          echo "REST service never became ready. Container logs:"
+          docker logs "$CONTAINER_NAME" 2>&1 | tee container_logs.log
+          exit 1
+        fi
+
+        echo "Running workspace builder script in container..."
+        # pipefail so a run.sh failure is NOT masked by tee's exit code (which
+        # previously let a failed discovery proceed to a confusing "no sqlite"
+        # assertion instead of failing here with the real error).
+        set -o pipefail
+        docker exec -w /workspace-builder "$CONTAINER_NAME" ./run.sh "$1" --verbose 2>&1 | tee run_sh_output.log || {
+          echo "Error executing script in container. Container logs:"
+          docker logs "$CONTAINER_NAME" 2>&1 | tee container_logs.log
+          exit 1
+        }
+        set +o pipefail
+        # Always snapshot the container (REST/indexer) logs for the asserts +
+        # the failure artifact.
+        docker logs "$CONTAINER_NAME" > container_logs.log 2>&1 || true
+
+        echo "Review rendered SLXs via the explorer UI (http://localhost:8000/explorer/) or output/resources.sqlite"
+        # Rendered files are no longer written to disk by default
+        # (writeWorkspaceFilesToDisk=False); count SLXs from the sqlite store.
+        if [ -f output/resources.sqlite ]; then
+          total_slxs=$(python3 ../../lib/slx_db.py --db output/resources.sqlite count)
+        else
+          total_slxs=0
+        fi
+        echo "Total SLXs: $total_slxs"
+        echo "$total_slxs" > slx_count.txt
+
+  ci-test-awsapi-baseline:
+    desc: "End to end: native awsapi discovery. SQLite store must contain the account anchor + discovered AWS resources."
+    cmds:
+      - task: generate-awsapi-baseline-config
+      - task: build-rwl
+      - task: run-rwl-discovery
+      - task: assert-awsapi-baseline
+
+  assert-awsapi-baseline:
+    desc: "Verify the native awsapi backend ran and persisted AWS resources to output/resources.sqlite."
+    silent: true
+    cmds:
+      - |
+        DB=output/resources.sqlite
+        if [ ! -f "$DB" ]; then
+          echo "FAIL: $DB not produced"
+          exit 1
+        fi
+
+        # Snapshot the indexer stdout so we can confirm the *native* backend ran.
+        # The awsapi backend-selection log lives in the container's main-process
+        # logs (the run.sh exec only triggers the REST call), so capture both.
+        docker logs RunWhenLocal > container_logs.log 2>&1 || true
+
+        fail=0
+
+        # 1. The native awsapi backend must have been selected (NOT cloudquery).
+        if grep -qE "AWS indexer backend: 'awsapi' \(Cloud Control API" run_sh_output.log container_logs.log 2>/dev/null; then
+          echo "OK   baseline: native awsapi backend ran"
+        else
+          echo "FAIL baseline: native awsapi backend did not run (expected awsIndexerBackend=awsapi)"
+          fail=1
+        fi
+
+        # 2. The account anchor must be present. The aws_iam_accounts anchor is
+        #    surfaced to generation rules under its first alias 'account'
+        #    (mirrors GCP's 'project' anchor). The account is synthesized from
+        #    the resolved credentials, so it is always present on a successful
+        #    run regardless of what else exists in the sandbox.
+        n=$(sqlite3 "$DB" \
+          "SELECT count(*) FROM resources WHERE platform='aws' AND resource_type IN ('account','aws_iam_accounts','aws_account');" \
+          2>/dev/null || echo 0)
+        if [ "$n" -lt 1 ]; then
+          echo "FAIL baseline: AWS account anchor (aws_iam_accounts) not in resource store"
+          fail=1
+        else
+          echo "OK   baseline: AWS account anchor present (${n} row)"
+        fi
+
+        # 3. At least one AWS resource overall (the anchor counts). Kept as a
+        #    presence/threshold check -- the sandbox is intentionally minimal and
+        #    its real resources come and go, so we do NOT assert exact counts or
+        #    specific typed collectors (S3/EC2 may legitimately be empty).
+        total=$(sqlite3 "$DB" \
+          "SELECT count(*) FROM resources WHERE platform='aws';" \
+          2>/dev/null || echo 0)
+        if [ "$total" -lt 1 ]; then
+          echo "FAIL baseline: expected >= 1 aws resource, found ${total}"
+          fail=1
+        else
+          echo "OK   baseline: ${total} aws resources in store (>= 1)"
+        fi
+
+        # 4. The Cloud Control generic pass populates the account's default
+        #    networking, which every AWS account/region has out of the box and
+        #    which the bundled generation rules reference. Assert presence
+        #    (>= 1), not exact counts, so the test stays stable as the sandbox
+        #    changes. (Observed on a live run: 1 default VPC + 1 default SG.)
+        for rtype in aws_ec2_vpcs aws_ec2_security_groups; do
+          n=$(sqlite3 "$DB" \
+            "SELECT count(*) FROM resources WHERE platform='aws' AND resource_type='${rtype}';" \
+            2>/dev/null || echo 0)
+          if [ "$n" -lt 1 ]; then
+            echo "FAIL baseline: expected >= 1 ${rtype}, found ${n}"
+            fail=1
+          else
+            echo "OK   baseline: ${rtype} present (${n} row)"
+          fi
+        done
+
+        exit "$fail"
+
+  clean-rwl-discovery:
+    desc: "Check and clean up RunWhen Local discovery output"
+    cmds:
+      - |
+        CONTAINER_NAME="RunWhenLocal"
+        docker rm -f "$CONTAINER_NAME" 2>/dev/null || true
+        rm -rf output
+        rm -f workspaceInfo.yaml
+        rm -f run_sh_output.log container_logs.log slx_count.txt
+    silent: true

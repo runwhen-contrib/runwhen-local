@@ -31,6 +31,17 @@ from resources import Registry, REGISTRY_PROPERTY_NAME, ResourceTypeSpec
 from utils import read_file, write_file, mask_string
 from .common import CLOUD_CONFIG_SETTING
 from .airgap_support import get_airgap_manager
+from .azure_common import (
+    az_discover_resource_groups,
+    az_get_credentials_and_subscription_id,
+    az_validate_credential_access,
+    _azure_has_only_devops_config,
+    get_auth_type,
+    get_managed_identity_details,
+    has_excluded_tags,
+    has_included_tags,
+    resolve_deferred_azure_relationships,
+)
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from k8s_utils import get_secret
 from gcp_utils import get_gcp_credential, authenticate_gcloud, validate_gcp_credentials
@@ -83,8 +94,27 @@ def _sqlite_template_vars(database_path: str) -> dict:
 
 DOCUMENTATION = "Index resources using CloudQuery"
 
+
+def _import_azure_indexer_backend_setting():
+    # Module-level local import to avoid a circular import between cloudquery
+    # and azureapi: SETTINGS must reference the same Setting object the
+    # azureapi indexer registers so the backend selector is honored when
+    # users include cloudquery without explicitly including azureapi.
+    from .azureapi import AZURE_INDEXER_BACKEND_SETTING
+    return AZURE_INDEXER_BACKEND_SETTING
+
+
+def _import_aws_indexer_backend_setting():
+    # Same rationale as the Azure helper: honor awsIndexerBackend even when the
+    # awsapi indexer is not explicitly included alongside cloudquery.
+    from .awsapi import AWS_INDEXER_BACKEND_SETTING
+    return AWS_INDEXER_BACKEND_SETTING
+
+
 SETTINGS = (
     SettingDependency(CLOUD_CONFIG_SETTING, False),
+    SettingDependency(_import_azure_indexer_backend_setting(), False),
+    SettingDependency(_import_aws_indexer_backend_setting(), False),
 )
 
 @dataclass
@@ -147,21 +177,6 @@ platform_specs = [
                                                           mandatory=False),
                            ]),
 ]
-
-def has_included_tags(resource_data: dict, include_tags: dict[str, str]) -> bool:
-    """Returns True if any of the tags in `include_tags` are found in `resource_data`."""
-    tags = resource_data.get("tags", {})
-    return any(tags.get(key) == value for key, value in include_tags.items())
-
-
-def has_excluded_tags(resource_data: dict, exclude_tags: dict[str, str]) -> bool:
-    """Returns True if any of the tags in `exclude_tags` are found in `resource_data`."""
-    tags = resource_data.get("tags", {})
-    for key, value in exclude_tags.items():
-        if tags.get(key) == value:
-            logger.info(f"Excluding resource {resource_data.get('name', 'unknown')} due to tag '{key}: {value}'")
-            return True
-    return False
 
 def is_rate_limited(stdout_text: str, stderr_text: str) -> bool:
     """
@@ -525,34 +540,6 @@ def init_cloudquery_table_info():
         else:
             logger.info("No platforms available for table discovery in init phase")
 
-def get_managed_identity_details():
-    credential = DefaultAzureCredential()
-
-    subscription_client = SubscriptionClient(credential)
-    subscription = next(subscription_client.subscriptions.list())
-    subscription_id = subscription.subscription_id
-    tenant_id = subscription.tenant_id
-
-    imds_url = "http://169.254.169.254/metadata/identity/oauth2/token"
-    headers = {"Metadata": "true"}
-    params = {
-        "api-version": "2019-08-01",
-        "resource": "https://management.azure.com/"
-    }
-
-    response = requests.get(imds_url, headers=headers, params=params)
-    response.raise_for_status()
-
-    token_data = response.json()
-    client_id = token_data.get("client_id")
-
-    return {
-        "AZURE_TENANT_ID": tenant_id,
-        "AZURE_CLIENT_ID": client_id,
-        "AZURE_SUBSCRIPTION_ID": subscription_id,
-        "credential": credential
-    }
-
 def gcp_get_credentials_and_project_ids(platform_config_data: dict[str, Any], temp_dir: str = None) -> dict[str, Any]:
     """
     Resolve GCP authentication and return:
@@ -652,92 +639,6 @@ def gcp_get_credentials_and_project_ids(platform_config_data: dict[str, Any], te
         "env_vars": env_vars
     }
 
-def az_get_credentials_and_subscription_id(platform_config_data: dict[str, Any]) -> dict[str, Any]:
-    """
-    Resolve Azure authentication and return:
-        credential             – azure-identity credential object
-        subscription_ids       – list[str]   (final list for CloudQuery)
-        AZURE_* keys           – env-var values for SP / MI auth
-    """
-
-    # ──────────────────────── 0.   optional SP via K8s secret
-    sp_secret_name = platform_config_data.get("spSecretName")
-    client_id = client_secret = tenant_id = None
-    if sp_secret_name:
-        secret = get_secret(sp_secret_name)
-        tenant_id     = base64.b64decode(secret.get("tenantId")).decode()
-        client_id     = base64.b64decode(secret.get("clientId")).decode()
-        client_secret = base64.b64decode(secret.get("clientSecret")).decode()
-
-    # ──────────────────────── 1.   inline SP
-    if not all([client_id, client_secret, tenant_id]):
-        client_id     = platform_config_data.get("clientId")
-        client_secret = platform_config_data.get("clientSecret")
-        tenant_id     = platform_config_data.get("tenantId")
-
-    # ──────────────────────── 2.   collect subscription IDs
-    explicit_sub_ids = [
-        str(e["subscriptionId"])
-        for e in platform_config_data.get("subscriptions", [])
-        if e.get("subscriptionId")
-    ]
-
-    if explicit_sub_ids:
-        subscription_ids = explicit_sub_ids                            # ← preferred
-    else:
-        # Legacy single field + env-var
-        subscription_ids: list[str] = []
-        legacy_sid = platform_config_data.get("subscriptionId")
-        if legacy_sid:
-            subscription_ids.append(str(legacy_sid))
-        env_sid = os.getenv("AZURE_SUBSCRIPTION_ID")
-        if env_sid and env_sid not in subscription_ids:
-            subscription_ids.append(str(env_sid))
-
-    if not subscription_ids:
-        raise ValueError("No Azure subscriptionId supplied.")
-
-    # ──────────────────────── 3.   credential object
-    if all([client_id, client_secret, tenant_id]):
-        credential = ClientSecretCredential(tenant_id, client_id, client_secret)
-    else:
-        mi = get_managed_identity_details()
-        credential  = mi["credential"]
-        client_id   = client_id or mi.get("AZURE_CLIENT_ID")
-        tenant_id   = tenant_id or mi.get("AZURE_TENANT_ID")
-
-    # ──────────────────────── 4.   package result
-    result = {
-        "credential":           credential,
-        "subscription_ids":     subscription_ids,
-        "AZURE_SUBSCRIPTION_ID": subscription_ids[0],  # env-var for SDKs
-    }
-    if client_id:     result["AZURE_CLIENT_ID"]     = client_id
-    if client_secret: result["AZURE_CLIENT_SECRET"] = client_secret
-    if tenant_id:     result["AZURE_TENANT_ID"]     = tenant_id
-    return result
-
-
-def _azure_has_only_devops_config(platform_cfg: dict) -> bool:
-    """Return True when the azure config block has no cloud discovery credentials.
-
-    This happens when the user only configures ``azure.devops`` (for the ADO
-    indexer) without providing a subscriptionId or service-principal /
-    managed-identity credentials needed for Azure resource discovery.
-    """
-    has_sub = bool(
-        platform_cfg.get("subscriptionId")
-        or platform_cfg.get("subscriptions")
-        or os.getenv("AZURE_SUBSCRIPTION_ID")
-    )
-    has_sp = bool(
-        platform_cfg.get("spSecretName")
-        or (platform_cfg.get("clientId") and platform_cfg.get("clientSecret"))
-    )
-    has_devops = bool(platform_cfg.get("devops"))
-    return has_devops and not has_sub and not has_sp
-
-
 def init_cloudquery_config(
     context: Context,
     cloud_config_data: dict[str, Any],
@@ -768,10 +669,40 @@ def init_cloudquery_config(
     ] = []
 
     # ========================================================= per-platform
+    # Resolve the Azure backend selector once so we can short-circuit cleanly
+    # when the native Azure SDK indexer (azureapi) is responsible for Azure.
+    from .azureapi import AZURE_INDEXER_BACKEND_SETTING  # local import to avoid cycles
+    azure_backend = context.get_setting(AZURE_INDEXER_BACKEND_SETTING)
+    from .gcpapi import GCP_INDEXER_BACKEND_SETTING  # local import to avoid cycles
+    gcp_backend = context.get_setting(GCP_INDEXER_BACKEND_SETTING)
+    from .awsapi import AWS_INDEXER_BACKEND_SETTING  # local import to avoid cycles
+    aws_backend = context.get_setting(AWS_INDEXER_BACKEND_SETTING)
+
     for platform_spec in platform_specs:
         platform_name = platform_spec.name
         platform_cfg  = cloud_config_data.get(platform_name)
         if platform_cfg is None:
+            continue
+
+        if platform_name == "azure" and azure_backend == "azureapi":
+            logger.info(
+                "Azure indexer backend: 'azureapi' (native azure-mgmt-* SDK); "
+                "skipping Azure in CloudQuery."
+            )
+            continue
+
+        if platform_name == "gcp" and gcp_backend == "gcpapi":
+            logger.info(
+                "GCP indexer backend: 'gcpapi' (native Cloud Asset Inventory + "
+                "google-cloud-* SDK); skipping GCP in CloudQuery."
+            )
+            continue
+
+        if platform_name == "aws" and aws_backend == "awsapi":
+            logger.info(
+                "AWS indexer backend: 'awsapi' (native Cloud Control API + "
+                "boto3 SDK); skipping AWS in CloudQuery."
+            )
             continue
 
         if platform_name == "azure" and _azure_has_only_devops_config(platform_cfg):
@@ -780,6 +711,14 @@ def init_cloudquery_config(
                 "Skipping Azure CloudQuery discovery; Azure DevOps indexer will handle ADO resources."
             )
             continue
+
+        if platform_name == "azure":
+            # Mirror the announcement the azureapi path makes when it owns
+            # Azure, so a default-verbosity log makes the choice obvious.
+            logger.info(
+                "Azure indexer backend: 'cloudquery' (legacy). Starting "
+                "Azure resource discovery via the CloudQuery Azure plugin."
+            )
 
         # ---------- mandatory specs/tables ----------
         cq_resource_type_specs: list[CloudQueryResourceTypeSpec] = []
@@ -1050,29 +989,6 @@ def init_cloudquery_config(
     return cq_process_environment_vars, platform_tables
 
 
-def az_discover_resource_groups(credential, subscription_id) -> list[str]:
-    if not subscription_id:
-        raise ValueError("subscription_id cannot be None in az_discover_resource_groups.")
-    
-    logger.debug(f"Discovering resource groups for subscription_id: {mask_string(subscription_id)}")
-    
-    resource_groups = []
-    try:
-        resource_client = ResourceManagementClient(credential, subscription_id)
-        for rg in resource_client.resource_groups.list():
-            resource_groups.append(rg.name)
-            logger.info(f"Discovered resource group: {rg.name}")
-    except Exception as e:
-        logger.error(f"Failed to discover resource groups: {str(e)}")
-        raise WorkspaceBuilderException(f"Error discovering resource groups: {str(e)}")
-    
-    if not resource_groups:
-        logger.warning("No resource groups were discovered.")
-    else:
-        logger.info(f"Total resource groups discovered: {len(resource_groups)}")
-
-    return resource_groups
-
 def transform_cloud_config(cloud_config: dict[str, Any],
                            cq_temp_dir: str,
                            platform_handlers: dict[str, PlatformHandler]) -> None:
@@ -1082,18 +998,6 @@ def transform_cloud_config(cloud_config: dict[str, Any],
         if platform_cloud_config:
             platform_handler = platform_handlers[platform_name]
             platform_handler.transform_cloud_config(platform_cloud_config, cq_temp_dir)
-
-def az_validate_credential_access(credential, subscription_id):
-    try:
-        resource_client = ResourceManagementClient(credential, subscription_id)
-        resource_groups = list(resource_client.resource_groups.list())
-        if resource_groups:
-            logger.info(f"Successfully accessed {len(resource_groups)} resource groups.")
-        else:
-            logger.warning("No resource groups found.")
-    except Exception as e:
-        logger.error(f"Failed to validate credential access: {str(e)}")
-        raise WorkspaceBuilderException("Credential validation failed.")
 
 def index(context: Context):
     logger.info("Starting CloudQuery indexing")
@@ -1365,136 +1269,3 @@ def index(context: Context):
             for table_name, table_stats in platform_stats['tables'].items():
                 logger.debug(f"    Table {table_name}: discovered={table_stats['discovered']}, added={table_stats['added_to_registry']}, skipped={table_stats['skipped']}")
 
-
-def resolve_deferred_azure_relationships(registry: Registry, platform_handlers: dict[str, PlatformHandler]):
-    """
-    Resolve deferred resource group relationships for Azure resources.
-    This handles cases where storage accounts were processed before their resource groups.
-    """
-    logger.info("Starting deferred Azure relationship resolution...")
-    
-    # Get Azure platform handler
-    azure_handler = platform_handlers.get("azure")
-    if not azure_handler:
-        logger.debug("No Azure platform handler found, skipping deferred relationship resolution")
-        return
-    
-    # Get Azure platform from registry
-    azure_platform = registry.platforms.get("azure")
-    if not azure_platform:
-        logger.debug("No Azure platform in registry, skipping deferred relationship resolution")
-        return
-    
-    # Get resource group type
-    rg_type = azure_platform.resource_types.get("resource_group")
-    if not rg_type:
-        logger.debug("No resource groups in registry, skipping deferred relationship resolution")
-        return
-    
-    resolved_count = 0
-    failed_count = 0
-    
-    # Process all resource types that might have deferred relationships
-    for resource_type_name, resource_type in azure_platform.resource_types.items():
-        if resource_type_name == "resource_group":
-            continue  # Skip resource groups themselves
-            
-        # Create a snapshot to avoid "dictionary changed size during iteration" error
-        for resource_qualified_name, resource in list(resource_type.instances.items()):
-            deferred_info = getattr(resource, '_deferred_rg_lookup', None)
-            if not deferred_info:
-                continue  # No deferred lookup needed
-                
-            rg_name = deferred_info.get('rg_name')
-            subscription_id = deferred_info.get('subscription_id')
-            
-            logger.debug(f"Resolving deferred relationship for {resource.name}: looking for RG '{rg_name}' in subscription '{subscription_id}'")
-            
-            # Try to find the resource group now that all resources are loaded
-            rg_resource = None
-            for rg in rg_type.instances.values():
-                if (rg.name.upper() == rg_name.upper() and 
-                    getattr(rg, 'subscription_id', None) == subscription_id):
-                    rg_resource = rg
-                    break
-            
-            if rg_resource:
-                # SUCCESS: Establish the relationship
-                setattr(resource, 'resource_group', rg_resource)
-                # Update qualified name to include resource group
-                new_qualified_name = f"{rg_resource.name}/{resource.name}"
-                
-                # Update the registry with the new qualified name
-                old_qualified_name = resource.qualified_name
-                resource.qualified_name = new_qualified_name
-                
-                # Update the instances dictionary
-                if old_qualified_name in resource_type.instances:
-                    del resource_type.instances[old_qualified_name]
-                resource_type.instances[new_qualified_name] = resource
-                
-                # Clean up the deferred lookup info
-                delattr(resource, '_deferred_rg_lookup')
-                
-                resolved_count += 1
-                logger.info(f"SUCCESS: Resolved deferred relationship for '{resource.name}' -> resource group '{rg_resource.name}' (qualified name: {old_qualified_name} -> {new_qualified_name})")
-            else:
-                failed_count += 1
-                logger.warning(f"FAILED: Could not resolve deferred relationship for '{resource.name}' - resource group '{rg_name}' in subscription '{subscription_id}' still not found")
-    
-    logger.info(f"Deferred relationship resolution completed: {resolved_count} resolved, {failed_count} failed")
-
-
-def get_auth_type(platform_name, platform_config_data: dict[str,Any]): 
-    """
-    Determine auth type from platform_config_data for use with auth templates.
-    
-    For Azure: azure-auth.yaml template
-    For AWS: aws-auth.yaml template
-    
-    Returns:
-        Tuple of (auth_type, auth_secret)
-    """
-    auth_secret = None
-    auth_type = None
-    
-    if platform_name == "azure":
-        auth_secret = platform_config_data.get("clientId")
-        if auth_secret:    
-            auth_type = "azure_explicit"
-            auth_secret = None
-        else: 
-            auth_secret = platform_config_data.get("spSecretName")
-            if auth_secret: 
-                auth_type = "azure_service_principal_secret"
-            else: 
-                auth_type = "azure_identity"
-                auth_secret = None
-                
-    elif platform_name == "aws":
-        # Check for cached auth type from get_aws_credential
-        if platform_config_data.get("_auth_type"):
-            auth_type = platform_config_data.get("_auth_type")
-            auth_secret = platform_config_data.get("_auth_secret")
-        # Fallback to determining from config
-        elif platform_config_data.get("awsAccessKeyId"):
-            auth_type = "aws_explicit"
-        elif platform_config_data.get("awsSecretName"):
-            auth_secret = platform_config_data.get("awsSecretName")
-            auth_type = "aws_secret"
-        elif platform_config_data.get("useWorkloadIdentity") or os.environ.get('AWS_WEB_IDENTITY_TOKEN_FILE') or os.environ.get('AWS_CONTAINER_CREDENTIALS_FULL_URI'):
-            # Determine which workload identity method
-            if os.environ.get('AWS_CONTAINER_CREDENTIALS_FULL_URI'):
-                auth_type = "aws_pod_identity"
-            else:
-                auth_type = "aws_workload_identity"
-        elif platform_config_data.get("assumeRoleArn"):
-            auth_type = "aws_assume_role"
-        else:
-            auth_type = "aws_default_chain"
-        
-        # Check for assume role modifier (when combined with other auth methods)
-        if platform_config_data.get("assumeRoleArn") and auth_type not in ("aws_assume_role", "aws_explicit_assume_role", "aws_secret_assume_role", "aws_workload_identity_assume_role", "aws_pod_identity_assume_role"):
-            auth_type = auth_type + "_assume_role"
-            
-    return auth_type, auth_secret

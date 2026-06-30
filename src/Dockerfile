@@ -55,9 +55,12 @@ RUN curl -sSL https://install.python-poetry.org | python3 - --version $POETRY_VE
 # Copy project requirement files here to ensure they will be cached.
 WORKDIR $PYSETUP_PATH
 
-COPY pyproject.toml ./
+COPY pyproject.toml poetry.lock ./
 
-# Install Python Dependencies
+# Install Python Dependencies. The lockfile pins every transitive dep so the
+# image build is reproducible and is not exposed to upstream resolution flakes
+# (e.g. a freshly-published transitive that doesn't yet have wheels for the
+# Python ABI we target).
 RUN poetry run pip install --upgrade pip setuptools wheel
 RUN poetry install --only main
 
@@ -87,15 +90,6 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR $RUNWHEN_HOME
-
-RUN pip install --no-cache-dir \
-    mkdocs \
-    mkdocs-material \
-    mkdocs-macros-plugin \
-    pymdown-extensions \
-    ruamel.yaml \
-    gitpython \
-    pyyaml
 
 ENV NODE_PATH="/var/lib/neo4j/node_modules"
 ENV CLOUDQUERY_PLUGINS_PREINSTALLED=true
@@ -202,6 +196,25 @@ RUN set -eux; \
       done; \
     chown -R runwhen:runwhen "$CODE_COLLECTION_CACHE_ROOT"
 
+# Mark all repositories as safe for git's "dubious ownership" check.
+#
+# Local code collections (workspaceInfo codeCollections with a file:// repoURL,
+# e.g. the gcpapi-test-codecollection) live on the bind-mounted /shared, which
+# is owned by the *host* runner's uid. Inside the container the app runs as
+# uid 999 (runwhen), so that uid rarely matches the bind-mount owner and git
+# aborts the GitPython 'git clone --mirror' with
+# "fatal: detected dubious ownership" (exit 128), silently skipping the code
+# collection and its generation rules.
+#
+# This MUST be written to git's SYSTEM config (/etc/gitconfig). git only honors
+# safe.directory from system/global config files -- values injected via the
+# command line or GIT_CONFIG_COUNT/GIT_CONFIG_KEY_*/GIT_CONFIG_VALUE_* env vars
+# report origin "command line" and are deliberately IGNORED for safe.directory.
+# System config is also independent of HOME (=/shared, which is read-only for
+# the container uid when the host runner uid differs), so it works regardless of
+# the runner/container uid mismatch.
+RUN git config --system --add safe.directory '*'
+
 USER runwhen
-EXPOSE 8081
+EXPOSE 8000
 ENTRYPOINT ["/bin/sh", "-c", "./entrypoint.sh"]

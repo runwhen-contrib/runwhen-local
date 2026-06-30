@@ -27,7 +27,7 @@ RunWhen Local is distributed as a container image and can be deployed in the fol
 1. **In Kubernetes via Helm (Connected)**
    * This method integrates a self-hosted runner, which executes health checks, troubleshooting, and automation tasks on behalf of the RunWhen Platform SaaS.
 2. **Standalone (Disconnected Mode)**
-   * RunWhen Local can also be deployed to provide resource discovery and the Troubleshooting Cheat Sheet, but without any connection or interaction with the RunWhen Platform service.
+   * RunWhen Local can also be deployed to provide resource discovery and local output files, but without any connection or interaction with the RunWhen Platform service.
 
 #### Which deployment method is right for you?
 
@@ -36,7 +36,7 @@ RunWhen Local is distributed as a container image and can be deployed in the fol
 
 
 
-* **I just want a cheat sheet of automatically generated troubleshooting commands from a community of smart engineers**
+* **I just want locally generated troubleshooting configuration from a community of smart engineers**
   * Want to run it in Kubernetes? The [kubernetes\_standalone.md](../installation/kubernetes\_standalone.md "mention") is for you.
   * Prefer to run it on your laptop? The [getting\_started-running\_locally.md](../installation/getting\_started-running\_locally.md "mention") is your best choice.
 

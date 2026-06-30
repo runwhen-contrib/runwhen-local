@@ -1,0 +1,93 @@
+---
+description: Contract for RunWhen Local discovery indexers (native SDK + CloudQuery). Enforces registry parity, collector registration, normalizer shape, and docs/test/generation-rule definition of done.
+globs: src/indexers/**,src/enrichers/azure.py,src/enrichers/gcp.py,src/enrichers/aws.py,scripts/azure/**,scripts/gcp/**
+alwaysApply: false
+---
+
+# Discovery indexer contract
+
+RunWhen Local discovers resources via native SDK indexers (`azureapi`,
+`gcpapi`, `awsapi`) plus the legacy `cloudquery` indexer. The native indexers
+are now the **default** backend for all three clouds (`azureIndexerBackend`,
+`gcpIndexerBackend`, `awsIndexerBackend` default to `azureapi`/`gcpapi`/`awsapi`;
+the resource store defaults to `sqlite`). CloudQuery is retained only as an
+explicit opt-in (`*IndexerBackend: cloudquery`) and exists to be removed
+entirely. By default the CloudQuery indexer skips all three clouds. When editing
+any indexer, enforce every rule below.
+
+For full workflows use the `extend-discovery-type` and `add-discovery-type`
+skills. Worked examples: `docs/architecture/{azure,gcp}-indexer-internals.md`.
+
+## CloudQuery parity is the public contract
+
+- The **CloudQuery table name** (e.g. `gcp_compute_instances`) is the canonical
+  `resource_type` used in generation rules. Native indexers MUST normalize
+  payloads into the same CloudQuery-shaped dict so rules don't change when the
+  backend flips.
+- Every CloudQuery table for a platform MUST resolve via the registry by its
+  canonical name or a registered alias. Don't drop parity to simplify.
+
+## Resource-type matching is alias-aware (accepted-name set)
+
+- Each registry entry has an explicit **accepted-name set** (`match_names`) =
+  canonical CloudQuery/native name + every legacy/alias name rules have used.
+  The indexer stores **one canonical name** per resource and matching expands to
+  the accepted-name set at lookup, so a rule matches a resource if its requested
+  type is **any** accepted name (canonical OR legacy). Do NOT depend on
+  positional `aliases[0]` ordering for matching.
+- This is wired into BOTH the generation-rule matcher
+  (`PlatformHandler.get_resources`) AND selective discovery (`find_spec` ->
+  registry `find()`), via `src/resource_type_resolver.py`. Names unknown to
+  every cloud registry (Kubernetes, custom, `azure_devops`) fall back to
+  exact-string matching — preserve that fallback.
+- NOTE: the indexer today still stores the legacy `aliases[0]` name; flipping
+  stored values to the canonical (and then native) name is staged as Phase 2.
+  See `docs/architecture/resource-type-naming-migration.md` for the contract and
+  the phased plan.
+
+## Generated registry — never hand-edit
+
+`src/indexers/*_resource_type_registry.yaml` is GENERATED. To change a mapping:
+
+1. Edit the overrides YAML (`scripts/<platform>/<platform>_resource_type_overrides.yaml`).
+2. Re-run `scripts/<platform>/sync_<platform>_resource_type_registry.py`.
+3. Commit both the overrides and the regenerated YAML; the sync `--dry-run`
+   must report 0 drift.
+
+Use `null` for the native type of tables with no API equivalent so the generic
+pass skips them.
+
+## Typed vs generic collectors
+
+- The **generic collector** (Azure `resources.list()`, GCP Cloud Asset
+  Inventory, AWS Cloud Control) provides broad parity.
+- **Typed collectors** are enrichment for high-value types. Register them in
+  `_TYPED_COLLECTORS` keyed by the canonical CloudQuery table name. A typed type
+  is automatically excluded from the generic pass — write each resource once.
+- Lazy-import SDK clients inside the collector so importing the module never
+  hard-requires the SDK.
+
+## Discovery is selective + anchored
+
+- Collect only types referenced by loaded generation rules, plus the mandatory
+  anchor (GCP `gcp_projects`, Azure `azure_resources_resource_groups`).
+- Emit the anchor first so child resources link to it at parse time.
+- Respect Level-of-Detail: scopes resolving to `none` are skipped entirely.
+
+## Normalizer shape
+
+Every resource flows: `normalize -> tag filter -> handler.parse_resource_data
+-> writer.add_resource`. Normalizers MUST map cloud labels/tags into the
+canonical `tags` field and preserve the qualifier fields the tag/hierarchy
+templates expect. Persist only via the `ResourceWriter`, never directly.
+
+## Definition of done (every indexer change)
+
+A change is incomplete until ALL of these are updated together:
+
+- [ ] Code + registry (regenerated, not hand-edited)
+- [ ] Unit tests: registry loader, normalizer+handler round-trip, selective dispatch
+- [ ] Docs: `docs/authoring/indexed-resources/<platform>.md` and the indexer-internals doc
+- [ ] Generation-rule contract verified: the type resolves by CloudQuery table
+      name and the normalized dict carries the fields the templates need
+- [ ] `cd src && python -m unittest discover -s indexers -p 'test_*.py'` passes

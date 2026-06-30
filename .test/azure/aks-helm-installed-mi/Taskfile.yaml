@@ -58,6 +58,7 @@ tasks:
         workspaceOwnerEmail: authors@runwhen.com
         defaultLocation: location-01
         defaultLOD: detailed
+        azureIndexerBackend: azureapi
         cloudConfig:
           kubernetes: null
           azure:
@@ -104,7 +105,7 @@ tasks:
 
         echo "Starting new container $CONTAINER_NAME..."
 
-        docker run -e DEBUG_LOGS=true --name $CONTAINER_NAME -p 8081:8081 -v $(pwd):/shared -d runwhen-local:test || {
+        docker run -e DEBUG_LOGS=true --name $CONTAINER_NAME -p 8000:8000 -v $(pwd):/shared -d runwhen-local:test || {
           echo "Failed to start container"; exit 1;
         }
 
@@ -113,7 +114,7 @@ tasks:
           echo "Error executing script in container"; exit 1;
         }
 
-        echo "Review generated config files under output/workspaces/"
+        echo "Review rendered SLXs via the explorer UI (http://localhost:8000/explorer/) or output/resources.sqlite"
     silent: true
 
   check-terraform-infra:
