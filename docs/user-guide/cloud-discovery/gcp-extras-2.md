@@ -144,19 +144,30 @@ See [GCP Discovery → GKE Cluster Discovery](gcp.md#gke-cluster-discovery).
 ### Template Usage
 
 #### GCP Authentication Template (`gcp-auth.yaml`)
+
+Priority order:
+
+1. **`custom.gcp_credentials_key`** — platform workspace secret (e.g. `ops-suite-sa`)
+2. **`secrets.gcp_service_account`** — alternate workspace secret mapping
+3. **`gcp_service_account_secret` auth** (`cloudConfig.gcp.saSecretName`) — split K8s secret keys `projectId` + `serviceAccountKey`
+4. **File-style K8s secret** — when discovery uses `applicationCredentialsFile` and `custom.gcp_service_account_secret_name` is set:
+
 ```yaml
-{% if cluster.cluster_type == "gke" and cluster.auth_type == "gcp_service_account" %}
-    - name: gcp_credentials
-      workspaceKey: gcp:sa@cli
-    - name: gcp_projectId
-      workspaceKey: k8s:file@secret/{{ custom.gcp_service_account_secret_name }}:projectId
-    - name: gcp_serviceAccountKey
-      workspaceKey: k8s:file@secret/{{ custom.gcp_service_account_secret_name }}:serviceAccountKey
-{% elif cluster.auth_type == "gcp_adc" %}
-    - name: gcp_credentials
-      workspaceKey: gcp:adc@cli
-{% endif %}
+custom:
+  gcp_service_account_secret_name: gcp-sa
+  # optional; defaults to secret name when omitted
+  gcp_service_account_secret_key: gcp-sa
 ```
+
+Generated `secretsProvided`:
+
+```yaml
+- name: gcp_credentials
+  workspaceKey: k8s:file@secret/gcp-sa:gcp-sa
+```
+
+5. **`gcp_adc`** — `gcp:adc@cli` only
+6. **`gcp_service_account` without secret name** — `gcp:sa@cli` fallback
 
 #### GKE Kubernetes Authentication Template (`gcp-kubernetes-auth.yaml`)
 ```yaml
