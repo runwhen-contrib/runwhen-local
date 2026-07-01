@@ -142,15 +142,21 @@ def get_namespace(resource: Resource) -> Optional[Resource]:
         # TODO: Should possibly raise an exception here instead?
         return None
     else:
-        return getattr(resource, "namespace")
+        # Cluster-scoped custom resources (e.g. Crossplane managed resources)
+        # have no owning namespace, so ``getattr`` must tolerate an absent
+        # ``namespace`` attribute.
+        return getattr(resource, "namespace", None)
 
 def get_cluster(resource: Resource) -> Optional[Resource]:
     check_kubernetes_resource(resource)
     if resource.resource_type.name == KubernetesResourceType.CLUSTER.value:
         return resource
-    else:
-        namespace = get_namespace(resource)
-        return getattr(namespace, "cluster")
+    namespace = get_namespace(resource)
+    if namespace is not None:
+        return getattr(namespace, "cluster", None)
+    # Cluster-scoped custom resources carry the cluster reference directly on
+    # the resource itself (see the indexer's custom-resource loop).
+    return getattr(resource, "cluster", None)
 
 def get_context(resource: Resource) -> Optional[str]:
     check_kubernetes_resource(resource)

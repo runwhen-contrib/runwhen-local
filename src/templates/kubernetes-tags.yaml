@@ -45,10 +45,11 @@
       value: '{{ _cr_value }}'
 {% endif %}
 {% endfor %}
-{% if match_resource.resource_type.name == "custom" and match_resource.kind is defined %}
-    - name: resource_type
-      value: '{{ match_resource.kind | lower | string }}'
-{% elif match_resource.resource_type %}
+{# Custom resources are stored in the registry under their "{plural}.{group}"
+   type name (e.g. "buckets.storage.gcp.upbound.io"); built-in Kubernetes
+   resources use the singular kind ("deployment", "service", ...). Both are
+   surfaced verbatim as the resource_type tag. #}
+{% if match_resource.resource_type %}
     - name: resource_type
       value: '{{ match_resource.resource_type.name | string }}'
 {% endif %}
