@@ -41,7 +41,7 @@ from enrichers.generation_rules import RESOURCE_TYPE_SPECS_PROPERTY
 # Or something like that...
 from enrichers.generation_rule_types import LevelOfDetail
 from enrichers.generation_rules import DEFAULT_LOD_SETTING
-from .kubetypes import KUBERNETES_PLATFORM, KubernetesResourceType
+from .kubetypes import KUBERNETES_PLATFORM, KubernetesResourceType, KubernetesResourceTypeSpec
 from resources import Registry, REGISTRY_PROPERTY_NAME
 from . import kubeapi_parsers
 from .common import CLOUD_CONFIG_SETTING
@@ -87,6 +87,65 @@ class GroupVersionInfo:
     def __init__(self, preferred_version: str, versions: list[str]):
         self.preferred_version = preferred_version
         self.versions = versions
+
+
+# Discovery-time cache keyed by (group, version, plural) mapping each CRD to
+# its scope. Populated lazily via ``get_custom_resource_scope`` and reused
+# across per-namespace iterations of the custom-resource loop so we hit the
+# Kubernetes discovery endpoint at most once per CRD per cluster.
+CRD_SCOPE_CLUSTER = "Cluster"
+CRD_SCOPE_NAMESPACED = "Namespaced"
+
+
+def get_custom_resource_scope(api_client, group: str, version: str, plural: str,
+                              cache: dict) -> str:
+    """Return ``"Cluster"`` or ``"Namespaced"`` for the given CRD.
+
+    We hit the Kubernetes discovery endpoint ``/apis/{group}/{version}`` which
+    returns an ``APIResourceList`` with a ``namespaced`` boolean for every
+    resource in the group/version. Results are memoized in ``cache`` (a dict
+    scoped to a single cluster indexing pass) so a group with many resources
+    only costs one HTTP round trip.
+
+    Falls back to ``"Namespaced"`` on any error, which preserves the pre-fix
+    behavior for callers that hit permission problems while still allowing the
+    happy path to route cluster-scoped CRDs correctly.
+    """
+    cache_key = (group, version, plural)
+    if cache_key in cache:
+        return cache[cache_key]
+
+    resource_path = f"/apis/{group}/{version}" if group else f"/api/{version}"
+    try:
+        # ``call_api`` with response_type "object" returns the raw JSON as a
+        # dict, which is what we need to inspect the ``resources`` array.
+        response = api_client.call_api(
+            resource_path,
+            "GET",
+            response_type="object",
+            auth_settings=["BearerToken"],
+            _return_http_data_only=True,
+        )
+        resources = response.get("resources") if isinstance(response, dict) else None
+        if resources:
+            for resource_meta in resources:
+                if resource_meta.get("name") == plural:
+                    scope = (CRD_SCOPE_NAMESPACED
+                             if resource_meta.get("namespaced", True)
+                             else CRD_SCOPE_CLUSTER)
+                    cache[cache_key] = scope
+                    return scope
+        logger.info(f"Could not find scope metadata for custom resource "
+                    f"{plural}.{group}/{version}; defaulting to Namespaced")
+    except ApiException as e:
+        logger.info(f"Discovery call for {plural}.{group}/{version} failed "
+                    f"({e.status}); defaulting to Namespaced")
+    except Exception as e:  # noqa: BLE001 - defensive: never let scope lookup abort indexing
+        logger.info(f"Unexpected error resolving scope for "
+                    f"{plural}.{group}/{version}: {e}; defaulting to Namespaced")
+
+    cache[cache_key] = CRD_SCOPE_NAMESPACED
+    return CRD_SCOPE_NAMESPACED
 
 def get_lod_from_annotations(resource, lod_annotations: Dict[str, List[str]]) -> Optional[LevelOfDetail]:
     if not hasattr(resource, 'metadata'):
@@ -570,6 +629,15 @@ def index(component_context: Context):
                         # Connection validation successful, proceed with cluster indexing
                         core_api_client = client.CoreV1Api(api_client=api_client)
                         custom_objects_api_client = client.CustomObjectsApi(api_client=api_client)
+
+                        # Per-cluster caches for the custom-resource discovery loop.
+                        # ``crd_scope_cache`` memoizes scope lookups so we hit the
+                        # discovery endpoint at most once per CRD, and
+                        # ``cluster_scoped_crds_processed`` prevents cluster-scoped
+                        # CRDs from being listed once per namespace (they don't
+                        # belong to any namespace).
+                        crd_scope_cache: dict = {}
+                        cluster_scoped_crds_processed: set = set()
 
                         # Get the group info for all the available groups.
                         # This contains the preferred version and all available version, which
@@ -1143,10 +1211,31 @@ def index(component_context: Context):
                                         versions = list()
                                 try:
                                     for version in versions:
-                                        ret = custom_objects_api_client.list_namespaced_custom_object(group=group,
-                                                                                                      version=version,
-                                                                                                      namespace=namespace_name,
-                                                                                                      plural=plural_name)
+                                        # Determine CRD scope once per (group, version, plural).
+                                        # This lets us dispatch to the correct API and avoid
+                                        # re-listing cluster-scoped CRDs for every namespace.
+                                        scope = get_custom_resource_scope(api_client,
+                                                                          group,
+                                                                          version,
+                                                                          plural_name,
+                                                                          crd_scope_cache)
+
+                                        if scope == CRD_SCOPE_CLUSTER:
+                                            processed_key = (cluster_name, group, version, plural_name)
+                                            if processed_key in cluster_scoped_crds_processed:
+                                                # Already indexed for this cluster in a prior
+                                                # namespace iteration; nothing more to do.
+                                                continue
+                                            cluster_scoped_crds_processed.add(processed_key)
+                                            ret = custom_objects_api_client.list_cluster_custom_object(group=group,
+                                                                                                       version=version,
+                                                                                                       plural=plural_name)
+                                        else:
+                                            ret = custom_objects_api_client.list_namespaced_custom_object(group=group,
+                                                                                                          version=version,
+                                                                                                          namespace=namespace_name,
+                                                                                                          plural=plural_name)
+
                                         for raw_resource in ret['items']:
                                             if (include_annotations or include_labels) and not has_included_annotations_or_labels(raw_resource, include_annotations, include_labels):
                                                 continue  # Skip this resource if it doesn't meet inclusion criteria
@@ -1156,12 +1245,18 @@ def index(component_context: Context):
                                             owner_name = extract_owner_name(raw_resource)
                                             resource_name = raw_resource['metadata']['name']
                                             custom_name = f"{plural_name}_{group}_{version}_{resource_name}"
-                                            custom_qualified_name = get_qualified_name(namespace_qualified_name, custom_name)
                                             custom_attributes = kubeapi_parsers.parse_custom_resource(raw_resource,
                                                                                                       group,
                                                                                                       version,
                                                                                                       plural_name)
-                                            custom_attributes["namespace"] = namespace
+                                            if scope == CRD_SCOPE_CLUSTER:
+                                                # Cluster-scoped resources are parented directly
+                                                # to the cluster; they have no owning namespace.
+                                                custom_qualified_name = get_qualified_name(cluster_name, custom_name)
+                                                custom_attributes["cluster"] = cluster
+                                            else:
+                                                custom_qualified_name = get_qualified_name(namespace_qualified_name, custom_name)
+                                                custom_attributes["namespace"] = namespace
                                             if owner_name:
                                                 custom_attributes['owner'] = owner_name
                                             custom_resource = registry.add_resource(KUBERNETES_PLATFORM,

@@ -67,11 +67,14 @@ class KubernetesPlatformHandler(PlatformHandler):
     @staticmethod
     def get_common_resource_property_values(resource: Resource, qualifier_name: str) -> Optional[str]:
         if qualifier_name == "cluster":
-            return get_cluster(resource).name
+            cluster = get_cluster(resource)
+            return cluster.name if cluster else None
         elif qualifier_name == "context":
             return get_context(resource)
         elif qualifier_name == "namespace":
-            return get_namespace(resource).name
+            # Cluster-scoped custom resources have no owning namespace.
+            namespace = get_namespace(resource)
+            return namespace.name if namespace else None
         elif qualifier_name == "subscription_id":
             cluster = get_cluster(resource)
             if cluster:
