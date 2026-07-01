@@ -147,6 +147,48 @@ def get_custom_resource_scope(api_client, group: str, version: str, plural: str,
     cache[cache_key] = CRD_SCOPE_NAMESPACED
     return CRD_SCOPE_NAMESPACED
 
+
+def list_custom_resource_for_scope(custom_objects_api_client,
+                                   scope: str,
+                                   group: str,
+                                   version: str,
+                                   plural: str,
+                                   namespace_name: Optional[str],
+                                   processed_key: tuple,
+                                   cluster_scoped_crds_processed: set):
+    """Dispatch a CRD listing call according to scope, honoring a
+    per-cluster "already processed" set for cluster-scoped resources.
+
+    Returns the raw list response, or ``None`` if this cluster-scoped
+    CRD has already been indexed for the current cluster and the caller
+    should short-circuit to the next iteration.
+
+    The processed marker is added ONLY AFTER
+    ``list_cluster_custom_object`` returns successfully. Marking before
+    the call would let a transient ``ApiException`` on the first
+    namespace iteration silently drop the CRD for the rest of the
+    cluster scan; leaving the marker unset lets subsequent namespace
+    iterations retry. Persistent failures (e.g. missing RBAC) will
+    re-log per namespace iteration, which is noisy but correct.
+    """
+    if scope == CRD_SCOPE_CLUSTER:
+        if processed_key in cluster_scoped_crds_processed:
+            return None
+        ret = custom_objects_api_client.list_cluster_custom_object(
+            group=group,
+            version=version,
+            plural=plural,
+        )
+        cluster_scoped_crds_processed.add(processed_key)
+        return ret
+    return custom_objects_api_client.list_namespaced_custom_object(
+        group=group,
+        version=version,
+        namespace=namespace_name,
+        plural=plural,
+    )
+
+
 def get_lod_from_annotations(resource, lod_annotations: Dict[str, List[str]]) -> Optional[LevelOfDetail]:
     if not hasattr(resource, 'metadata'):
         return None
@@ -1220,21 +1262,21 @@ def index(component_context: Context):
                                                                           plural_name,
                                                                           crd_scope_cache)
 
-                                        if scope == CRD_SCOPE_CLUSTER:
-                                            processed_key = (cluster_name, group, version, plural_name)
-                                            if processed_key in cluster_scoped_crds_processed:
-                                                # Already indexed for this cluster in a prior
-                                                # namespace iteration; nothing more to do.
-                                                continue
-                                            cluster_scoped_crds_processed.add(processed_key)
-                                            ret = custom_objects_api_client.list_cluster_custom_object(group=group,
-                                                                                                       version=version,
-                                                                                                       plural=plural_name)
-                                        else:
-                                            ret = custom_objects_api_client.list_namespaced_custom_object(group=group,
-                                                                                                          version=version,
-                                                                                                          namespace=namespace_name,
-                                                                                                          plural=plural_name)
+                                        processed_key = (cluster_name, group, version, plural_name)
+                                        ret = list_custom_resource_for_scope(
+                                            custom_objects_api_client,
+                                            scope,
+                                            group,
+                                            version,
+                                            plural_name,
+                                            namespace_name,
+                                            processed_key,
+                                            cluster_scoped_crds_processed,
+                                        )
+                                        if ret is None:
+                                            # Cluster-scoped CRD already indexed for this
+                                            # cluster in a prior namespace iteration.
+                                            continue
 
                                         for raw_resource in ret['items']:
                                             if (include_annotations or include_labels) and not has_included_annotations_or_labels(raw_resource, include_annotations, include_labels):

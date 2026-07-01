@@ -40,6 +40,7 @@ from indexers.kubeapi import (  # noqa: E402
     CRD_SCOPE_CLUSTER,
     CRD_SCOPE_NAMESPACED,
     get_custom_resource_scope,
+    list_custom_resource_for_scope,
 )
 
 
@@ -210,6 +211,168 @@ class GetCustomResourceScopeTest(TestCase):
         )
         args, _ = api_client.call_api.call_args
         self.assertEqual(args[0], "/api/v1")
+
+
+class ListCustomResourceForScopeTest(TestCase):
+    """Regression tests for the marker semantics in
+    ``list_custom_resource_for_scope``.
+
+    Pins the invariant that a cluster-scoped CRD is marked as
+    "processed for this cluster" ONLY AFTER
+    ``list_cluster_custom_object`` returns successfully. Marking before
+    the call would allow a transient ``ApiException`` on the first
+    namespace iteration to silently drop the CRD for every subsequent
+    iteration (see the review comment on
+    https://github.com/runwhen-contrib/runwhen-local/pull/806).
+    """
+
+    def _mock_custom_objects_api(self):
+        client = MagicMock()
+        client.list_cluster_custom_object = MagicMock()
+        client.list_namespaced_custom_object = MagicMock()
+        return client
+
+    def test_namespaced_dispatches_to_namespaced_call(self):
+        client = self._mock_custom_objects_api()
+        client.list_namespaced_custom_object.return_value = {"items": []}
+        processed = set()
+
+        result = list_custom_resource_for_scope(
+            client,
+            CRD_SCOPE_NAMESPACED,
+            "helm.toolkit.fluxcd.io",
+            "v2beta1",
+            "helmreleases",
+            "kube-system",
+            ("clus", "helm.toolkit.fluxcd.io", "v2beta1", "helmreleases"),
+            processed,
+        )
+
+        client.list_namespaced_custom_object.assert_called_once_with(
+            group="helm.toolkit.fluxcd.io",
+            version="v2beta1",
+            namespace="kube-system",
+            plural="helmreleases",
+        )
+        client.list_cluster_custom_object.assert_not_called()
+        # Namespaced flow does not touch the processed set.
+        self.assertEqual(processed, set())
+        self.assertEqual(result, {"items": []})
+
+    def test_cluster_scoped_first_call_lists_and_marks_processed(self):
+        client = self._mock_custom_objects_api()
+        client.list_cluster_custom_object.return_value = {"items": [{"metadata": {"name": "b1"}}]}
+        processed = set()
+        key = ("clus", "storage.gcp.upbound.io", "v1beta2", "buckets")
+
+        result = list_custom_resource_for_scope(
+            client,
+            CRD_SCOPE_CLUSTER,
+            "storage.gcp.upbound.io",
+            "v1beta2",
+            "buckets",
+            "kube-system",  # namespace arg is ignored for cluster-scoped
+            key,
+            processed,
+        )
+
+        client.list_cluster_custom_object.assert_called_once_with(
+            group="storage.gcp.upbound.io",
+            version="v1beta2",
+            plural="buckets",
+        )
+        client.list_namespaced_custom_object.assert_not_called()
+        # Marker MUST be added only after the successful call.
+        self.assertIn(key, processed)
+        self.assertEqual(result["items"][0]["metadata"]["name"], "b1")
+
+    def test_cluster_scoped_second_call_short_circuits(self):
+        """Once marked, subsequent namespace iterations skip the API."""
+        client = self._mock_custom_objects_api()
+        processed = {("clus", "storage.gcp.upbound.io", "v1beta2", "buckets")}
+
+        result = list_custom_resource_for_scope(
+            client,
+            CRD_SCOPE_CLUSTER,
+            "storage.gcp.upbound.io",
+            "v1beta2",
+            "buckets",
+            "kube-public",
+            ("clus", "storage.gcp.upbound.io", "v1beta2", "buckets"),
+            processed,
+        )
+
+        self.assertIsNone(result)
+        client.list_cluster_custom_object.assert_not_called()
+        client.list_namespaced_custom_object.assert_not_called()
+
+    def test_cluster_scoped_transient_failure_does_not_mark_processed(self):
+        """The core Bugbot regression: a first-pass ``ApiException`` must
+        NOT lock the CRD out of subsequent retries."""
+        client = self._mock_custom_objects_api()
+        client.list_cluster_custom_object.side_effect = ApiException(
+            status=503, reason="Service Unavailable",
+        )
+        processed = set()
+        key = ("clus", "storage.gcp.upbound.io", "v1beta2", "buckets")
+
+        with self.assertRaises(ApiException):
+            list_custom_resource_for_scope(
+                client,
+                CRD_SCOPE_CLUSTER,
+                "storage.gcp.upbound.io",
+                "v1beta2",
+                "buckets",
+                "kube-system",
+                key,
+                processed,
+            )
+
+        # Marker must be absent so the outer loop's next namespace iteration
+        # retries.
+        self.assertNotIn(key, processed)
+
+    def test_cluster_scoped_retry_after_failure_succeeds_and_marks_processed(self):
+        """End-to-end scenario over two namespace iterations: first pass
+        raises, second pass succeeds and marks the CRD processed. A
+        hypothetical third iteration is short-circuited."""
+        client = self._mock_custom_objects_api()
+        successful_body = {"items": [{"metadata": {"name": "b1"}}]}
+        client.list_cluster_custom_object.side_effect = [
+            ApiException(status=503, reason="Service Unavailable"),
+            successful_body,
+        ]
+        processed = set()
+        key = ("clus", "storage.gcp.upbound.io", "v1beta2", "buckets")
+
+        # First namespace iteration: transient failure, no marker.
+        with self.assertRaises(ApiException):
+            list_custom_resource_for_scope(
+                client, CRD_SCOPE_CLUSTER,
+                "storage.gcp.upbound.io", "v1beta2", "buckets",
+                "kube-system", key, processed,
+            )
+        self.assertNotIn(key, processed)
+
+        # Second namespace iteration: succeeds, marker recorded.
+        result = list_custom_resource_for_scope(
+            client, CRD_SCOPE_CLUSTER,
+            "storage.gcp.upbound.io", "v1beta2", "buckets",
+            "kube-public", key, processed,
+        )
+        self.assertEqual(result, successful_body)
+        self.assertIn(key, processed)
+
+        # Third namespace iteration: short-circuit.
+        result = list_custom_resource_for_scope(
+            client, CRD_SCOPE_CLUSTER,
+            "storage.gcp.upbound.io", "v1beta2", "buckets",
+            "default", key, processed,
+        )
+        self.assertIsNone(result)
+
+        # API was invoked exactly twice (attempt + retry). Not thrice.
+        self.assertEqual(client.list_cluster_custom_object.call_count, 2)
 
 
 if __name__ == "__main__":
