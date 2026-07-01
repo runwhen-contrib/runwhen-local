@@ -29,35 +29,34 @@ class KubernetesPlatformHandler(PlatformHandler):
                       context: Context) -> Sequence[Resource]:
         result = list()
         registry: Registry = context.get_property(REGISTRY_PROPERTY_NAME)
+
+        if resource_type_spec.resource_type_name == KubernetesResourceType.CUSTOM.value:
+            # Each CRD lives in its own registry bucket keyed by
+            # ``{plural}.{group}`` (see the custom-resource loop in
+            # ``indexers.kubeapi``). Look up that specific bucket instead of
+            # the coarse "custom" bucket -- no linear search or per-instance
+            # attribute filter is needed to disambiguate kinds any more.
+            lookup_name = f"{resource_type_spec.kind}.{resource_type_spec.group}"
+            resource_type = registry.lookup_resource_type(KUBERNETES_PLATFORM, lookup_name)
+            if not resource_type:
+                return result
+            check_version = (resource_type_spec.version is not None
+                             and resource_type_spec.version != '*')
+            for resource in resource_type.instances.values():
+                # Version pinning is still supported: the indexer stores each
+                # discovered version's resources under the same plural.group
+                # bucket, so callers that pin a specific version filter here.
+                if check_version and getattr(resource, "version", None) != resource_type_spec.version:
+                    continue
+                result.append(resource)
+            return result
+
+        # Non-custom (built-in) Kubernetes resource types.
         resource_type = registry.lookup_resource_type(KUBERNETES_PLATFORM, resource_type_spec.resource_type_name)
         if not resource_type:
             return result
-
         for resource in resource_type.instances.values():
-            if resource_type_spec.resource_type_name == KubernetesResourceType.CUSTOM.value:
-                # TODO: This isn't a super efficient implementation, especially if there are a lot of
-                # different custom resource types, because we do a linear search over the complete list of
-                # custom resources. Currently, there aren't a lot of custom resources that are indexed,
-                # so I don't think this will be a problem. But if it turns out to be a performance issue,
-                # it wouldn't be too hard to come up with some more efficient implementation, presumably
-                # one that structures the data more by the group/version/plural-name, so that we don't
-                # have to iterate over everything. Or, of course, switching back to some sort of actual
-                # database, preferably something that runs in-process, but I think it only makes sense
-                # to do that if there's some other compelling reason to want that, e.g. separating out
-                # the resource discovery process into a standalone service that supports more
-                # full-featured querying of the resources.
-                # NB: Use getattr here to avoid linting errors, since currently these attributes
-                # are set dynamically, so they're not known to do static type analysis.
-                # Should think about ways to make this more type-safe...
-                if getattr(resource, "plural_name") != resource_type_spec.kind:
-                    continue
-                if getattr(resource, "group") != resource_type_spec.group:
-                    continue
-                check_version = resource_type_spec.version is not None and resource_type_spec.version != '*'
-                if check_version and getattr(resource, "version") != resource_type_spec.version:
-                    continue
             result.append(resource)
-
         return result
 
     def get_level_of_detail(self, resource: Resource) -> LevelOfDetail:

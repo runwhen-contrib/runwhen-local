@@ -1278,6 +1278,15 @@ def index(component_context: Context):
                                             # cluster in a prior namespace iteration.
                                             continue
 
+                                        # Every CRD gets its own resource_type bucket in the
+                                        # registry keyed by "{plural}.{group}" (e.g.
+                                        # "buckets.storage.gcp.upbound.io"). This replaces the
+                                        # earlier lump-everything-into-"custom" model, which
+                                        # forced a linear search-and-filter pass at enrichment
+                                        # time and produced opaque qualified names like
+                                        # ``ns/plural_group_version_name``.
+                                        crd_type_name = f"{plural_name}.{group}"
+
                                         for raw_resource in ret['items']:
                                             if (include_annotations or include_labels) and not has_included_annotations_or_labels(raw_resource, include_annotations, include_labels):
                                                 continue  # Skip this resource if it doesn't meet inclusion criteria
@@ -1286,7 +1295,6 @@ def index(component_context: Context):
                                                 continue
                                             owner_name = extract_owner_name(raw_resource)
                                             resource_name = raw_resource['metadata']['name']
-                                            custom_name = f"{plural_name}_{group}_{version}_{resource_name}"
                                             custom_attributes = kubeapi_parsers.parse_custom_resource(raw_resource,
                                                                                                       group,
                                                                                                       version,
@@ -1294,15 +1302,22 @@ def index(component_context: Context):
                                             if scope == CRD_SCOPE_CLUSTER:
                                                 # Cluster-scoped resources are parented directly
                                                 # to the cluster; they have no owning namespace.
-                                                custom_qualified_name = get_qualified_name(cluster_name, custom_name)
+                                                # Qualified name shape:
+                                                #   <cluster>/<plural>.<group>/<name>
+                                                crd_type_qualified_name = get_qualified_name(cluster_name, crd_type_name)
+                                                custom_qualified_name = get_qualified_name(crd_type_qualified_name, resource_name)
                                                 custom_attributes["cluster"] = cluster
                                             else:
-                                                custom_qualified_name = get_qualified_name(namespace_qualified_name, custom_name)
+                                                # Namespaced resources are parented under the
+                                                # namespace. Qualified name shape:
+                                                #   <cluster>/<namespace>/<plural>.<group>/<name>
+                                                crd_type_qualified_name = get_qualified_name(namespace_qualified_name, crd_type_name)
+                                                custom_qualified_name = get_qualified_name(crd_type_qualified_name, resource_name)
                                                 custom_attributes["namespace"] = namespace
                                             if owner_name:
                                                 custom_attributes['owner'] = owner_name
                                             custom_resource = registry.add_resource(KUBERNETES_PLATFORM,
-                                                                                    KubernetesResourceType.CUSTOM.value,
+                                                                                    crd_type_name,
                                                                                     resource_name,
                                                                                     custom_qualified_name,
                                                                                     custom_attributes)
