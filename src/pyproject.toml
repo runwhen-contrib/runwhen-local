@@ -9,11 +9,11 @@ package-mode = false
 
 [tool.poetry.dependencies]
 python = ">=3.14,<3.15"
-fastapi = "^0.115.0"
-uvicorn = {version = "^0.34.0", extras = ["standard"]}
+fastapi = "^0.139.0"
+uvicorn = {version = "^0.49.0", extras = ["standard"]}
 httpx = "^0.28.0"
 kubernetes = "^34.0.0"
-robotframework = "==7.3.2"
+robotframework = "==7.4.2"
 GitPython = "^3.1.43"
 jinja2 = "^3.1"
 jsonschema = "^4.21"
