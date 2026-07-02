@@ -1,0 +1,57 @@
+name: Publish discovery catalogs
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "src/indexers/**"
+      - "src/enrichers/runwhen_platform.py"
+      - "scripts/**/dump_*_resource_catalog.py"
+      - "scripts/**/sync_*_resource_type_registry.py"
+  push:
+    branches: [main]
+    paths:
+      - "src/indexers/**"
+      - "src/enrichers/runwhen_platform.py"
+      - "scripts/**/dump_*_resource_catalog.py"
+      - "scripts/**/sync_*_resource_type_registry.py"
+
+permissions:
+  contents: write
+
+jobs:
+  regenerate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install PyYAML
+        run: pip install pyyaml
+
+      - name: Run catalog dumpers
+        run: |
+          python scripts/azure/dump_azure_resource_catalog.py
+          python scripts/aws/dump_aws_resource_catalog.py
+          python scripts/gcp/dump_gcp_resource_catalog.py
+          python scripts/kubernetes/dump_kubernetes_resource_catalog.py
+          python scripts/runwhen/dump_runwhen_resource_catalog.py
+
+      - name: Commit and push regenerated catalogs
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/authoring/indexed-resources/*-resource-catalog.md
+          if git diff --staged --quiet; then
+            echo "Catalogs already up to date"
+            exit 0
+          fi
+          git commit -m "chore(docs): regenerate discovery resource catalogs"
+          git push

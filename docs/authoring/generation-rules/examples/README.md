@@ -9,6 +9,6 @@ output. Use them as starting points for your own CodeBundles.
 | [Azure VM + disk runbook](./azure-vm-disk-runbook.md) | Single resource type, predicate over tags. |
 | [Azure Key Vault SLX](./azure-keyvault-slx.md) | Single resource type with a `SKILL.md` overlay. |
 | [Kubernetes Deployment SLX](./kubernetes-deployment-slx.md) | Predicates over `metadata` + `spec`, namespace-scoped. |
-| [Multi-resource runbook](./multi-resource-runbook.md) | A rule that bundles several related resources into one SLX. |
+| [Multi-resource context](./multi-resource-runbook.md) | Pass related ARM IDs from one matched resource into templates. |
 
 For the schema reference, see [../README.md](../README.md).

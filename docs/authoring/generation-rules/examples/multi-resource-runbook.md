@@ -1,17 +1,16 @@
-# Example: Multi-resource runbook
+# Example: Azure web app with related resource IDs
 
-Bundle related resources into a single SLX. This pattern is useful when
-the natural unit of troubleshooting spans more than one resource type.
+Pass multiple ARM resource identifiers into one runbook from a **single**
+matched resource. This pattern covers the common case where troubleshooting
+one resource requires IDs that are already present on its payload (here, the
+App Service plan ID embedded in the web app).
 
-The setup: an Azure App Service web app + its server farm (App Service
-plan) + the Application Gateway in front of it. We want one SLX per web
-app that pulls all three IDs into the runbook context.
+For SLX-to-SLX graph relationships across separate generation rules, use
+map customization rules in your workspace `workspaceInfo.yaml`.
 
 ## Matched resource
 
-The "primary" resource for the rule is `azure_appservice_web_apps`. The
-related App Service plan and Application Gateway are looked up via
-`relatedResources` (resolved at generation time):
+The primary resource is `azure_appservice_web_apps`:
 
 ```yaml
 id: /subscriptions/abc/resourceGroups/rg-prod/providers/Microsoft.Web/sites/checkout-api
@@ -32,78 +31,67 @@ tags:
 
 ```yaml
 apiVersion: runwhen.com/v1
-kind: GenerationRule
+kind: GenerationRules
 spec:
-  match:
-    resource_type: azure_appservice_web_apps
-    predicates:
-      - jsonpath: $.tags.environment
-        equals: "prod"
-
-  relatedResources:
-    plan:
-      resource_type: azure_appservice_plans
-      where:
-        # Match the plan whose ARM ID equals this web app's serverFarmId.
-        idEquals: "{{ resource.properties.serverFarmId }}"
-    appGateway:
-      resource_type: azure_network_application_gateways
-      where:
-        # Match the appgw whose name matches the 'appgw' tag on the web app.
-        nameEquals: "{{ resource.tags.appgw }}"
-
-  slxName:
-    template: "azure-webapp-{{ resource.name }}-end-to-end"
-
-  templates:
-    runbook: runbook.robot.j2
-    sli:     sli.yaml.j2
-
-  context:
-    webAppName:        "{{ resource.name }}"
-    webAppId:          "{{ resource.id }}"
-    hostName:          "{{ resource.properties.hostNames[0] }}"
-    serverFarmId:      "{{ resource.properties.serverFarmId }}"
-    serverFarmName:    "{{ related.plan.name }}"
-    appGatewayId:      "{{ related.appGateway.id }}"
-    appGatewayName:    "{{ related.appGateway.name }}"
-    resourceGroup:     "{{ resource.resource_group }}"
-    subscription:      "{{ resource.subscription_id }}"
+  platform: azure
+  generationRules:
+    - resourceTypes:
+        - azure_appservice_web_apps
+      matchRules:
+        - type: pattern
+          pattern: "prod"
+          properties: [tags]
+          mode: substring
+      slxs:
+        - baseName: az-web-e2e
+          qualifiers: ["resource", "resource_group", "subscription_id"]
+          baseTemplateName: azure-web-e2e
+          levelOfDetail: detailed
+          outputItems:
+            - type: slx
+            - type: sli
+            - type: runbook
+              templateName: azure-web-e2e-taskset.yaml
 ```
+
+## Template: expose related IDs from the primary resource
+
+The runbook receives plan and hostname data from `match_resource` — no
+separate lookup step is required:
+
+```yaml
+# excerpt from azure-web-e2e-taskset.yaml
+spec:
+  configProvided:
+    - name: WEB_APP_NAME
+      value: {{ match_resource.name }}
+    - name: HOST_NAME
+      value: {{ match_resource.resource.properties.hostNames[0] }}
+    - name: SERVER_FARM_ID
+      value: {{ match_resource.resource.properties.serverFarmId }}
+    - name: APPGW_TAG
+      value: {{ match_resource.resource.tags.appgw }}
+    - name: RESOURCE_GROUP
+      value: {{ resource_group.name }}
+```
+
+The runbook can then call Azure CLI with `--ids ${SERVER_FARM_ID}`, curl
+`${HOST_NAME}`, or look up an Application Gateway by name from
+`${APPGW_TAG}`.
 
 ## Rendered output
 
 ```
-output/slx/azure-webapp-checkout-api-end-to-end/
-├── runbook.robot
-└── sli.yaml
-```
-
-The runbook can now perform multi-step diagnosis:
-
-```robot
-*** Tasks ***
-Check Application Gateway Health
-    Run    az network application-gateway show-backend-health
-    ...    --ids ${appGatewayId}
-
-Check Web App Availability
-    Run    curl -sS https://${hostName}/health
-
-Check Server Farm Capacity
-    Run    az appservice plan show --ids ${serverFarmId}
+output/slx/az-web-e2e--rg-prod--checkout-api--<subscription>/
+├── slx.yaml
+├── sli.yaml
+└── taskset.yaml
 ```
 
 ## Notes
 
-* `relatedResources` is a separate top-level field from `match`. The
-  rule fires once per *matched primary*, with each related resource
-  bound under `related.<key>` for the templates.
-* If a related resource isn't found (no matching plan, no matching
-  appgw), the rule still fires, but the corresponding `related.*`
-  values are empty. Templates should defensively handle missing related
-  resources or the rule should add a stricter `predicates` block.
-* Cross-resource predicates (e.g. "fire only when *both* the web app
-  and its appgw have `environment: prod`") are best expressed by
-  predicates on the primary plus a `where` clause that filters the
-  related lookup.
+* When you need **separate SLXs per resource type** (web app + plan +
+  gateway), write one generation rule per `resourceTypes` entry and link them
+  in the workspace map with customization rules.
+* Tags like `appgw` are user-supplied; document expected tag shapes in your
+  CodeBundle README or `SKILL.md`.

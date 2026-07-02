@@ -2,7 +2,7 @@
 
 Every Azure resource type the native `azureapi` indexer can discover. This page is the companion catalog for [`azure.md`](./azure.md); see that page for how to enable the indexer, what data each row carries, and the typed/generic distinction.
 
-_619 resource types - 25 typed (rich-payload), 594 generic (basic envelope). Generated 2026-05-28 from `src/indexers/azure_resource_type_registry.yaml`._
+_619 resource types - 25 typed (rich-payload), 594 generic (basic envelope). Generated 2026-07-02 from `src/indexers/azure_resource_type_registry.yaml`._
 
 _Regenerate with `python scripts/azure/dump_azure_resource_catalog.py` after touching the registry or overrides; do not hand-edit this file._
 
