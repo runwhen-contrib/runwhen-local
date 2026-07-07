@@ -2,7 +2,7 @@
 
 Every AWS resource type the native `awsapi` indexer can discover. This page is the companion catalog for [`aws.md`](./aws.md); see that page for how to enable the indexer, what data each row carries, and the typed/generic distinction.
 
-_1119 resource types - 3 typed (rich-payload), 1116 generic (Cloud Control envelope). Generated 2026-07-02 from `src/indexers/aws_resource_type_registry.yaml`._
+_1119 resource types - 3 typed (rich-payload), 1116 generic (Cloud Control envelope). Generated 2026-07-07 from `src/indexers/aws_resource_type_registry.yaml`._
 
 _Regenerate with `python scripts/aws/dump_aws_resource_catalog.py` after touching the registry or overrides; do not hand-edit this file._
 

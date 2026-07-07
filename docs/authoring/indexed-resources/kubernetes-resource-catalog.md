@@ -2,7 +2,7 @@
 
 Built-in Kubernetes resource types the kubeapi indexer discovers.
 
-_Generated 2026-07-02 from `indexers/kubetypes.py`._
+_Generated 2026-07-07 from `indexers/kubetypes.py`._
 
 Custom CRDs are declared in generation rules (`resourceTypes`) and indexed
 selectively — they are not listed here.
