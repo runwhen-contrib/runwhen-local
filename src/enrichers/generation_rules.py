@@ -35,6 +35,7 @@ from .azure import AzurePlatformHandler, AZURE_PLATFORM
 from .gcp import GCPPlatformHandler, GCP_PLATFORM
 from .aws import AWSPlatformHandler, AWS_PLATFORM
 from .azure_devops import AzureDevOpsPlatformHandler
+from .runwhen_platform import RunWhenPlatformHandler, RUNWHEN_PLATFORM
 
 from renderers.render_output_items import OUTPUT_ITEMS_PROPERTY
 from renderers.render_output_items import OutputItem as RendererOutputItem
@@ -1183,6 +1184,7 @@ def load(context: Context) -> None:
         GCP_PLATFORM: GCPPlatformHandler(),
         AWS_PLATFORM: AWSPlatformHandler(),
         "azure_devops": AzureDevOpsPlatformHandler(),
+        RUNWHEN_PLATFORM: RunWhenPlatformHandler(),
     }
     context.set_property(PLATFORM_HANDLERS_PROPERTY_NAME, platform_handlers)
     request_code_collections = context.get_setting("CODE_COLLECTIONS")

@@ -3,43 +3,52 @@
 Everything you need to extend RunWhen Local: write CodeBundles, ship Skills,
 and teach the workspace builder how to wire them up via generation rules.
 
+**This directory is the canonical reference.** Catalogs are generated from indexer
+registries (dump scripts + `publish-discovery-catalog` GHA).
+
+- **MCP (airgap):** `author-generation-rules` skill reads bundled copies in
+  `runwhen-platform-mcp/skills/author-generation-rules/references/` (CI-synced from here)
+- **docs.runwhen.com:** use `publish-author-docs-from-runwhen-local` skill in the
+  docs repo when ready to replace legacy `/authors/generation-rules/` pages
+
 If you only want to *use* RunWhen Local against your own infrastructure, see
 the [user guide](../user-guide/README.md) instead.
 
 ## Concepts
 
-* [CodeBundle / Skill / SLX / Runbook terminology](./concepts.md) - read this
-  first; the rest of the authoring docs assume you know what these mean.
+* [CodeBundle / Skill / SLX / Runbook terminology](./concepts.md)
 
 ## Indexed resources
 
 Generation rules match against resources discovered by RunWhen Local's
-indexers. Before you can write a rule that targets, say, an Azure App Service
-or a Kubernetes Deployment, you need to know:
-
-* Whether the indexer actually discovers that resource type today.
-* What the data looks like once it's been normalized.
-* Which fields are stable enough to match against.
-
-Reference docs per platform:
+indexers. Before you write a rule, confirm the resource type exists and
+which fields are stable enough to match on.
 
 * [Indexed resources overview](./indexed-resources/README.md)
-* [Azure indexer](./indexed-resources/azure.md) - 25 typed resource types,
-  with the data shape your generation rules will see for each.
-* [Kubernetes indexer](./indexed-resources/kubernetes.md)
-* [AWS indexer](./indexed-resources/aws.md)
-* [GCP indexer](./indexed-resources/gcp.md)
+* [Azure](./indexed-resources/azure.md) — typed vs generic tiers, match properties
+* [AWS](./indexed-resources/aws.md)
+* [GCP](./indexed-resources/gcp.md)
+* [Kubernetes](./indexed-resources/kubernetes.md)
+* [RunWhen platform](./indexed-resources/runwhen-platform.md) — `platform: runwhen` for MCP tool-builder output
+
+Machine-readable catalogs (regenerate with `scripts/*/dump_*_resource_catalog.py`
+or the `publish-discovery-catalog` GitHub Action — do not hand-edit):
+
+* [Azure catalog](./indexed-resources/azure-resource-catalog.md)
+* [AWS catalog](./indexed-resources/aws-resource-catalog.md)
+* [GCP catalog](./indexed-resources/gcp-resource-catalog.md)
+* [Kubernetes catalog](./indexed-resources/kubernetes-resource-catalog.md)
+* [RunWhen catalog](./indexed-resources/runwhen-platform-resource-catalog.md)
 
 ## Generation rules
 
-Generation rules are the bridge between an indexed resource and a rendered
-SLX. They live in CodeBundles under `.runwhen/generation-rules/`.
+* [Schema reference](./generation-rules/README.md)
+* [Syntax reference](../../generation-rules-guide.md) (repo root) — full `matchRules` / `slxs` / `outputItems`
+* [Tag-hierarchy contract](./generation-rules/tag-hierarchy-contract.md)
+* [Worked examples](./generation-rules/examples/)
 
-* [Generation rules: schema, lifecycle, and how-to](./generation-rules/README.md)
-* [Tag-hierarchy contract](./generation-rules/tag-hierarchy-contract.md) -
-  how SLX names are composed from the resource graph.
-* Worked examples:
-  * [Azure VM + disk runbook](./generation-rules/examples/azure-vm-disk-runbook.md)
-  * [Azure Key Vault SLX](./generation-rules/examples/azure-keyvault-slx.md)
-  * [Kubernetes Deployment SLX](./generation-rules/examples/kubernetes-deployment-slx.md)
-  * [Multi-resource runbook](./generation-rules/examples/multi-resource-runbook.md)
+## Publishing to docs.runwhen.com (later)
+
+Use the **`publish-author-docs-from-runwhen-local`** skill in the `runwhen/docs`
+repo (runs `scripts/publish-author-docs-from-runwhen-local.py` against this tree).
+Replace legacy `/authors/generation-rules/*` — do not duplicate.

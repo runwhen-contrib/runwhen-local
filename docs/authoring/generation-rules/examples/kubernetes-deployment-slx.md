@@ -1,7 +1,7 @@
 # Example: Kubernetes Deployment SLX
 
 Generate a "diagnose Deployment rollout" SLX for every multi-replica
-Deployment in namespaces tagged for production.
+Deployment outside `kube-system`.
 
 ## Matched resource
 
@@ -29,60 +29,82 @@ status:
       status: "True"
 ```
 
+## CodeBundle layout
+
+```
+codebundles/k8s-deployment-rollout/
+└── .runwhen/
+    ├── generation-rules/
+    │   └── k8s-deployment-rollout.yaml
+    └── templates/
+        ├── k8s-deployment-rollout-slx.yaml
+        ├── k8s-deployment-rollout-sli.yaml
+        └── k8s-deployment-rollout-taskset.yaml
+```
+
 ## Generation rule
 
 ```yaml
 apiVersion: runwhen.com/v1
-kind: GenerationRule
+kind: GenerationRules
 spec:
-  match:
-    resource_type: deployment
-    predicates:
-      - jsonpath: $.spec.replicas
-        greater_than: 1
-      - jsonpath: $.metadata.labels.team
-        exists: true
-      - jsonpath: $.metadata.namespace
-        not_equals: "kube-system"
-
-  slxName:
-    template: >-
-      k8s-{{ resource.subscription_id }}-{{ resource.metadata.namespace }}-{{ resource.name }}-rollout
-
-  templates:
-    runbook: runbook.robot.j2
-    sli:     sli.yaml.j2
-
-  context:
-    cluster:    "{{ resource.subscription_id }}"
-    namespace:  "{{ resource.metadata.namespace }}"
-    deployment: "{{ resource.name }}"
-    team:       "{{ resource.metadata.labels.team }}"
-    replicas:   "{{ resource.spec.replicas }}"
+  platform: kubernetes
+  generationRules:
+    - resourceTypes:
+        - deployment
+      matchRules:
+        - type: pattern
+          pattern: "^(?!kube-system$).*"
+          properties: [namespace]
+          mode: exact
+        - type: exists
+          properties: ["resource/metadata/labels/team"]
+        - type: pattern
+          pattern: "^[2-9][0-9]*$"
+          properties: ["resource/spec/replicas"]
+          mode: exact
+      slxs:
+        - baseName: k8s-deploy-rollout
+          qualifiers: ["cluster", "namespace", "resource"]
+          baseTemplateName: k8s-deployment-rollout
+          levelOfDetail: detailed
+          outputItems:
+            - type: slx
+            - type: sli
+            - type: runbook
+              templateName: k8s-deployment-rollout-taskset.yaml
 ```
 
 ## Rendered output
 
-For `checkout-api` in cluster `prod-west` you get:
+For `checkout-api` in cluster `prod-west`, namespace `payments`:
 
 ```
-output/slx/k8s-prod-west-payments-checkout-api-rollout/
-├── runbook.robot
-└── sli.yaml
+output/slx/k8s-deploy-rollout--prod-west--payments--checkout-api/
+├── slx.yaml
+├── sli.yaml
+└── taskset.yaml
 ```
 
-`runbook.robot.j2` then has access to `${cluster}`, `${namespace}`,
-`${deployment}`, `${team}`, `${replicas}` and can shell out to `kubectl`
-or call the Kubernetes API directly.
+Templates access `match_resource`, `namespace`, and `cluster` directly:
+
+```yaml
+spec:
+  configProvided:
+    - name: DEPLOYMENT
+      value: {{ match_resource.name }}
+    - name: NAMESPACE
+      value: {{ namespace.name }}
+    - name: CLUSTER
+      value: {{ cluster.name }}
+    - name: REPLICAS
+      value: {{ match_resource.resource.spec.replicas }}
+```
 
 ## Notes
 
-* The `subscription_id` field on Kubernetes resources is the cluster
-  name; the SLX naming template includes it so you don't get name
-  collisions across multiple clusters.
-* The `metadata.labels.team` predicate uses `exists`, which is enough
-  to require *any* team label without pinning to a specific value.
-* A namespace's effective Level of Detail must be `BASIC` or `DETAILED`
-  for its Deployments to even arrive at this rule. Configure that under
-  `cloudConfig.kubernetes.contexts[].namespaceLevelOfDetails` -
-  see [Kubernetes-LOD configuration](../../../architecture/kubernetes-lod/configuration.md).
+* On Kubernetes resources, `subscription_id` is the cluster name; include
+  `cluster` in `qualifiers` to avoid collisions across clusters.
+* Namespace Level of Detail must be `basic` or `detailed` for Deployments
+  to be indexed — configure under
+  `cloudConfig.kubernetes.contexts[].namespaceLevelOfDetails`.

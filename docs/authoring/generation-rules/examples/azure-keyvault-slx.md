@@ -6,13 +6,13 @@ AI agent.
 
 ## Matched resource
 
-`azure_keyvault_keyvaults` with `properties.publicNetworkAccess ==
-"Disabled"`:
+`azure_keyvault_vaults` (alias: `azure_keyvault_keyvaults`) with
+`properties.publicNetworkAccess == "Disabled"`:
 
 ```yaml
 id: /subscriptions/abc/resourceGroups/rg-prod/providers/Microsoft.KeyVault/vaults/kv-prod-001
 name: kv-prod-001
-resource_type: azure_keyvault_keyvaults
+resource_type: azure_keyvault_vaults
 resource_group: rg-prod
 subscription_id: abc
 location: eastus
@@ -31,87 +31,82 @@ properties:
 
 ```
 codebundles/azure-keyvault-rotation/
-├── SKILL.md                                # AI-agent-readable Skill description
-├── runbook.robot.j2                        # rendered into each SLX
-├── sli.yaml.j2
-├── slo.yaml.j2
-└── .runwhen/generation-rules/
-    └── private-keyvault-rotation.yaml      # the rule below
+├── SKILL.md
+└── .runwhen/
+    ├── generation-rules/
+    │   └── private-keyvault-rotation.yaml
+    └── templates/
+        ├── azure-keyvault-rotation-slx.yaml
+        ├── azure-keyvault-rotation-sli.yaml
+        └── azure-keyvault-rotation-taskset.yaml
 ```
 
 ## Generation rule
 
 ```yaml
 apiVersion: runwhen.com/v1
-kind: GenerationRule
+kind: GenerationRules
 spec:
-  match:
-    resource_type: azure_keyvault_keyvaults
-    predicates:
-      - jsonpath: $.properties.publicNetworkAccess
-        equals: "Disabled"
-
-  slxName:
-    template: "azure-keyvault-{{ resource.name }}-rotation"
-
-  templates:
-    runbook: runbook.robot.j2
-    sli:     sli.yaml.j2
-    slo:     slo.yaml.j2
-    # No 'skill:' line is needed - the workspace builder auto-copies
-    # SKILL.md from the CodeBundle root into every rendered SLX.
-
-  context:
-    keyVaultName:  "{{ resource.name }}"
-    keyVaultId:    "{{ resource.id }}"
-    vaultUri:      "{{ resource.properties.vaultUri }}"
-    resourceGroup: "{{ resource.resource_group }}"
-    subscription:  "{{ resource.subscription_id }}"
-    rotationDays:  90
+  platform: azure
+  generationRules:
+    - resourceTypes:
+        - azure_keyvault_vaults
+      matchRules:
+        - type: pattern
+          pattern: "Disabled"
+          properties: ["resource/properties/publicNetworkAccess"]
+          mode: exact
+      slxs:
+        - baseName: az-kv-rotation
+          qualifiers: ["resource", "resource_group", "subscription_id"]
+          baseTemplateName: azure-keyvault-rotation
+          levelOfDetail: detailed
+          outputItems:
+            - type: slx
+            - type: sli
+            - type: runbook
+              templateName: azure-keyvault-rotation-taskset.yaml
 ```
 
-## SKILL.md (excerpt)
+Place `SKILL.md` at the CodeBundle root — the workspace builder copies it
+into every rendered SLX directory automatically (no `outputItems` entry
+required).
 
-```markdown
-# Azure Key Vault rotation
+## Template variables
 
-This Skill rotates secrets older than the configured threshold in a
-single Azure Key Vault. It assumes the running identity has
-`Microsoft.KeyVault/vaults/secrets/setSecret/action` permission on the
-target vault.
+In Jinja2 templates under `.runwhen/templates/`, use `match_resource` for
+resource fields:
 
-## Inputs
-- `keyVaultName` (string, required)
-- `vaultUri` (URL, required)
-- `rotationDays` (int, default 90)
-
-## Side effects
-- Generates new secret versions for any secret whose current version is
-  older than `rotationDays`.
-- Old versions are kept (not purged) so a rollback path remains.
+```yaml
+# excerpt from azure-keyvault-rotation-taskset.yaml
+spec:
+  configProvided:
+    - name: KEY_VAULT_NAME
+      value: {{ match_resource.name }}
+    - name: VAULT_URI
+      value: {{ match_resource.resource.properties.vaultUri }}
+    - name: RESOURCE_GROUP
+      value: {{ resource_group.name }}
 ```
 
-When the workspace builder fires this rule for `kv-prod-001` it
-renders:
+## Rendered output
+
+For `kv-prod-001` in resource group `rg-prod`:
 
 ```
-output/slx/azure-keyvault-kv-prod-001-rotation/
+output/slx/az-kv-rotation--rg-prod--kv-prod-001--<subscription>/
 ├── SKILL.md          # auto-copied from CodeBundle root
-├── runbook.robot
+├── slx.yaml
 ├── sli.yaml
-└── slo.yaml
+└── taskset.yaml
 ```
 
-The explorer UI shows the `SKILL.md` next to the runbook; an MCP-aware
-agent can read it as the canonical description of what the SLX *does*.
+The explorer UI shows `SKILL.md` next to the runbook; MCP agents can read
+it as the canonical description of what the SLX does.
 
 ## Notes
 
-* The `publicNetworkAccess` predicate scopes the rule to private vaults
-  only; vaults that allow public network access get a different rule (or
-  no SLX at all).
-* `vaultUri` is exposed in the context because the runbook uses the
-  data-plane URL, not the ARM ID, when calling the Key Vault REST API.
-* If you also want a separate SLX for *public* vaults, write a sibling
-  rule with `predicates: - jsonpath: $.properties.publicNetworkAccess
-  not_equals: "Disabled"`.
+* The `publicNetworkAccess` match scopes the rule to private vaults only.
+* Use path notation (`resource/properties/...`) to match nested ARM fields.
+* For public vaults, add a sibling rule with a complementary pattern or
+  omit the property match entirely.
