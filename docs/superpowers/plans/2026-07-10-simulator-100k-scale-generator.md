@@ -420,9 +420,7 @@ class NamingTestCase(unittest.TestCase):
         self.assertTrue(any(name.startswith(s + "-") for s in vocab.SERVICES))
 
     def test_deterministic_under_seed(self):
-        u1: set[str] = set(); u2: set[str] = set()
-        seq1 = [compose_name(random.Random(4), u1) for _ in range(1)]
-        # Same seed + fresh used set -> same first name.
+        # Same seed + fresh used set -> same name.
         self.assertEqual(
             compose_name(random.Random(4), set()),
             compose_name(random.Random(4), set()),
@@ -645,10 +643,8 @@ class BuildConfigTestCase(unittest.TestCase):
         self.assertIn("codeCollection", d)
 
     def test_code_bundles_cycled(self):
-        bundles = {s["codeBundle"] for s in self.cfg().values() if isinstance(s, dict)} \
-            if False else {s["codeBundle"] for s in self.cfg()["slxs"].values()}
-        self.assertTrue(bundles.issubset(set(BUNDLES)))
-        self.assertEqual(bundles, set(BUNDLES))  # all bundles used at 500 count
+        bundles = {s["codeBundle"] for s in self.cfg()["slxs"].values()}
+        self.assertEqual(bundles, set(BUNDLES))  # all 3 bundles used at count=500
 
     def test_deterministic_under_seed(self):
         self.assertEqual(self.cfg(seed=7), self.cfg(seed=7))
