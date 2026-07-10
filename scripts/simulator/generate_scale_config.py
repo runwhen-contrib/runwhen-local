@@ -12,6 +12,18 @@ import argparse
 import random
 from dataclasses import dataclass
 
+# Allow running this file directly as a script (`python
+# scripts/simulator/generate_scale_config.py ...`) — the absolute import below
+# needs the repo root on sys.path, which direct-script execution does not add
+# (it adds this file's own dir instead). Under pytest / `-m`, __package__ is set
+# and this is a no-op.
+if __package__ in (None, ""):
+    import os
+    import sys
+    _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    if _REPO_ROOT not in sys.path:
+        sys.path.insert(0, _REPO_ROOT)
+
 from scripts.simulator import vocab
 
 
