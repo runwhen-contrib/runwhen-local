@@ -287,3 +287,113 @@ simulator:
   cert that the local Python's CA store doesn't trust, set the env var
   `REQUESTS_CA_BUNDLE` to any value (e.g., `REQUESTS_CA_BUNDLE=skip`) before
   running. The workspace builder treats this env var as "skip verification."
+
+## Generating at scale
+
+For performance and capacity validation, use the `generate_scale_config.py` script
+to produce deterministic, large test configs. This allows you to measure upload
+feasibility at production scales (100K+ SLXs) and tune batch parameters.
+
+### Invocation
+
+```
+python scripts/simulator/generate_scale_config.py \
+  --count 100000 --clusters 50 --namespaces-per-cluster 20 \
+  --seed 1 --sli-ratio 0.25 --slo-ratio 0.10 \
+  --output scale-test.yaml
+
+cd src && python run.py simulate \
+  --config ../scale-test.yaml \
+  --upload-info uploadInfo.yaml \
+  --base-directory . \
+  --upload
+```
+
+### Generator flags and defaults
+
+- `--count` (default: 100000) — Total number of SLXs to generate.
+- `--clusters` (default: 50) — Number of K8s clusters in the inventory.
+- `--namespaces-per-cluster` (default: 20) — Namespaces per cluster.
+- `--seed` (default: 1) — Random seed for deterministic generation.
+- `--sli-ratio` (default: 0.25) — Fraction of SLXs receiving an SLI (0.0–1.0).
+- `--slo-ratio` (default: 0.10) — Fraction of SLXs receiving an SLO (0.0–1.0).
+- `--skew` (default: longtail) — Deployment distribution (longtail or uniform).
+- `--code-bundles` (optional) — Path to a code-bundles index file (if omitted, uses built-in demo bundles).
+- `--output` (required) — Path to write the generated YAML config.
+
+### Output schema
+
+The generated config emits the standard simulator schema: `defaults`, `inventory`,
+and `slxs` sections. No pipeline changes are required; all rendering uses
+unmodified templates. The schema is identical to hand-authored configs.
+
+### Feasibility ramp
+
+To validate upload performance at your target scale, run the generator at
+progressively larger `--count` values (1K → 10K → 50K → 100K) and record
+per-phase metrics at each step:
+
+**Per-phase wall-time:**
+- `generate`: Time to run the generator script.
+- `/run/` render: Time for the workspace builder to index, enrich, and render.
+- `tar`: Time to create the upload archive.
+- `upload`: Time to POST to PAPI and receive confirmation.
+
+**Per-phase peak RSS** (e.g., via `/usr/bin/time -v` or `top`).
+
+**Output file count** (in the tar).
+
+**Tar size** (compressed and uncompressed).
+
+**PAPI upload latency** (from POST to task_id receipt, and from task_id to terminal status).
+
+Use this data to identify bottlenecks (e.g., render latency vs. tar vs. PAPI ingestion)
+and to set safe batch sizes for your environment.
+
+### File-count math
+
+At the generator defaults (`--count 100000 --sli-ratio 0.25 --slo-ratio 0.10`):
+
+- ~100K SLX files (one per `slxs` entry)
+- ~100K runbook files
+- ~25K SLI files (25% of 100K)
+- ~10K SLO files (10% of 100K)
+- **Total: ~235K files in one tar**
+
+At extreme ratios:
+- Both ratios `1.0` (all SLXs have SLI + SLO): ~400K files
+- Both ratios `0.0` (no SLI/SLO): ~200K files
+
+### Workspace builder defaults and disk writes
+
+The workspace builder now defaults to storing rendered files in a SQLite database
+rather than writing them to disk. However, `simulate` forces `writeWorkspaceFilesToDisk=True`
+so that the archive is populated with files for upload. (The database-sourced upload
+path is unavailable over REST.)
+
+### Batching fallback
+
+If a single large upload stalls at the render, tar, or PAPI stage, fall back to
+batching: generate multiple smaller configs (`--count 5000` per run) and upload them
+sequentially into the same workspace using `--upload-merge-mode keep-existing`:
+
+```
+for i in {1..20}; do
+  python scripts/simulator/generate_scale_config.py \
+    --count 5000 \
+    --clusters 50 --namespaces-per-cluster 20 \
+    --seed "$i" --sli-ratio 0.25 --slo-ratio 0.10 \
+    --output scale-batch-$i.yaml
+
+  cd src && python run.py simulate \
+    --config ../scale-batch-$i.yaml \
+    --upload-info uploadInfo.yaml \
+    --base-directory . \
+    --upload --upload-merge-mode keep-existing
+
+  cd ..
+done
+```
+
+This strategy accumulates 100K SLXs across ~20 sequential uploads, each at a
+manageable 5K scale. Monitor per-batch metrics to detect any degradation over time.
