@@ -1,7 +1,11 @@
 # RunWhen platform indexed resources
 
-The **`runwhen`** platform exposes workspace-scoped resources for generation rules
-that are not tied to a cloud object or Kubernetes CRD.
+When you write a generation rule, you tell the workspace builder which
+resources to match by listing one or more resource types under
+`resourceTypes`. Most resource types map to cloud objects or Kubernetes
+kinds, but the **`runwhen`** platform exposes workspace-scoped resources
+that are not tied to a cloud object or Kubernetes CRD — the `workspace`
+resource type, used by MCP tool-builder codebundles.
 
 ## Resource types
 
@@ -48,4 +52,6 @@ spec:
               templateName: my-health-check-taskset.yaml
 ```
 
-See the RunWhen MCP `render_codecollection_skill` tool for generating this layout from a tested tool-builder script.
+See the RunWhen MCP `render_codecollection_skill` tool for generating this
+layout from a tested tool-builder script — see the
+[MCP tool-builder docs](https://docs.runwhen.com/public/docs/use/mcp-server/tool-builder/).

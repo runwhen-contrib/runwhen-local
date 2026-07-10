@@ -1,13 +1,40 @@
 # GCP resource catalog
 
-Every GCP resource type the native `gcpapi` indexer can discover. This page is the companion catalog for [`gcp.md`](./gcp.md); see that page for how to enable the indexer, what data each row carries, and the typed/generic distinction.
+Resource types the native `gcpapi` indexer can discover. Use the canonical CloudQuery table name (or any listed alias) as the `resourceTypes` value in a generation rule. This page is the companion catalog for [`gcp.md`](./gcp.md); see that page for how to enable the indexer and what data each row carries.
 
-_404 resource types - 13 typed (SDK collectors), 391 generic (Cloud Asset Inventory pass). Generated 2026-07-07 from `src/indexers/gcp_resource_type_registry.yaml`._
+_404 resource types - 13 typed (SDK collectors), 391 generic (Cloud Asset Inventory pass). Generated 2026-07-09 from `src/indexers/gcp_resource_type_registry.yaml`._
 
 _Regenerate with `python scripts/gcp/dump_gcp_resource_catalog.py` after touching the registry or overrides; do not hand-edit this file._
 
 * `typed` - hand-written `google-cloud-*` collector; runs without CAI.
 * `generic` - discoverable via the optional Cloud Asset Inventory accelerator when a CAI asset type is mapped.
+
+## Commonly matched types
+
+Typed collectors (rich payloads) and any mandatory anchor — the resource types most generation rules target.
+
+| Service | Resource type | Aliases | CAI asset type | Tier |
+| --- | --- | --- | --- | --- |
+| projects | `gcp_projects` | `project` | `cloudresourcemanager.googleapis.com/Project` | typed |
+| compute | `gcp_compute_addresses` | - | `compute.googleapis.com/Address` | typed |
+| compute | `gcp_compute_disks` | - | `compute.googleapis.com/Disk` | typed |
+| compute | `gcp_compute_firewalls` | - | `compute.googleapis.com/Firewall` | typed |
+| compute | `gcp_compute_instances` | `compute_instance` | `compute.googleapis.com/Instance` | typed |
+| compute | `gcp_compute_networks` | - | `compute.googleapis.com/Network` | typed |
+| compute | `gcp_compute_snapshots` | - | `compute.googleapis.com/Snapshot` | typed |
+| compute | `gcp_compute_subnetworks` | - | `compute.googleapis.com/Subnetwork` | typed |
+| container | `gcp_container_clusters` | - | `container.googleapis.com/Cluster` | typed |
+| iam | `gcp_iam_service_accounts` | - | `iam.googleapis.com/ServiceAccount` | typed |
+| pubsub | `gcp_pubsub_subscriptions` | - | `pubsub.googleapis.com/Subscription` | typed |
+| pubsub | `gcp_pubsub_topics` | - | `pubsub.googleapis.com/Topic` | typed |
+| storage | `gcp_storage_buckets` | - | `storage.googleapis.com/Bucket` | typed |
+
+## All resource types
+
+The complete set of 404 resource types, grouped by service. Expand to browse or search (Ctrl/Cmd-F).
+
+<details>
+<summary>Show all 404 GCP resource types</summary>
 
 | Service | CloudQuery table name | CAI asset type | Tier |
 | --- | --- | --- | --- |
@@ -101,7 +128,7 @@ _Regenerate with `python scripts/gcp/dump_gcp_resource_catalog.py` after touchin
 | bigtableadmin | `gcp_bigtableadmin_instances` | `bigtableadmin.googleapis.com/Instance` | generic |
 | bigtableadmin | `gcp_bigtableadmin_tables` | `bigtableadmin.googleapis.com/Table` | generic |
 | billing | `gcp_billing_billing_account_subaccounts` | `billing.googleapis.com/BillingAccountSubaccount` | generic |
-| billing | `gcp_billing_billing_accounts` | `-` | generic |
+| billing | `gcp_billing_billing_accounts` | - | generic |
 | billing | `gcp_billing_budgets` | `billing.googleapis.com/Budget` | generic |
 | billing | `gcp_billing_projects` | `billing.googleapis.com/Project` | generic |
 | billing | `gcp_billing_service_skus` | `billing.googleapis.com/ServiceSku` | generic |
@@ -416,3 +443,4 @@ _Regenerate with `python scripts/gcp/dump_gcp_resource_catalog.py` after touchin
 | websecurityscanner | `gcp_websecurityscanner_scan_configs` | `websecurityscanner.googleapis.com/ScanConfig` | generic |
 | workflows | `gcp_workflows_workflows` | `workflows.googleapis.com/Workflow` | generic |
 
+</details>

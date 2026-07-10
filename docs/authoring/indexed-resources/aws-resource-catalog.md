@@ -1,13 +1,30 @@
 # AWS resource catalog
 
-Every AWS resource type the native `awsapi` indexer can discover. This page is the companion catalog for [`aws.md`](./aws.md); see that page for how to enable the indexer, what data each row carries, and the typed/generic distinction.
+Resource types the native `awsapi` indexer can discover. Use the canonical CloudQuery table name (or any listed alias) as the `resourceTypes` value in a generation rule. This page is the companion catalog for [`aws.md`](./aws.md); see that page for how to enable the indexer and what data each row carries.
 
-_1119 resource types - 3 typed (rich-payload), 1116 generic (Cloud Control envelope). Generated 2026-07-07 from `src/indexers/aws_resource_type_registry.yaml`._
+_1119 resource types - 3 typed (rich-payload), 1116 generic (Cloud Control envelope). Generated 2026-07-09 from `src/indexers/aws_resource_type_registry.yaml`._
 
 _Regenerate with `python scripts/aws/dump_aws_resource_catalog.py` after touching the registry or overrides; do not hand-edit this file._
 
 * `typed` - hand-written `boto3` collector returns a richer payload.
 * `generic` - covered by the Cloud Control API catch-all when a CloudFormation type exists; rows without a CFN type are registry-only and skipped by generic discovery.
+
+## Commonly matched types
+
+Typed collectors (rich payloads) and the mandatory account anchor — the resource types most generation rules target.
+
+| Service | Resource type | Aliases | CFN type | Tier |
+| --- | --- | --- | --- | --- |
+| iam | `aws_iam_accounts` | `account`, `aws_account` | - | typed |
+| ec2 | `aws_ec2_instances` | `ec2_instance` | `AWS::EC2::Instance` | typed |
+| s3 | `aws_s3_buckets` | - | `AWS::S3::Bucket` | typed |
+
+## All resource types
+
+The complete set of 1119 resource types, grouped by service. Expand to browse or search (Ctrl/Cmd-F).
+
+<details>
+<summary>Show all 1119 AWS resource types</summary>
 
 | Service | CloudQuery table name | CFN type | Tier |
 | --- | --- | --- | --- |
@@ -106,7 +123,7 @@ _Regenerate with `python scripts/aws/dump_aws_resource_catalog.py` after touchin
 | autoscaling | `aws_autoscaling_plans` | `AWS::AutoScaling::Plan` | generic |
 | autoscaling | `aws_autoscaling_scheduled_actions` | `AWS::AutoScaling::ScheduledAction` | generic |
 | autoscaling | `aws_autoscaling_warm_pools` | `AWS::AutoScaling::WarmPool` | generic |
-| availability | `aws_availability_zones` | `-` | generic |
+| availability | `aws_availability_zones` | - | generic |
 | backup | `aws_backup_frameworks` | `AWS::Backup::Framework` | generic |
 | backup | `aws_backup_global_settings` | `AWS::Backup::GlobalSetting` | generic |
 | backup | `aws_backup_jobs` | `AWS::Backup::Job` | generic |
@@ -161,10 +178,10 @@ _Regenerate with `python scripts/aws/dump_aws_resource_catalog.py` after touchin
 | cloudtrail | `aws_cloudtrail_trail_event_selectors` | `AWS::CloudTrail::TrailEventSelector` | generic |
 | cloudtrail | `aws_cloudtrail_trails` | `AWS::CloudTrail::Trail` | generic |
 | cloudwatch | `aws_cloudwatch_alarms` | `AWS::CloudWatch::Alarm` | generic |
-| cloudwatch | `aws_cloudwatch_metric_data` | `-` | generic |
-| cloudwatch | `aws_cloudwatch_metric_statistics` | `-` | generic |
+| cloudwatch | `aws_cloudwatch_metric_data` | - | generic |
+| cloudwatch | `aws_cloudwatch_metric_statistics` | - | generic |
 | cloudwatch | `aws_cloudwatch_metric_streams` | `AWS::CloudWatch::MetricStream` | generic |
-| cloudwatch | `aws_cloudwatch_metrics` | `-` | generic |
+| cloudwatch | `aws_cloudwatch_metrics` | - | generic |
 | cloudwatchlogs | `aws_cloudwatchlogs_deliveries` | `AWS::Logs::Delivery` | generic |
 | cloudwatchlogs | `aws_cloudwatchlogs_delivery_destinations` | `AWS::Logs::DeliveryDestination` | generic |
 | cloudwatchlogs | `aws_cloudwatchlogs_delivery_sources` | `AWS::Logs::DeliverySource` | generic |
@@ -266,12 +283,12 @@ _Regenerate with `python scripts/aws/dump_aws_resource_catalog.py` after touchin
 | connect | `aws_connect_users` | `AWS::Connect::User` | generic |
 | connect | `aws_connect_view_versions` | `AWS::Connect::ViewVersion` | generic |
 | connect | `aws_connect_views` | `AWS::Connect::View` | generic |
-| costexplorer | `aws_costexplorer_cost_30d` | `-` | generic |
-| costexplorer | `aws_costexplorer_cost_custom` | `-` | generic |
-| costexplorer | `aws_costexplorer_cost_forecast_30d` | `-` | generic |
-| costexplorer | `aws_costexplorer_reservation_coverages` | `-` | generic |
-| costexplorer | `aws_costexplorer_reservation_utilizations` | `-` | generic |
-| costoptimizationhub | `aws_costoptimizationhub_recommendations` | `-` | generic |
+| costexplorer | `aws_costexplorer_cost_30d` | - | generic |
+| costexplorer | `aws_costexplorer_cost_custom` | - | generic |
+| costexplorer | `aws_costexplorer_cost_forecast_30d` | - | generic |
+| costexplorer | `aws_costexplorer_reservation_coverages` | - | generic |
+| costexplorer | `aws_costexplorer_reservation_utilizations` | - | generic |
+| costoptimizationhub | `aws_costoptimizationhub_recommendations` | - | generic |
 | datapipeline | `aws_datapipeline_pipelines` | `AWS::DataPipeline::Pipeline` | generic |
 | datasync | `aws_datasync_agents` | `AWS::DataSync::Agent` | generic |
 | datasync | `aws_datasync_azureblob_locations` | `AWS::DataSync::AzureblobLocation` | generic |
@@ -338,7 +355,7 @@ _Regenerate with `python scripts/aws/dump_aws_resource_catalog.py` after touchin
 | dynamodbstreams | `aws_dynamodbstreams_streams` | `AWS::DynamoDB::Stream` | generic |
 | ebs | `aws_ebs_default_kms_key_ids` | `AWS::EC2::DefaultKmsKeyId` | generic |
 | ebs | `aws_ebs_encryption_by_defaults` | `AWS::EC2::EncryptionByDefault` | generic |
-| ec2 | `aws_ec2_account_attributes` | `-` | generic |
+| ec2 | `aws_ec2_account_attributes` | - | generic |
 | ec2 | `aws_ec2_byoip_cidrs` | `AWS::EC2::ByoipCidr` | generic |
 | ec2 | `aws_ec2_capacity_reservation_topologies` | `AWS::EC2::CapacityReservationTopology` | generic |
 | ec2 | `aws_ec2_capacity_reservations` | `AWS::EC2::CapacityReservation` | generic |
@@ -361,9 +378,9 @@ _Regenerate with `python scripts/aws/dump_aws_resource_catalog.py` after touchin
 | ec2 | `aws_ec2_instance_credit_specifications` | `AWS::EC2::InstanceCreditSpecification` | generic |
 | ec2 | `aws_ec2_instance_disable_api_stop` | `AWS::EC2::InstanceDisableApiStop` | generic |
 | ec2 | `aws_ec2_instance_disable_api_termination` | `AWS::EC2::InstanceDisableApiTermination` | generic |
-| ec2 | `aws_ec2_instance_statuses` | `-` | generic |
+| ec2 | `aws_ec2_instance_statuses` | - | generic |
 | ec2 | `aws_ec2_instance_topologies` | `AWS::EC2::InstanceTopology` | generic |
-| ec2 | `aws_ec2_instance_types` | `-` | generic |
+| ec2 | `aws_ec2_instance_types` | - | generic |
 | ec2 | `aws_ec2_instance_user_data` | `AWS::EC2::InstanceUserData` | generic |
 | ec2 | `aws_ec2_instances` | `AWS::EC2::Instance` | typed |
 | ec2 | `aws_ec2_internet_gateways` | `AWS::EC2::InternetGateway` | generic |
@@ -585,9 +602,9 @@ _Regenerate with `python scripts/aws/dump_aws_resource_catalog.py` after touchin
 | health | `aws_health_organization_affected_entities` | `AWS::Health::OrganizationAffectedEntity` | generic |
 | health | `aws_health_organization_events` | `AWS::Health::OrganizationEvent` | generic |
 | healthlake | `aws_healthlake_fhir_datastores` | `AWS::HealthLake::FhirDatastore` | generic |
-| iam | `aws_iam_account_authorization_details` | `-` | generic |
-| iam | `aws_iam_accounts` | `-` | typed |
-| iam | `aws_iam_credential_reports` | `-` | generic |
+| iam | `aws_iam_account_authorization_details` | - | generic |
+| iam | `aws_iam_accounts` | - | typed |
+| iam | `aws_iam_credential_reports` | - | generic |
 | iam | `aws_iam_group_attached_policies` | `AWS::IAM::GroupAttachedPolicy` | generic |
 | iam | `aws_iam_group_last_accessed_details` | `AWS::IAM::GroupLastAccessedDetail` | generic |
 | iam | `aws_iam_group_policies` | `AWS::IAM::GroupPolicy` | generic |
@@ -869,7 +886,7 @@ _Regenerate with `python scripts/aws/dump_aws_resource_catalog.py` after touchin
 | redshift | `aws_redshift_reserved_nodes` | `AWS::Redshift::ReservedNode` | generic |
 | redshift | `aws_redshift_snapshots` | `AWS::Redshift::Snapshot` | generic |
 | redshift | `aws_redshift_subnet_groups` | `AWS::Redshift::SubnetGroup` | generic |
-| regions | `aws_regions` | `-` | generic |
+| regions | `aws_regions` | - | generic |
 | rekognition | `aws_rekognition_collection_faces` | `AWS::Rekognition::CollectionFace` | generic |
 | rekognition | `aws_rekognition_collections` | `AWS::Rekognition::Collection` | generic |
 | rekognition | `aws_rekognition_media_analysis_jobs` | `AWS::Rekognition::MediaAnalysisJob` | generic |
@@ -1131,3 +1148,4 @@ _Regenerate with `python scripts/aws/dump_aws_resource_catalog.py` after touchin
 | xray | `aws_xray_resource_policies` | `AWS::XRay::ResourcePolicy` | generic |
 | xray | `aws_xray_sampling_rules` | `AWS::XRay::SamplingRule` | generic |
 
+</details>

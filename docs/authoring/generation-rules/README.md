@@ -49,9 +49,9 @@ Selects which indexer supplies matched resources. Supported values:
 
 | Platform | Indexer | Typical `resourceTypes` values |
 | --- | --- | --- |
-| `azure` | `azureapi` | CloudQuery table names (`azure_compute_virtual_machines`, aliases like `virtual_machine`) |
-| `aws` | `awsapi` | CloudQuery table names (`aws_ec2_instances`, aliases like `ec2_instance`) |
-| `gcp` | `gcpapi` | CloudQuery table names (`gcp_compute_instances`, aliases like `compute_instance`) |
+| `azure` | `azureapi` | Native names with legacy CloudQuery table names as aliases (`virtual_machine` ← `azure_compute_virtual_machines`) |
+| `aws` | `awsapi` | Native names with legacy CloudQuery table names as aliases (`ec2_instance` ← `aws_ec2_instances`) |
+| `gcp` | `gcpapi` | Native names with legacy CloudQuery table names as aliases (`compute_instance` ← `gcp_compute_instances`) |
 | `kubernetes` | `kubeapi` | Built-in kinds (`pod`, `deployment`) or CRD syntax (`buckets.storage.gcp.upbound.io`) |
 | `runwhen` | `runwhen` | `workspace` (one instance per workspace-builder run; used by MCP tool-builder output) |
 
@@ -61,8 +61,8 @@ narrative guides and machine-readable catalogs.
 ### `resourceTypes`
 
 List of resource type names to match. Names are resolved through each
-platform's registry — canonical CloudQuery table names and legacy aliases
-both work (for example `virtual_machine` and
+platform's registry — both native indexer names and legacy CloudQuery
+table names work as aliases (for example `virtual_machine` and
 `azure_compute_virtual_machines` resolve to the same Azure type).
 
 After discovery, confirm types and field paths in the **Workspace Explorer**

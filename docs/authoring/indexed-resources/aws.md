@@ -1,94 +1,85 @@
-# AWS indexer
+# AWS indexed resources
 
-RunWhen Local can discover AWS resources two ways, selected by
-`awsIndexerBackend` in `workspaceInfo.yaml`:
+When you write a generation rule, you tell the workspace builder which cloud
+resources to match by listing one or more resource types under
+`resourceTypes`. This page lists the resource types the AWS indexer
+discovers, the names that work, and a working match rule example.
 
-* **`awsapi`** (default): the native indexer — uses the AWS Cloud Control API
-  plus first-party `boto3` SDKs, no CloudQuery binary. It discovers only the
-  resource types your generation rules reference, per account/region, and
-  respects per-account `accountLevelOfDetails` (an account with LOD `none` is
-  skipped). See
-  [AWS indexer internals](../../architecture/aws-indexer-internals.md) for
-  the design.
-* **`cloudquery`** (legacy/fallback): invokes the
-  [CloudQuery AWS plugin](https://hub.cloudquery.io/plugins/source/cloudquery/aws)
-  against the account(s) you've configured and reads the resulting SQLite
-  intermediate. Set this explicitly to opt back into the CloudQuery path.
+A transition from CloudQuery resource names to the native `awsapi` indexer
+names is underway — the alias column lists the legacy CloudQuery names which
+will be deprecated. **1,119 resource types total** — 3 typed (rich payload),
+1,116 generic (Cloud Control envelope). [Full catalog →](https://github.com/runwhen-contrib/runwhen-local/blob/main/docs/authoring/indexed-resources/aws-resource-catalog.md)
 
-```yaml
-# workspaceInfo.yaml
-# awsapi is the default; set this to 'cloudquery' to use the legacy backend.
-awsIndexerBackend: cloudquery
-```
+## Commonly used resource types
 
-Either way the CodeBundle-facing contract is the same: generation rules
-reference the **CloudQuery table name** as `resource_type` (e.g.
-`aws_ec2_instances`), and field shapes follow the CloudQuery AWS plugin output.
-The native backend normalizes Cloud Control payloads into that same shape, so
-rules don't change when you flip the backend. Per-table schemas live in the
-[plugin's table reference](https://hub.cloudquery.io/plugins/source/cloudquery/aws/latest/tables).
+| Resource type | Aliases | Notes |
+|---|---|---|
+| `aws_iam_accounts` | `account`, `aws_account` | anchor, always indexed |
+| `aws_ec2_instances` | `ec2_instance` | typed — rich payload |
+| `aws_ec2_volumes` | — | |
+| `aws_ec2_snapshots` | — | |
+| `aws_s3_buckets` | — | typed — rich payload |
+| `aws_rds_instances` | — | |
+| `aws_rds_clusters` | — | |
+| `aws_eks_clusters` | — | |
+| `aws_lambda_functions` | — | |
+| `aws_elbv2_load_balancers` | — | |
+| `aws_ecs_clusters` | — | |
+| `aws_ecs_services` | — | |
+| `aws_iam_users` | — | |
+| `aws_iam_roles` | — | |
 
-For credential setup, IAM permissions, and `workspaceInfo.yaml` snippets, see
-the user guide's [AWS cloud-discovery page](../../user-guide/cloud-discovery/aws.md)
-and the [IAM key reference](../../user-guide/cloud-discovery/aws-iam-keys.md).
+## Built-in matchable properties
 
-## Common matchable types
+| Property | Value |
+|---|---|
+| `name` | Resource name |
+| `tags` | AWS tags |
+| `region` | AWS region |
+| `account_id` | AWS account ID |
 
-Generation rules in the contrib CodeBundles most often target:
+Use `resource/<path>` to reach raw JSON fields — e.g.
+`resource/spec/instanceType` or `resource/status/state/name`.
 
-* `aws_ec2_instances` (`AWS::EC2::Instance`)
-* `aws_ec2_volumes`, `aws_ec2_snapshots`
-* `aws_s3_buckets` (`AWS::S3::Bucket`)
-* `aws_rds_instances` (`AWS::RDS::DBInstance`), `aws_rds_clusters`
-* `aws_eks_clusters` (`AWS::EKS::Cluster`)
-* `aws_lambda_functions`
-* `aws_elbv2_load_balancers`
-* `aws_ecs_clusters`, `aws_ecs_services`
-* `aws_iam_users`, `aws_iam_roles`
+Typed resources (`aws_ec2_instances`, `aws_s3_buckets`, `aws_iam_accounts`)
+carry a rich payload with all SDK fields. The other 1,116 types are generic
+(Cloud Control envelope) — they carry a standard shape but may miss some
+per-service fields.
 
-Use the CloudQuery table name as `resource_type` in your generation rule. Field
-shapes follow the CloudQuery AWS plugin output, so the easiest reference is the
-plugin's per-table schema page.
-
-### Typed vs. generic types
-
-The native `awsapi` backend ships hand-written `boto3` collectors for
-`aws_ec2_instances` and `aws_s3_buckets` (richer payloads); every other table
-with a CloudFormation type is served by the Cloud Control API generic pass. The
-mandatory `aws_iam_accounts` anchor (alias `account`) is synthesized from your
-credentials and emitted first so every other resource is scoped under its
-account. The full mapping of CloudQuery table -> CloudFormation type lives in
-the generated registry (`src/indexers/aws_resource_type_registry.yaml`).
-
-Some CloudQuery tables (cost/usage reports, metric rollups, certain inventory
-sub-resources) have no Cloud Control type; they map to `null` in the registry
-and are skipped by the generic pass. They still resolve by name for gen-rule
-compatibility, and could get a dedicated typed collector if a rule needs them.
-
-## Running native AWS discovery locally
-
-1. Set the toggle in `workspaceInfo.yaml`:
+## Example match rule
 
 ```yaml
-awsIndexerBackend: awsapi
-cloudConfig:
-  aws:
-    # credentials resolve via aws_utils: explicit keys, a K8s secret,
-    # IRSA / Pod Identity, an assumed role, or the default credential chain
-    regions:
-      - us-east-1
-      - us-west-2
+apiVersion: runwhen.com/v1
+kind: GenerationRules
+spec:
+  platform: aws
+  generationRules:
+    - resourceTypes:
+        - aws_ec2_instances
+      matchRules:
+        - type: and
+          matches:
+            - type: pattern
+              properties: [tags]
+              pattern: "production"
+              mode: substring
+            - type: pattern
+              properties: ["resource/spec/instanceType"]
+              pattern: "t3\\."
+              mode: substring
+      slxs:
+        - baseName: ec2-health
+          qualifiers: [account_id, region, name]
+          baseTemplateName: aws-ec2-health
+          levelOfDetail: detailed
+          outputItems:
+            - type: slx
+            - type: runbook
 ```
 
-   (Or export `WB_AWS_INDEXER_BACKEND=awsapi`.)
-
-2. Run discovery the usual way (e.g. `./run.sh` / the documented CLI). When
-   `awsapi` is selected, the CloudQuery indexer skips the AWS block and the
-   native indexer handles it; the two are mutually exclusive per platform.
-
-## Roadmap
-
-The native `awsapi` indexer is the path toward removing the CloudQuery
-dependency entirely (alongside `azureapi` and `gcpapi`). It is now the default
-backend for AWS; `cloudquery` remains available as a legacy/fallback opt-in via
-`awsIndexerBackend: cloudquery`.
+> [!NOTE]
+> Only 3 types carry a rich SDK payload. The other 1,116 use a Cloud Control API
+> envelope — standard fields are available but some per-service fields may be
+> absent. Check the [full catalog](https://github.com/runwhen-contrib/runwhen-local/blob/main/docs/authoring/indexed-resources/aws-resource-catalog.md)
+> for tier status. For credential setup and IAM permissions, see the
+> [cloud discovery user guide](../../user-guide/cloud-discovery/aws.md).

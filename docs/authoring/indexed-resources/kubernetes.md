@@ -1,82 +1,85 @@
-# Kubernetes indexer
+# Kubernetes indexed resources
 
-The Kubernetes indexer talks to a cluster via the official Kubernetes
-Python client, using whatever kubeconfig / in-cluster service account the
-container has access to.
+When you write a generation rule, you tell the workspace builder which
+resources to match by listing one or more resource types under
+`resourceTypes`. This page lists the resource types the Kubernetes indexer
+discovers, the names that work, and a working match rule example.
 
-For credential setup and per-cluster `workspaceInfo.yaml` snippets, see
-the user guide's [Kubernetes cloud-discovery
-page](../../user-guide/cloud-discovery/kubernetes.md). For the full
-namespace-scoping mechanics, see the
-[Kubernetes-LOD architecture docs](../../architecture/kubernetes-lod/README.md).
+Use the Kubernetes kind name (lowercase) as `resourceTypes` — e.g.
+`deployment`, `pod`, `namespace`. Custom CRDs use `plural.group[/version]`
+and must be declared in `customResourceTypes`.
+[Full catalog →](https://github.com/runwhen-contrib/runwhen-local/blob/main/docs/authoring/indexed-resources/kubernetes-resource-catalog.md)
 
-## Discovered resource types
+## Built-in resource types
 
-The indexer discovers the standard Kubernetes object kinds that the
-contrib CodeBundles target:
+| Resource type | API group |
+|---|---|
+| `cluster` | — (synthesized) |
+| `namespace` | core/v1 |
+| `deployment` | apps/v1 |
+| `statefulset` | apps/v1 |
+| `daemonset` | apps/v1 |
+| `pod` | core/v1 |
+| `service` | core/v1 |
+| `configmap` | core/v1 |
+| `secret` | core/v1 |
+| `cronjob` | batch/v1 |
+| `job` | batch/v1 |
+| `ingress` | networking.k8s.io/v1 |
+| `gatewayclass` | gateway.networking.k8s.io/v1 |
+| `gateway` | gateway.networking.k8s.io/v1 |
+| `httproute` | gateway.networking.k8s.io/v1 |
+| `custom` | — (CRDs via `customResourceTypes`) |
+| `persistentvolumeclaim` | core/v1 |
 
-* `cluster` - one per workspaceInfo cluster entry.
-* `namespace` - via `CoreV1Api.list_namespace()`.
-* `deployment`, `statefulset`, `daemonset` (apps/v1).
-* `pod`, `service`, `configmap`, `secret` (core/v1) -
-  visibility depends on the per-namespace LOD.
-* `cronjob`, `job` (batch/v1).
-* `ingress` (networking.k8s.io/v1).
-* `gatewayclass`, `gateway`, `httproute` (gateway.networking.k8s.io/v1)
-  when the CRDs are installed.
-* Any custom resource explicitly listed under
-  `cloudConfig.kubernetes.customResourceTypes`.
+## Built-in matchable properties
 
-Each object lands in the resource store with its full
-`apiVersion`/`kind`/`metadata`/`spec`/`status` payload, plus
-`subscription_id` set to the cluster name (the resource store treats the
-cluster like a "subscription" so a single workspace can span many).
+| Property | Value |
+|---|---|
+| `name` | Object name |
+| `namespace` | Parent namespace |
+| `cluster` | Cluster name |
+| `labels`, `label-keys`, `label-values` | Kubernetes labels |
+| `annotations`, `annotation-keys`, `annotation-values` | Kubernetes annotations |
 
-## Level of detail per namespace
+Use `resource/<path>` to reach raw JSON fields from the object manifest —
+e.g. `resource/spec/replicas` or `resource/spec/template/spec/containers/0/image`.
 
-`workspaceInfo.yaml` lets you set discovery scope per namespace. The
-classic invocation looks like:
-
-```yaml
-cloudConfig:
-  kubernetes:
-    contexts:
-      - name: prod-west
-        clusterName: prod-west
-        defaultLOD: none
-        namespaceLevelOfDetails:
-          payments: detailed
-          orders:   basic
-          kube-system: none
-```
-
-Resources whose effective LOD resolves to `NONE` are dropped at indexing
-time, exactly like the Azure indexer drops out-of-scope resource groups.
-The decision tree (workspace default, per-context default, namespace
-override, custom-resource override) is documented in detail in
-[`architecture/kubernetes-lod/`](../../architecture/kubernetes-lod/README.md).
-
-## What generation rules can match
-
-Generation rules can match against any of the discovered types by
-`resource_type`:
+## Example match rule
 
 ```yaml
-match:
-  resource_type: deployment
-  predicates:
-    - jsonpath: $.metadata.namespace
-      equals: payments
-    - jsonpath: $.spec.replicas
-      greater_than: 1
+apiVersion: runwhen.com/v1
+kind: GenerationRules
+spec:
+  platform: kubernetes
+  generationRules:
+    - resourceTypes:
+        - deployment
+      matchRules:
+        - type: and
+          matches:
+            - type: pattern
+              properties: [namespace]
+              pattern: "^payments$"
+              mode: exact
+            - type: pattern
+              properties: ["resource/spec/replicas"]
+              pattern: "^[2-9]|[0-9]{2,}$"
+              mode: exact
+      slxs:
+        - baseName: deployment-health
+          qualifiers: [cluster, namespace, name]
+          baseTemplateName: k8s-deployment-health
+          levelOfDetail: detailed
+          outputItems:
+            - type: slx
+            - type: runbook
 ```
 
-`predicates` operate on the original Kubernetes object payload (see
-[generation rules](../generation-rules/README.md) for the full predicate
-grammar).
-
-## See also
-
-* [User guide: Kubernetes cloud discovery](../../user-guide/cloud-discovery/kubernetes.md)
-* [Architecture: Kubernetes-LOD internals](../../architecture/kubernetes-lod/README.md)
-* [AKS namespace-LOD addendum](../../architecture/kubernetes-lod/aks-namespace-lods.md)
+> [!NOTE]
+> Pods, services, secrets, and configmaps are only discovered in namespaces
+> with `detailed` or `basic` LOD. Namespaces set to `none` are skipped by the
+> indexer entirely — no resources from those namespaces are visible to
+> generation rules. Configure LOD in `workspaceInfo.yaml` per context or per
+> namespace; the full scoping mechanics are in the
+> [Kubernetes-LOD architecture](https://github.com/runwhen-contrib/runwhen-local/blob/main/docs/architecture/kubernetes-lod/README.md).

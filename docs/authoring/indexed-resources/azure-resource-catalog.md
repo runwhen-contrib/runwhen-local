@@ -1,13 +1,52 @@
 # Azure resource catalog
 
-Every Azure resource type the native `azureapi` indexer can discover. This page is the companion catalog for [`azure.md`](./azure.md); see that page for how to enable the indexer, what data each row carries, and the typed/generic distinction.
+Resource types the native `azureapi` indexer can discover. Use the canonical CloudQuery table name (or any listed alias) as the `resourceTypes` value in a generation rule. This page is the companion catalog for [`azure.md`](./azure.md); see that page for how to enable the indexer and what data each row carries.
 
-_619 resource types - 25 typed (rich-payload), 594 generic (basic envelope). Generated 2026-07-07 from `src/indexers/azure_resource_type_registry.yaml`._
+_619 resource types - 25 typed (rich-payload), 594 generic (basic envelope). Generated 2026-07-09 from `src/indexers/azure_resource_type_registry.yaml`._
 
 _Regenerate with `python scripts/azure/dump_azure_resource_catalog.py` after touching the registry or overrides; do not hand-edit this file._
 
 * `typed` - hand-written `azure-mgmt-*` collector returns the full SDK payload (rich `properties`).
 * `generic` - covered by the ARM-resources catch-all (`ResourceManagementClient.resources.list[_by_resource_group]`); row carries the basic envelope (`id`, `name`, `type`, `location`, `tags`, `sku`, `kind`, `identity`, `managed_by`) but **no** `properties` (an ARM API limitation, not a workspace-builder one).
+
+## Commonly matched types
+
+Typed collectors (rich payloads) and any mandatory anchor — the resource types most generation rules target.
+
+| Service | Resource type | Aliases | ARM type | Tier |
+| --- | --- | --- | --- | --- |
+| resources | `azure_resources_resource_groups` | `resource_group` | `Microsoft.Resources/resourceGroups` | typed |
+| apimanagement | `azure_apimanagement_service` | - | `Microsoft.ApiManagement/service` | typed |
+| appservice | `azure_appservice_plans` | - | `Microsoft.Web/serverFarms` | typed |
+| appservice | `azure_appservice_web_apps` | - | `Microsoft.Web/sites` | typed |
+| azurearcdata | `azure_azurearcdata_sql_server_instances` | - | `Microsoft.AzureArcData/sqlServerInstances` | typed |
+| compute | `azure_compute_disks` | - | `Microsoft.Compute/disks` | typed |
+| compute | `azure_compute_snapshots` | - | `Microsoft.Compute/snapshots` | typed |
+| compute | `azure_compute_virtual_machine_scale_sets` | - | `Microsoft.Compute/virtualMachineScaleSets` | typed |
+| compute | `azure_compute_virtual_machines` | `virtual_machine` | `Microsoft.Compute/virtualMachines` | typed |
+| containerregistry | `azure_containerregistry_registries` | - | `Microsoft.ContainerRegistry/registries` | typed |
+| containerservice | `azure_containerservice_managed_clusters` | - | `Microsoft.ContainerService/managedClusters` | typed |
+| cosmos | `azure_cosmos_sql_databases` | - | `Microsoft.DocumentDB/databaseAccounts/sqlDatabases` | typed |
+| datafactory | `azure_datafactory_factories` | - | `Microsoft.DataFactory/factories` | typed |
+| keyvault | `azure_keyvault_keyvaults` | `azure_keyvault_vaults`, `azure_keyvault_keyvault` | `Microsoft.KeyVault/vaults` | typed |
+| mysql | `azure_mysql_servers` | - | `Microsoft.DBforMySQL/servers` | typed |
+| mysqlflexibleservers | `azure_mysqlflexibleservers_servers` | - | `Microsoft.DBforMySQL/flexibleServers` | typed |
+| network | `azure_network_application_gateways` | - | `Microsoft.Network/applicationGateways` | typed |
+| network | `azure_network_load_balancers` | - | `Microsoft.Network/loadBalancers` | typed |
+| network | `azure_network_security_groups` | - | `Microsoft.Network/networkSecurityGroups` | typed |
+| network | `azure_network_virtual_networks` | - | `Microsoft.Network/virtualNetworks` | typed |
+| postgresql | `azure_postgresql_databases` | - | `Microsoft.DBforPostgreSQL/servers/databases` | typed |
+| redis | `azure_redis_caches` | - | `Microsoft.Cache/Redis` | typed |
+| servicebus | `azure_servicebus_namespaces` | - | `Microsoft.ServiceBus/namespaces` | typed |
+| storage | `azure_storage_accounts` | - | `Microsoft.Storage/storageAccounts` | typed |
+| subscription | `azure_subscription_subscriptions` | - | `Microsoft.Subscription/subscriptions` | typed |
+
+## All resource types
+
+The complete set of 619 resource types, grouped by service. Expand to browse or search (Ctrl/Cmd-F).
+
+<details>
+<summary>Show all 619 Azure resource types</summary>
 
 | Service | CloudQuery table name | ARM type | Tier |
 | --- | --- | --- | --- |
@@ -500,7 +539,7 @@ _Regenerate with `python scripts/azure/dump_azure_resource_catalog.py` after tou
 | resources | `azure_resources_links` | `Microsoft.Resources/links` | generic |
 | resources | `azure_resources_providers` | `Microsoft.Resources/providers` | generic |
 | resources | `azure_resources_resource_groups` | `Microsoft.Resources/resourceGroups` | typed |
-| resources | `azure_resources_resources` | `-` | generic |
+| resources | `azure_resources_resources` | - | generic |
 | role | `azure_role_management_policy_assignments` | `Microsoft.Role/managementPolicyAssignments` | generic |
 | saas | `azure_saas_resources` | `Microsoft.Saas/resources` | generic |
 | search | `azure_search_services` | `Microsoft.Search/searchServices` | generic |
@@ -631,3 +670,4 @@ _Regenerate with `python scripts/azure/dump_azure_resource_catalog.py` after tou
 | windowsiot | `azure_windowsiot_services` | `Microsoft.WindowsIoT/services` | generic |
 | workloads | `azure_workloads_monitors` | `Microsoft.Workloads/monitors` | generic |
 
+</details>
