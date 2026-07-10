@@ -66,21 +66,28 @@ def _terminate_subprocess(proc):
 
 
 def _start_embedded_rest_service(port: int):
-    """Start the workspace builder Django dev server as a subprocess on the
-    given port and wait for it to be reachable. Returns the Popen handle.
+    """Start the workspace builder FastAPI service (uvicorn) as a subprocess on
+    the given port and wait for it to be reachable. Returns the Popen handle.
 
     Used by the `simulate` subcommand to make itself self-contained when no
     REST service is already running. The subprocess is terminated via
     atexit so it cleans up even on fatal() / unexpected exits.
+
+    The workspace builder migrated from Django to FastAPI; the service is now
+    launched via ``uvicorn workspace_builder.api:app`` (the same entrypoint the
+    container uses in entrypoint.sh), run from the src directory so the
+    ``workspace_builder`` package resolves.
     """
     import atexit
     import subprocess
     import sys
     import time
 
-    manage_py_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "manage.py")
+    src_dir = os.path.dirname(os.path.abspath(__file__))
     proc = subprocess.Popen(
-        [sys.executable, manage_py_path, "runserver", f"127.0.0.1:{port}", "--noreload"],
+        [sys.executable, "-m", "uvicorn", "workspace_builder.api:app",
+         "--host", "127.0.0.1", "--port", str(port)],
+        cwd=src_dir,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
@@ -793,6 +800,15 @@ def main():
         workspace_info.get("writeWorkspaceFilesToDisk"),
         os.getenv("WB_WRITE_WORKSPACE_FILES_TO_DISK"),
     )
+    # The workspace builder migrated to a sqlite workspace_artifacts store and now
+    # defaults writeWorkspaceFilesToDisk=False (rendered files go to the DB, not
+    # disk). The simulate subcommand sources its PAPI upload from the /run/ REST
+    # response tar, which does NOT carry resources.sqlite — so the DB-sourced
+    # upload path is unavailable over REST and, without disk writes, the upload
+    # archive would be empty. Default disk writes ON for simulate (unless the user
+    # explicitly overrides) so the self-contained simulate→upload flow keeps working.
+    if args.command == SIMULATE_COMMAND and write_workspace_files_to_disk is None:
+        write_workspace_files_to_disk = True
 
     # ------------------------------------------------------------------ 4. validation guards
     missing = []

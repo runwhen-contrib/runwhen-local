@@ -1,21 +1,40 @@
 import json
 import os
 import tempfile
+import unittest
 from http import HTTPStatus
 
-from django.test import TestCase
+from fastapi.testclient import TestClient
+
+from workspace_builder.api import app
 
 
-class SimulatorTestCase(TestCase):
+class SimulatorTestCaseBase(unittest.TestCase):
+    """Shared base that provides a FastAPI TestClient as ``self.client`` /
+    ``cls.client`` (mirrors the pattern in ``tests.py``). Replaces the Django
+    ``TestCase`` these tests were originally written against, after the
+    workspace builder migrated from Django to FastAPI."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.client = TestClient(app)
+
+
+class SimulatorTestCase(SimulatorTestCaseBase):
     def test_test_synth_runs_as_noop(self):
         """test_synth alone should run without error and produce no SLXs."""
         request_data = {
             "components": "test_synth",
             "workspaceName": "ws-noop",
             "papiURL": "http://papi.local",
+            # Post-Django→FastAPI: rendered workspace files now go to the sqlite
+            # workspace_artifacts store by default (writeWorkspaceFilesToDisk=False).
+            # These tests inspect the /run/ response tar, so opt disk writes back on.
+            "writeWorkspaceFilesToDisk": True,
         }
         response = self.client.post(
-            "/run/", data=request_data, content_type="application/json"
+            "/run/", json=request_data
         )
         self.assertEqual(HTTPStatus.OK, response.status_code)
 
@@ -39,18 +58,22 @@ slxs:
 """
 
 
-class TestSynthSynthesisTestCase(TestCase):
+class TestSynthSynthesisTestCase(SimulatorTestCaseBase):
     def test_synthesizes_one_resource_per_slx(self):
         """test_synth should register one resource per slxs entry."""
         request_data = {
             "components": "test_synth,dump_resources",
             "workspaceName": "ws-synth",
             "papiURL": "http://papi.local",
+            # Post-Django→FastAPI: rendered workspace files now go to the sqlite
+            # workspace_artifacts store by default (writeWorkspaceFilesToDisk=False).
+            # These tests inspect the /run/ response tar, so opt disk writes back on.
+            "writeWorkspaceFilesToDisk": True,
             "testConfig": TEST_CONFIG_YAML_BASIC,
             "resourceDumpPath": "resource_dump.yaml",
         }
         response = self.client.post(
-            "/run/", data=request_data, content_type="application/json"
+            "/run/", json=request_data
         )
         self.assertEqual(HTTPStatus.OK, response.status_code)
         # dump_resources writes the resource registry into the response archive.
@@ -81,7 +104,7 @@ def _materialize_simulator_codecollection_repo(target_dir: str) -> str:
     return materialize_simulator_codecollection_repo(SIMULATOR_CODECOLLECTION_PATH, target_dir)
 
 
-class PassthroughGenerationRuleTestCase(TestCase):
+class PassthroughGenerationRuleTestCase(SimulatorTestCaseBase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.codecollection_repo_path = _materialize_simulator_codecollection_repo(self.tmp.name)
@@ -95,6 +118,10 @@ class PassthroughGenerationRuleTestCase(TestCase):
             "workspaceName": "ws-rule",
             "workspaceOwnerEmail": "test@example.com",
             "papiURL": "http://papi.local",
+            # Post-Django→FastAPI: rendered workspace files now go to the sqlite
+            # workspace_artifacts store by default (writeWorkspaceFilesToDisk=False).
+            # These tests inspect the /run/ response tar, so opt disk writes back on.
+            "writeWorkspaceFilesToDisk": True,
             "locationId": "loc-1",
             "testConfig": TEST_CONFIG_YAML_BASIC,
             "codeCollections": [
@@ -102,7 +129,7 @@ class PassthroughGenerationRuleTestCase(TestCase):
             ],
         }
         response = self.client.post(
-            "/run/", data=request_data, content_type="application/json"
+            "/run/", json=request_data
         )
         self.assertEqual(HTTPStatus.OK, response.status_code)
 
@@ -140,7 +167,7 @@ class PassthroughGenerationRuleTestCase(TestCase):
         )
 
 
-class SimulatorRunbookRenderTestCase(TestCase):
+class SimulatorRunbookRenderTestCase(SimulatorTestCaseBase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.codecollection_repo_path = _materialize_simulator_codecollection_repo(self.tmp.name)
@@ -154,6 +181,10 @@ class SimulatorRunbookRenderTestCase(TestCase):
             "workspaceName": "ws-render",
             "workspaceOwnerEmail": "test@example.com",
             "papiURL": "http://papi.local",
+            # Post-Django→FastAPI: rendered workspace files now go to the sqlite
+            # workspace_artifacts store by default (writeWorkspaceFilesToDisk=False).
+            # These tests inspect the /run/ response tar, so opt disk writes back on.
+            "writeWorkspaceFilesToDisk": True,
             "locationId": "loc-1",
             "testConfig": TEST_CONFIG_YAML_BASIC,
             "codeCollections": [
@@ -161,7 +192,7 @@ class SimulatorRunbookRenderTestCase(TestCase):
             ],
         }
         response = self.client.post(
-            "/run/", data=request_data, content_type="application/json"
+            "/run/", json=request_data
         )
         self.assertEqual(HTTPStatus.OK, response.status_code)
 
@@ -230,7 +261,7 @@ slxs:
 """
 
 
-class ConditionalOutputItemTestCase(TestCase):
+class ConditionalOutputItemTestCase(SimulatorTestCaseBase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.codecollection_repo_path = _materialize_simulator_codecollection_repo(self.tmp.name)
@@ -244,6 +275,10 @@ class ConditionalOutputItemTestCase(TestCase):
             "workspaceName": workspace_name,
             "workspaceOwnerEmail": "test@example.com",
             "papiURL": "http://papi.local",
+            # Post-Django→FastAPI: rendered workspace files now go to the sqlite
+            # workspace_artifacts store by default (writeWorkspaceFilesToDisk=False).
+            # These tests inspect the /run/ response tar, so opt disk writes back on.
+            "writeWorkspaceFilesToDisk": True,
             "locationId": "loc-1",
             "testConfig": test_config_yaml,
             "codeCollections": [
@@ -251,7 +286,7 @@ class ConditionalOutputItemTestCase(TestCase):
             ],
         }
         response = self.client.post(
-            "/run/", data=request_data, content_type="application/json"
+            "/run/", json=request_data
         )
         self.assertEqual(HTTPStatus.OK, response.status_code)
         from base64 import b64decode
@@ -370,7 +405,7 @@ slxs:
 """
 
 
-class InventoryAndGroupsTestCase(TestCase):
+class InventoryAndGroupsTestCase(SimulatorTestCaseBase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -382,14 +417,18 @@ class InventoryAndGroupsTestCase(TestCase):
             "workspaceName": "ws-inv",
             "workspaceOwnerEmail": "test@example.com",
             "papiURL": "http://papi.local",
+            # Post-Django→FastAPI: rendered workspace files now go to the sqlite
+            # workspace_artifacts store by default (writeWorkspaceFilesToDisk=False).
+            # These tests inspect the /run/ response tar, so opt disk writes back on.
+            "writeWorkspaceFilesToDisk": True,
             "locationId": "loc-1",
             "testConfig": INVENTORY_TEST_CONFIG,
             "codeCollections": [
                 {"repoURL": cls.codecollection_repo_path, "ref": "main"},
             ],
         }
-        response = cls.client_class().post(
-            "/run/", data=request_data, content_type="application/json"
+        response = cls.client.post(
+            "/run/", json=request_data
         )
         if response.status_code != HTTPStatus.OK:
             cls._tmp.cleanup()
@@ -526,7 +565,7 @@ slxs:
 """
 
 
-class DefaultsAndAutoDeriveTestCase(TestCase):
+class DefaultsAndAutoDeriveTestCase(SimulatorTestCaseBase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.codecollection_repo_path = _materialize_simulator_codecollection_repo(self.tmp.name)
@@ -540,6 +579,10 @@ class DefaultsAndAutoDeriveTestCase(TestCase):
             "workspaceName": "ws-defaults",
             "workspaceOwnerEmail": "test@example.com",
             "papiURL": "http://papi.local",
+            # Post-Django→FastAPI: rendered workspace files now go to the sqlite
+            # workspace_artifacts store by default (writeWorkspaceFilesToDisk=False).
+            # These tests inspect the /run/ response tar, so opt disk writes back on.
+            "writeWorkspaceFilesToDisk": True,
             "locationId": "loc-1",
             "testConfig": DEFAULTS_TEST_CONFIG,
             "codeCollections": [
@@ -547,7 +590,7 @@ class DefaultsAndAutoDeriveTestCase(TestCase):
             ],
         }
         response = self.client.post(
-            "/run/", data=request_data, content_type="application/json"
+            "/run/", json=request_data
         )
         self.assertEqual(HTTPStatus.OK, response.status_code)
         from base64 import b64decode
