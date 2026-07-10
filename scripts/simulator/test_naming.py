@@ -1,0 +1,49 @@
+import random
+import re
+import unittest
+
+from scripts.simulator.generate_scale_config import (
+    compose_name, weighted_kind, coherent_labels,
+)
+from scripts.simulator import vocab
+
+COUNTER = re.compile(r"-\d+$")
+
+
+class NamingTestCase(unittest.TestCase):
+    def test_names_are_unique_within_used_set(self):
+        rng = random.Random(1)
+        used: set[str] = set()
+        names = [compose_name(rng, used) for _ in range(5000)]
+        self.assertEqual(len(names), len(set(names)))
+
+    def test_names_have_no_numeric_counter_suffix(self):
+        rng = random.Random(2)
+        used: set[str] = set()
+        for _ in range(2000):
+            self.assertNotRegex(compose_name(rng, used), COUNTER)
+
+    def test_name_decomposes_into_vocab(self):
+        rng = random.Random(3)
+        used: set[str] = set()
+        name = compose_name(rng, used)
+        parts = name.split("-")
+        # First token(s) are a service, then a component, optional variant.
+        self.assertTrue(any(name.startswith(s + "-") for s in vocab.SERVICES))
+
+    def test_deterministic_under_seed(self):
+        # Same seed + fresh used set -> same name.
+        self.assertEqual(
+            compose_name(random.Random(4), set()),
+            compose_name(random.Random(4), set()),
+        )
+
+    def test_weighted_kind_only_returns_known_kinds(self):
+        rng = random.Random(5)
+        kinds = {weighted_kind(rng) for _ in range(500)}
+        self.assertTrue(kinds.issubset({k for k, _ in vocab.KIND_WEIGHTS}))
+
+    def test_coherent_labels_reflect_service_and_component(self):
+        labels = coherent_labels("payments", "api")
+        self.assertEqual(labels["app.kubernetes.io/part-of"], "payments")
+        self.assertEqual(labels["app.kubernetes.io/component"], "api")

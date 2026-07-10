@@ -79,5 +79,41 @@ def plan_namespaces(count: int, clusters: int, namespaces_per_cluster: int,
     ]
 
 
+def compose_name(rng: random.Random, used: set[str]) -> str:
+    """Compose an organic `{service}-{component}[-{variant}]` name unique within
+    `used`. Draws a variant only when the base name collides; never a counter.
+    """
+    service = rng.choice(vocab.SERVICES)
+    component = rng.choice(vocab.COMPONENTS)
+    base = f"{service}-{component}"
+    if base not in used:
+        used.add(base)
+        return base
+    # Collision: try organic variants in a seeded order.
+    for variant in rng.sample(vocab.VARIANTS, len(vocab.VARIANTS)):
+        candidate = f"{base}-{variant}"
+        if candidate not in used:
+            used.add(candidate)
+            return candidate
+    # Exhausted this base's variants (extremely rare): draw a fresh base.
+    return compose_name(rng, used)
+
+
+def weighted_kind(rng: random.Random) -> str:
+    """Return a Kubernetes kind weighted by KIND_WEIGHTS."""
+    kinds = [k for k, _ in vocab.KIND_WEIGHTS]
+    weights = [w for _, w in vocab.KIND_WEIGHTS]
+    return rng.choices(kinds, weights=weights, k=1)[0]
+
+
+def coherent_labels(service: str, component: str) -> dict[str, str]:
+    """Labels that agree with the resource's identity."""
+    return {
+        "app.kubernetes.io/name": f"{service}-{component}",
+        "app.kubernetes.io/part-of": service,
+        "app.kubernetes.io/component": component,
+    }
+
+
 if __name__ == "__main__":  # pragma: no cover  (wired fully in Task 6)
     raise SystemExit("CLI wired in a later task")
