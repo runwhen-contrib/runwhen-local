@@ -50,6 +50,26 @@ shape the current `for slug, entry in slxs.items()` loop already consumes; the
 existing loop and `_resource_attrs_from_slx_entry` are untouched. Hand-authored
 configs render byte-for-byte as before, which the end-to-end parity test asserts.
 
+## Prerequisite: merged base repaired (Django→FastAPI)
+
+This feature builds on PR #797's merge with `main`, which brought the workspace
+builder's Django→FastAPI migration. That migration silently broke the simulator;
+it has been repaired (commit `fix(simulator): repair simulator for
+Django→FastAPI migration merge`) and all 20 simulator/envelope/CLI tests pass on
+the merged base. One repaired behavior matters for this feature:
+
+- Rendered workspace files now default to a **sqlite `workspace_artifacts`
+  store** (`writeWorkspaceFilesToDisk=False`). The `/run/` REST response does
+  **not** carry `resources.sqlite`, so main's DB-sourced upload path is
+  unavailable over REST. The `simulate` subcommand therefore defaults
+  `writeWorkspaceFilesToDisk=True`, and the upload archive is sourced from the
+  on-disk `workspaces/<ws>` tree.
+
+**Implication for 100K:** the disk-write + tar-from-disk path is the *only*
+viable upload path over REST — the DB-efficiency shortcut does not apply. The
+feasibility ramp's file-count math (render ~235K files → tar) therefore stands
+as the real, unavoidable cost, not a pessimistic upper bound.
+
 ## Architecture
 
 One new block in the test config, expanded inside `test_synth.index()`. Nothing
