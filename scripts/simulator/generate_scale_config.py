@@ -79,22 +79,26 @@ def plan_namespaces(count: int, clusters: int, namespaces_per_cluster: int,
     ]
 
 
-def compose_name(rng: random.Random, used: set[str]) -> str:
+def compose_name(rng: random.Random, used: set[str]) -> tuple[str, str, str]:
     """Compose an organic `{service}-{component}[-{variant}]` name unique within
     `used`. Draws a variant only when the base name collides; never a counter.
+
+    Returns `(name, service, component)` — the exact `vocab` tokens drawn, so
+    callers never need to re-parse the composed name (which would be
+    ambiguous for multi-token `vocab.SERVICES` entries like `event-stream`).
     """
     service = rng.choice(vocab.SERVICES)
     component = rng.choice(vocab.COMPONENTS)
     base = f"{service}-{component}"
     if base not in used:
         used.add(base)
-        return base
+        return base, service, component
     # Collision: try organic variants in a seeded order.
     for variant in rng.sample(vocab.VARIANTS, len(vocab.VARIANTS)):
         candidate = f"{base}-{variant}"
         if candidate not in used:
             used.add(candidate)
-            return candidate
+            return candidate, service, component
     # Exhausted this base's variants (extremely rare): draw a fresh base.
     return compose_name(rng, used)
 
@@ -161,8 +165,7 @@ def build_config(count: int, clusters: int, namespaces_per_cluster: int,
     for s in slots:
         used = used_by_cluster.setdefault(s.cluster, set())
         for _ in range(s.size):
-            name = compose_name(rng, used)
-            service, component = name.split("-")[0], name.split("-")[1]
+            name, service, component = compose_name(rng, used)
             kind = weighted_kind(rng)
             slug = _slug(s.cluster, s.namespace, name)
             resources.append({

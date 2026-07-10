@@ -59,3 +59,18 @@ class BuildConfigTestCase(unittest.TestCase):
 
     def test_different_seed_changes_output(self):
         self.assertNotEqual(self.cfg(seed=1), self.cfg(seed=2))
+
+    def test_labels_are_coherent_with_name(self):
+        # Regression: build_config once re-derived service/component from the
+        # composed name via a naive `name.split("-")`, which broke for
+        # multi-token vocab.SERVICES entries (e.g. "event-stream-manager"
+        # split into service="event", component="stream" instead of
+        # service="event-stream", component="manager").
+        cfg = self.cfg(count=2000)
+        for r in cfg["inventory"]["resources"]:
+            labels = r["labels"]
+            part_of = labels["app.kubernetes.io/part-of"]
+            component = labels["app.kubernetes.io/component"]
+            name = labels["app.kubernetes.io/name"]
+            self.assertEqual(name, f"{part_of}-{component}")
+            self.assertTrue(r["name"].startswith(name))

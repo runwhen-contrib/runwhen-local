@@ -14,22 +14,22 @@ class NamingTestCase(unittest.TestCase):
     def test_names_are_unique_within_used_set(self):
         rng = random.Random(1)
         used: set[str] = set()
-        names = [compose_name(rng, used) for _ in range(5000)]
+        names = [compose_name(rng, used)[0] for _ in range(5000)]
         self.assertEqual(len(names), len(set(names)))
 
     def test_names_have_no_numeric_counter_suffix(self):
         rng = random.Random(2)
         used: set[str] = set()
         for _ in range(2000):
-            self.assertNotRegex(compose_name(rng, used), COUNTER)
+            self.assertNotRegex(compose_name(rng, used)[0], COUNTER)
 
     def test_name_decomposes_into_vocab(self):
         rng = random.Random(3)
         used: set[str] = set()
-        name = compose_name(rng, used)
-        parts = name.split("-")
-        # First token(s) are a service, then a component, optional variant.
-        self.assertTrue(any(name.startswith(s + "-") for s in vocab.SERVICES))
+        name, service, component = compose_name(rng, used)
+        self.assertIn(service, vocab.SERVICES)
+        self.assertIn(component, vocab.COMPONENTS)
+        self.assertTrue(name.startswith(f"{service}-{component}"))
 
     def test_deterministic_under_seed(self):
         # Same seed + fresh used set -> same name.
