@@ -23,6 +23,7 @@ class IntegrationPipelineTestCase(unittest.TestCase):
         # `default-code-collections.yaml` via a path relative to the process
         # cwd, so cwd must be `src/` before importing it (mirrors how the
         # workspace-builder test suite is normally invoked from `src/`).
+        self.addCleanup(os.chdir, os.getcwd())
         os.chdir(_SRC)
         from fastapi.testclient import TestClient
         from workspace_builder.api import app
