@@ -211,5 +211,39 @@ def build_config(count: int, clusters: int, namespaces_per_cluster: int,
     }
 
 
-if __name__ == "__main__":  # pragma: no cover  (wired fully in Task 6)
-    raise SystemExit("CLI wired in a later task")
+def parse_args(argv: list[str]) -> argparse.Namespace:
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--count", type=int, default=100000)
+    p.add_argument("--clusters", type=int, default=50)
+    p.add_argument("--namespaces-per-cluster", type=int, default=20)
+    p.add_argument("--seed", type=int, default=1)
+    p.add_argument("--sli-ratio", type=float, default=0.25)
+    p.add_argument("--slo-ratio", type=float, default=0.10)
+    p.add_argument("--skew", choices=["longtail", "uniform"], default="longtail")
+    p.add_argument("--code-bundles",
+                   default="k8s-deployment-ops,k8s-statefulset-ops,k8s-ingress-healthcheck")
+    p.add_argument("--output", required=True)
+    args = p.parse_args(argv)
+    if not (0.0 <= args.sli_ratio <= 1.0 and 0.0 <= args.slo_ratio <= 1.0):
+        p.error("--sli-ratio and --slo-ratio must be in [0, 1]")
+    return args
+
+
+def main(argv: list[str] | None = None) -> int:
+    import yaml
+    args = parse_args(argv if argv is not None else None)
+    bundles = [b.strip() for b in args.code_bundles.split(",") if b.strip()]
+    cfg = build_config(
+        args.count, args.clusters, args.namespaces_per_cluster, args.seed,
+        args.sli_ratio, args.slo_ratio, bundles, args.skew,
+    )
+    with open(args.output, "w") as f:
+        # sort_keys=True keeps output stable/deterministic across runs.
+        yaml.safe_dump(cfg, f, sort_keys=True, default_flow_style=False)
+    print(f"Wrote {len(cfg['slxs'])} SLXs across "
+          f"{len(cfg['inventory']['clusters'])} clusters to {args.output}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
