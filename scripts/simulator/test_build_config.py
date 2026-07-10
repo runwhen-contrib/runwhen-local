@@ -74,3 +74,10 @@ class BuildConfigTestCase(unittest.TestCase):
             name = labels["app.kubernetes.io/name"]
             self.assertEqual(name, f"{part_of}-{component}")
             self.assertTrue(r["name"].startswith(name))
+
+    def test_slo_ratio_above_sli_ratio_rejected(self):
+        # slo_ratio > sli_ratio would otherwise be silently clamped to the
+        # SLI band (actual SLO fraction = sli_ratio, not the requested
+        # value); reject it explicitly instead.
+        with self.assertRaises(ValueError):
+            build_config(500, 5, 6, 1, 0.25, 0.50, BUNDLES)

@@ -47,3 +47,27 @@ class NamingTestCase(unittest.TestCase):
         labels = coherent_labels("payments", "api")
         self.assertEqual(labels["app.kubernetes.io/part-of"], "payments")
         self.assertEqual(labels["app.kubernetes.io/component"], "api")
+
+    def test_capacity_exhaustion_raises_clean_error(self):
+        # Regression: the old "all variants exhausted -> recurse with a
+        # fresh base" branch used tail recursion, which blew Python's
+        # recursion limit (RecursionError) once `used` neared the full
+        # compose space. Building the real space to trigger the guard would
+        # be expensive, so fake a `used` set that is "full" without actually
+        # holding every name: __len__ reports the real capacity and
+        # __contains__ always says "already used".
+        class _FullSet:
+            def __len__(self):
+                capacity = (len(vocab.SERVICES) * len(vocab.COMPONENTS)
+                            * (1 + len(vocab.VARIANTS)))
+                return capacity
+
+            def __contains__(self, item):
+                return True
+
+            def add(self, item):
+                pass
+
+        rng = random.Random(1)
+        with self.assertRaises(ValueError):
+            compose_name(rng, _FullSet())

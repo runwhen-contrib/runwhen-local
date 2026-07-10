@@ -37,3 +37,10 @@ class DistributionTestCase(unittest.TestCase):
     def test_every_size_at_least_one(self):
         slots = plan_namespaces(10000, 50, 20, "longtail", random.Random(9))
         self.assertTrue(all(s.size >= 1 for s in slots))
+
+    def test_count_below_total_namespaces_raises(self):
+        # count=500 < total_ns=1000 (clusters=50 * namespaces_per_cluster=20).
+        # Every namespace floors to size 1, so the negative-drift correction
+        # loop can never decrement and would spin forever without the guard.
+        with self.assertRaises(ValueError):
+            plan_namespaces(500, 50, 20, "longtail", random.Random(1))

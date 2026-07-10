@@ -42,6 +42,14 @@ def plan_namespaces(count: int, clusters: int, namespaces_per_cluster: int,
     if skew not in ("longtail", "uniform"):
         raise ValueError(f"unknown skew: {skew}")
 
+    total = clusters * namespaces_per_cluster
+    if count < total:
+        raise ValueError(
+            f"count ({count}) must be >= clusters * namespaces_per_cluster "
+            f"({clusters} * {namespaces_per_cluster} = {total}); either raise "
+            f"--count or lower --clusters / --namespaces-per-cluster"
+        )
+
     cluster_names = _pick_unique(vocab.CLUSTERS, clusters, rng)
     slots: list[NamespaceSlot] = []
     for ci, cluster in enumerate(cluster_names):
@@ -87,20 +95,27 @@ def compose_name(rng: random.Random, used: set[str]) -> tuple[str, str, str]:
     callers never need to re-parse the composed name (which would be
     ambiguous for multi-token `vocab.SERVICES` entries like `event-stream`).
     """
-    service = rng.choice(vocab.SERVICES)
-    component = rng.choice(vocab.COMPONENTS)
-    base = f"{service}-{component}"
-    if base not in used:
-        used.add(base)
-        return base, service, component
-    # Collision: try organic variants in a seeded order.
-    for variant in rng.sample(vocab.VARIANTS, len(vocab.VARIANTS)):
-        candidate = f"{base}-{variant}"
-        if candidate not in used:
-            used.add(candidate)
-            return candidate, service, component
-    # Exhausted this base's variants (extremely rare): draw a fresh base.
-    return compose_name(rng, used)
+    capacity = len(vocab.SERVICES) * len(vocab.COMPONENTS) * (1 + len(vocab.VARIANTS))
+    if len(used) >= capacity:
+        raise ValueError(
+            f"resource-name space exhausted for this cluster: "
+            f"{len(used)} names used, capacity {capacity}. Reduce per-cluster "
+            f"demand (raise --clusters or lower --count)."
+        )
+    while True:
+        service = rng.choice(vocab.SERVICES)
+        component = rng.choice(vocab.COMPONENTS)
+        base = f"{service}-{component}"
+        if base not in used:
+            used.add(base)
+            return base, service, component
+        # Collision: try organic variants in a seeded order.
+        for variant in rng.sample(vocab.VARIANTS, len(vocab.VARIANTS)):
+            candidate = f"{base}-{variant}"
+            if candidate not in used:
+                used.add(candidate)
+                return candidate, service, component
+        # Exhausted this base's variants (extremely rare): draw a fresh base.
 
 
 def weighted_kind(rng: random.Random) -> str:
@@ -149,6 +164,11 @@ def build_config(count: int, clusters: int, namespaces_per_cluster: int,
     """Assemble a full simulator test config (defaults + inventory + slxs)."""
     if not code_bundles:
         raise ValueError("code_bundles must be non-empty")
+    if slo_ratio > sli_ratio:
+        raise ValueError(
+            f"slo_ratio ({slo_ratio}) must be <= sli_ratio ({sli_ratio}): "
+            f"the SLO set is a subset of the SLI set"
+        )
     rng = random.Random(seed)
     slots = plan_namespaces(count, clusters, namespaces_per_cluster, skew, rng)
 
@@ -226,6 +246,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     args = p.parse_args(argv)
     if not (0.0 <= args.sli_ratio <= 1.0 and 0.0 <= args.slo_ratio <= 1.0):
         p.error("--sli-ratio and --slo-ratio must be in [0, 1]")
+    if args.slo_ratio > args.sli_ratio:
+        p.error("--slo-ratio must be <= --sli-ratio: the SLO set is a subset of the SLI set")
     return args
 
 
