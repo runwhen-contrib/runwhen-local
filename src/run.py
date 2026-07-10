@@ -20,17 +20,9 @@ from utils import get_proxy_config
 from utils import get_request_verify
 from azure_utils import generate_kubeconfig_for_aks
 from aws_utils import generate_kubeconfig_for_eks
+from gcp_utils import generate_kubeconfig_for_gke
 
 
-debug_suppress_cheat_sheet = os.getenv("WB_DEBUG_SUPPRESS_CHEAT_SHEET", "true")
-cheat_sheet_enabled = (debug_suppress_cheat_sheet.lower() == 'false' or
-                      debug_suppress_cheat_sheet == '0')
-if cheat_sheet_enabled:
-    import cheatsheet
-
-# FIXME: Since we currently also do the cheat sheet generation in this tool
-# should the service name be something more generic, e.g. RunWhen Local or
-# something like that?
 SERVICE_NAME = "Workspace Builder"
 REST_SERVICE_HOST_DEFAULT = "localhost"
 REST_SERVICE_PORT_DEFAULT = 8000
@@ -118,11 +110,6 @@ SIMULATE_COMMAND = 'simulate'
 
 CUSTOMIZATION_RULES_DEFAULT = "map-customization-rules"
 
-tmpdir_value = os.getenv("TMPDIR", "/tmp")  # fallback to /tmp if TMPDIR not set
-print("TMPDIR:", os.environ.get("TMPDIR", "not set"))
-with tempfile.NamedTemporaryFile(delete=True) as f:
-    print("Actual temp file location:", f.name)
-
 
 def read_file(file_path: bytes, mode="r") -> Union[str, bytes]:
     with open(file_path, mode) as f:
@@ -139,12 +126,24 @@ def check_rest_service_error(response: requests.Response, command: str, verbose:
     # FIXME: Should probably also check for other 2xx status code, but currently
     # for the workspace builder service a successful execution always returns 200.
     if response.status_code != HTTPStatus.OK:
-        response_data = response.json()
+        # The service normally returns a JSON error body, but an unhandled
+        # exception (or a crashing/exiting server) can yield a non-JSON body or
+        # an empty response. Don't let that turn a clean server-side error into
+        # an opaque client-side JSONDecodeError -- surface the status + body.
+        try:
+            response_data = response.json()
+        except ValueError:
+            body = (response.text or "").strip()
+            fatal(
+                f'Error {response.status_code} from {SERVICE_NAME} service for '
+                f'command "{command}": non-JSON response body:\n{body[:4000]}'
+            )
+            return
         if verbose:
             print("Exception stack trace:")
-            print(response_data["stackTrace"])
+            print(response_data.get("stackTrace"))
             print("Request data:")
-            print(response_data["originalRequestData"])
+            print(response_data.get("originalRequestData"))
         fatal(f'Error {response.status_code} from {SERVICE_NAME} service for command "{command}": '
               f'{response_data.get("message")}')
 
@@ -162,6 +161,181 @@ def call_rest_service_with_retries(rest_call_proc, max_attempts=10, retry_delay=
             print("Workspace builder REST service isn't available yet; waiting and trying again.")
             time.sleep(retry_delay)
 
+def _projected_service_account_token() -> str:
+    with open("/var/run/secrets/kubernetes.io/serviceaccount/token", "r") as f:
+        return f.read().strip()
+
+
+def _service_account_name_from_projected_token() -> str:
+    """Extract the service account name from the in-pod service account token JWT.
+
+    Supports the claim layouts emitted by the different token types a pod can
+    receive:
+
+    * Modern bound/projected tokens (the default since Kubernetes 1.21) nest the
+      service account under the ``kubernetes.io`` claim, e.g.
+      ``{"kubernetes.io": {"serviceaccount": {"name": "..."}}}``.
+    * Legacy non-expiring tokens use a flat
+      ``kubernetes.io/serviceaccount/service-account.name`` claim.
+    * As a final fallback, every SA token carries the standard ``sub`` claim of
+      the form ``system:serviceaccount:<namespace>:<name>``.
+    """
+    token = _projected_service_account_token()
+    payload_segment = token.split(".")[1]
+    payload_segment += "=" * (-len(payload_segment) % 4)
+    claims = json.loads(base64.urlsafe_b64decode(payload_segment))
+
+    # Modern bound/projected tokens (the cluster default) nest the claim.
+    k8s_claim = claims.get("kubernetes.io")
+    if isinstance(k8s_claim, dict):
+        sa_name = (k8s_claim.get("serviceaccount") or {}).get("name")
+        if sa_name:
+            return sa_name
+
+    # Legacy non-expiring service account tokens use a flat claim.
+    sa_name = claims.get("kubernetes.io/serviceaccount/service-account.name")
+    if sa_name:
+        return sa_name
+
+    # Standard subject claim: system:serviceaccount:<namespace>:<name>.
+    subject = claims.get("sub", "")
+    if isinstance(subject, str) and subject.startswith("system:serviceaccount:"):
+        sa_name = subject.split(":")[-1]
+        if sa_name:
+            return sa_name
+
+    raise ValueError("projected service account token is missing service-account.name claim")
+
+
+def _service_account_name_for_kubeconfig_secret() -> str:
+    sa_name = os.environ.get("RW_KUBECONFIG_SERVICE_ACCOUNT")
+    if sa_name:
+        return sa_name
+    return _service_account_name_from_projected_token()
+
+
+def _long_lived_service_account_token(
+    namespace: str,
+    service_account_name: str,
+    max_attempts: int = 5,
+    retry_delay: int = 2,
+) -> str:
+    """Return a SA token that survives workspace-builder pod restarts.
+
+    The projected pod token is bound to the current pod and is invalidated on
+    restart. Runner workers cache ``k8s:file@secret/kubeconfig:kubeconfig`` for
+    up to an hour, so publishing a pod-bound token causes auth failures until
+    workers are recycled.
+
+    The runwhen-local Helm chart provisions a ``{sa}-token`` secret (type
+    ``kubernetes.io/service-account-token``) with a long-lived token for the
+    workspace-builder service account. Prefer that token when publishing the
+    kubeconfig secret for runner tasks.
+
+    Right after a pod (re)start the token controller may not have populated
+    ``.data.token`` yet. We retry briefly rather than immediately giving up,
+    because falling back to a pod-bound token is exactly what breaks runner
+    auth on the next restart.
+    """
+    token_secret_name = f"{service_account_name}-token"
+    get_cmd = [
+        "kubectl", "get", "secret", token_secret_name,
+        "--namespace", namespace,
+        "-o", "jsonpath={.data.token}",
+    ]
+    last_error = None
+    for attempt in range(1, max_attempts + 1):
+        result = subprocess.run(get_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        if result.returncode != 0:
+            last_error = (
+                f"could not read long-lived token secret {token_secret_name}: "
+                f"{result.stderr.strip()}"
+            )
+        else:
+            token_b64 = result.stdout.strip()
+            if token_b64:
+                return base64.b64decode(token_b64).decode("utf-8")
+            last_error = f"long-lived token secret {token_secret_name} has no token data yet"
+        if attempt < max_attempts:
+            print(
+                f"Long-lived token not ready yet ({last_error}); retrying "
+                f"({attempt}/{max_attempts - 1})..."
+            )
+            time.sleep(retry_delay)
+    raise RuntimeError(last_error)
+
+
+def _resolve_kubeconfig_token(namespace: str, create_secret: bool):
+    """Resolve the token to embed in the kubeconfig.
+
+    Returns ``(token, is_long_lived)``. ``is_long_lived`` is True only when the
+    token came from the chart-provisioned ``{sa}-token`` secret and therefore
+    survives pod restarts; a pod-bound projected token returns False so callers
+    can avoid publishing it into the shared runner secret.
+    """
+    if not create_secret:
+        return _projected_service_account_token(), False
+
+    try:
+        service_account_name = _service_account_name_for_kubeconfig_secret()
+        token = _long_lived_service_account_token(namespace, service_account_name)
+        print(
+            f"Using long-lived service account token from secret/{service_account_name}-token "
+            "for runner kubeconfig secret"
+        )
+        return token, True
+    except (RuntimeError, ValueError) as exc:
+        print(
+            f"Warning: could not obtain a long-lived service account token "
+            f"({exc}); using the pod-bound projected token. This token is "
+            "invalidated when the workspace-builder pod restarts."
+        )
+        return _projected_service_account_token(), False
+
+
+def _publish_kubeconfig_secret(namespace: str, secret_name: str, kubeconfig_b64: str) -> None:
+    """Create or replace the runner kubeconfig secret without patch/update RBAC.
+
+    ``kubectl apply`` patches existing secrets, which requires a ``patch`` verb
+    many namespace-scoped Roles omit. We compare the existing ``.data.kubeconfig``
+    value and only delete+create when the content actually changed.
+    """
+    get_cmd = [
+        "kubectl",
+        "get",
+        "secret",
+        secret_name,
+        "--namespace",
+        namespace,
+        "-o",
+        "jsonpath={.data.kubeconfig}",
+    ]
+    result = subprocess.run(get_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    if result.returncode == 0:
+        existing_b64 = result.stdout.strip()
+        if existing_b64 == kubeconfig_b64:
+            print("Kubeconfig secret unchanged; skipping update.")
+            return
+        delete_cmd = ["kubectl", "delete", "secret", secret_name, "--namespace", namespace]
+        subprocess.run(delete_cmd, check=True, text=True)
+
+    secret_yaml = {
+        "apiVersion": "v1",
+        "kind": "Secret",
+        "metadata": {
+            "name": secret_name,
+            "namespace": namespace,
+        },
+        "data": {
+            "kubeconfig": kubeconfig_b64,
+        },
+        "type": "Opaque",
+    }
+    create_cmd = ["kubectl", "create", "-f", "-"]
+    subprocess.run(create_cmd, input=yaml.dump(secret_yaml), check=True, text=True)
+    print("Kubeconfig secret created successfully.")
+
+
 def create_kubeconfig():
     create_secret = os.environ.get("RW_CREATE_KUBECONFIG_SECRET") == "true"
     api_server_host = os.environ.get("KUBERNETES_SERVICE_HOST")
@@ -170,11 +344,10 @@ def create_kubeconfig():
     default_cluster_name = "default"
     cluster_name = os.environ.get("KUBERNETES_CLUSTER_NAME", default_cluster_name)
 
-    with open("/var/run/secrets/kubernetes.io/serviceaccount/token", "r") as f:
-        token = f.read().strip()
-
     with open("/var/run/secrets/kubernetes.io/serviceaccount/namespace", "r") as f:
         namespace = f.read().strip()
+
+    token, token_is_long_lived = _resolve_kubeconfig_token(namespace, create_secret)
 
     with open("/var/run/secrets/kubernetes.io/serviceaccount/ca.crt", "rb") as f:
         ca_cert = base64.b64encode(f.read()).decode('utf-8')
@@ -215,31 +388,22 @@ def create_kubeconfig():
         result = subprocess.run(get_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         exists = result.returncode == 0
 
-        secret_yaml = {
-            "apiVersion": "v1",
-            "kind": "Secret",
-            "metadata": {
-                "name": secret_name,
-                "namespace": namespace
-            },
-            "data": {
-                "kubeconfig": base64.b64encode(kubeconfig_yaml.encode('utf-8')).decode('utf-8')
-            },
-            "type": "Opaque"
-        }
+        # Never overwrite an existing runner kubeconfig secret with a pod-bound
+        # token: the existing secret very likely holds a still-valid long-lived
+        # token, and replacing it with a token bound to this pod would break
+        # cached runner auth on the next restart. Leave it untouched and keep
+        # using the pod-bound token only for this pod's own discovery below.
+        if exists and not token_is_long_lived:
+            print(
+                "Warning: keeping the existing kubeconfig secret unchanged; could "
+                "not obtain a long-lived service account token this run, and "
+                "publishing a pod-bound token would break runner auth after a "
+                "workspace-builder restart."
+            )
+            return kubeconfig
 
-        secret_yaml_str = yaml.dump(secret_yaml)
-
-        if exists:
-            # Delete the existing secret
-            del_cmd = ['kubectl', 'delete', 'secret', secret_name, '--namespace', namespace]
-            subprocess.run(del_cmd, check=True)
-            print("Secret deleted successfully.")
-
-        # Create the new secret
-        create_cmd = ['kubectl', 'create', '-f', '-']
-        subprocess.run(create_cmd, input=secret_yaml_str, check=True, text=True)
-        print("Secret created successfully.")
+        kubeconfig_b64 = base64.b64encode(kubeconfig_yaml.encode("utf-8")).decode("utf-8")
+        _publish_kubeconfig_secret(namespace, secret_name, kubeconfig_b64)
 
     return kubeconfig
 
@@ -270,6 +434,36 @@ def merge_kubeconfigs(kubeconfig_paths, output_path):
     else:
         print("No valid kubeconfig files were found to merge.")
 
+def clear_stale_kubeconfig_artifacts(cloud_config):
+    """Remove kubeconfig artifacts this tool generates from a previous run.
+
+    A persistent ``$HOME`` (e.g. a bind-mounted fixture dir) can retain
+    ``~/.kube/config`` and the per-cloud ``~/.kube/{azure,eks,gke}-kubeconfig``
+    temp files across runs. Clearing them up front guarantees discovery can
+    never silently reuse a stale kubeconfig when nothing was generated this run.
+
+    We only remove files THIS tool generates -- never a user-supplied
+    ``kubernetes.kubeconfigFile``, which lives at a different, user-pointed path
+    (e.g. ``/shared/kubeconfig.secret``). Returns the list of paths removed.
+    """
+    user_kubeconfig_file = (cloud_config.get('kubernetes') or {}).get('kubeconfigFile') if cloud_config else None
+    kube_dir = os.path.expanduser("~/.kube")
+    removed = []
+    for stale_name in ("config", "azure-kubeconfig", "eks-kubeconfig", "gke-kubeconfig"):
+        stale_path = os.path.join(kube_dir, stale_name)
+        if user_kubeconfig_file and os.path.abspath(stale_path) == os.path.abspath(user_kubeconfig_file):
+            # Never touch a user-supplied kubeconfig, even if it lives here.
+            continue
+        if os.path.exists(stale_path):
+            try:
+                os.remove(stale_path)
+                removed.append(stale_path)
+                print(f"Removed stale kubeconfig artifact from a previous run: {stale_path}")
+            except OSError as e:
+                print(f"Warning: could not remove stale kubeconfig {stale_path}: {e}")
+    return removed
+
+
 def coalesce(*vals):
     """Return the first non-empty value or None."""
     return next((v for v in vals if v not in (None, "")), None)
@@ -284,6 +478,24 @@ def build_simulate_envelope(papi_response_data: dict, workspace_name: str) -> st
         "workspace_name": workspace_name,
     }
     return json.dumps(envelope)
+
+
+def resource_store_db_file(output_path, resource_store_backend, resource_store_path):
+    """Return the path to the extracted sqlite resource store, or None.
+
+    The render phase persists every rendered workspace file into the
+    ``workspace_artifacts`` table of this DB, so when it is present the upload
+    tar and SLX count can be sourced from it instead of from the on-disk file
+    tree. Returns None when the sqlite backend is not active or the file is
+    absent, so callers fall back to the disk-based path. The default backend is
+    sqlite, so an unset value is treated as sqlite.
+    """
+    backend = (resource_store_backend or "sqlite").strip().lower()
+    if backend != "sqlite":
+        return None
+    rel_path = resource_store_path or "resources.sqlite"
+    candidate = os.path.join(output_path, rel_path)
+    return candidate if os.path.exists(candidate) else None
 
 
 def main():
@@ -321,7 +533,7 @@ def main():
                         help=f'Host/port info for where the {SERVICE_NAME} REST service is running. '
                              f'Format is <host>:<port>')
     parser.add_argument('-c', '--components', action='store',
-                        default="load_resources,kubeapi,cloudquery,azure_devops,generation_rules,render_output_items,dump_resources")
+                        default="load_resources,kubeapi,azureapi,gcpapi,awsapi,cloudquery,azure_devops,generation_rules,render_output_items,dump_resources")
     parser.add_argument('-o', '--output', action='store', dest='output_path', default="output",
                         help="Path to output directory for generated files. "
                              "The path is relative to the base directory.")
@@ -557,6 +769,30 @@ def main():
     code_collections = workspace_info.get("codeCollections")
     overrides = workspace_info.get("overrides", {})
     task_tag_exclusions = workspace_info.get("taskTagExclusions")
+    resource_store_backend = coalesce(
+        workspace_info.get("resourceStoreBackend"),
+        os.getenv("WB_RESOURCE_STORE_BACKEND"),
+    )
+    resource_store_path = coalesce(
+        workspace_info.get("resourceStorePath"),
+        os.getenv("WB_RESOURCE_STORE_PATH"),
+    )
+    azure_indexer_backend = coalesce(
+        workspace_info.get("azureIndexerBackend"),
+        os.getenv("WB_AZURE_INDEXER_BACKEND"),
+    )
+    gcp_indexer_backend = coalesce(
+        workspace_info.get("gcpIndexerBackend"),
+        os.getenv("WB_GCP_INDEXER_BACKEND"),
+    )
+    aws_indexer_backend = coalesce(
+        workspace_info.get("awsIndexerBackend"),
+        os.getenv("WB_AWS_INDEXER_BACKEND"),
+    )
+    write_workspace_files_to_disk = coalesce(
+        workspace_info.get("writeWorkspaceFilesToDisk"),
+        os.getenv("WB_WRITE_WORKSPACE_FILES_TO_DISK"),
+    )
 
     # ------------------------------------------------------------------ 4. validation guards
     missing = []
@@ -582,6 +818,9 @@ def main():
         else:
             raise ValueError("'cloudConfig' section is missing; discovery configuration must be explicit.")
 
+    # Defensive stale-kubeconfig cleanup before any cluster kubeconfig is
+    # generated, so a leftover file from a previous run can never leak in.
+    clear_stale_kubeconfig_artifacts(cloud_config)
 
     azure_config = None
     aks_clusters = None
@@ -647,6 +886,39 @@ def main():
     if not aws_config:
         print("AWS configuration not found in workspace_info.")
 
+    # Check GCP GKE configuration
+    gcp_config = None
+    gke_clusters = None
+    gke_kubeconfig_path = None
+    gke_auto_discover = False
+
+    if cloud_config:
+        gcp_config = workspace_info.get("cloudConfig", {}).get("gcp")
+        if gcp_config:
+            gke_clusters_config = gcp_config.get('gkeClusters', {})
+            gke_clusters = gke_clusters_config.get('clusters', [])
+            gke_auto_discover = gke_clusters_config.get('autoDiscover', False)
+
+            # Generate kubeconfig if there are explicit clusters OR if auto-discovery is enabled
+            if (isinstance(gke_clusters, list) and len(gke_clusters) > 0) or gke_auto_discover:
+                try:
+                    generate_kubeconfig_for_gke(gke_clusters, workspace_info)
+                    gke_kubeconfig_path_candidate = os.path.expanduser("~/.kube/gke-kubeconfig")
+                    # Only use the path if the file was actually created
+                    if os.path.exists(gke_kubeconfig_path_candidate):
+                        gke_kubeconfig_path = gke_kubeconfig_path_candidate
+                        print(f"GKE kubeconfig generated and saved to {gke_kubeconfig_path}")
+                    else:
+                        print(f"Warning: GKE kubeconfig was not created at {gke_kubeconfig_path_candidate}")
+                        gke_kubeconfig_path = None
+                except Exception as e:
+                    print(f"Error generating kubeconfig for GKE clusters: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    gke_kubeconfig_path = None
+            else:
+                print("GKE clusters not found or improperly formatted, and auto-discovery is disabled. Skipping Kubernetes discovery for GKE.")
+
     # Check Kubernetes configuration in cloudConfig
     kubernetes_config = cloud_config.get('kubernetes') if cloud_config else None
     kubeconfig_path = None
@@ -682,7 +954,7 @@ def main():
             final_kubeconfig_path = None
 
     # Continue only if valid kubeconfig paths are found
-    if (isinstance(aks_clusters, list) and len(aks_clusters) > 0) or auto_discover or (isinstance(eks_clusters, list) and len(eks_clusters) > 0) or eks_auto_discover or kubeconfig_path:
+    if (isinstance(aks_clusters, list) and len(aks_clusters) > 0) or auto_discover or (isinstance(eks_clusters, list) and len(eks_clusters) > 0) or eks_auto_discover or (isinstance(gke_clusters, list) and len(gke_clusters) > 0) or gke_auto_discover or kubeconfig_path:
         final_kubeconfig_path = os.path.expanduser("~/.kube/config")
         kubeconfigs_to_merge = []
 
@@ -696,6 +968,11 @@ def main():
                 kubeconfigs_to_merge.append(eks_kubeconfig_path)
                 print(f"Merging EKS kubeconfig into {final_kubeconfig_path}...")
 
+        if ((isinstance(gke_clusters, list) and len(gke_clusters) > 0) or gke_auto_discover) and gke_kubeconfig_path:
+            if os.path.exists(gke_kubeconfig_path):
+                kubeconfigs_to_merge.append(gke_kubeconfig_path)
+                print(f"Merging GKE kubeconfig into {final_kubeconfig_path}...")
+
         if kubeconfig_path and os.path.exists(kubeconfig_path):
             kubeconfigs_to_merge.append(kubeconfig_path)
             print(f"Merging user-provided kubeconfig into {final_kubeconfig_path}...")
@@ -703,9 +980,13 @@ def main():
         if kubeconfigs_to_merge:
             merge_kubeconfigs(kubeconfigs_to_merge, final_kubeconfig_path)
         else:
-            print("No valid kubeconfigs found to merge.")
+            # Nothing was generated or provided this run. Do NOT fall back to a
+            # possibly-stale ~/.kube/config left over from a previous run --
+            # skip Kubernetes indexing entirely instead.
+            print("No valid kubeconfigs found to merge; skipping Kubernetes discovery.")
+            final_kubeconfig_path = None
     else:
-        print("Skipping Kubernetes discovery due to missing kubeconfig, AKS clusters, or EKS clusters configuration.")
+        print("Skipping Kubernetes discovery due to missing kubeconfig, AKS clusters, EKS clusters, or GKE clusters configuration.")
         final_kubeconfig_path = None 
 
     if final_kubeconfig_path:
@@ -858,6 +1139,20 @@ def main():
             resource_load_data = read_file(resource_load_path, "rb")
             encoded_resource_load_data = base64.b64encode(resource_load_data).decode('utf-8')
             request_data['resourceLoadFile'] = encoded_resource_load_data
+        if resource_store_backend:
+            request_data['resourceStoreBackend'] = resource_store_backend
+        if resource_store_path:
+            request_data['resourceStorePath'] = resource_store_path
+        if azure_indexer_backend:
+            request_data['azureIndexerBackend'] = azure_indexer_backend
+        if gcp_indexer_backend:
+            request_data['gcpIndexerBackend'] = gcp_indexer_backend
+        if aws_indexer_backend:
+            request_data['awsIndexerBackend'] = aws_indexer_backend
+        if write_workspace_files_to_disk is not None:
+            # Accept bool or a "true"/"false" string from workspaceInfo/env; the
+            # server's Setting.convert_value handles both representations.
+            request_data['writeWorkspaceFilesToDisk'] = write_workspace_files_to_disk
 
         # Invoke the workspace builder /run REST endpoint
         run_url = f"http://{rest_service_host}:{rest_service_port}/run/"
@@ -895,12 +1190,26 @@ def main():
         message = response_data.get("message", "Workspace data generated successfully.")
         warnings = response_data.get("warnings", list())
         
-        # Count the number of SLXs (folders in the slxs directory)
-        slxs_path = os.path.join(output_path, "workspaces", workspace_name, "slxs")
-        slx_count = 0
-        if os.path.exists(slxs_path) and os.path.isdir(slxs_path):
-            slx_count = len([name for name in os.listdir(slxs_path) if os.path.isdir(os.path.join(slxs_path, name))])
-        
+        # Count the number of SLXs. Prefer the sqlite resource store (one
+        # slx.yaml artifact per SLX directory) so the count is correct even when
+        # the per-file disk writes were skipped; fall back to scanning the slxs
+        # directory when the store isn't available.
+        slx_count = None
+        store_db_path = resource_store_db_file(output_path, resource_store_backend, resource_store_path)
+        if store_db_path:
+            try:
+                from indexers.workspace_artifacts_tar import count_slxs_from_db_file
+                slx_count = count_slxs_from_db_file(store_db_path, workspace_name)
+            except Exception as e:
+                print(f"WARNING: could not count SLXs from resource store DB ({e}); "
+                      "falling back to directory scan")
+                slx_count = None
+        if slx_count is None:
+            slxs_path = os.path.join(output_path, "workspaces", workspace_name, "slxs")
+            slx_count = 0
+            if os.path.exists(slxs_path) and os.path.isdir(slxs_path):
+                slx_count = len([name for name in os.listdir(slxs_path) if os.path.isdir(os.path.join(slxs_path, name))])
+
         print(f"{message} Total SLXs: {slx_count}")
         for warning in warnings:
             print("WARNING: " + warning)
@@ -913,7 +1222,18 @@ def main():
         # where we upload the generated data to the RunWhen server.
         # This assumes that there's been a previous "run" subcommand that
         # generated content to the specified output directory.
-        if not os.path.exists(output_path) or len(os.listdir(output_path)) == 0:
+        #
+        # The canonical source for the upload tar is the extracted
+        # ``resources.sqlite`` (workspace_artifacts table) that the prior `run`
+        # left in output_path; with writeWorkspaceFilesToDisk=False there is no
+        # ``workspaces/<ws>`` tree on disk, so the precondition keys off the
+        # presence of that DB when the sqlite store is active. Fall back to a
+        # non-empty output-dir check for the disk-based (non-sqlite) path.
+        store_db_path = resource_store_db_file(output_path, resource_store_backend, resource_store_path)
+        have_content = store_db_path is not None or (
+            os.path.exists(output_path) and len(os.listdir(output_path)) > 0
+        )
+        if not have_content:
             fatal("There's no existing generated content to upload; "
                   "you need to execute a run subcommand first before you can use the upload subcommand")
     else:
@@ -928,22 +1248,42 @@ def main():
         # contents of the output directory. So access the workload directory
         # and archive the data to be included in upload data.
         workspace_dir = os.path.join(output_path, "workspaces", workspace_name)
-        tar_bytes = io.BytesIO()
-        archive = tarfile.open(mode="x:gz", fileobj=tar_bytes)
-        # We need to set the working directory to the output directory for the tarfile
-        # to use the correct relative paths for the entries. Just to be safe, we
-        # save and restore the working directory even though, at least currently,
-        # I don't think anything else is affected by the working directory.
-        saved_working_directory = os.getcwd()
-        os.chdir(workspace_dir)
-        try:
-            archive.add(".")
-        except Exception as e:
-            fatal(f"Error creating archive from output directory contents: {e}")
-        finally:
-            os.chdir(saved_working_directory)
-        archive.close()
-        archive_bytes = tar_bytes.getvalue()
+        archive_bytes = None
+
+        # Prefer building the upload tar directly from the sqlite resource store
+        # (the workspace_artifacts table holds the full rendered content). This
+        # avoids the disk read + tar-from-disk walk and works even when the
+        # per-file disk writes were skipped (writeWorkspaceFilesToDisk=False).
+        store_db_path = resource_store_db_file(output_path, resource_store_backend, resource_store_path)
+        if store_db_path:
+            try:
+                from indexers.workspace_artifacts_tar import build_upload_tar_gz_from_db_file
+                archive_bytes = build_upload_tar_gz_from_db_file(store_db_path, workspace_name)
+            except Exception as e:
+                print(f"WARNING: could not build upload archive from resource store DB ({e}); "
+                      "falling back to on-disk archive")
+                archive_bytes = None
+
+        if archive_bytes is None:
+            # Fall back to the on-disk tree. We only send the workspace
+            # subdirectory, so we tar relative to the workspace dir.
+            tar_bytes = io.BytesIO()
+            archive = tarfile.open(mode="x:gz", fileobj=tar_bytes)
+            # We need to set the working directory to the output directory for the tarfile
+            # to use the correct relative paths for the entries. Just to be safe, we
+            # save and restore the working directory even though, at least currently,
+            # I don't think anything else is affected by the working directory.
+            saved_working_directory = os.getcwd()
+            os.chdir(workspace_dir)
+            try:
+                archive.add(".")
+            except Exception as e:
+                fatal(f"Error creating archive from output directory contents: {e}")
+            finally:
+                os.chdir(saved_working_directory)
+            archive.close()
+            archive_bytes = tar_bytes.getvalue()
+
         archive_text = base64.b64encode(archive_bytes).decode('utf-8')
 
         if not upload_token:
@@ -1014,16 +1354,6 @@ def main():
     # Cleanup the temp git repo materialized for the simulate subcommand.
     if _simulator_temp_dir:
         shutil.rmtree(_simulator_temp_dir, ignore_errors=True)
-
-    # Add cheat-sheet integration, which points at the output items and
-    # generates the list of local commands that exist in the TaskSet.
-    # FIXME: I think it would probably be cleaner and more decoupled to move the
-    # command assist stuff to a separate command line tool and then have the
-    # run.sh script handle calling it after invoking this tool.
-    if cheat_sheet_enabled:
-        # Update cheat sheet status by copying index
-        mkdocs_dir=f"{tmpdir_value}/mkdocs-temp"
-        cheatsheet.cheat_sheet(output_path, mkdocs_dir)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,354 @@
+metadata:
+  description: >-
+    Manual overrides applied by sync_aws_resource_type_registry.py. Edit by hand,
+    then re-run the sync script to regenerate
+    src/indexers/aws_resource_type_registry.yaml.
+
+    The registry maps every CloudQuery AWS plugin table to its AWS Cloud Control
+    API resource type -- the CloudFormation resource type name
+    (``AWS::<Service>::<Entity>``, e.g. ``AWS::EC2::Instance``) -- plus metadata
+    used by the native ``awsapi`` indexer. The CloudFormation (CFN) type is the
+    join key for generic discovery via the Cloud Control API
+    (``cloudcontrol`` boto3 client, ``list_resources`` / ``get_resource``),
+    exactly like ARM types are for Azure and Cloud Asset Inventory asset types
+    are for GCP.
+
+# ---------------------------------------------------------------------------
+# service_cfn_names
+#   Maps the CloudQuery service token (the ``<service>`` in
+#   ``aws_<service>_<entity>``) to the CloudFormation *service* segment used in
+#   the CFN resource type name. Many AWS services are irregular acronyms
+#   (EC2, S3, RDS) or PascalCase brand names (CloudFront, DynamoDB) that the
+#   plain capitalisation heuristic gets wrong, so pin them here. When a token
+#   is absent the heuristic falls back to ``token.capitalize()``.
+# ---------------------------------------------------------------------------
+service_cfn_names:
+  # --- acronym services (all-caps) ---
+  ec2: EC2
+  s3: S3
+  rds: RDS
+  iam: IAM
+  eks: EKS
+  ecs: ECS
+  ecr: ECR
+  efs: EFS
+  emr: EMR
+  sns: SNS
+  sqs: SQS
+  ses: SES
+  kms: KMS
+  mq: AmazonMQ
+  dms: DMS
+  dax: DAX
+  fsx: FSx
+  waf: WAF
+  wafv2: WAFv2
+  wafregional: WAFRegional
+  mwaa: MWAA
+  dsql: DSQL
+  amp: APS
+  # --- PascalCase brand names ---
+  cloudfront: CloudFront
+  cloudwatch: CloudWatch
+  cloudwatchlogs: Logs
+  cloudtrail: CloudTrail
+  cloudformation: CloudFormation
+  cloudhsmv2: CloudHSM
+  dynamodb: DynamoDB
+  dynamodbstreams: DynamoDB
+  lambda: Lambda
+  apigateway: ApiGateway
+  apigatewayv2: ApiGatewayV2
+  autoscaling: AutoScaling
+  applicationautoscaling: ApplicationAutoScaling
+  route53: Route53
+  route53resolver: Route53Resolver
+  route53recoverycontrolconfig: Route53RecoveryControl
+  route53recoveryreadiness: Route53RecoveryReadiness
+  secretsmanager: SecretsManager
+  ssm: SSM
+  ssmincidents: SSMIncidents
+  ssoadmin: SSO
+  kinesis: Kinesis
+  kinesisanalytics: KinesisAnalyticsV2
+  kinesisvideo: KinesisVideo
+  firehose: KinesisFirehose
+  glue: Glue
+  athena: Athena
+  sagemaker: SageMaker
+  redshift: Redshift
+  elasticache: ElastiCache
+  elasticbeanstalk: ElasticBeanstalk
+  elasticsearch: Elasticsearch
+  opensearch: OpenSearchService
+  guardduty: GuardDuty
+  macie2: Macie
+  codebuild: CodeBuild
+  codepipeline: CodePipeline
+  codecommit: CodeCommit
+  codedeploy: CodeDeploy
+  codeartifact: CodeArtifact
+  codegurureviewer: CodeGuruReviewer
+  codestar: CodeStarConnections
+  organizations: Organizations
+  servicediscovery: ServiceDiscovery
+  servicecatalog: ServiceCatalog
+  servicequotas: ServiceQuotas
+  batch: Batch
+  backup: Backup
+  backupgateway: BackupGateway
+  docdb: DocDB
+  neptune: Neptune
+  networkfirewall: NetworkFirewall
+  networkmanager: NetworkManager
+  globalaccelerator: GlobalAccelerator
+  transfer: Transfer
+  datasync: DataSync
+  datapipeline: DataPipeline
+  directconnect: DirectConnect
+  directoryservice: DirectoryService
+  eventbridge: Events
+  scheduler: Scheduler
+  pinpoint: Pinpoint
+  cognito: Cognito
+  appsync: AppSync
+  amplify: Amplify
+  appconfig: AppConfig
+  appflow: AppFlow
+  appmesh: AppMesh
+  apprunner: AppRunner
+  appstream: AppStream
+  timestream: Timestream
+  memorydb: MemoryDB
+  lakeformation: LakeFormation
+  lex: Lex
+  lexv2: LexV2
+  imagebuilder: ImageBuilder
+  inspector2: InspectorV2
+  signer: Signer
+  shield: Shield
+  detective: Detective
+  frauddetector: FraudDetector
+  comprehend: Comprehend
+  transcribe: Transcribe
+  rekognition: Rekognition
+  polly: Polly
+  bedrock: Bedrock
+  quicksight: QuickSight
+  connect: Connect
+  acmpca: ACMPCA
+  acm: CertificateManager
+  accessanalyzer: AccessAnalyzer
+  auditmanager: AuditManager
+  budgets: Budgets
+  config: Config
+  cognitoidentity: Cognito
+  devopsguru: DevOpsGuru
+  dlm: DLM
+  ebs: EC2
+  glacier: Glacier
+  healthlake: HealthLake
+  identitystore: IdentityStore
+  iot: IoT
+  kafka: MSK
+  keyspaces: Cassandra
+  lightsail: Lightsail
+  location: Location
+  resiliencehub: ResilienceHub
+  resourcegroups: ResourceGroups
+  savingsplans: SavingsPlans
+  securityhub: SecurityHub
+  snowball: Snowball
+  storagegateway: StorageGateway
+  swf: SWF
+  vpc_lattice: VpcLattice
+  wellarchitected: WellArchitected
+  workspaces: WorkSpaces
+  xray: XRay
+  elbv1: ElasticLoadBalancing
+  elbv2: ElasticLoadBalancingV2
+
+# ---------------------------------------------------------------------------
+# cfn_type_overrides
+#   Pin the full CloudFormation resource type for a table when the heuristic
+#   gets the service or entity wrong, OR when the table has no Cloud Control
+#   resource type (set to null so generic discovery skips it -- a typed
+#   collector handles it instead, or it is simply not discoverable). These are
+#   the high-value, frequently-referenced resources first.
+# ---------------------------------------------------------------------------
+cfn_type_overrides:
+  # --- compute / EC2 (most-referenced surface; entity tokens are irregular) ---
+  aws_ec2_instances: AWS::EC2::Instance
+  aws_ec2_ebs_volumes: AWS::EC2::Volume
+  aws_ec2_ebs_snapshots: AWS::EC2::Snapshot
+  aws_ec2_vpcs: AWS::EC2::VPC
+  aws_ec2_subnets: AWS::EC2::Subnet
+  aws_ec2_security_groups: AWS::EC2::SecurityGroup
+  aws_ec2_network_interfaces: AWS::EC2::NetworkInterface
+  aws_ec2_internet_gateways: AWS::EC2::InternetGateway
+  aws_ec2_nat_gateways: AWS::EC2::NatGateway
+  aws_ec2_route_tables: AWS::EC2::RouteTable
+  aws_ec2_network_acls: AWS::EC2::NetworkAcl
+  aws_ec2_eips: AWS::EC2::EIP
+  aws_ec2_vpc_peering_connections: AWS::EC2::VPCPeeringConnection
+  aws_ec2_vpn_connections: AWS::EC2::VPNConnection
+  aws_ec2_vpn_gateways: AWS::EC2::VPNGateway
+  aws_ec2_customer_gateways: AWS::EC2::CustomerGateway
+  aws_ec2_transit_gateways: AWS::EC2::TransitGateway
+  aws_ec2_flow_logs: AWS::EC2::FlowLog
+  aws_ec2_images: AWS::EC2::Image
+  aws_ec2_key_pairs: AWS::EC2::KeyPair
+  aws_ec2_launch_templates: AWS::EC2::LaunchTemplate
+  aws_ec2_dhcp_options: AWS::EC2::DHCPOptions
+  aws_ec2_vpc_endpoints: AWS::EC2::VPCEndpoint
+
+  # --- containers / serverless ---
+  aws_ecs_clusters: AWS::ECS::Cluster
+  aws_ecs_cluster_services: AWS::ECS::Service
+  aws_ecs_task_definitions: AWS::ECS::TaskDefinition
+  aws_eks_clusters: AWS::EKS::Cluster
+  aws_eks_cluster_node_groups: AWS::EKS::Nodegroup
+  aws_eks_fargate_profiles: AWS::EKS::FargateProfile
+  aws_lambda_functions: AWS::Lambda::Function
+  aws_lambda_layers: AWS::Lambda::LayerVersion
+  aws_batch_compute_environments: AWS::Batch::ComputeEnvironment
+  aws_batch_job_queues: AWS::Batch::JobQueue
+  aws_batch_job_definitions: AWS::Batch::JobDefinition
+  aws_apprunner_services: AWS::AppRunner::Service
+
+  # --- load balancing / networking ---
+  aws_elbv2_load_balancers: AWS::ElasticLoadBalancingV2::LoadBalancer
+  aws_elbv2_target_groups: AWS::ElasticLoadBalancingV2::TargetGroup
+  aws_elbv2_listeners: AWS::ElasticLoadBalancingV2::Listener
+  aws_elbv1_load_balancers: AWS::ElasticLoadBalancing::LoadBalancer
+  aws_cloudfront_distributions: AWS::CloudFront::Distribution
+  aws_globalaccelerator_accelerators: AWS::GlobalAccelerator::Accelerator
+  aws_route53_hosted_zones: AWS::Route53::HostedZone
+  aws_apigateway_rest_apis: AWS::ApiGateway::RestApi
+  aws_apigatewayv2_apis: AWS::ApiGatewayV2::Api
+
+  # --- storage / data ---
+  aws_s3_buckets: AWS::S3::Bucket
+  aws_s3_access_points: AWS::S3::AccessPoint
+  aws_efs_filesystems: AWS::EFS::FileSystem
+  aws_fsx_file_systems: AWS::FSx::FileSystem
+  aws_dynamodb_tables: AWS::DynamoDB::Table
+  aws_dynamodb_global_tables: AWS::DynamoDB::GlobalTable
+  aws_glacier_vaults: AWS::Glacier::Vault
+  aws_backup_vaults: AWS::Backup::BackupVault
+  aws_backup_plans: AWS::Backup::BackupPlan
+
+  # --- databases ---
+  aws_rds_instances: AWS::RDS::DBInstance
+  aws_rds_clusters: AWS::RDS::DBCluster
+  aws_rds_db_proxies: AWS::RDS::DBProxy
+  aws_rds_subnet_groups: AWS::RDS::DBSubnetGroup
+  aws_rds_global_clusters: AWS::RDS::GlobalCluster
+  aws_docdb_clusters: AWS::DocDB::DBCluster
+  aws_docdb_instances: AWS::DocDB::DBInstance
+  aws_neptune_clusters: AWS::Neptune::DBCluster
+  aws_neptune_instances: AWS::Neptune::DBInstance
+  aws_elasticache_clusters: AWS::ElastiCache::CacheCluster
+  aws_elasticache_replication_groups: AWS::ElastiCache::ReplicationGroup
+  aws_redshift_clusters: AWS::Redshift::Cluster
+  aws_memorydb_reserved_nodes: AWS::MemoryDB::Cluster
+
+  # --- messaging / streaming ---
+  aws_sns_topics: AWS::SNS::Topic
+  aws_sns_subscriptions: AWS::SNS::Subscription
+  aws_sqs_queues: AWS::SQS::Queue
+  aws_kinesis_streams: AWS::Kinesis::Stream
+  aws_firehose_delivery_streams: AWS::KinesisFirehose::DeliveryStream
+  aws_kafka_clusters: AWS::MSK::Cluster
+  aws_mq_brokers: AWS::AmazonMQ::Broker
+  aws_eventbridge_event_buses: AWS::Events::EventBus
+
+  # --- security / identity ---
+  aws_kms_keys: AWS::KMS::Key
+  aws_kms_aliases: AWS::KMS::Alias
+  aws_iam_roles: AWS::IAM::Role
+  aws_iam_users: AWS::IAM::User
+  aws_iam_groups: AWS::IAM::Group
+  aws_iam_policies: AWS::IAM::ManagedPolicy
+  aws_iam_instance_profiles: AWS::IAM::InstanceProfile
+  aws_secretsmanager_secrets: AWS::SecretsManager::Secret
+  aws_acm_certificates: AWS::CertificateManager::Certificate
+  aws_wafv2_web_acls: AWS::WAFv2::WebACL
+  aws_guardduty_detectors: AWS::GuardDuty::Detector
+  aws_cognito_user_pools: AWS::Cognito::UserPool
+
+  # --- observability / ops ---
+  aws_cloudwatch_alarms: AWS::CloudWatch::Alarm
+  aws_cloudwatchlogs_log_groups: AWS::Logs::LogGroup
+  aws_cloudformation_stacks: AWS::CloudFormation::Stack
+  aws_ssm_parameters: AWS::SSM::Parameter
+  aws_ssm_documents: AWS::SSM::Document
+  aws_sagemaker_endpoints: AWS::SageMaker::Endpoint
+  aws_sagemaker_notebook_instances: AWS::SageMaker::NotebookInstance
+  aws_stepfunctions_state_machines: AWS::StepFunctions::StateMachine
+  aws_autoscaling_groups: AWS::AutoScaling::AutoScalingGroup
+  aws_autoscaling_launch_configurations: AWS::AutoScaling::LaunchConfiguration
+
+  # --- the account anchor: synthesized from config, not via Cloud Control ---
+  # ``aws_iam_accounts`` is the AWS analogue of ``gcp_projects`` /
+  # ``azure_resources_resource_groups``: the mandatory anchor every other AWS
+  # resource is scoped under (account_id / account_name). It is synthesized
+  # directly from the resolved credentials, so it has no Cloud Control type
+  # (null) and is excluded from the generic pass.
+  aws_iam_accounts: null
+
+  # --- tables with no Cloud Control resource type (skip in generic pass) ---
+  # Reports, metrics, recommendations, cost rollups, and pseudo-tables that
+  # Cloud Control does not expose as discrete resources. A typed collector
+  # would be required if any of these are ever referenced by a gen rule.
+  aws_regions: null
+  aws_availability_zones: null
+  aws_iam_credential_reports: null
+  aws_iam_account_authorization_details: null
+  aws_cloudwatch_metric_data: null
+  aws_cloudwatch_metric_statistics: null
+  aws_cloudwatch_metrics: null
+  aws_costexplorer_cost_30d: null
+  aws_costexplorer_cost_custom: null
+  aws_costexplorer_cost_forecast_30d: null
+  aws_costexplorer_reservation_coverages: null
+  aws_costexplorer_reservation_utilizations: null
+  aws_costoptimizationhub_recommendations: null
+  aws_ec2_account_attributes: null
+  aws_ec2_instance_statuses: null
+  aws_ec2_instance_types: null
+
+# ---------------------------------------------------------------------------
+# aliases
+#   Extra RWL resource_type_name aliases that should resolve to a table, on
+#   top of the canonical CloudQuery table name. Mirrors the legacy preset
+#   registry names (e.g. ``account``, ``ec2_instance``) so existing generation
+#   rules keep working.
+# ---------------------------------------------------------------------------
+aliases:
+  aws_iam_accounts:
+  - account
+  - aws_account
+  aws_ec2_instances:
+  - ec2_instance
+
+# ---------------------------------------------------------------------------
+# typed_collectors
+#   Tables for which awsapi_resource_types.py ships a dedicated boto3 service
+#   collector (richer payload than the generic Cloud Control pass), plus
+#   ``aws_iam_accounts`` which is synthesized directly from config as the
+#   anchor. Every other table is covered by the Cloud Control generic pass.
+# ---------------------------------------------------------------------------
+typed_collectors:
+- aws_iam_accounts
+- aws_ec2_instances
+- aws_s3_buckets
+
+# ---------------------------------------------------------------------------
+# mandatory
+#   Tables always collected regardless of generation-rule scope.
+#   ``aws_iam_accounts`` is the anchor: every other AWS resource is scoped
+#   under its account.
+# ---------------------------------------------------------------------------
+mandatory:
+- aws_iam_accounts

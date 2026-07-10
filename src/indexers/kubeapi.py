@@ -41,7 +41,7 @@ from enrichers.generation_rules import RESOURCE_TYPE_SPECS_PROPERTY
 # Or something like that...
 from enrichers.generation_rule_types import LevelOfDetail
 from enrichers.generation_rules import DEFAULT_LOD_SETTING
-from .kubetypes import KUBERNETES_PLATFORM, KubernetesResourceType
+from .kubetypes import KUBERNETES_PLATFORM, KubernetesResourceType, KubernetesResourceTypeSpec
 from resources import Registry, REGISTRY_PROPERTY_NAME
 from . import kubeapi_parsers
 from .common import CLOUD_CONFIG_SETTING
@@ -87,6 +87,107 @@ class GroupVersionInfo:
     def __init__(self, preferred_version: str, versions: list[str]):
         self.preferred_version = preferred_version
         self.versions = versions
+
+
+# Discovery-time cache keyed by (group, version, plural) mapping each CRD to
+# its scope. Populated lazily via ``get_custom_resource_scope`` and reused
+# across per-namespace iterations of the custom-resource loop so we hit the
+# Kubernetes discovery endpoint at most once per CRD per cluster.
+CRD_SCOPE_CLUSTER = "Cluster"
+CRD_SCOPE_NAMESPACED = "Namespaced"
+
+
+def get_custom_resource_scope(api_client, group: str, version: str, plural: str,
+                              cache: dict) -> str:
+    """Return ``"Cluster"`` or ``"Namespaced"`` for the given CRD.
+
+    We hit the Kubernetes discovery endpoint ``/apis/{group}/{version}`` which
+    returns an ``APIResourceList`` with a ``namespaced`` boolean for every
+    resource in the group/version. Results are memoized in ``cache`` (a dict
+    scoped to a single cluster indexing pass) so a group with many resources
+    only costs one HTTP round trip.
+
+    Falls back to ``"Namespaced"`` on any error, which preserves the pre-fix
+    behavior for callers that hit permission problems while still allowing the
+    happy path to route cluster-scoped CRDs correctly.
+    """
+    cache_key = (group, version, plural)
+    if cache_key in cache:
+        return cache[cache_key]
+
+    resource_path = f"/apis/{group}/{version}" if group else f"/api/{version}"
+    try:
+        # ``call_api`` with response_type "object" returns the raw JSON as a
+        # dict, which is what we need to inspect the ``resources`` array.
+        response = api_client.call_api(
+            resource_path,
+            "GET",
+            response_type="object",
+            auth_settings=["BearerToken"],
+            _return_http_data_only=True,
+        )
+        resources = response.get("resources") if isinstance(response, dict) else None
+        if resources:
+            for resource_meta in resources:
+                if resource_meta.get("name") == plural:
+                    scope = (CRD_SCOPE_NAMESPACED
+                             if resource_meta.get("namespaced", True)
+                             else CRD_SCOPE_CLUSTER)
+                    cache[cache_key] = scope
+                    return scope
+        logger.info(f"Could not find scope metadata for custom resource "
+                    f"{plural}.{group}/{version}; defaulting to Namespaced")
+    except ApiException as e:
+        logger.info(f"Discovery call for {plural}.{group}/{version} failed "
+                    f"({e.status}); defaulting to Namespaced")
+    except Exception as e:  # noqa: BLE001 - defensive: never let scope lookup abort indexing
+        logger.info(f"Unexpected error resolving scope for "
+                    f"{plural}.{group}/{version}: {e}; defaulting to Namespaced")
+
+    cache[cache_key] = CRD_SCOPE_NAMESPACED
+    return CRD_SCOPE_NAMESPACED
+
+
+def list_custom_resource_for_scope(custom_objects_api_client,
+                                   scope: str,
+                                   group: str,
+                                   version: str,
+                                   plural: str,
+                                   namespace_name: Optional[str],
+                                   processed_key: tuple,
+                                   cluster_scoped_crds_processed: set):
+    """Dispatch a CRD listing call according to scope, honoring a
+    per-cluster "already processed" set for cluster-scoped resources.
+
+    Returns the raw list response, or ``None`` if this cluster-scoped
+    CRD has already been indexed for the current cluster and the caller
+    should short-circuit to the next iteration.
+
+    The processed marker is added ONLY AFTER
+    ``list_cluster_custom_object`` returns successfully. Marking before
+    the call would let a transient ``ApiException`` on the first
+    namespace iteration silently drop the CRD for the rest of the
+    cluster scan; leaving the marker unset lets subsequent namespace
+    iterations retry. Persistent failures (e.g. missing RBAC) will
+    re-log per namespace iteration, which is noisy but correct.
+    """
+    if scope == CRD_SCOPE_CLUSTER:
+        if processed_key in cluster_scoped_crds_processed:
+            return None
+        ret = custom_objects_api_client.list_cluster_custom_object(
+            group=group,
+            version=version,
+            plural=plural,
+        )
+        cluster_scoped_crds_processed.add(processed_key)
+        return ret
+    return custom_objects_api_client.list_namespaced_custom_object(
+        group=group,
+        version=version,
+        namespace=namespace_name,
+        plural=plural,
+    )
+
 
 def get_lod_from_annotations(resource, lod_annotations: Dict[str, List[str]]) -> Optional[LevelOfDetail]:
     if not hasattr(resource, 'metadata'):
@@ -161,6 +262,94 @@ def has_excluded_annotations_or_labels(resource, exclude_annotations: Dict[str, 
                     return True
     
     return False
+
+
+# Cluster types whose kubeconfig `workspace-builder` extension carries a
+# per-cluster `defaultNamespaceLOD` / `namespaceLODs` that must be honored.
+# These are treated uniformly: a managed cluster (AKS/GKE/EKS) listed in the
+# cloud config (or auto-discovered with an injected extension) uses its own
+# defaultNamespaceLOD / namespaceLODs rather than the context/global defaults.
+PER_CLUSTER_LOD_TYPES = ("aks", "gke", "eks")
+
+
+def build_cluster_lod_maps(cloud_config_settings: Optional[dict],
+                           kubeconfig_clusters: list,
+                           default_lod,
+                           namespace_lods: dict):
+    """Build cluster-type-agnostic per-cluster LOD maps for AKS/GKE/EKS.
+
+    This reads explicit per-cluster config from
+    ``cloudConfig.azure.aksClusters``, ``cloudConfig.gcp.gkeClusters`` and
+    ``cloudConfig.aws.eksClusters`` (each ``clusters[]`` entry contributing its
+    ``defaultNamespaceLOD`` / ``namespaceLODs``), plus the ``workspace-builder``
+    extensions injected into the kubeconfig by the AKS/GKE/EKS generators for
+    auto-discovered clusters.
+
+    The key used for each cluster is the cluster ``name`` from config, which the
+    AKS/GKE/EKS kubeconfig generators use verbatim as the kubeconfig
+    cluster/context name (e.g. ``sandbox-cluster-1-cluster`` in the GKE fixture,
+    where the ``-cluster`` suffix is simply part of the user-provided name), so
+    the downstream ``cluster_name in cluster_lod_settings`` lookup hits.
+
+    ``namespace_lods`` is mutated in place to merge per-cluster ``namespaceLODs``
+    into the global map for backward compatibility (matching the prior
+    AKS-only behavior).
+
+    Returns ``(cluster_lod_settings, cluster_namespace_lods)``.
+    """
+    cluster_lod_settings: Dict[str, Any] = {}
+    cluster_namespace_lods: Dict[str, Any] = {}
+
+    cloud_config_settings = cloud_config_settings or {}
+
+    def _load_explicit(clusters_config, label):
+        for cluster_cfg in clusters_config or []:
+            cfg_name = cluster_cfg.get("name")
+            if not cfg_name:
+                continue
+            cluster_lod_settings[cfg_name] = cluster_cfg.get("defaultNamespaceLOD", default_lod)
+            ns_lods = cluster_cfg.get("namespaceLODs", {})
+            if ns_lods:
+                cluster_namespace_lods[cfg_name] = ns_lods
+                # Also merge into global namespace_lods for backward compatibility
+                namespace_lods.update(ns_lods)
+                logger.info(f"Loaded namespaceLODs from {label} cluster '{cfg_name}': {ns_lods}")
+
+    azure_settings = cloud_config_settings.get("azure", {}) or {}
+    gcp_settings = cloud_config_settings.get("gcp", {}) or {}
+    aws_settings = cloud_config_settings.get("aws", {}) or {}
+
+    _load_explicit((azure_settings.get("aksClusters", {}) or {}).get("clusters", []), "AKS")
+    _load_explicit((gcp_settings.get("gkeClusters", {}) or {}).get("clusters", []), "GKE")
+    _load_explicit((aws_settings.get("eksClusters", {}) or {}).get("clusters", []), "EKS")
+
+    # Also extract LOD settings from workspace-builder extensions for
+    # auto-discovered clusters. The extension's LOD fields mean the same thing
+    # regardless of cluster_type, so AKS/GKE/EKS are handled uniformly here.
+    for cluster in kubeconfig_clusters or []:
+        cluster_name = cluster.get('name')
+        cluster_details = cluster.get('cluster', {})
+        extensions = cluster_details.get('extensions', [])
+
+        for ext in extensions:
+            if ext.get('name') == 'workspace-builder':
+                extension_details = ext.get('extension', {})
+                if extension_details.get('cluster_type') in PER_CLUSTER_LOD_TYPES:
+                    cluster_type = extension_details.get('cluster_type')
+                    # Use the defaultNamespaceLOD from the extension if available
+                    if 'defaultNamespaceLOD' in extension_details:
+                        cluster_lod_settings[cluster_name] = extension_details['defaultNamespaceLOD']
+                        logger.info(f"Found defaultNamespaceLOD for auto-discovered {cluster_type} cluster '{cluster_name}': {extension_details['defaultNamespaceLOD']}")
+
+                    # Also check for namespaceLODs in the extension (for auto-discovered clusters)
+                    if 'namespaceLODs' in extension_details:
+                        extension_namespace_lods = extension_details['namespaceLODs']
+                        cluster_namespace_lods[cluster_name] = extension_namespace_lods
+                        namespace_lods.update(extension_namespace_lods)
+                        logger.info(f"Found namespaceLODs for auto-discovered {cluster_type} cluster '{cluster_name}': {extension_namespace_lods}")
+                    break
+
+    return cluster_lod_settings, cluster_namespace_lods
 
 
 def index(component_context: Context):
@@ -363,47 +552,18 @@ def index(component_context: Context):
             users = kubeconfig.get('users', [])
             contexts = kubeconfig.get('contexts', [])
             
-            # Extract explicitly defined AKS clusters and their LOD settings
-            aks_cluster_lod_settings = {}
-            aks_cluster_namespace_lods = {}
-
-            aks_clusters_config = azure_settings.get("aksClusters", {}).get("clusters", [])
-            for cluster in aks_clusters_config:
-                cluster_name = cluster["name"]
-                aks_cluster_lod_settings[cluster_name] = cluster.get("defaultNamespaceLOD", default_lod)
-                
-                # Load namespaceLODs from AKS cluster configuration
-                cluster_namespace_lods = cluster.get("namespaceLODs", {})
-                if cluster_namespace_lods:
-                    # Store per-cluster namespaceLODs
-                    aks_cluster_namespace_lods[cluster_name] = cluster_namespace_lods
-                    # Also merge into global namespace_lods for backward compatibility
-                    namespace_lods.update(cluster_namespace_lods)
-                    logger.info(f"Loaded namespaceLODs from AKS cluster '{cluster_name}': {cluster_namespace_lods}")
-
-            # Also extract LOD settings from workspace-builder extensions for auto-discovered clusters
-            for cluster in clusters:
-                cluster_name = cluster.get('name')
-                cluster_details = cluster.get('cluster', {})
-                extensions = cluster_details.get('extensions', [])
-                
-                for ext in extensions:
-                    if ext.get('name') == 'workspace-builder':
-                        extension_details = ext.get('extension', {})
-                        # Check if this is an AKS cluster (has cluster_type: 'aks')
-                        if extension_details.get('cluster_type') == 'aks':
-                            # Use the defaultNamespaceLOD from the extension if available
-                            if 'defaultNamespaceLOD' in extension_details:
-                                aks_cluster_lod_settings[cluster_name] = extension_details['defaultNamespaceLOD']
-                                logger.info(f"Found defaultNamespaceLOD for auto-discovered AKS cluster '{cluster_name}': {extension_details['defaultNamespaceLOD']}")
-                            
-                            # Also check for namespaceLODs in the extension (for auto-discovered clusters)
-                            if 'namespaceLODs' in extension_details:
-                                extension_namespace_lods = extension_details['namespaceLODs']
-                                aks_cluster_namespace_lods[cluster_name] = extension_namespace_lods
-                                namespace_lods.update(extension_namespace_lods)
-                                logger.info(f"Found namespaceLODs for auto-discovered AKS cluster '{cluster_name}': {extension_namespace_lods}")
-                            break
+            # Extract per-cluster LOD settings for managed clusters (AKS/GKE/EKS).
+            # This is cluster-type-agnostic: explicit cloudConfig clusters
+            # (aksClusters/gkeClusters/eksClusters) and auto-discovered clusters
+            # (via the injected workspace-builder kubeconfig extension) all feed
+            # the same per-cluster maps so their defaultNamespaceLOD /
+            # namespaceLODs are honored identically.
+            cluster_lod_settings, cluster_namespace_lods = build_cluster_lod_maps(
+                cloud_config_settings,
+                clusters,
+                default_lod,
+                namespace_lods,
+            )
 
 
             # Log available contexts from kubeconfig for debugging
@@ -511,6 +671,15 @@ def index(component_context: Context):
                         # Connection validation successful, proceed with cluster indexing
                         core_api_client = client.CoreV1Api(api_client=api_client)
                         custom_objects_api_client = client.CustomObjectsApi(api_client=api_client)
+
+                        # Per-cluster caches for the custom-resource discovery loop.
+                        # ``crd_scope_cache`` memoizes scope lookups so we hit the
+                        # discovery endpoint at most once per CRD, and
+                        # ``cluster_scoped_crds_processed`` prevents cluster-scoped
+                        # CRDs from being listed once per namespace (they don't
+                        # belong to any namespace).
+                        crd_scope_cache: dict = {}
+                        cluster_scoped_crds_processed: set = set()
 
                         # Get the group info for all the available groups.
                         # This contains the preferred version and all available version, which
@@ -714,32 +883,34 @@ def index(component_context: Context):
                             # Determine if this is an AKS cluster or a kubeconfigFile cluster
                             # TODO This is a little kludgy - we should likely bet using a full dict when deciding
                             # which namespaces to index from which kube cluster type / configuration setting. 
-                            is_aks_cluster = cluster_name in aks_cluster_lod_settings
-                            if is_aks_cluster:
+                            # A managed cluster (AKS/GKE/EKS) with per-cluster LOD
+                            # config takes the per-cluster LOD path below.
+                            is_managed_cluster = cluster_name in cluster_lod_settings
+                            if is_managed_cluster:
                                 if aks_explicit_namespace_names and namespace_name not in aks_explicit_namespace_names:
                                     logger.info(f"Skipping {namespace_name} due to explicit namespace setting in workspaceInfo cloudConfig.azure.aksClusters.namespaces")
                                     continue 
                                 
-                                # Enhanced LOD determination for AKS clusters with namespaceLODs support
-                                # Priority order: 1) cluster-specific namespaceLODs, 2) global namespaceLODs, 3) AKS defaultNamespaceLOD, 4) global default
+                                # Enhanced LOD determination for managed (AKS/GKE/EKS) clusters with namespaceLODs support
+                                # Priority order: 1) cluster-specific namespaceLODs, 2) global namespaceLODs, 3) cluster defaultNamespaceLOD, 4) global default
                                 namespace_lod = None
                                 lod_source = None
                                 
                                 # Check cluster-specific namespaceLODs first
-                                cluster_specific_namespace_lods = aks_cluster_namespace_lods.get(cluster_name, {})
+                                cluster_specific_namespace_lods = cluster_namespace_lods.get(cluster_name, {})
                                 if namespace_name in cluster_specific_namespace_lods:
                                     namespace_lod = LevelOfDetail.construct_from_config(cluster_specific_namespace_lods[namespace_name])
-                                    lod_source = f"AKS cluster '{cluster_name}' namespaceLODs"
+                                    lod_source = f"cluster '{cluster_name}' namespaceLODs"
                                 # Then check global namespaceLODs
                                 elif namespace_name in namespace_lods:
                                     namespace_lod = LevelOfDetail.construct_from_config(namespace_lods[namespace_name])
                                     lod_source = "global namespaceLODs"
                                 # Finally fall back to cluster default
                                 else:
-                                    namespace_lod = LevelOfDetail.construct_from_config(aks_cluster_lod_settings.get(cluster_name, default_lod))
-                                    lod_source = f"AKS cluster '{cluster_name}' defaultNamespaceLOD"
+                                    namespace_lod = LevelOfDetail.construct_from_config(cluster_lod_settings.get(cluster_name, default_lod))
+                                    lod_source = f"cluster '{cluster_name}' defaultNamespaceLOD"
                                 
-                                logger.info(f"Using {lod_source} for AKS namespace '{namespace_name}': {namespace_lod}")
+                                logger.info(f"Using {lod_source} for managed-cluster namespace '{namespace_name}': {namespace_lod}")
                             else:
                                 if kubernetes_explicit_namespace_names and namespace_name not in kubernetes_explicit_namespace_names:
                                     logger.info(f"Skipping {namespace_name} due to explicit namespace setting in workspaceInfo cloudConfig.kubernetes.namespaces")
@@ -1082,10 +1253,40 @@ def index(component_context: Context):
                                         versions = list()
                                 try:
                                     for version in versions:
-                                        ret = custom_objects_api_client.list_namespaced_custom_object(group=group,
-                                                                                                      version=version,
-                                                                                                      namespace=namespace_name,
-                                                                                                      plural=plural_name)
+                                        # Determine CRD scope once per (group, version, plural).
+                                        # This lets us dispatch to the correct API and avoid
+                                        # re-listing cluster-scoped CRDs for every namespace.
+                                        scope = get_custom_resource_scope(api_client,
+                                                                          group,
+                                                                          version,
+                                                                          plural_name,
+                                                                          crd_scope_cache)
+
+                                        processed_key = (cluster_name, group, version, plural_name)
+                                        ret = list_custom_resource_for_scope(
+                                            custom_objects_api_client,
+                                            scope,
+                                            group,
+                                            version,
+                                            plural_name,
+                                            namespace_name,
+                                            processed_key,
+                                            cluster_scoped_crds_processed,
+                                        )
+                                        if ret is None:
+                                            # Cluster-scoped CRD already indexed for this
+                                            # cluster in a prior namespace iteration.
+                                            continue
+
+                                        # Every CRD gets its own resource_type bucket in the
+                                        # registry keyed by "{plural}.{group}" (e.g.
+                                        # "buckets.storage.gcp.upbound.io"). This replaces the
+                                        # earlier lump-everything-into-"custom" model, which
+                                        # forced a linear search-and-filter pass at enrichment
+                                        # time and produced opaque qualified names like
+                                        # ``ns/plural_group_version_name``.
+                                        crd_type_name = f"{plural_name}.{group}"
+
                                         for raw_resource in ret['items']:
                                             if (include_annotations or include_labels) and not has_included_annotations_or_labels(raw_resource, include_annotations, include_labels):
                                                 continue  # Skip this resource if it doesn't meet inclusion criteria
@@ -1094,17 +1295,29 @@ def index(component_context: Context):
                                                 continue
                                             owner_name = extract_owner_name(raw_resource)
                                             resource_name = raw_resource['metadata']['name']
-                                            custom_name = f"{plural_name}_{group}_{version}_{resource_name}"
-                                            custom_qualified_name = get_qualified_name(namespace_qualified_name, custom_name)
                                             custom_attributes = kubeapi_parsers.parse_custom_resource(raw_resource,
                                                                                                       group,
                                                                                                       version,
                                                                                                       plural_name)
-                                            custom_attributes["namespace"] = namespace
+                                            if scope == CRD_SCOPE_CLUSTER:
+                                                # Cluster-scoped resources are parented directly
+                                                # to the cluster; they have no owning namespace.
+                                                # Qualified name shape:
+                                                #   <cluster>/<plural>.<group>/<name>
+                                                crd_type_qualified_name = get_qualified_name(cluster_name, crd_type_name)
+                                                custom_qualified_name = get_qualified_name(crd_type_qualified_name, resource_name)
+                                                custom_attributes["cluster"] = cluster
+                                            else:
+                                                # Namespaced resources are parented under the
+                                                # namespace. Qualified name shape:
+                                                #   <cluster>/<namespace>/<plural>.<group>/<name>
+                                                crd_type_qualified_name = get_qualified_name(namespace_qualified_name, crd_type_name)
+                                                custom_qualified_name = get_qualified_name(crd_type_qualified_name, resource_name)
+                                                custom_attributes["namespace"] = namespace
                                             if owner_name:
                                                 custom_attributes['owner'] = owner_name
                                             custom_resource = registry.add_resource(KUBERNETES_PLATFORM,
-                                                                                    KubernetesResourceType.CUSTOM.value,
+                                                                                    crd_type_name,
                                                                                     resource_name,
                                                                                     custom_qualified_name,
                                                                                     custom_attributes)

@@ -79,6 +79,12 @@ tasks:
         workspaceOwnerEmail: test@runwhen.com
         defaultLocation: location-01
         defaultLOD: detailed
+        # Legacy CloudQuery AWS path: this fixture validates EKS Pod Identity
+        # credential propagation to the CloudQuery subprocess, which the native
+        # in-process awsapi backend (now the default) does not exercise. Pin to
+        # cloudquery + the in-memory store to preserve the pre-flip behavior.
+        awsIndexerBackend: cloudquery
+        resourceStoreBackend: memory
         cloudConfig:
           kubernetes: null
           aws:

@@ -22,7 +22,6 @@ env:
   DEFAULT_BRANCH: "origin/${{ github.event.repository.default_branch }}"
   CONTAINER_NAME: "runwhen-local"
   SHARED_ARTIFACT_REPOSITORY_PATH: "us-docker.pkg.dev/runwhen-nonprod-shared/public-images"
-  RW_LOCAL_MKDOCS_CONFIG: "src/cheat-sheet-docs/mkdocs.yml"
   SANDBOX_DEPLOYMENT_NAME: "runwhen-local"
   SANDBOX_DEPLOYMENT_NAMESPACE: "runwhen-local"
   APP_LABEL: "app=runwhen-local"
@@ -60,7 +59,6 @@ jobs:
     env:
       IMAGE: runwhen-local
       SHARED_ARTIFACT_REPOSITORY_PATH: us-docker.pkg.dev/runwhen-nonprod-shared/public-images
-      RW_LOCAL_MKDOCS_CONFIG: src/cheat-sheet-docs/mkdocs.yml
       GHCR_ORG: "runwhen-contrib"
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -70,9 +68,6 @@ jobs:
         run: |
           echo "VERSION=$(cat src/VERSION | jq -r .version)" | tee -a $GITHUB_ENV
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-      - run: |
-          sed -i "s/date: today/date: $(date +'%Y-%m-%d %H:%M')/g" ${RW_LOCAL_MKDOCS_CONFIG}
-          sed -i "s/version: 0\.1/version: ${VERSION}/g" ${RW_LOCAL_MKDOCS_CONFIG}
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.RUNWHEN_NONPROD_SHARED_WI_PROVIDER }}
@@ -112,14 +107,10 @@ jobs:
     env:
       IMAGE: runwhen-local
       SHARED_ARTIFACT_REPOSITORY_PATH: us-docker.pkg.dev/runwhen-nonprod-shared/public-images
-      RW_LOCAL_MKDOCS_CONFIG: src/cheat-sheet-docs/mkdocs.yml
       GHCR_ORG: "runwhen-contrib"
     steps:
       - uses: actions/checkout@v4
       - run: echo "VERSION=$(cat src/VERSION | jq -r .version)" | tee -a $GITHUB_ENV
-      - run: |
-          sed -i "s/date: today/date: $(date +'%Y-%m-%d %H:%M')/g" ${RW_LOCAL_MKDOCS_CONFIG}
-          sed -i "s/version: 0\.1/version: ${VERSION}/g" ${RW_LOCAL_MKDOCS_CONFIG}
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.RUNWHEN_NONPROD_SHARED_WI_PROVIDER }}

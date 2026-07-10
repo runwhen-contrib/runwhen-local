@@ -1,0 +1,5588 @@
+metadata:
+  source: https://www.cloudquery.io/hub/plugins/source/cloudquery/azure/latest/tables
+  snapshot_date: '2026-05-28'
+  total_tables: 619
+  typed_collectors: 25
+  arm_types_assigned: 618
+  generator: scripts/azure/sync_azure_resource_type_registry.py
+  notes: Generated file. To change ARM type for a table, edit scripts/azure/azure_resource_type_overrides.yaml and re-run the sync script. Hand-edits to this file will be overwritten.
+types:
+  azure_advisor_recommendation_metadata:
+    arm_type: Microsoft.Advisor/metadata
+    arm_type_source: override
+    category: advisor
+    aliases: []
+    match_names:
+    - azure_advisor_recommendation_metadata
+    typed_collector: false
+    mandatory: false
+  azure_advisor_recommendations:
+    arm_type: Microsoft.Advisor/recommendations
+    arm_type_source: override
+    category: advisor
+    aliases: []
+    match_names:
+    - azure_advisor_recommendations
+    typed_collector: false
+    mandatory: false
+  azure_advisor_suppressions:
+    arm_type: Microsoft.Advisor/suppressions
+    arm_type_source: override
+    category: advisor
+    aliases: []
+    match_names:
+    - azure_advisor_suppressions
+    typed_collector: false
+    mandatory: false
+  azure_analysisservices_servers:
+    arm_type: Microsoft.AnalysisServices/servers
+    arm_type_source: heuristic
+    category: analysisservices
+    aliases: []
+    match_names:
+    - azure_analysisservices_servers
+    typed_collector: false
+    mandatory: false
+  azure_apimanagement_service:
+    arm_type: Microsoft.ApiManagement/service
+    arm_type_source: heuristic
+    category: apimanagement
+    aliases: []
+    match_names:
+    - azure_apimanagement_service
+    typed_collector: true
+    mandatory: false
+  azure_appcomplianceautomation_reports:
+    arm_type: Microsoft.AppComplianceAutomation/reports
+    arm_type_source: heuristic
+    category: appcomplianceautomation
+    aliases: []
+    match_names:
+    - azure_appcomplianceautomation_reports
+    typed_collector: false
+    mandatory: false
+  azure_appconfiguration_configuration_stores:
+    arm_type: Microsoft.AppConfiguration/configurationStores
+    arm_type_source: override
+    category: appconfiguration
+    aliases: []
+    match_names:
+    - azure_appconfiguration_configuration_stores
+    typed_collector: false
+    mandatory: false
+  azure_applicationinsights_components:
+    arm_type: Microsoft.Insights/components
+    arm_type_source: override
+    category: applicationinsights
+    aliases: []
+    match_names:
+    - azure_applicationinsights_components
+    typed_collector: false
+    mandatory: false
+  azure_applicationinsights_web_tests:
+    arm_type: Microsoft.Insights/webtests
+    arm_type_source: override
+    category: applicationinsights
+    aliases: []
+    match_names:
+    - azure_applicationinsights_web_tests
+    typed_collector: false
+    mandatory: false
+  azure_appservice_certificate_orders:
+    arm_type: Microsoft.CertificateRegistration/certificateOrders
+    arm_type_source: override
+    category: appservice
+    aliases: []
+    match_names:
+    - azure_appservice_certificate_orders
+    typed_collector: false
+    mandatory: false
+  azure_appservice_certificates:
+    arm_type: Microsoft.Web/certificates
+    arm_type_source: override
+    category: appservice
+    aliases: []
+    match_names:
+    - azure_appservice_certificates
+    typed_collector: false
+    mandatory: false
+  azure_appservice_deleted_web_apps:
+    arm_type: Microsoft.Web/deletedSites
+    arm_type_source: override
+    category: appservice
+    aliases: []
+    match_names:
+    - azure_appservice_deleted_web_apps
+    typed_collector: false
+    mandatory: false
+  azure_appservice_domains:
+    arm_type: Microsoft.DomainRegistration/domains
+    arm_type_source: override
+    category: appservice
+    aliases: []
+    match_names:
+    - azure_appservice_domains
+    typed_collector: false
+    mandatory: false
+  azure_appservice_environments:
+    arm_type: Microsoft.Web/hostingEnvironments
+    arm_type_source: override
+    category: appservice
+    aliases: []
+    match_names:
+    - azure_appservice_environments
+    typed_collector: false
+    mandatory: false
+  azure_appservice_plans:
+    arm_type: Microsoft.Web/serverFarms
+    arm_type_source: override
+    category: appservice
+    aliases: []
+    match_names:
+    - azure_appservice_plans
+    typed_collector: true
+    mandatory: false
+  azure_appservice_recommendations:
+    arm_type: Microsoft.Web/recommendations
+    arm_type_source: override
+    category: appservice
+    aliases: []
+    match_names:
+    - azure_appservice_recommendations
+    typed_collector: false
+    mandatory: false
+  azure_appservice_resource_health_metadata:
+    arm_type: Microsoft.Web/sites/resourceHealthMetadata
+    arm_type_source: override
+    category: appservice
+    aliases: []
+    match_names:
+    - azure_appservice_resource_health_metadata
+    typed_collector: false
+    mandatory: false
+  azure_appservice_static_sites:
+    arm_type: Microsoft.Web/staticSites
+    arm_type_source: override
+    category: appservice
+    aliases: []
+    match_names:
+    - azure_appservice_static_sites
+    typed_collector: false
+    mandatory: false
+  azure_appservice_top_level_domains:
+    arm_type: Microsoft.DomainRegistration/topLevelDomains
+    arm_type_source: override
+    category: appservice
+    aliases: []
+    match_names:
+    - azure_appservice_top_level_domains
+    typed_collector: false
+    mandatory: false
+  azure_appservice_web_app_auth_settings:
+    arm_type: Microsoft.Web/webAppAuthSettings
+    arm_type_source: heuristic
+    category: appservice
+    aliases: []
+    match_names:
+    - azure_appservice_web_app_auth_settings
+    typed_collector: false
+    mandatory: false
+  azure_appservice_web_app_configurations:
+    arm_type: Microsoft.Web/webAppConfigurations
+    arm_type_source: heuristic
+    category: appservice
+    aliases: []
+    match_names:
+    - azure_appservice_web_app_configurations
+    typed_collector: false
+    mandatory: false
+  azure_appservice_web_app_functions:
+    arm_type: Microsoft.Web/webAppFunctions
+    arm_type_source: heuristic
+    category: appservice
+    aliases: []
+    match_names:
+    - azure_appservice_web_app_functions
+    typed_collector: false
+    mandatory: false
+  azure_appservice_web_app_vnet_connections:
+    arm_type: Microsoft.Web/webAppVnetConnections
+    arm_type_source: heuristic
+    category: appservice
+    aliases: []
+    match_names:
+    - azure_appservice_web_app_vnet_connections
+    typed_collector: false
+    mandatory: false
+  azure_appservice_web_apps:
+    arm_type: Microsoft.Web/sites
+    arm_type_source: override
+    category: appservice
+    aliases: []
+    match_names:
+    - azure_appservice_web_apps
+    typed_collector: true
+    mandatory: false
+  azure_authorization_classic_administrators:
+    arm_type: Microsoft.Authorization/classicAdministrators
+    arm_type_source: override
+    category: authorization
+    aliases: []
+    match_names:
+    - azure_authorization_classic_administrators
+    typed_collector: false
+    mandatory: false
+  azure_authorization_provider_operations_metadata:
+    arm_type: Microsoft.Authorization/providerOperations
+    arm_type_source: override
+    category: authorization
+    aliases: []
+    match_names:
+    - azure_authorization_provider_operations_metadata
+    typed_collector: false
+    mandatory: false
+  azure_authorization_role_assignments:
+    arm_type: Microsoft.Authorization/roleAssignments
+    arm_type_source: override
+    category: authorization
+    aliases: []
+    match_names:
+    - azure_authorization_role_assignments
+    typed_collector: false
+    mandatory: false
+  azure_authorization_role_definitions:
+    arm_type: Microsoft.Authorization/roleDefinitions
+    arm_type_source: override
+    category: authorization
+    aliases: []
+    match_names:
+    - azure_authorization_role_definitions
+    typed_collector: false
+    mandatory: false
+  azure_automation_account:
+    arm_type: Microsoft.Automation/account
+    arm_type_source: heuristic
+    category: automation
+    aliases: []
+    match_names:
+    - azure_automation_account
+    typed_collector: false
+    mandatory: false
+  azure_azurearcdata_postgres_instances:
+    arm_type: Microsoft.AzureArcData/postgresInstances
+    arm_type_source: heuristic
+    category: azurearcdata
+    aliases: []
+    match_names:
+    - azure_azurearcdata_postgres_instances
+    typed_collector: false
+    mandatory: false
+  azure_azurearcdata_sql_managed_instances:
+    arm_type: Microsoft.AzureArcData/sqlManagedInstances
+    arm_type_source: heuristic
+    category: azurearcdata
+    aliases: []
+    match_names:
+    - azure_azurearcdata_sql_managed_instances
+    typed_collector: false
+    mandatory: false
+  azure_azurearcdata_sql_server_instances:
+    arm_type: Microsoft.AzureArcData/sqlServerInstances
+    arm_type_source: heuristic
+    category: azurearcdata
+    aliases: []
+    match_names:
+    - azure_azurearcdata_sql_server_instances
+    typed_collector: true
+    mandatory: false
+  azure_batch_account:
+    arm_type: Microsoft.Batch/account
+    arm_type_source: heuristic
+    category: batch
+    aliases: []
+    match_names:
+    - azure_batch_account
+    typed_collector: false
+    mandatory: false
+  azure_billing_accounts:
+    arm_type: Microsoft.Billing/billingAccounts
+    arm_type_source: override
+    category: billing
+    aliases: []
+    match_names:
+    - azure_billing_accounts
+    typed_collector: false
+    mandatory: false
+  azure_billing_enrollment_accounts:
+    arm_type: Microsoft.Billing/enrollmentAccounts
+    arm_type_source: override
+    category: billing
+    aliases: []
+    match_names:
+    - azure_billing_enrollment_accounts
+    typed_collector: false
+    mandatory: false
+  azure_billing_periods:
+    arm_type: Microsoft.Billing/billingPeriods
+    arm_type_source: override
+    category: billing
+    aliases: []
+    match_names:
+    - azure_billing_periods
+    typed_collector: false
+    mandatory: false
+  azure_botservice_bots:
+    arm_type: Microsoft.Botservice/bots
+    arm_type_source: heuristic
+    category: botservice
+    aliases: []
+    match_names:
+    - azure_botservice_bots
+    typed_collector: false
+    mandatory: false
+  azure_cdn_edge_nodes:
+    arm_type: Microsoft.Cdn/edgeNodes
+    arm_type_source: heuristic
+    category: cdn
+    aliases: []
+    match_names:
+    - azure_cdn_edge_nodes
+    typed_collector: false
+    mandatory: false
+  azure_cdn_endpoints:
+    arm_type: Microsoft.Cdn/profiles/endpoints
+    arm_type_source: override
+    category: cdn
+    aliases: []
+    match_names:
+    - azure_cdn_endpoints
+    typed_collector: false
+    mandatory: false
+  azure_cdn_managed_rule_sets:
+    arm_type: Microsoft.Cdn/managedRuleSets
+    arm_type_source: heuristic
+    category: cdn
+    aliases: []
+    match_names:
+    - azure_cdn_managed_rule_sets
+    typed_collector: false
+    mandatory: false
+  azure_cdn_profiles:
+    arm_type: Microsoft.Cdn/profiles
+    arm_type_source: override
+    category: cdn
+    aliases: []
+    match_names:
+    - azure_cdn_profiles
+    typed_collector: false
+    mandatory: false
+  azure_cdn_rule_sets:
+    arm_type: Microsoft.Cdn/ruleSets
+    arm_type_source: heuristic
+    category: cdn
+    aliases: []
+    match_names:
+    - azure_cdn_rule_sets
+    typed_collector: false
+    mandatory: false
+  azure_cdn_security_policies:
+    arm_type: Microsoft.Cdn/securityPolicies
+    arm_type_source: heuristic
+    category: cdn
+    aliases: []
+    match_names:
+    - azure_cdn_security_policies
+    typed_collector: false
+    mandatory: false
+  azure_cognitiveservices_account_capability_hosts:
+    arm_type: Microsoft.CognitiveServices/accountCapabilityHosts
+    arm_type_source: heuristic
+    category: cognitiveservices
+    aliases: []
+    match_names:
+    - azure_cognitiveservices_account_capability_hosts
+    typed_collector: false
+    mandatory: false
+  azure_cognitiveservices_account_connections:
+    arm_type: Microsoft.CognitiveServices/accountConnections
+    arm_type_source: heuristic
+    category: cognitiveservices
+    aliases: []
+    match_names:
+    - azure_cognitiveservices_account_connections
+    typed_collector: false
+    mandatory: false
+  azure_cognitiveservices_account_defender_for_ai_settings:
+    arm_type: Microsoft.CognitiveServices/accountDefenderForAiSettings
+    arm_type_source: heuristic
+    category: cognitiveservices
+    aliases: []
+    match_names:
+    - azure_cognitiveservices_account_defender_for_ai_settings
+    typed_collector: false
+    mandatory: false
+  azure_cognitiveservices_account_deployments:
+    arm_type: Microsoft.CognitiveServices/accountDeployments
+    arm_type_source: heuristic
+    category: cognitiveservices
+    aliases: []
+    match_names:
+    - azure_cognitiveservices_account_deployments
+    typed_collector: false
+    mandatory: false
+  azure_cognitiveservices_account_encryption_scopes:
+    arm_type: Microsoft.CognitiveServices/accountEncryptionScopes
+    arm_type_source: heuristic
+    category: cognitiveservices
+    aliases: []
+    match_names:
+    - azure_cognitiveservices_account_encryption_scopes
+    typed_collector: false
+    mandatory: false
+  azure_cognitiveservices_account_models:
+    arm_type: Microsoft.CognitiveServices/accountModels
+    arm_type_source: heuristic
+    category: cognitiveservices
+    aliases: []
+    match_names:
+    - azure_cognitiveservices_account_models
+    typed_collector: false
+    mandatory: false
+  azure_cognitiveservices_account_network_security_perimeter_configurations:
+    arm_type: Microsoft.CognitiveServices/accountNetworkSecurityPerimeterConfigurations
+    arm_type_source: heuristic
+    category: cognitiveservices
+    aliases: []
+    match_names:
+    - azure_cognitiveservices_account_network_security_perimeter_configurations
+    typed_collector: false
+    mandatory: false
+  azure_cognitiveservices_account_private_endpoint_connections:
+    arm_type: Microsoft.CognitiveServices/accountPrivateEndpointConnections
+    arm_type_source: heuristic
+    category: cognitiveservices
+    aliases: []
+    match_names:
+    - azure_cognitiveservices_account_private_endpoint_connections
+    typed_collector: false
+    mandatory: false
+  azure_cognitiveservices_account_private_link_resources:
+    arm_type: Microsoft.CognitiveServices/accountPrivateLinkResources
+    arm_type_source: heuristic
+    category: cognitiveservices
+    aliases: []
+    match_names:
+    - azure_cognitiveservices_account_private_link_resources
+    typed_collector: false
+    mandatory: false
+  azure_cognitiveservices_account_project_capability_hosts:
+    arm_type: Microsoft.CognitiveServices/accountProjectCapabilityHosts
+    arm_type_source: heuristic
+    category: cognitiveservices
+    aliases: []
+    match_names:
+    - azure_cognitiveservices_account_project_capability_hosts
+    typed_collector: false
+    mandatory: false
+  azure_cognitiveservices_account_project_connections:
+    arm_type: Microsoft.CognitiveServices/accountProjectConnections
+    arm_type_source: heuristic
+    category: cognitiveservices
+    aliases: []
+    match_names:
+    - azure_cognitiveservices_account_project_connections
+    typed_collector: false
+    mandatory: false
+  azure_cognitiveservices_account_projects:
+    arm_type: Microsoft.CognitiveServices/accountProjects
+    arm_type_source: heuristic
+    category: cognitiveservices
+    aliases: []
+    match_names:
+    - azure_cognitiveservices_account_projects
+    typed_collector: false
+    mandatory: false
+  azure_cognitiveservices_account_rai_blocklist_items:
+    arm_type: Microsoft.CognitiveServices/accountRaiBlocklistItems
+    arm_type_source: heuristic
+    category: cognitiveservices
+    aliases: []
+    match_names:
+    - azure_cognitiveservices_account_rai_blocklist_items
+    typed_collector: false
+    mandatory: false
+  azure_cognitiveservices_account_rai_blocklists:
+    arm_type: Microsoft.CognitiveServices/accountRaiBlocklists
+    arm_type_source: heuristic
+    category: cognitiveservices
+    aliases: []
+    match_names:
+    - azure_cognitiveservices_account_rai_blocklists
+    typed_collector: false
+    mandatory: false
+  azure_cognitiveservices_account_rai_policies:
+    arm_type: Microsoft.CognitiveServices/accountRaiPolicies
+    arm_type_source: heuristic
+    category: cognitiveservices
+    aliases: []
+    match_names:
+    - azure_cognitiveservices_account_rai_policies
+    typed_collector: false
+    mandatory: false
+  azure_cognitiveservices_account_skus:
+    arm_type: Microsoft.CognitiveServices/accountSkus
+    arm_type_source: heuristic
+    category: cognitiveservices
+    aliases: []
+    match_names:
+    - azure_cognitiveservices_account_skus
+    typed_collector: false
+    mandatory: false
+  azure_cognitiveservices_account_usages:
+    arm_type: Microsoft.CognitiveServices/accountUsages
+    arm_type_source: heuristic
+    category: cognitiveservices
+    aliases: []
+    match_names:
+    - azure_cognitiveservices_account_usages
+    typed_collector: false
+    mandatory: false
+  azure_cognitiveservices_accounts:
+    arm_type: Microsoft.CognitiveServices/accounts
+    arm_type_source: override
+    category: cognitiveservices
+    aliases: []
+    match_names:
+    - azure_cognitiveservices_accounts
+    typed_collector: false
+    mandatory: false
+  azure_cognitiveservices_commitment_plans:
+    arm_type: Microsoft.CognitiveServices/commitmentPlans
+    arm_type_source: heuristic
+    category: cognitiveservices
+    aliases: []
+    match_names:
+    - azure_cognitiveservices_commitment_plans
+    typed_collector: false
+    mandatory: false
+  azure_cognitiveservices_deleted_accounts:
+    arm_type: Microsoft.CognitiveServices/deletedAccounts
+    arm_type_source: heuristic
+    category: cognitiveservices
+    aliases: []
+    match_names:
+    - azure_cognitiveservices_deleted_accounts
+    typed_collector: false
+    mandatory: false
+  azure_cognitiveservices_resource_skus:
+    arm_type: Microsoft.CognitiveServices/resourceSkus
+    arm_type_source: heuristic
+    category: cognitiveservices
+    aliases: []
+    match_names:
+    - azure_cognitiveservices_resource_skus
+    typed_collector: false
+    mandatory: false
+  azure_compute_availability_sets:
+    arm_type: Microsoft.Compute/availabilitySets
+    arm_type_source: heuristic
+    category: compute
+    aliases: []
+    match_names:
+    - azure_compute_availability_sets
+    typed_collector: false
+    mandatory: false
+  azure_compute_capacity_reservation_groups:
+    arm_type: Microsoft.Compute/capacityReservationGroups
+    arm_type_source: heuristic
+    category: compute
+    aliases: []
+    match_names:
+    - azure_compute_capacity_reservation_groups
+    typed_collector: false
+    mandatory: false
+  azure_compute_capacity_reservations:
+    arm_type: Microsoft.Compute/capacityReservations
+    arm_type_source: heuristic
+    category: compute
+    aliases: []
+    match_names:
+    - azure_compute_capacity_reservations
+    typed_collector: false
+    mandatory: false
+  azure_compute_dedicated_host_groups:
+    arm_type: Microsoft.Compute/dedicatedHostGroups
+    arm_type_source: heuristic
+    category: compute
+    aliases: []
+    match_names:
+    - azure_compute_dedicated_host_groups
+    typed_collector: false
+    mandatory: false
+  azure_compute_dedicated_hosts:
+    arm_type: Microsoft.Compute/dedicatedHosts
+    arm_type_source: heuristic
+    category: compute
+    aliases: []
+    match_names:
+    - azure_compute_dedicated_hosts
+    typed_collector: false
+    mandatory: false
+  azure_compute_disk_accesses:
+    arm_type: Microsoft.Compute/diskAccesses
+    arm_type_source: heuristic
+    category: compute
+    aliases: []
+    match_names:
+    - azure_compute_disk_accesses
+    typed_collector: false
+    mandatory: false
+  azure_compute_disk_encryption_sets:
+    arm_type: Microsoft.Compute/diskEncryptionSets
+    arm_type_source: override
+    category: compute
+    aliases: []
+    match_names:
+    - azure_compute_disk_encryption_sets
+    typed_collector: false
+    mandatory: false
+  azure_compute_disks:
+    arm_type: Microsoft.Compute/disks
+    arm_type_source: override
+    category: compute
+    aliases: []
+    match_names:
+    - azure_compute_disks
+    typed_collector: true
+    mandatory: false
+  azure_compute_galleries:
+    arm_type: Microsoft.Compute/galleries
+    arm_type_source: heuristic
+    category: compute
+    aliases: []
+    match_names:
+    - azure_compute_galleries
+    typed_collector: false
+    mandatory: false
+  azure_compute_gallery_image_versions:
+    arm_type: Microsoft.Compute/galleryImageVersions
+    arm_type_source: heuristic
+    category: compute
+    aliases: []
+    match_names:
+    - azure_compute_gallery_image_versions
+    typed_collector: false
+    mandatory: false
+  azure_compute_gallery_images:
+    arm_type: Microsoft.Compute/galleryImages
+    arm_type_source: heuristic
+    category: compute
+    aliases: []
+    match_names:
+    - azure_compute_gallery_images
+    typed_collector: false
+    mandatory: false
+  azure_compute_images:
+    arm_type: Microsoft.Compute/images
+    arm_type_source: override
+    category: compute
+    aliases: []
+    match_names:
+    - azure_compute_images
+    typed_collector: false
+    mandatory: false
+  azure_compute_proximity_placement_groups:
+    arm_type: Microsoft.Compute/proximityPlacementGroups
+    arm_type_source: heuristic
+    category: compute
+    aliases: []
+    match_names:
+    - azure_compute_proximity_placement_groups
+    typed_collector: false
+    mandatory: false
+  azure_compute_restore_point_collections:
+    arm_type: Microsoft.Compute/restorePointCollections
+    arm_type_source: heuristic
+    category: compute
+    aliases: []
+    match_names:
+    - azure_compute_restore_point_collections
+    typed_collector: false
+    mandatory: false
+  azure_compute_skus:
+    arm_type: Microsoft.Compute/skus
+    arm_type_source: heuristic
+    category: compute
+    aliases: []
+    match_names:
+    - azure_compute_skus
+    typed_collector: false
+    mandatory: false
+  azure_compute_snapshots:
+    arm_type: Microsoft.Compute/snapshots
+    arm_type_source: override
+    category: compute
+    aliases: []
+    match_names:
+    - azure_compute_snapshots
+    typed_collector: true
+    mandatory: false
+  azure_compute_ssh_public_keys:
+    arm_type: Microsoft.Compute/sshPublicKeys
+    arm_type_source: heuristic
+    category: compute
+    aliases: []
+    match_names:
+    - azure_compute_ssh_public_keys
+    typed_collector: false
+    mandatory: false
+  azure_compute_virtual_machine_extensions:
+    arm_type: Microsoft.Compute/virtualMachineExtensions
+    arm_type_source: heuristic
+    category: compute
+    aliases: []
+    match_names:
+    - azure_compute_virtual_machine_extensions
+    typed_collector: false
+    mandatory: false
+  azure_compute_virtual_machine_patch_assessments:
+    arm_type: Microsoft.Compute/virtualMachinePatchAssessments
+    arm_type_source: heuristic
+    category: compute
+    aliases: []
+    match_names:
+    - azure_compute_virtual_machine_patch_assessments
+    typed_collector: false
+    mandatory: false
+  azure_compute_virtual_machine_scale_set_network_interfaces:
+    arm_type: Microsoft.Compute/virtualMachineScaleSetNetworkInterfaces
+    arm_type_source: heuristic
+    category: compute
+    aliases: []
+    match_names:
+    - azure_compute_virtual_machine_scale_set_network_interfaces
+    typed_collector: false
+    mandatory: false
+  azure_compute_virtual_machine_scale_set_vms:
+    arm_type: Microsoft.Compute/virtualMachineScaleSetVms
+    arm_type_source: heuristic
+    category: compute
+    aliases: []
+    match_names:
+    - azure_compute_virtual_machine_scale_set_vms
+    typed_collector: false
+    mandatory: false
+  azure_compute_virtual_machine_scale_sets:
+    arm_type: Microsoft.Compute/virtualMachineScaleSets
+    arm_type_source: override
+    category: compute
+    aliases: []
+    match_names:
+    - azure_compute_virtual_machine_scale_sets
+    typed_collector: true
+    mandatory: false
+  azure_compute_virtual_machine_software_inventories:
+    arm_type: Microsoft.Compute/virtualMachineSoftwareInventories
+    arm_type_source: heuristic
+    category: compute
+    aliases: []
+    match_names:
+    - azure_compute_virtual_machine_software_inventories
+    typed_collector: false
+    mandatory: false
+  azure_compute_virtual_machines:
+    arm_type: Microsoft.Compute/virtualMachines
+    arm_type_source: override
+    category: compute
+    aliases:
+    - virtual_machine
+    match_names:
+    - azure_compute_virtual_machines
+    - virtual_machine
+    typed_collector: true
+    mandatory: false
+  azure_confidentialledger_ledgers:
+    arm_type: Microsoft.Confidentialledger/ledgers
+    arm_type_source: heuristic
+    category: confidentialledger
+    aliases: []
+    match_names:
+    - azure_confidentialledger_ledgers
+    typed_collector: false
+    mandatory: false
+  azure_confidentialledger_operations:
+    arm_type: Microsoft.Confidentialledger/operations
+    arm_type_source: heuristic
+    category: confidentialledger
+    aliases: []
+    match_names:
+    - azure_confidentialledger_operations
+    typed_collector: false
+    mandatory: false
+  azure_confluent_marketplace_agreements:
+    arm_type: Microsoft.Confluent/marketplaceAgreements
+    arm_type_source: heuristic
+    category: confluent
+    aliases: []
+    match_names:
+    - azure_confluent_marketplace_agreements
+    typed_collector: false
+    mandatory: false
+  azure_connectedvmware_clusters:
+    arm_type: Microsoft.ConnectedVMware/clusters
+    arm_type_source: heuristic
+    category: connectedvmware
+    aliases: []
+    match_names:
+    - azure_connectedvmware_clusters
+    typed_collector: false
+    mandatory: false
+  azure_connectedvmware_datastores:
+    arm_type: Microsoft.ConnectedVMware/datastores
+    arm_type_source: heuristic
+    category: connectedvmware
+    aliases: []
+    match_names:
+    - azure_connectedvmware_datastores
+    typed_collector: false
+    mandatory: false
+  azure_connectedvmware_hosts:
+    arm_type: Microsoft.ConnectedVMware/hosts
+    arm_type_source: heuristic
+    category: connectedvmware
+    aliases: []
+    match_names:
+    - azure_connectedvmware_hosts
+    typed_collector: false
+    mandatory: false
+  azure_connectedvmware_resource_pools:
+    arm_type: Microsoft.ConnectedVMware/resourcePools
+    arm_type_source: heuristic
+    category: connectedvmware
+    aliases: []
+    match_names:
+    - azure_connectedvmware_resource_pools
+    typed_collector: false
+    mandatory: false
+  azure_connectedvmware_v_centers:
+    arm_type: Microsoft.ConnectedVMware/vCenters
+    arm_type_source: heuristic
+    category: connectedvmware
+    aliases: []
+    match_names:
+    - azure_connectedvmware_v_centers
+    typed_collector: false
+    mandatory: false
+  azure_connectedvmware_virtual_machine_templates:
+    arm_type: Microsoft.ConnectedVMware/virtualMachineTemplates
+    arm_type_source: heuristic
+    category: connectedvmware
+    aliases: []
+    match_names:
+    - azure_connectedvmware_virtual_machine_templates
+    typed_collector: false
+    mandatory: false
+  azure_connectedvmware_virtual_machines:
+    arm_type: Microsoft.ConnectedVMware/virtualMachines
+    arm_type_source: heuristic
+    category: connectedvmware
+    aliases: []
+    match_names:
+    - azure_connectedvmware_virtual_machines
+    typed_collector: false
+    mandatory: false
+  azure_connectedvmware_virtual_networks:
+    arm_type: Microsoft.ConnectedVMware/virtualNetworks
+    arm_type_source: heuristic
+    category: connectedvmware
+    aliases: []
+    match_names:
+    - azure_connectedvmware_virtual_networks
+    typed_collector: false
+    mandatory: false
+  azure_consumption_billing_account_balances:
+    arm_type: Microsoft.Consumption/billingAccountBalances
+    arm_type_source: heuristic
+    category: consumption
+    aliases: []
+    match_names:
+    - azure_consumption_billing_account_balances
+    typed_collector: false
+    mandatory: false
+  azure_consumption_billing_account_budgets:
+    arm_type: Microsoft.Consumption/billingAccountBudgets
+    arm_type_source: heuristic
+    category: consumption
+    aliases: []
+    match_names:
+    - azure_consumption_billing_account_budgets
+    typed_collector: false
+    mandatory: false
+  azure_consumption_billing_account_charges:
+    arm_type: Microsoft.Consumption/billingAccountCharges
+    arm_type_source: heuristic
+    category: consumption
+    aliases: []
+    match_names:
+    - azure_consumption_billing_account_charges
+    typed_collector: false
+    mandatory: false
+  azure_consumption_billing_account_events:
+    arm_type: Microsoft.Consumption/billingAccountEvents
+    arm_type_source: heuristic
+    category: consumption
+    aliases: []
+    match_names:
+    - azure_consumption_billing_account_events
+    typed_collector: false
+    mandatory: false
+  azure_consumption_billing_account_legacy_usage_details:
+    arm_type: Microsoft.Consumption/billingAccountLegacyUsageDetails
+    arm_type_source: heuristic
+    category: consumption
+    aliases: []
+    match_names:
+    - azure_consumption_billing_account_legacy_usage_details
+    typed_collector: false
+    mandatory: false
+  azure_consumption_billing_account_lots:
+    arm_type: Microsoft.Consumption/billingAccountLots
+    arm_type_source: heuristic
+    category: consumption
+    aliases: []
+    match_names:
+    - azure_consumption_billing_account_lots
+    typed_collector: false
+    mandatory: false
+  azure_consumption_billing_account_marketplaces:
+    arm_type: Microsoft.Consumption/billingAccountMarketplaces
+    arm_type_source: heuristic
+    category: consumption
+    aliases: []
+    match_names:
+    - azure_consumption_billing_account_marketplaces
+    typed_collector: false
+    mandatory: false
+  azure_consumption_billing_account_modern_usage_details:
+    arm_type: Microsoft.Consumption/billingAccountModernUsageDetails
+    arm_type_source: heuristic
+    category: consumption
+    aliases: []
+    match_names:
+    - azure_consumption_billing_account_modern_usage_details
+    typed_collector: false
+    mandatory: false
+  azure_consumption_billing_account_profile_credits:
+    arm_type: Microsoft.Consumption/billingAccountProfileCredits
+    arm_type_source: heuristic
+    category: consumption
+    aliases: []
+    match_names:
+    - azure_consumption_billing_account_profile_credits
+    typed_collector: false
+    mandatory: false
+  azure_consumption_billing_account_reservation_recommendations:
+    arm_type: Microsoft.Consumption/billingAccountReservationRecommendations
+    arm_type_source: heuristic
+    category: consumption
+    aliases: []
+    match_names:
+    - azure_consumption_billing_account_reservation_recommendations
+    typed_collector: false
+    mandatory: false
+  azure_consumption_billing_account_tags:
+    arm_type: Microsoft.Consumption/billingAccountTags
+    arm_type_source: heuristic
+    category: consumption
+    aliases: []
+    match_names:
+    - azure_consumption_billing_account_tags
+    typed_collector: false
+    mandatory: false
+  azure_consumption_billing_profile_reservation_details:
+    arm_type: Microsoft.Consumption/billingProfileReservationDetails
+    arm_type_source: heuristic
+    category: consumption
+    aliases: []
+    match_names:
+    - azure_consumption_billing_profile_reservation_details
+    typed_collector: false
+    mandatory: false
+  azure_consumption_billing_profile_reservation_recommendations:
+    arm_type: Microsoft.Consumption/billingProfileReservationRecommendations
+    arm_type_source: heuristic
+    category: consumption
+    aliases: []
+    match_names:
+    - azure_consumption_billing_profile_reservation_recommendations
+    typed_collector: false
+    mandatory: false
+  azure_consumption_billing_profile_reservation_summaries:
+    arm_type: Microsoft.Consumption/billingProfileReservationSummaries
+    arm_type_source: heuristic
+    category: consumption
+    aliases: []
+    match_names:
+    - azure_consumption_billing_profile_reservation_summaries
+    typed_collector: false
+    mandatory: false
+  azure_consumption_billing_profile_reservation_transactions:
+    arm_type: Microsoft.Consumption/billingProfileReservationTransactions
+    arm_type_source: heuristic
+    category: consumption
+    aliases: []
+    match_names:
+    - azure_consumption_billing_profile_reservation_transactions
+    typed_collector: false
+    mandatory: false
+  azure_consumption_subscription_budgets:
+    arm_type: Microsoft.Consumption/subscriptionBudgets
+    arm_type_source: heuristic
+    category: consumption
+    aliases: []
+    match_names:
+    - azure_consumption_subscription_budgets
+    typed_collector: false
+    mandatory: false
+  azure_consumption_subscription_legacy_usage_details:
+    arm_type: Microsoft.Consumption/subscriptionLegacyUsageDetails
+    arm_type_source: heuristic
+    category: consumption
+    aliases: []
+    match_names:
+    - azure_consumption_subscription_legacy_usage_details
+    typed_collector: false
+    mandatory: false
+  azure_consumption_subscription_marketplaces:
+    arm_type: Microsoft.Consumption/subscriptionMarketplaces
+    arm_type_source: heuristic
+    category: consumption
+    aliases: []
+    match_names:
+    - azure_consumption_subscription_marketplaces
+    typed_collector: false
+    mandatory: false
+  azure_consumption_subscription_price_sheets:
+    arm_type: Microsoft.Consumption/subscriptionPriceSheets
+    arm_type_source: heuristic
+    category: consumption
+    aliases: []
+    match_names:
+    - azure_consumption_subscription_price_sheets
+    typed_collector: false
+    mandatory: false
+  azure_consumption_subscription_reservation_recommendations:
+    arm_type: Microsoft.Consumption/subscriptionReservationRecommendations
+    arm_type_source: heuristic
+    category: consumption
+    aliases: []
+    match_names:
+    - azure_consumption_subscription_reservation_recommendations
+    typed_collector: false
+    mandatory: false
+  azure_consumption_subscription_tags:
+    arm_type: Microsoft.Consumption/subscriptionTags
+    arm_type_source: heuristic
+    category: consumption
+    aliases: []
+    match_names:
+    - azure_consumption_subscription_tags
+    typed_collector: false
+    mandatory: false
+  azure_container_app_diagnostics_detectors:
+    arm_type: Microsoft.Container/appDiagnosticsDetectors
+    arm_type_source: heuristic
+    category: container
+    aliases: []
+    match_names:
+    - azure_container_app_diagnostics_detectors
+    typed_collector: false
+    mandatory: false
+  azure_container_app_source_controls:
+    arm_type: Microsoft.Container/appSourceControls
+    arm_type_source: heuristic
+    category: container
+    aliases: []
+    match_names:
+    - azure_container_app_source_controls
+    typed_collector: false
+    mandatory: false
+  azure_containerapps_connected_environment_certificates:
+    arm_type: Microsoft.Containerapps/connectedEnvironmentCertificates
+    arm_type_source: heuristic
+    category: containerapps
+    aliases: []
+    match_names:
+    - azure_containerapps_connected_environment_certificates
+    typed_collector: false
+    mandatory: false
+  azure_containerapps_connected_environment_dapr_components:
+    arm_type: Microsoft.Containerapps/connectedEnvironmentDaprComponents
+    arm_type_source: heuristic
+    category: containerapps
+    aliases: []
+    match_names:
+    - azure_containerapps_connected_environment_dapr_components
+    typed_collector: false
+    mandatory: false
+  azure_containerapps_connected_environment_storages:
+    arm_type: Microsoft.Containerapps/connectedEnvironmentStorages
+    arm_type_source: heuristic
+    category: containerapps
+    aliases: []
+    match_names:
+    - azure_containerapps_connected_environment_storages
+    typed_collector: false
+    mandatory: false
+  azure_containerapps_connected_environments:
+    arm_type: Microsoft.Containerapps/connectedEnvironments
+    arm_type_source: heuristic
+    category: containerapps
+    aliases: []
+    match_names:
+    - azure_containerapps_connected_environments
+    typed_collector: false
+    mandatory: false
+  azure_containerapps_container_app_auth_configs:
+    arm_type: Microsoft.Containerapps/containerAppAuthConfigs
+    arm_type_source: heuristic
+    category: containerapps
+    aliases: []
+    match_names:
+    - azure_containerapps_container_app_auth_configs
+    typed_collector: false
+    mandatory: false
+  azure_containerapps_container_app_detector_revisions:
+    arm_type: Microsoft.Containerapps/containerAppDetectorRevisions
+    arm_type_source: heuristic
+    category: containerapps
+    aliases: []
+    match_names:
+    - azure_containerapps_container_app_detector_revisions
+    typed_collector: false
+    mandatory: false
+  azure_containerapps_container_app_revision_replicas:
+    arm_type: Microsoft.Containerapps/containerAppRevisionReplicas
+    arm_type_source: heuristic
+    category: containerapps
+    aliases: []
+    match_names:
+    - azure_containerapps_container_app_revision_replicas
+    typed_collector: false
+    mandatory: false
+  azure_containerapps_container_app_revisions:
+    arm_type: Microsoft.Containerapps/containerAppRevisions
+    arm_type_source: heuristic
+    category: containerapps
+    aliases: []
+    match_names:
+    - azure_containerapps_container_app_revisions
+    typed_collector: false
+    mandatory: false
+  azure_containerapps_container_apps:
+    arm_type: Microsoft.Containerapps/containerApps
+    arm_type_source: heuristic
+    category: containerapps
+    aliases: []
+    match_names:
+    - azure_containerapps_container_apps
+    typed_collector: false
+    mandatory: false
+  azure_containerapps_job_executions:
+    arm_type: Microsoft.Containerapps/jobExecutions
+    arm_type_source: heuristic
+    category: containerapps
+    aliases: []
+    match_names:
+    - azure_containerapps_job_executions
+    typed_collector: false
+    mandatory: false
+  azure_containerapps_jobs:
+    arm_type: Microsoft.Containerapps/jobs
+    arm_type_source: heuristic
+    category: containerapps
+    aliases: []
+    match_names:
+    - azure_containerapps_jobs
+    typed_collector: false
+    mandatory: false
+  azure_containerapps_managed_certificates:
+    arm_type: Microsoft.Containerapps/managedCertificates
+    arm_type_source: heuristic
+    category: containerapps
+    aliases: []
+    match_names:
+    - azure_containerapps_managed_certificates
+    typed_collector: false
+    mandatory: false
+  azure_containerapps_managed_environment_certificates:
+    arm_type: Microsoft.Containerapps/managedEnvironmentCertificates
+    arm_type_source: heuristic
+    category: containerapps
+    aliases: []
+    match_names:
+    - azure_containerapps_managed_environment_certificates
+    typed_collector: false
+    mandatory: false
+  azure_containerapps_managed_environment_detectors:
+    arm_type: Microsoft.Containerapps/managedEnvironmentDetectors
+    arm_type_source: heuristic
+    category: containerapps
+    aliases: []
+    match_names:
+    - azure_containerapps_managed_environment_detectors
+    typed_collector: false
+    mandatory: false
+  azure_containerapps_managed_environment_storages:
+    arm_type: Microsoft.Containerapps/managedEnvironmentStorages
+    arm_type_source: heuristic
+    category: containerapps
+    aliases: []
+    match_names:
+    - azure_containerapps_managed_environment_storages
+    typed_collector: false
+    mandatory: false
+  azure_containerapps_managed_environment_usages:
+    arm_type: Microsoft.Containerapps/managedEnvironmentUsages
+    arm_type_source: heuristic
+    category: containerapps
+    aliases: []
+    match_names:
+    - azure_containerapps_managed_environment_usages
+    typed_collector: false
+    mandatory: false
+  azure_containerapps_managed_environments:
+    arm_type: Microsoft.Containerapps/managedEnvironments
+    arm_type_source: heuristic
+    category: containerapps
+    aliases: []
+    match_names:
+    - azure_containerapps_managed_environments
+    typed_collector: false
+    mandatory: false
+  azure_containerapps_operations:
+    arm_type: Microsoft.Containerapps/operations
+    arm_type_source: heuristic
+    category: containerapps
+    aliases: []
+    match_names:
+    - azure_containerapps_operations
+    typed_collector: false
+    mandatory: false
+  azure_containerinstance_container_groups:
+    arm_type: Microsoft.ContainerInstance/containerGroups
+    arm_type_source: override
+    category: containerinstance
+    aliases: []
+    match_names:
+    - azure_containerinstance_container_groups
+    typed_collector: false
+    mandatory: false
+  azure_containerregistry_registries:
+    arm_type: Microsoft.ContainerRegistry/registries
+    arm_type_source: override
+    category: containerregistry
+    aliases: []
+    match_names:
+    - azure_containerregistry_registries
+    typed_collector: true
+    mandatory: false
+  azure_containerservice_managed_cluster_agent_pools:
+    arm_type: Microsoft.ContainerService/managedClusterAgentPools
+    arm_type_source: heuristic
+    category: containerservice
+    aliases: []
+    match_names:
+    - azure_containerservice_managed_cluster_agent_pools
+    typed_collector: false
+    mandatory: false
+  azure_containerservice_managed_cluster_upgrade_profiles:
+    arm_type: Microsoft.ContainerService/managedClusterUpgradeProfiles
+    arm_type_source: heuristic
+    category: containerservice
+    aliases: []
+    match_names:
+    - azure_containerservice_managed_cluster_upgrade_profiles
+    typed_collector: false
+    mandatory: false
+  azure_containerservice_managed_clusters:
+    arm_type: Microsoft.ContainerService/managedClusters
+    arm_type_source: override
+    category: containerservice
+    aliases: []
+    match_names:
+    - azure_containerservice_managed_clusters
+    typed_collector: true
+    mandatory: false
+  azure_containerservice_snapshots:
+    arm_type: Microsoft.ContainerService/snapshots
+    arm_type_source: heuristic
+    category: containerservice
+    aliases: []
+    match_names:
+    - azure_containerservice_snapshots
+    typed_collector: false
+    mandatory: false
+  azure_cosmos_cassandra_clusters:
+    arm_type: Microsoft.Cosmos/cassandraClusters
+    arm_type_source: heuristic
+    category: cosmos
+    aliases: []
+    match_names:
+    - azure_cosmos_cassandra_clusters
+    typed_collector: false
+    mandatory: false
+  azure_cosmos_database_accounts:
+    arm_type: Microsoft.Cosmos/databaseAccounts
+    arm_type_source: heuristic
+    category: cosmos
+    aliases: []
+    match_names:
+    - azure_cosmos_database_accounts
+    typed_collector: false
+    mandatory: false
+  azure_cosmos_locations:
+    arm_type: Microsoft.Cosmos/locations
+    arm_type_source: heuristic
+    category: cosmos
+    aliases: []
+    match_names:
+    - azure_cosmos_locations
+    typed_collector: false
+    mandatory: false
+  azure_cosmos_mongo_db_databases:
+    arm_type: Microsoft.Cosmos/mongoDbDatabases
+    arm_type_source: heuristic
+    category: cosmos
+    aliases: []
+    match_names:
+    - azure_cosmos_mongo_db_databases
+    typed_collector: false
+    mandatory: false
+  azure_cosmos_restorable_database_accounts:
+    arm_type: Microsoft.Cosmos/restorableDatabaseAccounts
+    arm_type_source: heuristic
+    category: cosmos
+    aliases: []
+    match_names:
+    - azure_cosmos_restorable_database_accounts
+    typed_collector: false
+    mandatory: false
+  azure_cosmos_sql_databases:
+    arm_type: Microsoft.DocumentDB/databaseAccounts/sqlDatabases
+    arm_type_source: override
+    category: cosmos
+    aliases: []
+    match_names:
+    - azure_cosmos_sql_databases
+    typed_collector: true
+    mandatory: false
+  azure_costmanagement_subscription_costs:
+    arm_type: Microsoft.CostManagement/subscriptionCosts
+    arm_type_source: heuristic
+    category: costmanagement
+    aliases: []
+    match_names:
+    - azure_costmanagement_subscription_costs
+    typed_collector: false
+    mandatory: false
+  azure_costmanagement_view_queries:
+    arm_type: Microsoft.CostManagement/viewQueries
+    arm_type_source: heuristic
+    category: costmanagement
+    aliases: []
+    match_names:
+    - azure_costmanagement_view_queries
+    typed_collector: false
+    mandatory: false
+  azure_costmanagement_views:
+    arm_type: Microsoft.CostManagement/views
+    arm_type_source: heuristic
+    category: costmanagement
+    aliases: []
+    match_names:
+    - azure_costmanagement_views
+    typed_collector: false
+    mandatory: false
+  azure_customerinsights_hubs:
+    arm_type: Microsoft.CustomerInsights/hubs
+    arm_type_source: heuristic
+    category: customerinsights
+    aliases: []
+    match_names:
+    - azure_customerinsights_hubs
+    typed_collector: false
+    mandatory: false
+  azure_dashboard_grafana:
+    arm_type: Microsoft.Dashboard/grafana
+    arm_type_source: heuristic
+    category: dashboard
+    aliases: []
+    match_names:
+    - azure_dashboard_grafana
+    typed_collector: false
+    mandatory: false
+  azure_databox_jobs:
+    arm_type: Microsoft.Databox/jobs
+    arm_type_source: heuristic
+    category: databox
+    aliases: []
+    match_names:
+    - azure_databox_jobs
+    typed_collector: false
+    mandatory: false
+  azure_databricks_access_connectors:
+    arm_type: Microsoft.Databricks/accessConnectors
+    arm_type_source: heuristic
+    category: databricks
+    aliases: []
+    match_names:
+    - azure_databricks_access_connectors
+    typed_collector: false
+    mandatory: false
+  azure_databricks_operations:
+    arm_type: Microsoft.Databricks/operations
+    arm_type_source: heuristic
+    category: databricks
+    aliases: []
+    match_names:
+    - azure_databricks_operations
+    typed_collector: false
+    mandatory: false
+  azure_databricks_outbound_network_dependencies_endpoints:
+    arm_type: Microsoft.Databricks/outboundNetworkDependenciesEndpoints
+    arm_type_source: heuristic
+    category: databricks
+    aliases: []
+    match_names:
+    - azure_databricks_outbound_network_dependencies_endpoints
+    typed_collector: false
+    mandatory: false
+  azure_databricks_private_endpoint_connections:
+    arm_type: Microsoft.Databricks/privateEndpointConnections
+    arm_type_source: heuristic
+    category: databricks
+    aliases: []
+    match_names:
+    - azure_databricks_private_endpoint_connections
+    typed_collector: false
+    mandatory: false
+  azure_databricks_private_link_resources:
+    arm_type: Microsoft.Databricks/privateLinkResources
+    arm_type_source: heuristic
+    category: databricks
+    aliases: []
+    match_names:
+    - azure_databricks_private_link_resources
+    typed_collector: false
+    mandatory: false
+  azure_databricks_virtual_network_peerings:
+    arm_type: Microsoft.Databricks/virtualNetworkPeerings
+    arm_type_source: heuristic
+    category: databricks
+    aliases: []
+    match_names:
+    - azure_databricks_virtual_network_peerings
+    typed_collector: false
+    mandatory: false
+  azure_databricks_workspaces:
+    arm_type: Microsoft.Databricks/workspaces
+    arm_type_source: heuristic
+    category: databricks
+    aliases: []
+    match_names:
+    - azure_databricks_workspaces
+    typed_collector: false
+    mandatory: false
+  azure_datacatalog_catalogs:
+    arm_type: Microsoft.Datacatalog/catalogs
+    arm_type_source: heuristic
+    category: datacatalog
+    aliases: []
+    match_names:
+    - azure_datacatalog_catalogs
+    typed_collector: false
+    mandatory: false
+  azure_datadog_marketplace_agreements:
+    arm_type: Microsoft.Datadog/marketplaceAgreements
+    arm_type_source: heuristic
+    category: datadog
+    aliases: []
+    match_names:
+    - azure_datadog_marketplace_agreements
+    typed_collector: false
+    mandatory: false
+  azure_datadog_monitors:
+    arm_type: Microsoft.Datadog/monitors
+    arm_type_source: heuristic
+    category: datadog
+    aliases: []
+    match_names:
+    - azure_datadog_monitors
+    typed_collector: false
+    mandatory: false
+  azure_datafactory_factories:
+    arm_type: Microsoft.DataFactory/factories
+    arm_type_source: override
+    category: datafactory
+    aliases: []
+    match_names:
+    - azure_datafactory_factories
+    typed_collector: true
+    mandatory: false
+  azure_datalakeanalytics_accounts:
+    arm_type: Microsoft.Datalakeanalytics/accounts
+    arm_type_source: heuristic
+    category: datalakeanalytics
+    aliases: []
+    match_names:
+    - azure_datalakeanalytics_accounts
+    typed_collector: false
+    mandatory: false
+  azure_datalakestore_accounts:
+    arm_type: Microsoft.Datalakestore/accounts
+    arm_type_source: heuristic
+    category: datalakestore
+    aliases: []
+    match_names:
+    - azure_datalakestore_accounts
+    typed_collector: false
+    mandatory: false
+  azure_datamigration_services:
+    arm_type: Microsoft.Datamigration/services
+    arm_type_source: heuristic
+    category: datamigration
+    aliases: []
+    match_names:
+    - azure_datamigration_services
+    typed_collector: false
+    mandatory: false
+  azure_datashare_accounts:
+    arm_type: Microsoft.Datashare/accounts
+    arm_type_source: heuristic
+    category: datashare
+    aliases: []
+    match_names:
+    - azure_datashare_accounts
+    typed_collector: false
+    mandatory: false
+  azure_desktopvirtualization_application_groups:
+    arm_type: Microsoft.DesktopVirtualization/applicationGroups
+    arm_type_source: heuristic
+    category: desktopvirtualization
+    aliases: []
+    match_names:
+    - azure_desktopvirtualization_application_groups
+    typed_collector: false
+    mandatory: false
+  azure_desktopvirtualization_host_pools:
+    arm_type: Microsoft.DesktopVirtualization/hostPools
+    arm_type_source: heuristic
+    category: desktopvirtualization
+    aliases: []
+    match_names:
+    - azure_desktopvirtualization_host_pools
+    typed_collector: false
+    mandatory: false
+  azure_desktopvirtualization_workspaces:
+    arm_type: Microsoft.DesktopVirtualization/workspaces
+    arm_type_source: heuristic
+    category: desktopvirtualization
+    aliases: []
+    match_names:
+    - azure_desktopvirtualization_workspaces
+    typed_collector: false
+    mandatory: false
+  azure_devhub_workflow:
+    arm_type: Microsoft.Devhub/workflow
+    arm_type_source: heuristic
+    category: devhub
+    aliases: []
+    match_names:
+    - azure_devhub_workflow
+    typed_collector: false
+    mandatory: false
+  azure_devops_pipeline_template_definitions:
+    arm_type: Microsoft.Devops/pipelineTemplateDefinitions
+    arm_type_source: heuristic
+    category: devops
+    aliases: []
+    match_names:
+    - azure_devops_pipeline_template_definitions
+    typed_collector: false
+    mandatory: false
+  azure_devtestlabs_global_schedules:
+    arm_type: Microsoft.Devtestlabs/globalSchedules
+    arm_type_source: heuristic
+    category: devtestlabs
+    aliases: []
+    match_names:
+    - azure_devtestlabs_global_schedules
+    typed_collector: false
+    mandatory: false
+  azure_devtestlabs_lab_artifact_source_arm_templates:
+    arm_type: Microsoft.Devtestlabs/labArtifactSourceArmTemplates
+    arm_type_source: heuristic
+    category: devtestlabs
+    aliases: []
+    match_names:
+    - azure_devtestlabs_lab_artifact_source_arm_templates
+    typed_collector: false
+    mandatory: false
+  azure_devtestlabs_lab_artifact_source_artifact:
+    arm_type: Microsoft.Devtestlabs/labArtifactSourceArtifact
+    arm_type_source: heuristic
+    category: devtestlabs
+    aliases: []
+    match_names:
+    - azure_devtestlabs_lab_artifact_source_artifact
+    typed_collector: false
+    mandatory: false
+  azure_devtestlabs_lab_artifact_sources:
+    arm_type: Microsoft.Devtestlabs/labArtifactSources
+    arm_type_source: heuristic
+    category: devtestlabs
+    aliases: []
+    match_names:
+    - azure_devtestlabs_lab_artifact_sources
+    typed_collector: false
+    mandatory: false
+  azure_devtestlabs_lab_custom_images:
+    arm_type: Microsoft.Devtestlabs/labCustomImages
+    arm_type_source: heuristic
+    category: devtestlabs
+    aliases: []
+    match_names:
+    - azure_devtestlabs_lab_custom_images
+    typed_collector: false
+    mandatory: false
+  azure_devtestlabs_lab_environments:
+    arm_type: Microsoft.Devtestlabs/labEnvironments
+    arm_type_source: heuristic
+    category: devtestlabs
+    aliases: []
+    match_names:
+    - azure_devtestlabs_lab_environments
+    typed_collector: false
+    mandatory: false
+  azure_devtestlabs_lab_formulas:
+    arm_type: Microsoft.Devtestlabs/labFormulas
+    arm_type_source: heuristic
+    category: devtestlabs
+    aliases: []
+    match_names:
+    - azure_devtestlabs_lab_formulas
+    typed_collector: false
+    mandatory: false
+  azure_devtestlabs_lab_galery_images:
+    arm_type: Microsoft.Devtestlabs/labGaleryImages
+    arm_type_source: heuristic
+    category: devtestlabs
+    aliases: []
+    match_names:
+    - azure_devtestlabs_lab_galery_images
+    typed_collector: false
+    mandatory: false
+  azure_devtestlabs_lab_notification_channels:
+    arm_type: Microsoft.Devtestlabs/labNotificationChannels
+    arm_type_source: heuristic
+    category: devtestlabs
+    aliases: []
+    match_names:
+    - azure_devtestlabs_lab_notification_channels
+    typed_collector: false
+    mandatory: false
+  azure_devtestlabs_lab_schedules:
+    arm_type: Microsoft.Devtestlabs/labSchedules
+    arm_type_source: heuristic
+    category: devtestlabs
+    aliases: []
+    match_names:
+    - azure_devtestlabs_lab_schedules
+    typed_collector: false
+    mandatory: false
+  azure_devtestlabs_lab_user_disks:
+    arm_type: Microsoft.Devtestlabs/labUserDisks
+    arm_type_source: heuristic
+    category: devtestlabs
+    aliases: []
+    match_names:
+    - azure_devtestlabs_lab_user_disks
+    typed_collector: false
+    mandatory: false
+  azure_devtestlabs_lab_user_secrets:
+    arm_type: Microsoft.Devtestlabs/labUserSecrets
+    arm_type_source: heuristic
+    category: devtestlabs
+    aliases: []
+    match_names:
+    - azure_devtestlabs_lab_user_secrets
+    typed_collector: false
+    mandatory: false
+  azure_devtestlabs_lab_users:
+    arm_type: Microsoft.Devtestlabs/labUsers
+    arm_type_source: heuristic
+    category: devtestlabs
+    aliases: []
+    match_names:
+    - azure_devtestlabs_lab_users
+    typed_collector: false
+    mandatory: false
+  azure_devtestlabs_lab_virtual_machine_schedules:
+    arm_type: Microsoft.Devtestlabs/labVirtualMachineSchedules
+    arm_type_source: heuristic
+    category: devtestlabs
+    aliases: []
+    match_names:
+    - azure_devtestlabs_lab_virtual_machine_schedules
+    typed_collector: false
+    mandatory: false
+  azure_devtestlabs_lab_virtual_machines:
+    arm_type: Microsoft.Devtestlabs/labVirtualMachines
+    arm_type_source: heuristic
+    category: devtestlabs
+    aliases: []
+    match_names:
+    - azure_devtestlabs_lab_virtual_machines
+    typed_collector: false
+    mandatory: false
+  azure_devtestlabs_lab_virtual_networks:
+    arm_type: Microsoft.Devtestlabs/labVirtualNetworks
+    arm_type_source: heuristic
+    category: devtestlabs
+    aliases: []
+    match_names:
+    - azure_devtestlabs_lab_virtual_networks
+    typed_collector: false
+    mandatory: false
+  azure_devtestlabs_labs:
+    arm_type: Microsoft.Devtestlabs/labs
+    arm_type_source: heuristic
+    category: devtestlabs
+    aliases: []
+    match_names:
+    - azure_devtestlabs_labs
+    typed_collector: false
+    mandatory: false
+  azure_dns_record_sets:
+    arm_type: Microsoft.Dns/recordSets
+    arm_type_source: heuristic
+    category: dns
+    aliases: []
+    match_names:
+    - azure_dns_record_sets
+    typed_collector: false
+    mandatory: false
+  azure_dns_zones:
+    arm_type: Microsoft.Dns/zones
+    arm_type_source: heuristic
+    category: dns
+    aliases: []
+    match_names:
+    - azure_dns_zones
+    typed_collector: false
+    mandatory: false
+  azure_dnsresolver_dns_forwarding_rulesets:
+    arm_type: Microsoft.Network/dnsForwardingRulesets
+    arm_type_source: heuristic
+    category: dnsresolver
+    aliases: []
+    match_names:
+    - azure_dnsresolver_dns_forwarding_rulesets
+    typed_collector: false
+    mandatory: false
+  azure_dnsresolver_dns_resolvers:
+    arm_type: Microsoft.Network/dnsResolvers
+    arm_type_source: heuristic
+    category: dnsresolver
+    aliases: []
+    match_names:
+    - azure_dnsresolver_dns_resolvers
+    typed_collector: false
+    mandatory: false
+  azure_elastic_monitors:
+    arm_type: Microsoft.Elastic/monitors
+    arm_type_source: heuristic
+    category: elastic
+    aliases: []
+    match_names:
+    - azure_elastic_monitors
+    typed_collector: false
+    mandatory: false
+  azure_engagementfabric_accounts:
+    arm_type: Microsoft.Engagementfabric/accounts
+    arm_type_source: heuristic
+    category: engagementfabric
+    aliases: []
+    match_names:
+    - azure_engagementfabric_accounts
+    typed_collector: false
+    mandatory: false
+  azure_eventgrid_topic_types:
+    arm_type: Microsoft.EventGrid/topicTypes
+    arm_type_source: heuristic
+    category: eventgrid
+    aliases: []
+    match_names:
+    - azure_eventgrid_topic_types
+    typed_collector: false
+    mandatory: false
+  azure_eventhub_clusters:
+    arm_type: Microsoft.EventHub/clusters
+    arm_type_source: heuristic
+    category: eventhub
+    aliases: []
+    match_names:
+    - azure_eventhub_clusters
+    typed_collector: false
+    mandatory: false
+  azure_eventhub_namespace_network_rule_sets:
+    arm_type: Microsoft.EventHub/namespaceNetworkRuleSets
+    arm_type_source: heuristic
+    category: eventhub
+    aliases: []
+    match_names:
+    - azure_eventhub_namespace_network_rule_sets
+    typed_collector: false
+    mandatory: false
+  azure_eventhub_namespaces:
+    arm_type: Microsoft.EventHub/namespaces
+    arm_type_source: override
+    category: eventhub
+    aliases: []
+    match_names:
+    - azure_eventhub_namespaces
+    typed_collector: false
+    mandatory: false
+  azure_frontdoor_front_doors:
+    arm_type: Microsoft.Network/frontDoors
+    arm_type_source: heuristic
+    category: frontdoor
+    aliases: []
+    match_names:
+    - azure_frontdoor_front_doors
+    typed_collector: false
+    mandatory: false
+  azure_frontdoor_managed_rule_sets:
+    arm_type: Microsoft.Network/managedRuleSets
+    arm_type_source: heuristic
+    category: frontdoor
+    aliases: []
+    match_names:
+    - azure_frontdoor_managed_rule_sets
+    typed_collector: false
+    mandatory: false
+  azure_frontdoor_network_experiment_profiles:
+    arm_type: Microsoft.Network/networkExperimentProfiles
+    arm_type_source: heuristic
+    category: frontdoor
+    aliases: []
+    match_names:
+    - azure_frontdoor_network_experiment_profiles
+    typed_collector: false
+    mandatory: false
+  azure_hanaonazure_sap_monitors:
+    arm_type: Microsoft.Hanaonazure/sapMonitors
+    arm_type_source: heuristic
+    category: hanaonazure
+    aliases: []
+    match_names:
+    - azure_hanaonazure_sap_monitors
+    typed_collector: false
+    mandatory: false
+  azure_hdinsight_clusters:
+    arm_type: Microsoft.HDInsight/clusters
+    arm_type_source: heuristic
+    category: hdinsight
+    aliases: []
+    match_names:
+    - azure_hdinsight_clusters
+    typed_collector: false
+    mandatory: false
+  azure_healthbot_bots:
+    arm_type: Microsoft.Healthbot/bots
+    arm_type_source: heuristic
+    category: healthbot
+    aliases: []
+    match_names:
+    - azure_healthbot_bots
+    typed_collector: false
+    mandatory: false
+  azure_healthcareapis_services:
+    arm_type: Microsoft.HealthcareApis/services
+    arm_type_source: heuristic
+    category: healthcareapis
+    aliases: []
+    match_names:
+    - azure_healthcareapis_services
+    typed_collector: false
+    mandatory: false
+  azure_hybridcompute_private_link_scopes:
+    arm_type: Microsoft.HybridCompute/privateLinkScopes
+    arm_type_source: heuristic
+    category: hybridcompute
+    aliases: []
+    match_names:
+    - azure_hybridcompute_private_link_scopes
+    typed_collector: false
+    mandatory: false
+  azure_hybriddatamanager_data_managers:
+    arm_type: Microsoft.Hybriddatamanager/dataManagers
+    arm_type_source: heuristic
+    category: hybriddatamanager
+    aliases: []
+    match_names:
+    - azure_hybriddatamanager_data_managers
+    typed_collector: false
+    mandatory: false
+  azure_keyvault_certificate_issuers:
+    arm_type: Microsoft.KeyVault/vaults/certificates/issuers
+    arm_type_source: override
+    category: keyvault
+    aliases: []
+    match_names:
+    - azure_keyvault_certificate_issuers
+    typed_collector: false
+    mandatory: false
+  azure_keyvault_certificate_policies:
+    arm_type: Microsoft.KeyVault/vaults/certificates/policies
+    arm_type_source: override
+    category: keyvault
+    aliases: []
+    match_names:
+    - azure_keyvault_certificate_policies
+    typed_collector: false
+    mandatory: false
+  azure_keyvault_certificates:
+    arm_type: Microsoft.KeyVault/vaults/certificates
+    arm_type_source: override
+    category: keyvault
+    aliases: []
+    match_names:
+    - azure_keyvault_certificates
+    typed_collector: false
+    mandatory: false
+  azure_keyvault_key_rotation_policies:
+    arm_type: Microsoft.KeyVault/vaults/keys/rotationPolicies
+    arm_type_source: override
+    category: keyvault
+    aliases: []
+    match_names:
+    - azure_keyvault_key_rotation_policies
+    typed_collector: false
+    mandatory: false
+  azure_keyvault_keys:
+    arm_type: Microsoft.KeyVault/vaults/keys
+    arm_type_source: override
+    category: keyvault
+    aliases: []
+    match_names:
+    - azure_keyvault_keys
+    typed_collector: false
+    mandatory: false
+  azure_keyvault_keyvaults:
+    arm_type: Microsoft.KeyVault/vaults
+    arm_type_source: override
+    category: keyvault
+    aliases:
+    - azure_keyvault_vaults
+    - azure_keyvault_keyvault
+    match_names:
+    - azure_keyvault_keyvaults
+    - azure_keyvault_vaults
+    - azure_keyvault_keyvault
+    typed_collector: true
+    mandatory: false
+  azure_keyvault_managed_hsms:
+    arm_type: Microsoft.KeyVault/managedHSMs
+    arm_type_source: override
+    category: keyvault
+    aliases: []
+    match_names:
+    - azure_keyvault_managed_hsms
+    typed_collector: false
+    mandatory: false
+  azure_keyvault_secrets:
+    arm_type: Microsoft.KeyVault/vaults/secrets
+    arm_type_source: override
+    category: keyvault
+    aliases: []
+    match_names:
+    - azure_keyvault_secrets
+    typed_collector: false
+    mandatory: false
+  azure_kusto_clusters:
+    arm_type: Microsoft.Kusto/clusters
+    arm_type_source: heuristic
+    category: kusto
+    aliases: []
+    match_names:
+    - azure_kusto_clusters
+    typed_collector: false
+    mandatory: false
+  azure_labservices_lab_plan_images:
+    arm_type: Microsoft.LabServices/labPlanImages
+    arm_type_source: heuristic
+    category: labservices
+    aliases: []
+    match_names:
+    - azure_labservices_lab_plan_images
+    typed_collector: false
+    mandatory: false
+  azure_labservices_lab_plans:
+    arm_type: Microsoft.LabServices/labPlans
+    arm_type_source: heuristic
+    category: labservices
+    aliases: []
+    match_names:
+    - azure_labservices_lab_plans
+    typed_collector: false
+    mandatory: false
+  azure_labservices_lab_schedules:
+    arm_type: Microsoft.LabServices/labSchedules
+    arm_type_source: heuristic
+    category: labservices
+    aliases: []
+    match_names:
+    - azure_labservices_lab_schedules
+    typed_collector: false
+    mandatory: false
+  azure_labservices_lab_usages:
+    arm_type: Microsoft.LabServices/labUsages
+    arm_type_source: heuristic
+    category: labservices
+    aliases: []
+    match_names:
+    - azure_labservices_lab_usages
+    typed_collector: false
+    mandatory: false
+  azure_labservices_lab_users:
+    arm_type: Microsoft.LabServices/labUsers
+    arm_type_source: heuristic
+    category: labservices
+    aliases: []
+    match_names:
+    - azure_labservices_lab_users
+    typed_collector: false
+    mandatory: false
+  azure_labservices_lab_virtual_machines:
+    arm_type: Microsoft.LabServices/labVirtualMachines
+    arm_type_source: heuristic
+    category: labservices
+    aliases: []
+    match_names:
+    - azure_labservices_lab_virtual_machines
+    typed_collector: false
+    mandatory: false
+  azure_labservices_labs:
+    arm_type: Microsoft.LabServices/labs
+    arm_type_source: heuristic
+    category: labservices
+    aliases: []
+    match_names:
+    - azure_labservices_labs
+    typed_collector: false
+    mandatory: false
+  azure_labservices_operations:
+    arm_type: Microsoft.LabServices/operations
+    arm_type_source: heuristic
+    category: labservices
+    aliases: []
+    match_names:
+    - azure_labservices_operations
+    typed_collector: false
+    mandatory: false
+  azure_labservices_skus:
+    arm_type: Microsoft.LabServices/skus
+    arm_type_source: heuristic
+    category: labservices
+    aliases: []
+    match_names:
+    - azure_labservices_skus
+    typed_collector: false
+    mandatory: false
+  azure_logic_integration_account_agreements:
+    arm_type: Microsoft.Logic/integrationAccountAgreements
+    arm_type_source: heuristic
+    category: logic
+    aliases: []
+    match_names:
+    - azure_logic_integration_account_agreements
+    typed_collector: false
+    mandatory: false
+  azure_logic_integration_account_assemblies:
+    arm_type: Microsoft.Logic/integrationAccountAssemblies
+    arm_type_source: heuristic
+    category: logic
+    aliases: []
+    match_names:
+    - azure_logic_integration_account_assemblies
+    typed_collector: false
+    mandatory: false
+  azure_logic_integration_account_certificates:
+    arm_type: Microsoft.Logic/integrationAccountCertificates
+    arm_type_source: heuristic
+    category: logic
+    aliases: []
+    match_names:
+    - azure_logic_integration_account_certificates
+    typed_collector: false
+    mandatory: false
+  azure_logic_integration_account_maps:
+    arm_type: Microsoft.Logic/integrationAccountMaps
+    arm_type_source: heuristic
+    category: logic
+    aliases: []
+    match_names:
+    - azure_logic_integration_account_maps
+    typed_collector: false
+    mandatory: false
+  azure_logic_integration_account_partners:
+    arm_type: Microsoft.Logic/integrationAccountPartners
+    arm_type_source: heuristic
+    category: logic
+    aliases: []
+    match_names:
+    - azure_logic_integration_account_partners
+    typed_collector: false
+    mandatory: false
+  azure_logic_integration_account_schemas:
+    arm_type: Microsoft.Logic/integrationAccountSchemas
+    arm_type_source: heuristic
+    category: logic
+    aliases: []
+    match_names:
+    - azure_logic_integration_account_schemas
+    typed_collector: false
+    mandatory: false
+  azure_logic_integration_account_sessions:
+    arm_type: Microsoft.Logic/integrationAccountSessions
+    arm_type_source: heuristic
+    category: logic
+    aliases: []
+    match_names:
+    - azure_logic_integration_account_sessions
+    typed_collector: false
+    mandatory: false
+  azure_logic_integration_accounts:
+    arm_type: Microsoft.Logic/integrationAccounts
+    arm_type_source: heuristic
+    category: logic
+    aliases: []
+    match_names:
+    - azure_logic_integration_accounts
+    typed_collector: false
+    mandatory: false
+  azure_logic_workflow_run_action_request_histories:
+    arm_type: Microsoft.Logic/workflowRunActionRequestHistories
+    arm_type_source: heuristic
+    category: logic
+    aliases: []
+    match_names:
+    - azure_logic_workflow_run_action_request_histories
+    typed_collector: false
+    mandatory: false
+  azure_logic_workflow_run_actions:
+    arm_type: Microsoft.Logic/workflowRunActions
+    arm_type_source: heuristic
+    category: logic
+    aliases: []
+    match_names:
+    - azure_logic_workflow_run_actions
+    typed_collector: false
+    mandatory: false
+  azure_logic_workflow_runs:
+    arm_type: Microsoft.Logic/workflowRuns
+    arm_type_source: heuristic
+    category: logic
+    aliases: []
+    match_names:
+    - azure_logic_workflow_runs
+    typed_collector: false
+    mandatory: false
+  azure_logic_workflow_trigger_histories:
+    arm_type: Microsoft.Logic/workflowTriggerHistories
+    arm_type_source: heuristic
+    category: logic
+    aliases: []
+    match_names:
+    - azure_logic_workflow_trigger_histories
+    typed_collector: false
+    mandatory: false
+  azure_logic_workflow_triggers:
+    arm_type: Microsoft.Logic/workflowTriggers
+    arm_type_source: heuristic
+    category: logic
+    aliases: []
+    match_names:
+    - azure_logic_workflow_triggers
+    typed_collector: false
+    mandatory: false
+  azure_logic_workflow_versions:
+    arm_type: Microsoft.Logic/workflowVersions
+    arm_type_source: heuristic
+    category: logic
+    aliases: []
+    match_names:
+    - azure_logic_workflow_versions
+    typed_collector: false
+    mandatory: false
+  azure_logic_workflows:
+    arm_type: Microsoft.Logic/workflows
+    arm_type_source: override
+    category: logic
+    aliases: []
+    match_names:
+    - azure_logic_workflows
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_batch_deployments:
+    arm_type: Microsoft.MachineLearningServices/batchDeployments
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_batch_deployments
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_batch_endpoints:
+    arm_type: Microsoft.MachineLearningServices/batchEndpoints
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_batch_endpoints
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_component_containers:
+    arm_type: Microsoft.MachineLearningServices/componentContainers
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_component_containers
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_component_versions:
+    arm_type: Microsoft.MachineLearningServices/componentVersions
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_component_versions
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_computes:
+    arm_type: Microsoft.MachineLearningServices/computes
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_computes
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_data_containers:
+    arm_type: Microsoft.MachineLearningServices/dataContainers
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_data_containers
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_data_versions:
+    arm_type: Microsoft.MachineLearningServices/dataVersions
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_data_versions
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_datastores:
+    arm_type: Microsoft.MachineLearningServices/datastores
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_datastores
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_environment_containers:
+    arm_type: Microsoft.MachineLearningServices/environmentContainers
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_environment_containers
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_environment_versions:
+    arm_type: Microsoft.MachineLearningServices/environmentVersions
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_environment_versions
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_features:
+    arm_type: Microsoft.MachineLearningServices/features
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_features
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_featureset_containers:
+    arm_type: Microsoft.MachineLearningServices/featuresetContainers
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_featureset_containers
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_featureset_versions:
+    arm_type: Microsoft.MachineLearningServices/featuresetVersions
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_featureset_versions
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_featurestore_entity_containers:
+    arm_type: Microsoft.MachineLearningServices/featurestoreEntityContainers
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_featurestore_entity_containers
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_featurestore_entity_versions:
+    arm_type: Microsoft.MachineLearningServices/featurestoreEntityVersions
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_featurestore_entity_versions
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_jobs:
+    arm_type: Microsoft.MachineLearningServices/jobs
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_jobs
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_managed_network_setting_rules:
+    arm_type: Microsoft.MachineLearningServices/managedNetworkSettingRules
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_managed_network_setting_rules
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_marketplace_subscriptions:
+    arm_type: Microsoft.MachineLearningServices/marketplaceSubscriptions
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_marketplace_subscriptions
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_model_containers:
+    arm_type: Microsoft.MachineLearningServices/modelContainers
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_model_containers
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_model_versions:
+    arm_type: Microsoft.MachineLearningServices/modelVersions
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_model_versions
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_online_deployments:
+    arm_type: Microsoft.MachineLearningServices/onlineDeployments
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_online_deployments
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_online_endpoints:
+    arm_type: Microsoft.MachineLearningServices/onlineEndpoints
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_online_endpoints
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_operations:
+    arm_type: Microsoft.MachineLearningServices/operations
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_operations
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_private_endpoint_connections:
+    arm_type: Microsoft.MachineLearningServices/privateEndpointConnections
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_private_endpoint_connections
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_private_link_resources:
+    arm_type: Microsoft.MachineLearningServices/privateLinkResources
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_private_link_resources
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_quotas:
+    arm_type: Microsoft.MachineLearningServices/quotas
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_quotas
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_registries:
+    arm_type: Microsoft.MachineLearningServices/registries
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_registries
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_registry_code_containers:
+    arm_type: Microsoft.MachineLearningServices/registryCodeContainers
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_registry_code_containers
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_registry_code_versions:
+    arm_type: Microsoft.MachineLearningServices/registryCodeVersions
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_registry_code_versions
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_registry_component_containers:
+    arm_type: Microsoft.MachineLearningServices/registryComponentContainers
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_registry_component_containers
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_registry_component_versions:
+    arm_type: Microsoft.MachineLearningServices/registryComponentVersions
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_registry_component_versions
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_registry_data_containers:
+    arm_type: Microsoft.MachineLearningServices/registryDataContainers
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_registry_data_containers
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_registry_data_versions:
+    arm_type: Microsoft.MachineLearningServices/registryDataVersions
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_registry_data_versions
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_registry_environment_containers:
+    arm_type: Microsoft.MachineLearningServices/registryEnvironmentContainers
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_registry_environment_containers
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_registry_environment_versions:
+    arm_type: Microsoft.MachineLearningServices/registryEnvironmentVersions
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_registry_environment_versions
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_registry_model_containers:
+    arm_type: Microsoft.MachineLearningServices/registryModelContainers
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_registry_model_containers
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_registry_model_versions:
+    arm_type: Microsoft.MachineLearningServices/registryModelVersions
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_registry_model_versions
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_schedules:
+    arm_type: Microsoft.MachineLearningServices/schedules
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_schedules
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_serverless_endpoints:
+    arm_type: Microsoft.MachineLearningServices/serverlessEndpoints
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_serverless_endpoints
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_usages:
+    arm_type: Microsoft.MachineLearningServices/usages
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_usages
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_virtual_machine_sizes:
+    arm_type: Microsoft.MachineLearningServices/virtualMachineSizes
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_virtual_machine_sizes
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_workspace_connections:
+    arm_type: Microsoft.MachineLearningServices/workspaceConnections
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_workspace_connections
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_workspace_features:
+    arm_type: Microsoft.MachineLearningServices/workspaceFeatures
+    arm_type_source: heuristic
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_workspace_features
+    typed_collector: false
+    mandatory: false
+  azure_machinelearning_workspaces:
+    arm_type: Microsoft.MachineLearningServices/workspaces
+    arm_type_source: override
+    category: machinelearning
+    aliases: []
+    match_names:
+    - azure_machinelearning_workspaces
+    typed_collector: false
+    mandatory: false
+  azure_maintenance_configurations:
+    arm_type: Microsoft.Maintenance/configurations
+    arm_type_source: heuristic
+    category: maintenance
+    aliases: []
+    match_names:
+    - azure_maintenance_configurations
+    typed_collector: false
+    mandatory: false
+  azure_maintenance_public_maintenance_configurations:
+    arm_type: Microsoft.Maintenance/publicMaintenanceConfigurations
+    arm_type_source: heuristic
+    category: maintenance
+    aliases: []
+    match_names:
+    - azure_maintenance_public_maintenance_configurations
+    typed_collector: false
+    mandatory: false
+  azure_managedapplications_applications:
+    arm_type: Microsoft.Managedapplications/applications
+    arm_type_source: heuristic
+    category: managedapplications
+    aliases: []
+    match_names:
+    - azure_managedapplications_applications
+    typed_collector: false
+    mandatory: false
+  azure_management_locks:
+    arm_type: Microsoft.Management/locks
+    arm_type_source: heuristic
+    category: management
+    aliases: []
+    match_names:
+    - azure_management_locks
+    typed_collector: false
+    mandatory: false
+  azure_managementgroups_entities:
+    arm_type: Microsoft.Managementgroups/entities
+    arm_type_source: heuristic
+    category: managementgroups
+    aliases: []
+    match_names:
+    - azure_managementgroups_entities
+    typed_collector: false
+    mandatory: false
+  azure_managementgroups_management_groups:
+    arm_type: Microsoft.Managementgroups/managementGroups
+    arm_type_source: heuristic
+    category: managementgroups
+    aliases: []
+    match_names:
+    - azure_managementgroups_management_groups
+    typed_collector: false
+    mandatory: false
+  azure_mariadb_server_configurations:
+    arm_type: Microsoft.DBforMariaDB/serverConfigurations
+    arm_type_source: heuristic
+    category: mariadb
+    aliases: []
+    match_names:
+    - azure_mariadb_server_configurations
+    typed_collector: false
+    mandatory: false
+  azure_mariadb_servers:
+    arm_type: Microsoft.DBforMariaDB/servers
+    arm_type_source: override
+    category: mariadb
+    aliases: []
+    match_names:
+    - azure_mariadb_servers
+    typed_collector: false
+    mandatory: false
+  azure_marketplace_private_store:
+    arm_type: Microsoft.Marketplace/privateStore
+    arm_type_source: heuristic
+    category: marketplace
+    aliases: []
+    match_names:
+    - azure_marketplace_private_store
+    typed_collector: false
+    mandatory: false
+  azure_mediaservices_account_filters:
+    arm_type: Microsoft.Mediaservices/accountFilters
+    arm_type_source: heuristic
+    category: mediaservices
+    aliases: []
+    match_names:
+    - azure_mediaservices_account_filters
+    typed_collector: false
+    mandatory: false
+  azure_mediaservices_asset_filters:
+    arm_type: Microsoft.Mediaservices/assetFilters
+    arm_type_source: heuristic
+    category: mediaservices
+    aliases: []
+    match_names:
+    - azure_mediaservices_asset_filters
+    typed_collector: false
+    mandatory: false
+  azure_mediaservices_asset_tracks:
+    arm_type: Microsoft.Mediaservices/assetTracks
+    arm_type_source: heuristic
+    category: mediaservices
+    aliases: []
+    match_names:
+    - azure_mediaservices_asset_tracks
+    typed_collector: false
+    mandatory: false
+  azure_mediaservices_assets:
+    arm_type: Microsoft.Mediaservices/assets
+    arm_type_source: heuristic
+    category: mediaservices
+    aliases: []
+    match_names:
+    - azure_mediaservices_assets
+    typed_collector: false
+    mandatory: false
+  azure_mediaservices_content_key_policies:
+    arm_type: Microsoft.Mediaservices/contentKeyPolicies
+    arm_type_source: heuristic
+    category: mediaservices
+    aliases: []
+    match_names:
+    - azure_mediaservices_content_key_policies
+    typed_collector: false
+    mandatory: false
+  azure_mediaservices_jobs:
+    arm_type: Microsoft.Mediaservices/jobs
+    arm_type_source: heuristic
+    category: mediaservices
+    aliases: []
+    match_names:
+    - azure_mediaservices_jobs
+    typed_collector: false
+    mandatory: false
+  azure_mediaservices_live_event_outputs:
+    arm_type: Microsoft.Mediaservices/liveEventOutputs
+    arm_type_source: heuristic
+    category: mediaservices
+    aliases: []
+    match_names:
+    - azure_mediaservices_live_event_outputs
+    typed_collector: false
+    mandatory: false
+  azure_mediaservices_live_events:
+    arm_type: Microsoft.Mediaservices/liveEvents
+    arm_type_source: heuristic
+    category: mediaservices
+    aliases: []
+    match_names:
+    - azure_mediaservices_live_events
+    typed_collector: false
+    mandatory: false
+  azure_mediaservices_media_services:
+    arm_type: Microsoft.Mediaservices/mediaServices
+    arm_type_source: heuristic
+    category: mediaservices
+    aliases: []
+    match_names:
+    - azure_mediaservices_media_services
+    typed_collector: false
+    mandatory: false
+  azure_mediaservices_private_endpoint_connections:
+    arm_type: Microsoft.Mediaservices/privateEndpointConnections
+    arm_type_source: heuristic
+    category: mediaservices
+    aliases: []
+    match_names:
+    - azure_mediaservices_private_endpoint_connections
+    typed_collector: false
+    mandatory: false
+  azure_mediaservices_private_link_resources:
+    arm_type: Microsoft.Mediaservices/privateLinkResources
+    arm_type_source: heuristic
+    category: mediaservices
+    aliases: []
+    match_names:
+    - azure_mediaservices_private_link_resources
+    typed_collector: false
+    mandatory: false
+  azure_mediaservices_streaming_endpoints:
+    arm_type: Microsoft.Mediaservices/streamingEndpoints
+    arm_type_source: heuristic
+    category: mediaservices
+    aliases: []
+    match_names:
+    - azure_mediaservices_streaming_endpoints
+    typed_collector: false
+    mandatory: false
+  azure_mediaservices_streaming_locators:
+    arm_type: Microsoft.Mediaservices/streamingLocators
+    arm_type_source: heuristic
+    category: mediaservices
+    aliases: []
+    match_names:
+    - azure_mediaservices_streaming_locators
+    typed_collector: false
+    mandatory: false
+  azure_mediaservices_streaming_policies:
+    arm_type: Microsoft.Mediaservices/streamingPolicies
+    arm_type_source: heuristic
+    category: mediaservices
+    aliases: []
+    match_names:
+    - azure_mediaservices_streaming_policies
+    typed_collector: false
+    mandatory: false
+  azure_mediaservices_transforms:
+    arm_type: Microsoft.Mediaservices/transforms
+    arm_type_source: heuristic
+    category: mediaservices
+    aliases: []
+    match_names:
+    - azure_mediaservices_transforms
+    typed_collector: false
+    mandatory: false
+  azure_monitor_action_groups:
+    arm_type: Microsoft.Insights/actionGroups
+    arm_type_source: override
+    category: monitor
+    aliases: []
+    match_names:
+    - azure_monitor_action_groups
+    typed_collector: false
+    mandatory: false
+  azure_monitor_activity_log_alerts:
+    arm_type: Microsoft.Monitor/activityLogAlerts
+    arm_type_source: heuristic
+    category: monitor
+    aliases: []
+    match_names:
+    - azure_monitor_activity_log_alerts
+    typed_collector: false
+    mandatory: false
+  azure_monitor_autoscale_settings:
+    arm_type: Microsoft.Insights/autoscaleSettings
+    arm_type_source: override
+    category: monitor
+    aliases: []
+    match_names:
+    - azure_monitor_autoscale_settings
+    typed_collector: false
+    mandatory: false
+  azure_monitor_data_collection_rule_associations:
+    arm_type: Microsoft.Monitor/dataCollectionRuleAssociations
+    arm_type_source: heuristic
+    category: monitor
+    aliases: []
+    match_names:
+    - azure_monitor_data_collection_rule_associations
+    typed_collector: false
+    mandatory: false
+  azure_monitor_data_collection_rules:
+    arm_type: Microsoft.Monitor/dataCollectionRules
+    arm_type_source: heuristic
+    category: monitor
+    aliases: []
+    match_names:
+    - azure_monitor_data_collection_rules
+    typed_collector: false
+    mandatory: false
+  azure_monitor_diagnostic_settings:
+    arm_type: Microsoft.Insights/diagnosticSettings
+    arm_type_source: override
+    category: monitor
+    aliases: []
+    match_names:
+    - azure_monitor_diagnostic_settings
+    typed_collector: false
+    mandatory: false
+  azure_monitor_log_profiles:
+    arm_type: Microsoft.Monitor/logProfiles
+    arm_type_source: heuristic
+    category: monitor
+    aliases: []
+    match_names:
+    - azure_monitor_log_profiles
+    typed_collector: false
+    mandatory: false
+  azure_monitor_metric_alerts:
+    arm_type: Microsoft.Insights/metricAlerts
+    arm_type_source: override
+    category: monitor
+    aliases: []
+    match_names:
+    - azure_monitor_metric_alerts
+    typed_collector: false
+    mandatory: false
+  azure_monitor_metrics:
+    arm_type: Microsoft.Monitor/metrics
+    arm_type_source: heuristic
+    category: monitor
+    aliases: []
+    match_names:
+    - azure_monitor_metrics
+    typed_collector: false
+    mandatory: false
+  azure_monitor_private_link_scopes:
+    arm_type: Microsoft.Monitor/privateLinkScopes
+    arm_type_source: heuristic
+    category: monitor
+    aliases: []
+    match_names:
+    - azure_monitor_private_link_scopes
+    typed_collector: false
+    mandatory: false
+  azure_monitor_resources:
+    arm_type: Microsoft.Monitor/resources
+    arm_type_source: heuristic
+    category: monitor
+    aliases: []
+    match_names:
+    - azure_monitor_resources
+    typed_collector: false
+    mandatory: false
+  azure_monitor_scheduled_query_rules:
+    arm_type: Microsoft.Monitor/scheduledQueryRules
+    arm_type_source: heuristic
+    category: monitor
+    aliases: []
+    match_names:
+    - azure_monitor_scheduled_query_rules
+    typed_collector: false
+    mandatory: false
+  azure_monitor_subscription_diagnostic_settings:
+    arm_type: Microsoft.Monitor/subscriptionDiagnosticSettings
+    arm_type_source: heuristic
+    category: monitor
+    aliases: []
+    match_names:
+    - azure_monitor_subscription_diagnostic_settings
+    typed_collector: false
+    mandatory: false
+  azure_monitor_tenant_activity_log_alerts:
+    arm_type: Microsoft.Monitor/tenantActivityLogAlerts
+    arm_type_source: heuristic
+    category: monitor
+    aliases: []
+    match_names:
+    - azure_monitor_tenant_activity_log_alerts
+    typed_collector: false
+    mandatory: false
+  azure_monitor_tenant_activity_logs:
+    arm_type: Microsoft.Monitor/tenantActivityLogs
+    arm_type_source: heuristic
+    category: monitor
+    aliases: []
+    match_names:
+    - azure_monitor_tenant_activity_logs
+    typed_collector: false
+    mandatory: false
+  azure_mysql_server_configurations:
+    arm_type: Microsoft.DBforMySQL/serverConfigurations
+    arm_type_source: heuristic
+    category: mysql
+    aliases: []
+    match_names:
+    - azure_mysql_server_configurations
+    typed_collector: false
+    mandatory: false
+  azure_mysql_server_databases:
+    arm_type: Microsoft.DBforMySQL/serverDatabases
+    arm_type_source: heuristic
+    category: mysql
+    aliases: []
+    match_names:
+    - azure_mysql_server_databases
+    typed_collector: false
+    mandatory: false
+  azure_mysql_server_firewall_rules:
+    arm_type: Microsoft.DBforMySQL/serverFirewallRules
+    arm_type_source: heuristic
+    category: mysql
+    aliases: []
+    match_names:
+    - azure_mysql_server_firewall_rules
+    typed_collector: false
+    mandatory: false
+  azure_mysql_servers:
+    arm_type: Microsoft.DBforMySQL/servers
+    arm_type_source: override
+    category: mysql
+    aliases: []
+    match_names:
+    - azure_mysql_servers
+    typed_collector: true
+    mandatory: false
+  azure_mysqlflexibleservers_server_configurations:
+    arm_type: Microsoft.Mysqlflexibleservers/serverConfigurations
+    arm_type_source: heuristic
+    category: mysqlflexibleservers
+    aliases: []
+    match_names:
+    - azure_mysqlflexibleservers_server_configurations
+    typed_collector: false
+    mandatory: false
+  azure_mysqlflexibleservers_server_firewall_rules:
+    arm_type: Microsoft.Mysqlflexibleservers/serverFirewallRules
+    arm_type_source: heuristic
+    category: mysqlflexibleservers
+    aliases: []
+    match_names:
+    - azure_mysqlflexibleservers_server_firewall_rules
+    typed_collector: false
+    mandatory: false
+  azure_mysqlflexibleservers_servers:
+    arm_type: Microsoft.DBforMySQL/flexibleServers
+    arm_type_source: override
+    category: mysqlflexibleservers
+    aliases: []
+    match_names:
+    - azure_mysqlflexibleservers_servers
+    typed_collector: true
+    mandatory: false
+  azure_netappfiles_account_backup_policies:
+    arm_type: Microsoft.NetApp/accountBackupPolicies
+    arm_type_source: heuristic
+    category: netappfiles
+    aliases: []
+    match_names:
+    - azure_netappfiles_account_backup_policies
+    typed_collector: false
+    mandatory: false
+  azure_netappfiles_account_backup_vault_backups:
+    arm_type: Microsoft.NetApp/accountBackupVaultBackups
+    arm_type_source: heuristic
+    category: netappfiles
+    aliases: []
+    match_names:
+    - azure_netappfiles_account_backup_vault_backups
+    typed_collector: false
+    mandatory: false
+  azure_netappfiles_account_backup_vaults:
+    arm_type: Microsoft.NetApp/accountBackupVaults
+    arm_type_source: heuristic
+    category: netappfiles
+    aliases: []
+    match_names:
+    - azure_netappfiles_account_backup_vaults
+    typed_collector: false
+    mandatory: false
+  azure_netappfiles_account_pool_volume_quota_rules:
+    arm_type: Microsoft.NetApp/accountPoolVolumeQuotaRules
+    arm_type_source: heuristic
+    category: netappfiles
+    aliases: []
+    match_names:
+    - azure_netappfiles_account_pool_volume_quota_rules
+    typed_collector: false
+    mandatory: false
+  azure_netappfiles_account_pool_volume_snapshots:
+    arm_type: Microsoft.NetApp/accountPoolVolumeSnapshots
+    arm_type_source: heuristic
+    category: netappfiles
+    aliases: []
+    match_names:
+    - azure_netappfiles_account_pool_volume_snapshots
+    typed_collector: false
+    mandatory: false
+  azure_netappfiles_account_pool_volume_subvolumes:
+    arm_type: Microsoft.NetApp/accountPoolVolumeSubvolumes
+    arm_type_source: heuristic
+    category: netappfiles
+    aliases: []
+    match_names:
+    - azure_netappfiles_account_pool_volume_subvolumes
+    typed_collector: false
+    mandatory: false
+  azure_netappfiles_account_pool_volumes:
+    arm_type: Microsoft.NetApp/accountPoolVolumes
+    arm_type_source: heuristic
+    category: netappfiles
+    aliases: []
+    match_names:
+    - azure_netappfiles_account_pool_volumes
+    typed_collector: false
+    mandatory: false
+  azure_netappfiles_account_pools:
+    arm_type: Microsoft.NetApp/accountPools
+    arm_type_source: heuristic
+    category: netappfiles
+    aliases: []
+    match_names:
+    - azure_netappfiles_account_pools
+    typed_collector: false
+    mandatory: false
+  azure_netappfiles_account_snapshot_policies:
+    arm_type: Microsoft.NetApp/accountSnapshotPolicies
+    arm_type_source: heuristic
+    category: netappfiles
+    aliases: []
+    match_names:
+    - azure_netappfiles_account_snapshot_policies
+    typed_collector: false
+    mandatory: false
+  azure_netappfiles_account_snapshot_policy_associated_volumes:
+    arm_type: Microsoft.NetApp/accountSnapshotPolicyAssociatedVolumes
+    arm_type_source: heuristic
+    category: netappfiles
+    aliases: []
+    match_names:
+    - azure_netappfiles_account_snapshot_policy_associated_volumes
+    typed_collector: false
+    mandatory: false
+  azure_netappfiles_account_volume_groups:
+    arm_type: Microsoft.NetApp/accountVolumeGroups
+    arm_type_source: heuristic
+    category: netappfiles
+    aliases: []
+    match_names:
+    - azure_netappfiles_account_volume_groups
+    typed_collector: false
+    mandatory: false
+  azure_netappfiles_accounts:
+    arm_type: Microsoft.NetApp/accounts
+    arm_type_source: heuristic
+    category: netappfiles
+    aliases: []
+    match_names:
+    - azure_netappfiles_accounts
+    typed_collector: false
+    mandatory: false
+  azure_netappfiles_quota_limits:
+    arm_type: Microsoft.NetApp/quotaLimits
+    arm_type_source: heuristic
+    category: netappfiles
+    aliases: []
+    match_names:
+    - azure_netappfiles_quota_limits
+    typed_collector: false
+    mandatory: false
+  azure_netappfiles_region_infos:
+    arm_type: Microsoft.NetApp/regionInfos
+    arm_type_source: heuristic
+    category: netappfiles
+    aliases: []
+    match_names:
+    - azure_netappfiles_region_infos
+    typed_collector: false
+    mandatory: false
+  azure_network_application_gateways:
+    arm_type: Microsoft.Network/applicationGateways
+    arm_type_source: override
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_application_gateways
+    typed_collector: true
+    mandatory: false
+  azure_network_application_security_groups:
+    arm_type: Microsoft.Network/applicationSecurityGroups
+    arm_type_source: heuristic
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_application_security_groups
+    typed_collector: false
+    mandatory: false
+  azure_network_azure_firewall_fqdn_tags:
+    arm_type: Microsoft.Network/azureFirewallFqdnTags
+    arm_type_source: heuristic
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_azure_firewall_fqdn_tags
+    typed_collector: false
+    mandatory: false
+  azure_network_azure_firewalls:
+    arm_type: Microsoft.Network/azureFirewalls
+    arm_type_source: heuristic
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_azure_firewalls
+    typed_collector: false
+    mandatory: false
+  azure_network_bastion_hosts:
+    arm_type: Microsoft.Network/bastionHosts
+    arm_type_source: override
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_bastion_hosts
+    typed_collector: false
+    mandatory: false
+  azure_network_bgp_service_communities:
+    arm_type: Microsoft.Network/bgpServiceCommunities
+    arm_type_source: heuristic
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_bgp_service_communities
+    typed_collector: false
+    mandatory: false
+  azure_network_custom_ip_prefixes:
+    arm_type: Microsoft.Network/customIpPrefixes
+    arm_type_source: heuristic
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_custom_ip_prefixes
+    typed_collector: false
+    mandatory: false
+  azure_network_ddos_protection_plans:
+    arm_type: Microsoft.Network/ddosProtectionPlans
+    arm_type_source: override
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_ddos_protection_plans
+    typed_collector: false
+    mandatory: false
+  azure_network_dscp_configuration:
+    arm_type: Microsoft.Network/dscpConfiguration
+    arm_type_source: heuristic
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_dscp_configuration
+    typed_collector: false
+    mandatory: false
+  azure_network_express_route_circuit_authorizations:
+    arm_type: Microsoft.Network/expressRouteCircuitAuthorizations
+    arm_type_source: heuristic
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_express_route_circuit_authorizations
+    typed_collector: false
+    mandatory: false
+  azure_network_express_route_circuit_peerings:
+    arm_type: Microsoft.Network/expressRouteCircuitPeerings
+    arm_type_source: heuristic
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_express_route_circuit_peerings
+    typed_collector: false
+    mandatory: false
+  azure_network_express_route_circuits:
+    arm_type: Microsoft.Network/expressRouteCircuits
+    arm_type_source: override
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_express_route_circuits
+    typed_collector: false
+    mandatory: false
+  azure_network_express_route_gateways:
+    arm_type: Microsoft.Network/expressRouteGateways
+    arm_type_source: heuristic
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_express_route_gateways
+    typed_collector: false
+    mandatory: false
+  azure_network_express_route_ports:
+    arm_type: Microsoft.Network/expressRoutePorts
+    arm_type_source: heuristic
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_express_route_ports
+    typed_collector: false
+    mandatory: false
+  azure_network_express_route_ports_locations:
+    arm_type: Microsoft.Network/expressRoutePortsLocations
+    arm_type_source: heuristic
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_express_route_ports_locations
+    typed_collector: false
+    mandatory: false
+  azure_network_express_route_service_providers:
+    arm_type: Microsoft.Network/expressRouteServiceProviders
+    arm_type_source: heuristic
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_express_route_service_providers
+    typed_collector: false
+    mandatory: false
+  azure_network_firewall_policies:
+    arm_type: Microsoft.Network/firewallPolicies
+    arm_type_source: heuristic
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_firewall_policies
+    typed_collector: false
+    mandatory: false
+  azure_network_interface_effective_route_tables:
+    arm_type: Microsoft.Network/interfaceEffectiveRouteTables
+    arm_type_source: heuristic
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_interface_effective_route_tables
+    typed_collector: false
+    mandatory: false
+  azure_network_interface_ip_configurations:
+    arm_type: Microsoft.Network/interfaceIpConfigurations
+    arm_type_source: heuristic
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_interface_ip_configurations
+    typed_collector: false
+    mandatory: false
+  azure_network_interfaces:
+    arm_type: Microsoft.Network/interfaces
+    arm_type_source: heuristic
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_interfaces
+    typed_collector: false
+    mandatory: false
+  azure_network_ip_allocations:
+    arm_type: Microsoft.Network/ipAllocations
+    arm_type_source: heuristic
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_ip_allocations
+    typed_collector: false
+    mandatory: false
+  azure_network_ip_groups:
+    arm_type: Microsoft.Network/ipGroups
+    arm_type_source: heuristic
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_ip_groups
+    typed_collector: false
+    mandatory: false
+  azure_network_load_balancers:
+    arm_type: Microsoft.Network/loadBalancers
+    arm_type_source: override
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_load_balancers
+    typed_collector: true
+    mandatory: false
+  azure_network_nat_gateways:
+    arm_type: Microsoft.Network/natGateways
+    arm_type_source: override
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_nat_gateways
+    typed_collector: false
+    mandatory: false
+  azure_network_peering_route_tables:
+    arm_type: Microsoft.Network/peeringRouteTables
+    arm_type_source: heuristic
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_peering_route_tables
+    typed_collector: false
+    mandatory: false
+  azure_network_private_endpoints:
+    arm_type: Microsoft.Network/privateEndpoints
+    arm_type_source: override
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_private_endpoints
+    typed_collector: false
+    mandatory: false
+  azure_network_private_link_services:
+    arm_type: Microsoft.Network/privateLinkServices
+    arm_type_source: heuristic
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_private_link_services
+    typed_collector: false
+    mandatory: false
+  azure_network_profiles:
+    arm_type: Microsoft.Network/profiles
+    arm_type_source: heuristic
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_profiles
+    typed_collector: false
+    mandatory: false
+  azure_network_public_ip_addresses:
+    arm_type: Microsoft.Network/publicIPAddresses
+    arm_type_source: override
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_public_ip_addresses
+    typed_collector: false
+    mandatory: false
+  azure_network_public_ip_prefixes:
+    arm_type: Microsoft.Network/publicIpPrefixes
+    arm_type_source: heuristic
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_public_ip_prefixes
+    typed_collector: false
+    mandatory: false
+  azure_network_route_filters:
+    arm_type: Microsoft.Network/routeFilters
+    arm_type_source: heuristic
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_route_filters
+    typed_collector: false
+    mandatory: false
+  azure_network_route_tables:
+    arm_type: Microsoft.Network/routeTables
+    arm_type_source: override
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_route_tables
+    typed_collector: false
+    mandatory: false
+  azure_network_security_groups:
+    arm_type: Microsoft.Network/networkSecurityGroups
+    arm_type_source: override
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_security_groups
+    typed_collector: true
+    mandatory: false
+  azure_network_security_partner_providers:
+    arm_type: Microsoft.Network/securityPartnerProviders
+    arm_type_source: heuristic
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_security_partner_providers
+    typed_collector: false
+    mandatory: false
+  azure_network_service_endpoint_policies:
+    arm_type: Microsoft.Network/serviceEndpointPolicies
+    arm_type_source: heuristic
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_service_endpoint_policies
+    typed_collector: false
+    mandatory: false
+  azure_network_subscription_network_manager_connections:
+    arm_type: Microsoft.Network/subscriptionNetworkManagerConnections
+    arm_type_source: heuristic
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_subscription_network_manager_connections
+    typed_collector: false
+    mandatory: false
+  azure_network_virtual_appliances:
+    arm_type: Microsoft.Network/virtualAppliances
+    arm_type_source: heuristic
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_virtual_appliances
+    typed_collector: false
+    mandatory: false
+  azure_network_virtual_hubs:
+    arm_type: Microsoft.Network/virtualHubs
+    arm_type_source: override
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_virtual_hubs
+    typed_collector: false
+    mandatory: false
+  azure_network_virtual_network_gateway_connections:
+    arm_type: Microsoft.Network/virtualNetworkGatewayConnections
+    arm_type_source: heuristic
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_virtual_network_gateway_connections
+    typed_collector: false
+    mandatory: false
+  azure_network_virtual_network_gateways:
+    arm_type: Microsoft.Network/virtualNetworkGateways
+    arm_type_source: override
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_virtual_network_gateways
+    typed_collector: false
+    mandatory: false
+  azure_network_virtual_network_subnets:
+    arm_type: Microsoft.Network/virtualNetworkSubnets
+    arm_type_source: heuristic
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_virtual_network_subnets
+    typed_collector: false
+    mandatory: false
+  azure_network_virtual_network_taps:
+    arm_type: Microsoft.Network/virtualNetworkTaps
+    arm_type_source: heuristic
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_virtual_network_taps
+    typed_collector: false
+    mandatory: false
+  azure_network_virtual_networks:
+    arm_type: Microsoft.Network/virtualNetworks
+    arm_type_source: override
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_virtual_networks
+    typed_collector: true
+    mandatory: false
+  azure_network_virtual_routers:
+    arm_type: Microsoft.Network/virtualRouters
+    arm_type_source: heuristic
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_virtual_routers
+    typed_collector: false
+    mandatory: false
+  azure_network_virtual_wans:
+    arm_type: Microsoft.Network/virtualWans
+    arm_type_source: override
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_virtual_wans
+    typed_collector: false
+    mandatory: false
+  azure_network_vpn_gateways:
+    arm_type: Microsoft.Network/vpnGateways
+    arm_type_source: override
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_vpn_gateways
+    typed_collector: false
+    mandatory: false
+  azure_network_vpn_server_configurations:
+    arm_type: Microsoft.Network/vpnServerConfigurations
+    arm_type_source: heuristic
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_vpn_server_configurations
+    typed_collector: false
+    mandatory: false
+  azure_network_vpn_sites:
+    arm_type: Microsoft.Network/vpnSites
+    arm_type_source: heuristic
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_vpn_sites
+    typed_collector: false
+    mandatory: false
+  azure_network_watcher_flow_logs:
+    arm_type: Microsoft.Network/watcherFlowLogs
+    arm_type_source: heuristic
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_watcher_flow_logs
+    typed_collector: false
+    mandatory: false
+  azure_network_watchers:
+    arm_type: Microsoft.Network/networkWatchers
+    arm_type_source: override
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_watchers
+    typed_collector: false
+    mandatory: false
+  azure_network_web_application_firewall_policies:
+    arm_type: Microsoft.Network/webApplicationFirewallPolicies
+    arm_type_source: heuristic
+    category: network
+    aliases: []
+    match_names:
+    - azure_network_web_application_firewall_policies
+    typed_collector: false
+    mandatory: false
+  azure_networkfunction_azure_traffic_collectors_by_subscription:
+    arm_type: Microsoft.Networkfunction/azureTrafficCollectorsBySubscription
+    arm_type_source: heuristic
+    category: networkfunction
+    aliases: []
+    match_names:
+    - azure_networkfunction_azure_traffic_collectors_by_subscription
+    typed_collector: false
+    mandatory: false
+  azure_nginx_deployments:
+    arm_type: Microsoft.Nginx/deployments
+    arm_type_source: heuristic
+    category: nginx
+    aliases: []
+    match_names:
+    - azure_nginx_deployments
+    typed_collector: false
+    mandatory: false
+  azure_notificationhubs_namespaces:
+    arm_type: Microsoft.NotificationHubs/namespaces
+    arm_type_source: override
+    category: notificationhubs
+    aliases: []
+    match_names:
+    - azure_notificationhubs_namespaces
+    typed_collector: false
+    mandatory: false
+  azure_operationalinsights_clusters:
+    arm_type: Microsoft.OperationalInsights/clusters
+    arm_type_source: heuristic
+    category: operationalinsights
+    aliases: []
+    match_names:
+    - azure_operationalinsights_clusters
+    typed_collector: false
+    mandatory: false
+  azure_operationalinsights_workspaces:
+    arm_type: Microsoft.OperationalInsights/workspaces
+    arm_type_source: override
+    category: operationalinsights
+    aliases: []
+    match_names:
+    - azure_operationalinsights_workspaces
+    typed_collector: false
+    mandatory: false
+  azure_peering_service_countries:
+    arm_type: Microsoft.Peering/serviceCountries
+    arm_type_source: heuristic
+    category: peering
+    aliases: []
+    match_names:
+    - azure_peering_service_countries
+    typed_collector: false
+    mandatory: false
+  azure_peering_service_locations:
+    arm_type: Microsoft.Peering/serviceLocations
+    arm_type_source: heuristic
+    category: peering
+    aliases: []
+    match_names:
+    - azure_peering_service_locations
+    typed_collector: false
+    mandatory: false
+  azure_peering_service_providers:
+    arm_type: Microsoft.Peering/serviceProviders
+    arm_type_source: heuristic
+    category: peering
+    aliases: []
+    match_names:
+    - azure_peering_service_providers
+    typed_collector: false
+    mandatory: false
+  azure_policy_assignments:
+    arm_type: Microsoft.Policy/assignments
+    arm_type_source: heuristic
+    category: policy
+    aliases: []
+    match_names:
+    - azure_policy_assignments
+    typed_collector: false
+    mandatory: false
+  azure_policy_definition_versions:
+    arm_type: Microsoft.Policy/definitionVersions
+    arm_type_source: heuristic
+    category: policy
+    aliases: []
+    match_names:
+    - azure_policy_definition_versions
+    typed_collector: false
+    mandatory: false
+  azure_policy_definitions:
+    arm_type: Microsoft.Policy/definitions
+    arm_type_source: heuristic
+    category: policy
+    aliases: []
+    match_names:
+    - azure_policy_definitions
+    typed_collector: false
+    mandatory: false
+  azure_policy_set_definition_versions:
+    arm_type: Microsoft.Policy/setDefinitionVersions
+    arm_type_source: heuristic
+    category: policy
+    aliases: []
+    match_names:
+    - azure_policy_set_definition_versions
+    typed_collector: false
+    mandatory: false
+  azure_policy_set_definitions:
+    arm_type: Microsoft.Policy/setDefinitions
+    arm_type_source: heuristic
+    category: policy
+    aliases: []
+    match_names:
+    - azure_policy_set_definitions
+    typed_collector: false
+    mandatory: false
+  azure_policyinsights_attestations:
+    arm_type: Microsoft.PolicyInsights/attestations
+    arm_type_source: heuristic
+    category: policyinsights
+    aliases: []
+    match_names:
+    - azure_policyinsights_attestations
+    typed_collector: false
+    mandatory: false
+  azure_policyinsights_policy_events:
+    arm_type: Microsoft.PolicyInsights/policyEvents
+    arm_type_source: heuristic
+    category: policyinsights
+    aliases: []
+    match_names:
+    - azure_policyinsights_policy_events
+    typed_collector: false
+    mandatory: false
+  azure_policyinsights_policy_states:
+    arm_type: Microsoft.PolicyInsights/policyStates
+    arm_type_source: heuristic
+    category: policyinsights
+    aliases: []
+    match_names:
+    - azure_policyinsights_policy_states
+    typed_collector: false
+    mandatory: false
+  azure_policyinsights_policy_tracked_resources:
+    arm_type: Microsoft.PolicyInsights/policyTrackedResources
+    arm_type_source: heuristic
+    category: policyinsights
+    aliases: []
+    match_names:
+    - azure_policyinsights_policy_tracked_resources
+    typed_collector: false
+    mandatory: false
+  azure_portal_list_tenant_configuration_violations:
+    arm_type: Microsoft.Portal/listTenantConfigurationViolations
+    arm_type_source: heuristic
+    category: portal
+    aliases: []
+    match_names:
+    - azure_portal_list_tenant_configuration_violations
+    typed_collector: false
+    mandatory: false
+  azure_portal_tenant_configurations:
+    arm_type: Microsoft.Portal/tenantConfigurations
+    arm_type_source: heuristic
+    category: portal
+    aliases: []
+    match_names:
+    - azure_portal_tenant_configurations
+    typed_collector: false
+    mandatory: false
+  azure_postgresql_databases:
+    arm_type: Microsoft.DBforPostgreSQL/servers/databases
+    arm_type_source: override
+    category: postgresql
+    aliases: []
+    match_names:
+    - azure_postgresql_databases
+    typed_collector: true
+    mandatory: false
+  azure_postgresql_server_configurations:
+    arm_type: Microsoft.DBforPostgreSQL/serverConfigurations
+    arm_type_source: heuristic
+    category: postgresql
+    aliases: []
+    match_names:
+    - azure_postgresql_server_configurations
+    typed_collector: false
+    mandatory: false
+  azure_postgresql_server_firewall_rules:
+    arm_type: Microsoft.DBforPostgreSQL/serverFirewallRules
+    arm_type_source: heuristic
+    category: postgresql
+    aliases: []
+    match_names:
+    - azure_postgresql_server_firewall_rules
+    typed_collector: false
+    mandatory: false
+  azure_postgresql_servers:
+    arm_type: Microsoft.DBforPostgreSQL/servers
+    arm_type_source: override
+    category: postgresql
+    aliases: []
+    match_names:
+    - azure_postgresql_servers
+    typed_collector: false
+    mandatory: false
+  azure_postgresqlflexibleservers_server_configurations:
+    arm_type: Microsoft.Postgresqlflexibleservers/serverConfigurations
+    arm_type_source: heuristic
+    category: postgresqlflexibleservers
+    aliases: []
+    match_names:
+    - azure_postgresqlflexibleservers_server_configurations
+    typed_collector: false
+    mandatory: false
+  azure_postgresqlflexibleservers_server_firewall_rules:
+    arm_type: Microsoft.Postgresqlflexibleservers/serverFirewallRules
+    arm_type_source: heuristic
+    category: postgresqlflexibleservers
+    aliases: []
+    match_names:
+    - azure_postgresqlflexibleservers_server_firewall_rules
+    typed_collector: false
+    mandatory: false
+  azure_postgresqlflexibleservers_servers:
+    arm_type: Microsoft.Postgresqlflexibleservers/servers
+    arm_type_source: heuristic
+    category: postgresqlflexibleservers
+    aliases: []
+    match_names:
+    - azure_postgresqlflexibleservers_servers
+    typed_collector: false
+    mandatory: false
+  azure_postgresqlhsc_server_groups:
+    arm_type: Microsoft.Postgresqlhsc/serverGroups
+    arm_type_source: heuristic
+    category: postgresqlhsc
+    aliases: []
+    match_names:
+    - azure_postgresqlhsc_server_groups
+    typed_collector: false
+    mandatory: false
+  azure_powerbidedicated_capacities:
+    arm_type: Microsoft.PowerBIDedicated/capacities
+    arm_type_source: heuristic
+    category: powerbidedicated
+    aliases: []
+    match_names:
+    - azure_powerbidedicated_capacities
+    typed_collector: false
+    mandatory: false
+  azure_privatedns_private_zone_record_sets:
+    arm_type: Microsoft.Network/privateZoneRecordSets
+    arm_type_source: heuristic
+    category: privatedns
+    aliases: []
+    match_names:
+    - azure_privatedns_private_zone_record_sets
+    typed_collector: false
+    mandatory: false
+  azure_privatedns_private_zone_virtual_network_links:
+    arm_type: Microsoft.Network/privateZoneVirtualNetworkLinks
+    arm_type_source: heuristic
+    category: privatedns
+    aliases: []
+    match_names:
+    - azure_privatedns_private_zone_virtual_network_links
+    typed_collector: false
+    mandatory: false
+  azure_privatedns_private_zones:
+    arm_type: Microsoft.Network/privateZones
+    arm_type_source: heuristic
+    category: privatedns
+    aliases: []
+    match_names:
+    - azure_privatedns_private_zones
+    typed_collector: false
+    mandatory: false
+  azure_providerhub_provider_registrations:
+    arm_type: Microsoft.Providerhub/providerRegistrations
+    arm_type_source: heuristic
+    category: providerhub
+    aliases: []
+    match_names:
+    - azure_providerhub_provider_registrations
+    typed_collector: false
+    mandatory: false
+  azure_purview_account_keys:
+    arm_type: Microsoft.Purview/accountKeys
+    arm_type_source: heuristic
+    category: purview
+    aliases: []
+    match_names:
+    - azure_purview_account_keys
+    typed_collector: false
+    mandatory: false
+  azure_purview_account_private_endpoint_connections:
+    arm_type: Microsoft.Purview/accountPrivateEndpointConnections
+    arm_type_source: heuristic
+    category: purview
+    aliases: []
+    match_names:
+    - azure_purview_account_private_endpoint_connections
+    typed_collector: false
+    mandatory: false
+  azure_purview_account_private_link_resources:
+    arm_type: Microsoft.Purview/accountPrivateLinkResources
+    arm_type_source: heuristic
+    category: purview
+    aliases: []
+    match_names:
+    - azure_purview_account_private_link_resources
+    typed_collector: false
+    mandatory: false
+  azure_purview_accounts:
+    arm_type: Microsoft.Purview/accounts
+    arm_type_source: heuristic
+    category: purview
+    aliases: []
+    match_names:
+    - azure_purview_accounts
+    typed_collector: false
+    mandatory: false
+  azure_purview_operations:
+    arm_type: Microsoft.Purview/operations
+    arm_type_source: heuristic
+    category: purview
+    aliases: []
+    match_names:
+    - azure_purview_operations
+    typed_collector: false
+    mandatory: false
+  azure_quota_quotas:
+    arm_type: Microsoft.Quota/quotas
+    arm_type_source: heuristic
+    category: quota
+    aliases: []
+    match_names:
+    - azure_quota_quotas
+    typed_collector: false
+    mandatory: false
+  azure_quota_usages:
+    arm_type: Microsoft.Quota/usages
+    arm_type_source: heuristic
+    category: quota
+    aliases: []
+    match_names:
+    - azure_quota_usages
+    typed_collector: false
+    mandatory: false
+  azure_recoveryservices_backup_engines:
+    arm_type: Microsoft.RecoveryServices/backupEngines
+    arm_type_source: heuristic
+    category: recoveryservices
+    aliases: []
+    match_names:
+    - azure_recoveryservices_backup_engines
+    typed_collector: false
+    mandatory: false
+  azure_recoveryservices_backup_jobs:
+    arm_type: Microsoft.RecoveryServices/backupJobs
+    arm_type_source: heuristic
+    category: recoveryservices
+    aliases: []
+    match_names:
+    - azure_recoveryservices_backup_jobs
+    typed_collector: false
+    mandatory: false
+  azure_recoveryservices_backup_policies:
+    arm_type: Microsoft.RecoveryServices/backupPolicies
+    arm_type_source: heuristic
+    category: recoveryservices
+    aliases: []
+    match_names:
+    - azure_recoveryservices_backup_policies
+    typed_collector: false
+    mandatory: false
+  azure_recoveryservices_backup_protected_items:
+    arm_type: Microsoft.RecoveryServices/backupProtectedItems
+    arm_type_source: heuristic
+    category: recoveryservices
+    aliases: []
+    match_names:
+    - azure_recoveryservices_backup_protected_items
+    typed_collector: false
+    mandatory: false
+  azure_recoveryservices_backup_protection_containers:
+    arm_type: Microsoft.RecoveryServices/backupProtectionContainers
+    arm_type_source: heuristic
+    category: recoveryservices
+    aliases: []
+    match_names:
+    - azure_recoveryservices_backup_protection_containers
+    typed_collector: false
+    mandatory: false
+  azure_recoveryservices_backup_protection_intents:
+    arm_type: Microsoft.RecoveryServices/backupProtectionIntents
+    arm_type_source: heuristic
+    category: recoveryservices
+    aliases: []
+    match_names:
+    - azure_recoveryservices_backup_protection_intents
+    typed_collector: false
+    mandatory: false
+  azure_recoveryservices_backup_usage_summaries:
+    arm_type: Microsoft.RecoveryServices/backupUsageSummaries
+    arm_type_source: heuristic
+    category: recoveryservices
+    aliases: []
+    match_names:
+    - azure_recoveryservices_backup_usage_summaries
+    typed_collector: false
+    mandatory: false
+  azure_recoveryservices_deleted_protection_containers:
+    arm_type: Microsoft.RecoveryServices/deletedProtectionContainers
+    arm_type_source: heuristic
+    category: recoveryservices
+    aliases: []
+    match_names:
+    - azure_recoveryservices_deleted_protection_containers
+    typed_collector: false
+    mandatory: false
+  azure_recoveryservices_operations:
+    arm_type: Microsoft.RecoveryServices/operations
+    arm_type_source: heuristic
+    category: recoveryservices
+    aliases: []
+    match_names:
+    - azure_recoveryservices_operations
+    typed_collector: false
+    mandatory: false
+  azure_recoveryservices_private_link_resources:
+    arm_type: Microsoft.RecoveryServices/privateLinkResources
+    arm_type_source: heuristic
+    category: recoveryservices
+    aliases: []
+    match_names:
+    - azure_recoveryservices_private_link_resources
+    typed_collector: false
+    mandatory: false
+  azure_recoveryservices_replication_alert_settings:
+    arm_type: Microsoft.RecoveryServices/replicationAlertSettings
+    arm_type_source: heuristic
+    category: recoveryservices
+    aliases: []
+    match_names:
+    - azure_recoveryservices_replication_alert_settings
+    typed_collector: false
+    mandatory: false
+  azure_recoveryservices_replication_events:
+    arm_type: Microsoft.RecoveryServices/replicationEvents
+    arm_type_source: heuristic
+    category: recoveryservices
+    aliases: []
+    match_names:
+    - azure_recoveryservices_replication_events
+    typed_collector: false
+    mandatory: false
+  azure_recoveryservices_replication_fabrics:
+    arm_type: Microsoft.RecoveryServices/replicationFabrics
+    arm_type_source: heuristic
+    category: recoveryservices
+    aliases: []
+    match_names:
+    - azure_recoveryservices_replication_fabrics
+    typed_collector: false
+    mandatory: false
+  azure_recoveryservices_replication_jobs:
+    arm_type: Microsoft.RecoveryServices/replicationJobs
+    arm_type_source: heuristic
+    category: recoveryservices
+    aliases: []
+    match_names:
+    - azure_recoveryservices_replication_jobs
+    typed_collector: false
+    mandatory: false
+  azure_recoveryservices_replication_logical_networks:
+    arm_type: Microsoft.RecoveryServices/replicationLogicalNetworks
+    arm_type_source: heuristic
+    category: recoveryservices
+    aliases: []
+    match_names:
+    - azure_recoveryservices_replication_logical_networks
+    typed_collector: false
+    mandatory: false
+  azure_recoveryservices_replication_migration_items:
+    arm_type: Microsoft.RecoveryServices/replicationMigrationItems
+    arm_type_source: heuristic
+    category: recoveryservices
+    aliases: []
+    match_names:
+    - azure_recoveryservices_replication_migration_items
+    typed_collector: false
+    mandatory: false
+  azure_recoveryservices_replication_network_mappings:
+    arm_type: Microsoft.RecoveryServices/replicationNetworkMappings
+    arm_type_source: heuristic
+    category: recoveryservices
+    aliases: []
+    match_names:
+    - azure_recoveryservices_replication_network_mappings
+    typed_collector: false
+    mandatory: false
+  azure_recoveryservices_replication_networks:
+    arm_type: Microsoft.RecoveryServices/replicationNetworks
+    arm_type_source: heuristic
+    category: recoveryservices
+    aliases: []
+    match_names:
+    - azure_recoveryservices_replication_networks
+    typed_collector: false
+    mandatory: false
+  azure_recoveryservices_replication_policies:
+    arm_type: Microsoft.RecoveryServices/replicationPolicies
+    arm_type_source: heuristic
+    category: recoveryservices
+    aliases: []
+    match_names:
+    - azure_recoveryservices_replication_policies
+    typed_collector: false
+    mandatory: false
+  azure_recoveryservices_replication_protectable_items:
+    arm_type: Microsoft.RecoveryServices/replicationProtectableItems
+    arm_type_source: heuristic
+    category: recoveryservices
+    aliases: []
+    match_names:
+    - azure_recoveryservices_replication_protectable_items
+    typed_collector: false
+    mandatory: false
+  azure_recoveryservices_replication_protected_items:
+    arm_type: Microsoft.RecoveryServices/replicationProtectedItems
+    arm_type_source: heuristic
+    category: recoveryservices
+    aliases: []
+    match_names:
+    - azure_recoveryservices_replication_protected_items
+    typed_collector: false
+    mandatory: false
+  azure_recoveryservices_replication_protection_containers:
+    arm_type: Microsoft.RecoveryServices/replicationProtectionContainers
+    arm_type_source: heuristic
+    category: recoveryservices
+    aliases: []
+    match_names:
+    - azure_recoveryservices_replication_protection_containers
+    typed_collector: false
+    mandatory: false
+  azure_recoveryservices_replication_protection_ctnr_mappings:
+    arm_type: Microsoft.RecoveryServices/replicationProtectionCtnrMappings
+    arm_type_source: heuristic
+    category: recoveryservices
+    aliases: []
+    match_names:
+    - azure_recoveryservices_replication_protection_ctnr_mappings
+    typed_collector: false
+    mandatory: false
+  azure_recoveryservices_replication_protection_intents:
+    arm_type: Microsoft.RecoveryServices/replicationProtectionIntents
+    arm_type_source: heuristic
+    category: recoveryservices
+    aliases: []
+    match_names:
+    - azure_recoveryservices_replication_protection_intents
+    typed_collector: false
+    mandatory: false
+  azure_recoveryservices_replication_recovery_plans:
+    arm_type: Microsoft.RecoveryServices/replicationRecoveryPlans
+    arm_type_source: heuristic
+    category: recoveryservices
+    aliases: []
+    match_names:
+    - azure_recoveryservices_replication_recovery_plans
+    typed_collector: false
+    mandatory: false
+  azure_recoveryservices_replication_recovery_service_providers:
+    arm_type: Microsoft.RecoveryServices/replicationRecoveryServiceProviders
+    arm_type_source: heuristic
+    category: recoveryservices
+    aliases: []
+    match_names:
+    - azure_recoveryservices_replication_recovery_service_providers
+    typed_collector: false
+    mandatory: false
+  azure_recoveryservices_replication_storage_classif_mappings:
+    arm_type: Microsoft.RecoveryServices/replicationStorageClassifMappings
+    arm_type_source: heuristic
+    category: recoveryservices
+    aliases: []
+    match_names:
+    - azure_recoveryservices_replication_storage_classif_mappings
+    typed_collector: false
+    mandatory: false
+  azure_recoveryservices_replication_storage_classifications:
+    arm_type: Microsoft.RecoveryServices/replicationStorageClassifications
+    arm_type_source: heuristic
+    category: recoveryservices
+    aliases: []
+    match_names:
+    - azure_recoveryservices_replication_storage_classifications
+    typed_collector: false
+    mandatory: false
+  azure_recoveryservices_replication_vault_settings:
+    arm_type: Microsoft.RecoveryServices/replicationVaultSettings
+    arm_type_source: heuristic
+    category: recoveryservices
+    aliases: []
+    match_names:
+    - azure_recoveryservices_replication_vault_settings
+    typed_collector: false
+    mandatory: false
+  azure_recoveryservices_replication_vcenters:
+    arm_type: Microsoft.RecoveryServices/replicationVcenters
+    arm_type_source: heuristic
+    category: recoveryservices
+    aliases: []
+    match_names:
+    - azure_recoveryservices_replication_vcenters
+    typed_collector: false
+    mandatory: false
+  azure_recoveryservices_vault_replication_usages:
+    arm_type: Microsoft.RecoveryServices/vaultReplicationUsages
+    arm_type_source: heuristic
+    category: recoveryservices
+    aliases: []
+    match_names:
+    - azure_recoveryservices_vault_replication_usages
+    typed_collector: false
+    mandatory: false
+  azure_recoveryservices_vault_usages:
+    arm_type: Microsoft.RecoveryServices/vaultUsages
+    arm_type_source: heuristic
+    category: recoveryservices
+    aliases: []
+    match_names:
+    - azure_recoveryservices_vault_usages
+    typed_collector: false
+    mandatory: false
+  azure_recoveryservices_vaults:
+    arm_type: Microsoft.RecoveryServices/vaults
+    arm_type_source: override
+    category: recoveryservices
+    aliases: []
+    match_names:
+    - azure_recoveryservices_vaults
+    typed_collector: false
+    mandatory: false
+  azure_redhatopenshift_open_shift_clusters:
+    arm_type: Microsoft.RedHatOpenShift/openShiftClusters
+    arm_type_source: heuristic
+    category: redhatopenshift
+    aliases: []
+    match_names:
+    - azure_redhatopenshift_open_shift_clusters
+    typed_collector: false
+    mandatory: false
+  azure_redis_caches:
+    arm_type: Microsoft.Cache/Redis
+    arm_type_source: override
+    category: redis
+    aliases: []
+    match_names:
+    - azure_redis_caches
+    typed_collector: true
+    mandatory: false
+  azure_redis_firewall_rules:
+    arm_type: Microsoft.Redis/firewallRules
+    arm_type_source: heuristic
+    category: redis
+    aliases: []
+    match_names:
+    - azure_redis_firewall_rules
+    typed_collector: false
+    mandatory: false
+  azure_redis_patch_schedules:
+    arm_type: Microsoft.Redis/patchSchedules
+    arm_type_source: heuristic
+    category: redis
+    aliases: []
+    match_names:
+    - azure_redis_patch_schedules
+    typed_collector: false
+    mandatory: false
+  azure_relay_namespaces:
+    arm_type: Microsoft.Relay/namespaces
+    arm_type_source: heuristic
+    category: relay
+    aliases: []
+    match_names:
+    - azure_relay_namespaces
+    typed_collector: false
+    mandatory: false
+  azure_reservations_reservation:
+    arm_type: Microsoft.Capacity/reservation
+    arm_type_source: heuristic
+    category: reservations
+    aliases: []
+    match_names:
+    - azure_reservations_reservation
+    typed_collector: false
+    mandatory: false
+  azure_reservations_reservation_order:
+    arm_type: Microsoft.Capacity/reservationOrder
+    arm_type_source: heuristic
+    category: reservations
+    aliases: []
+    match_names:
+    - azure_reservations_reservation_order
+    typed_collector: false
+    mandatory: false
+  azure_resourcehealth_availability_statuses:
+    arm_type: Microsoft.ResourceHealth/availabilityStatuses
+    arm_type_source: heuristic
+    category: resourcehealth
+    aliases: []
+    match_names:
+    - azure_resourcehealth_availability_statuses
+    typed_collector: false
+    mandatory: false
+  azure_resourcehealth_emerging_issues:
+    arm_type: Microsoft.ResourceHealth/emergingIssues
+    arm_type_source: heuristic
+    category: resourcehealth
+    aliases: []
+    match_names:
+    - azure_resourcehealth_emerging_issues
+    typed_collector: false
+    mandatory: false
+  azure_resourcehealth_event_impacted_resources:
+    arm_type: Microsoft.ResourceHealth/eventImpactedResources
+    arm_type_source: heuristic
+    category: resourcehealth
+    aliases: []
+    match_names:
+    - azure_resourcehealth_event_impacted_resources
+    typed_collector: false
+    mandatory: false
+  azure_resourcehealth_events:
+    arm_type: Microsoft.ResourceHealth/events
+    arm_type_source: heuristic
+    category: resourcehealth
+    aliases: []
+    match_names:
+    - azure_resourcehealth_events
+    typed_collector: false
+    mandatory: false
+  azure_resourcehealth_security_advisory_impacted_resources:
+    arm_type: Microsoft.ResourceHealth/securityAdvisoryImpactedResources
+    arm_type_source: heuristic
+    category: resourcehealth
+    aliases: []
+    match_names:
+    - azure_resourcehealth_security_advisory_impacted_resources
+    typed_collector: false
+    mandatory: false
+  azure_resources_links:
+    arm_type: Microsoft.Resources/links
+    arm_type_source: override
+    category: resources
+    aliases: []
+    match_names:
+    - azure_resources_links
+    typed_collector: false
+    mandatory: false
+  azure_resources_providers:
+    arm_type: Microsoft.Resources/providers
+    arm_type_source: override
+    category: resources
+    aliases: []
+    match_names:
+    - azure_resources_providers
+    typed_collector: false
+    mandatory: false
+  azure_resources_resource_groups:
+    arm_type: Microsoft.Resources/resourceGroups
+    arm_type_source: override
+    category: resources
+    aliases:
+    - resource_group
+    match_names:
+    - azure_resources_resource_groups
+    - resource_group
+    typed_collector: true
+    mandatory: true
+  azure_resources_resources:
+    arm_type: null
+    arm_type_source: override
+    category: resources
+    aliases: []
+    match_names:
+    - azure_resources_resources
+    typed_collector: false
+    mandatory: false
+  azure_role_management_policy_assignments:
+    arm_type: Microsoft.Role/managementPolicyAssignments
+    arm_type_source: heuristic
+    category: role
+    aliases: []
+    match_names:
+    - azure_role_management_policy_assignments
+    typed_collector: false
+    mandatory: false
+  azure_saas_resources:
+    arm_type: Microsoft.Saas/resources
+    arm_type_source: heuristic
+    category: saas
+    aliases: []
+    match_names:
+    - azure_saas_resources
+    typed_collector: false
+    mandatory: false
+  azure_search_services:
+    arm_type: Microsoft.Search/searchServices
+    arm_type_source: override
+    category: search
+    aliases: []
+    match_names:
+    - azure_search_services
+    typed_collector: false
+    mandatory: false
+  azure_security_adaptive_application_controls:
+    arm_type: Microsoft.Security/adaptiveApplicationControls
+    arm_type_source: heuristic
+    category: security
+    aliases: []
+    match_names:
+    - azure_security_adaptive_application_controls
+    typed_collector: false
+    mandatory: false
+  azure_security_alerts:
+    arm_type: Microsoft.Security/alerts
+    arm_type_source: heuristic
+    category: security
+    aliases: []
+    match_names:
+    - azure_security_alerts
+    typed_collector: false
+    mandatory: false
+  azure_security_alerts_suppression_rules:
+    arm_type: Microsoft.Security/alertsSuppressionRules
+    arm_type_source: heuristic
+    category: security
+    aliases: []
+    match_names:
+    - azure_security_alerts_suppression_rules
+    typed_collector: false
+    mandatory: false
+  azure_security_allowed_connections:
+    arm_type: Microsoft.Security/allowedConnections
+    arm_type_source: heuristic
+    category: security
+    aliases: []
+    match_names:
+    - azure_security_allowed_connections
+    typed_collector: false
+    mandatory: false
+  azure_security_applications:
+    arm_type: Microsoft.Security/applications
+    arm_type_source: heuristic
+    category: security
+    aliases: []
+    match_names:
+    - azure_security_applications
+    typed_collector: false
+    mandatory: false
+  azure_security_assessments:
+    arm_type: Microsoft.Security/assessments
+    arm_type_source: heuristic
+    category: security
+    aliases: []
+    match_names:
+    - azure_security_assessments
+    typed_collector: false
+    mandatory: false
+  azure_security_assessments_metadata:
+    arm_type: Microsoft.Security/assessmentsMetadata
+    arm_type_source: heuristic
+    category: security
+    aliases: []
+    match_names:
+    - azure_security_assessments_metadata
+    typed_collector: false
+    mandatory: false
+  azure_security_auto_provisioning_settings:
+    arm_type: Microsoft.Security/autoProvisioningSettings
+    arm_type_source: heuristic
+    category: security
+    aliases: []
+    match_names:
+    - azure_security_auto_provisioning_settings
+    typed_collector: false
+    mandatory: false
+  azure_security_automations:
+    arm_type: Microsoft.Security/automations
+    arm_type_source: heuristic
+    category: security
+    aliases: []
+    match_names:
+    - azure_security_automations
+    typed_collector: false
+    mandatory: false
+  azure_security_connectors:
+    arm_type: Microsoft.Security/connectors
+    arm_type_source: heuristic
+    category: security
+    aliases: []
+    match_names:
+    - azure_security_connectors
+    typed_collector: false
+    mandatory: false
+  azure_security_contacts:
+    arm_type: Microsoft.Security/contacts
+    arm_type_source: heuristic
+    category: security
+    aliases: []
+    match_names:
+    - azure_security_contacts
+    typed_collector: false
+    mandatory: false
+  azure_security_container_registry_vulnerability_details:
+    arm_type: Microsoft.Security/containerRegistryVulnerabilityDetails
+    arm_type_source: heuristic
+    category: security
+    aliases: []
+    match_names:
+    - azure_security_container_registry_vulnerability_details
+    typed_collector: false
+    mandatory: false
+  azure_security_discovered_security_solutions:
+    arm_type: Microsoft.Security/discoveredSecuritySolutions
+    arm_type_source: heuristic
+    category: security
+    aliases: []
+    match_names:
+    - azure_security_discovered_security_solutions
+    typed_collector: false
+    mandatory: false
+  azure_security_external_security_solutions:
+    arm_type: Microsoft.Security/externalSecuritySolutions
+    arm_type_source: heuristic
+    category: security
+    aliases: []
+    match_names:
+    - azure_security_external_security_solutions
+    typed_collector: false
+    mandatory: false
+  azure_security_governance_rule:
+    arm_type: Microsoft.Security/governanceRule
+    arm_type_source: heuristic
+    category: security
+    aliases: []
+    match_names:
+    - azure_security_governance_rule
+    typed_collector: false
+    mandatory: false
+  azure_security_jit_network_access_policies:
+    arm_type: Microsoft.Security/jitNetworkAccessPolicies
+    arm_type_source: heuristic
+    category: security
+    aliases: []
+    match_names:
+    - azure_security_jit_network_access_policies
+    typed_collector: false
+    mandatory: false
+  azure_security_locations:
+    arm_type: Microsoft.Security/locations
+    arm_type_source: heuristic
+    category: security
+    aliases: []
+    match_names:
+    - azure_security_locations
+    typed_collector: false
+    mandatory: false
+  azure_security_pricings:
+    arm_type: Microsoft.Security/pricings
+    arm_type_source: heuristic
+    category: security
+    aliases: []
+    match_names:
+    - azure_security_pricings
+    typed_collector: false
+    mandatory: false
+  azure_security_regulatory_compliance_assessments:
+    arm_type: Microsoft.Security/regulatoryComplianceAssessments
+    arm_type_source: heuristic
+    category: security
+    aliases: []
+    match_names:
+    - azure_security_regulatory_compliance_assessments
+    typed_collector: false
+    mandatory: false
+  azure_security_regulatory_compliance_controls:
+    arm_type: Microsoft.Security/regulatoryComplianceControls
+    arm_type_source: heuristic
+    category: security
+    aliases: []
+    match_names:
+    - azure_security_regulatory_compliance_controls
+    typed_collector: false
+    mandatory: false
+  azure_security_regulatory_compliance_standards:
+    arm_type: Microsoft.Security/regulatoryComplianceStandards
+    arm_type_source: heuristic
+    category: security
+    aliases: []
+    match_names:
+    - azure_security_regulatory_compliance_standards
+    typed_collector: false
+    mandatory: false
+  azure_security_secure_score_control_definitions:
+    arm_type: Microsoft.Security/secureScoreControlDefinitions
+    arm_type_source: heuristic
+    category: security
+    aliases: []
+    match_names:
+    - azure_security_secure_score_control_definitions
+    typed_collector: false
+    mandatory: false
+  azure_security_secure_score_controls:
+    arm_type: Microsoft.Security/secureScoreControls
+    arm_type_source: heuristic
+    category: security
+    aliases: []
+    match_names:
+    - azure_security_secure_score_controls
+    typed_collector: false
+    mandatory: false
+  azure_security_secure_scores:
+    arm_type: Microsoft.Security/secureScores
+    arm_type_source: heuristic
+    category: security
+    aliases: []
+    match_names:
+    - azure_security_secure_scores
+    typed_collector: false
+    mandatory: false
+  azure_security_server_vulnerability_details:
+    arm_type: Microsoft.Security/serverVulnerabilityDetails
+    arm_type_source: heuristic
+    category: security
+    aliases: []
+    match_names:
+    - azure_security_server_vulnerability_details
+    typed_collector: false
+    mandatory: false
+  azure_security_settings:
+    arm_type: Microsoft.Security/settings
+    arm_type_source: heuristic
+    category: security
+    aliases: []
+    match_names:
+    - azure_security_settings
+    typed_collector: false
+    mandatory: false
+  azure_security_solutions:
+    arm_type: Microsoft.Security/solutions
+    arm_type_source: heuristic
+    category: security
+    aliases: []
+    match_names:
+    - azure_security_solutions
+    typed_collector: false
+    mandatory: false
+  azure_security_sql_server_vulnerability_details:
+    arm_type: Microsoft.Security/sqlServerVulnerabilityDetails
+    arm_type_source: heuristic
+    category: security
+    aliases: []
+    match_names:
+    - azure_security_sql_server_vulnerability_details
+    typed_collector: false
+    mandatory: false
+  azure_security_sub_assessment_azure_resource_details:
+    arm_type: Microsoft.Security/subAssessmentAzureResourceDetails
+    arm_type_source: heuristic
+    category: security
+    aliases: []
+    match_names:
+    - azure_security_sub_assessment_azure_resource_details
+    typed_collector: false
+    mandatory: false
+  azure_security_sub_assessment_on_premise_resource_details:
+    arm_type: Microsoft.Security/subAssessmentOnPremiseResourceDetails
+    arm_type_source: heuristic
+    category: security
+    aliases: []
+    match_names:
+    - azure_security_sub_assessment_on_premise_resource_details
+    typed_collector: false
+    mandatory: false
+  azure_security_sub_assessment_on_premise_sql_resource_details:
+    arm_type: Microsoft.Security/subAssessmentOnPremiseSqlResourceDetails
+    arm_type_source: heuristic
+    category: security
+    aliases: []
+    match_names:
+    - azure_security_sub_assessment_on_premise_sql_resource_details
+    typed_collector: false
+    mandatory: false
+  azure_security_sub_assessments:
+    arm_type: Microsoft.Security/subAssessments
+    arm_type_source: heuristic
+    category: security
+    aliases: []
+    match_names:
+    - azure_security_sub_assessments
+    typed_collector: false
+    mandatory: false
+  azure_security_tasks:
+    arm_type: Microsoft.Security/tasks
+    arm_type_source: heuristic
+    category: security
+    aliases: []
+    match_names:
+    - azure_security_tasks
+    typed_collector: false
+    mandatory: false
+  azure_security_topology:
+    arm_type: Microsoft.Security/topology
+    arm_type_source: heuristic
+    category: security
+    aliases: []
+    match_names:
+    - azure_security_topology
+    typed_collector: false
+    mandatory: false
+  azure_security_workspace_settings:
+    arm_type: Microsoft.Security/workspaceSettings
+    arm_type_source: heuristic
+    category: security
+    aliases: []
+    match_names:
+    - azure_security_workspace_settings
+    typed_collector: false
+    mandatory: false
+  azure_servicebus_namespace_topic_authorization_rules:
+    arm_type: Microsoft.ServiceBus/namespaceTopicAuthorizationRules
+    arm_type_source: heuristic
+    category: servicebus
+    aliases: []
+    match_names:
+    - azure_servicebus_namespace_topic_authorization_rules
+    typed_collector: false
+    mandatory: false
+  azure_servicebus_namespace_topic_rule_access_keys:
+    arm_type: Microsoft.ServiceBus/namespaceTopicRuleAccessKeys
+    arm_type_source: heuristic
+    category: servicebus
+    aliases: []
+    match_names:
+    - azure_servicebus_namespace_topic_rule_access_keys
+    typed_collector: false
+    mandatory: false
+  azure_servicebus_namespace_topics:
+    arm_type: Microsoft.ServiceBus/namespaceTopics
+    arm_type_source: heuristic
+    category: servicebus
+    aliases: []
+    match_names:
+    - azure_servicebus_namespace_topics
+    typed_collector: false
+    mandatory: false
+  azure_servicebus_namespaces:
+    arm_type: Microsoft.ServiceBus/namespaces
+    arm_type_source: override
+    category: servicebus
+    aliases: []
+    match_names:
+    - azure_servicebus_namespaces
+    typed_collector: true
+    mandatory: false
+  azure_servicefabric_cluster_application_services:
+    arm_type: Microsoft.ServiceFabric/clusterApplicationServices
+    arm_type_source: heuristic
+    category: servicefabric
+    aliases: []
+    match_names:
+    - azure_servicefabric_cluster_application_services
+    typed_collector: false
+    mandatory: false
+  azure_servicefabric_cluster_application_types:
+    arm_type: Microsoft.ServiceFabric/clusterApplicationTypes
+    arm_type_source: heuristic
+    category: servicefabric
+    aliases: []
+    match_names:
+    - azure_servicefabric_cluster_application_types
+    typed_collector: false
+    mandatory: false
+  azure_servicefabric_cluster_applications:
+    arm_type: Microsoft.ServiceFabric/clusterApplications
+    arm_type_source: heuristic
+    category: servicefabric
+    aliases: []
+    match_names:
+    - azure_servicefabric_cluster_applications
+    typed_collector: false
+    mandatory: false
+  azure_servicefabric_clusters:
+    arm_type: Microsoft.ServiceFabric/clusters
+    arm_type_source: heuristic
+    category: servicefabric
+    aliases: []
+    match_names:
+    - azure_servicefabric_clusters
+    typed_collector: false
+    mandatory: false
+  azure_servicefabricmanaged_cluster_application_services:
+    arm_type: Microsoft.Servicefabricmanaged/clusterApplicationServices
+    arm_type_source: heuristic
+    category: servicefabricmanaged
+    aliases: []
+    match_names:
+    - azure_servicefabricmanaged_cluster_application_services
+    typed_collector: false
+    mandatory: false
+  azure_servicefabricmanaged_cluster_application_types:
+    arm_type: Microsoft.Servicefabricmanaged/clusterApplicationTypes
+    arm_type_source: heuristic
+    category: servicefabricmanaged
+    aliases: []
+    match_names:
+    - azure_servicefabricmanaged_cluster_application_types
+    typed_collector: false
+    mandatory: false
+  azure_servicefabricmanaged_cluster_applications:
+    arm_type: Microsoft.Servicefabricmanaged/clusterApplications
+    arm_type_source: heuristic
+    category: servicefabricmanaged
+    aliases: []
+    match_names:
+    - azure_servicefabricmanaged_cluster_applications
+    typed_collector: false
+    mandatory: false
+  azure_servicefabricmanaged_cluster_node_type_skus:
+    arm_type: Microsoft.Servicefabricmanaged/clusterNodeTypeSkus
+    arm_type_source: heuristic
+    category: servicefabricmanaged
+    aliases: []
+    match_names:
+    - azure_servicefabricmanaged_cluster_node_type_skus
+    typed_collector: false
+    mandatory: false
+  azure_servicefabricmanaged_cluster_node_types:
+    arm_type: Microsoft.Servicefabricmanaged/clusterNodeTypes
+    arm_type_source: heuristic
+    category: servicefabricmanaged
+    aliases: []
+    match_names:
+    - azure_servicefabricmanaged_cluster_node_types
+    typed_collector: false
+    mandatory: false
+  azure_servicefabricmanaged_clusters:
+    arm_type: Microsoft.Servicefabricmanaged/clusters
+    arm_type_source: heuristic
+    category: servicefabricmanaged
+    aliases: []
+    match_names:
+    - azure_servicefabricmanaged_clusters
+    typed_collector: false
+    mandatory: false
+  azure_sql_instance_pools:
+    arm_type: Microsoft.Sql/instancePools
+    arm_type_source: heuristic
+    category: sql
+    aliases: []
+    match_names:
+    - azure_sql_instance_pools
+    typed_collector: false
+    mandatory: false
+  azure_sql_managed_instance_encryption_protectors:
+    arm_type: Microsoft.Sql/managedInstanceEncryptionProtectors
+    arm_type_source: heuristic
+    category: sql
+    aliases: []
+    match_names:
+    - azure_sql_managed_instance_encryption_protectors
+    typed_collector: false
+    mandatory: false
+  azure_sql_managed_instance_vulnerability_assessments:
+    arm_type: Microsoft.Sql/managedInstanceVulnerabilityAssessments
+    arm_type_source: heuristic
+    category: sql
+    aliases: []
+    match_names:
+    - azure_sql_managed_instance_vulnerability_assessments
+    typed_collector: false
+    mandatory: false
+  azure_sql_managed_instances:
+    arm_type: Microsoft.Sql/managedInstances
+    arm_type_source: override
+    category: sql
+    aliases: []
+    match_names:
+    - azure_sql_managed_instances
+    typed_collector: false
+    mandatory: false
+  azure_sql_server_admins:
+    arm_type: Microsoft.Sql/serverAdmins
+    arm_type_source: heuristic
+    category: sql
+    aliases: []
+    match_names:
+    - azure_sql_server_admins
+    typed_collector: false
+    mandatory: false
+  azure_sql_server_advanced_threat_protection_settings:
+    arm_type: Microsoft.Sql/serverAdvancedThreatProtectionSettings
+    arm_type_source: heuristic
+    category: sql
+    aliases: []
+    match_names:
+    - azure_sql_server_advanced_threat_protection_settings
+    typed_collector: false
+    mandatory: false
+  azure_sql_server_blob_auditing_policies:
+    arm_type: Microsoft.Sql/serverBlobAuditingPolicies
+    arm_type_source: heuristic
+    category: sql
+    aliases: []
+    match_names:
+    - azure_sql_server_blob_auditing_policies
+    typed_collector: false
+    mandatory: false
+  azure_sql_server_database_blob_auditing_policies:
+    arm_type: Microsoft.Sql/serverDatabaseBlobAuditingPolicies
+    arm_type_source: heuristic
+    category: sql
+    aliases: []
+    match_names:
+    - azure_sql_server_database_blob_auditing_policies
+    typed_collector: false
+    mandatory: false
+  azure_sql_server_database_long_term_retention_policies:
+    arm_type: Microsoft.Sql/serverDatabaseLongTermRetentionPolicies
+    arm_type_source: heuristic
+    category: sql
+    aliases: []
+    match_names:
+    - azure_sql_server_database_long_term_retention_policies
+    typed_collector: false
+    mandatory: false
+  azure_sql_server_database_threat_protections:
+    arm_type: Microsoft.Sql/serverDatabaseThreatProtections
+    arm_type_source: heuristic
+    category: sql
+    aliases: []
+    match_names:
+    - azure_sql_server_database_threat_protections
+    typed_collector: false
+    mandatory: false
+  azure_sql_server_database_vulnerability_assessment_scans:
+    arm_type: Microsoft.Sql/serverDatabaseVulnerabilityAssessmentScans
+    arm_type_source: heuristic
+    category: sql
+    aliases: []
+    match_names:
+    - azure_sql_server_database_vulnerability_assessment_scans
+    typed_collector: false
+    mandatory: false
+  azure_sql_server_database_vulnerability_assessments:
+    arm_type: Microsoft.Sql/serverDatabaseVulnerabilityAssessments
+    arm_type_source: heuristic
+    category: sql
+    aliases: []
+    match_names:
+    - azure_sql_server_database_vulnerability_assessments
+    typed_collector: false
+    mandatory: false
+  azure_sql_server_databases:
+    arm_type: Microsoft.Sql/serverDatabases
+    arm_type_source: heuristic
+    category: sql
+    aliases: []
+    match_names:
+    - azure_sql_server_databases
+    typed_collector: false
+    mandatory: false
+  azure_sql_server_encryption_protectors:
+    arm_type: Microsoft.Sql/serverEncryptionProtectors
+    arm_type_source: heuristic
+    category: sql
+    aliases: []
+    match_names:
+    - azure_sql_server_encryption_protectors
+    typed_collector: false
+    mandatory: false
+  azure_sql_server_failover_groups:
+    arm_type: Microsoft.Sql/serverFailoverGroups
+    arm_type_source: heuristic
+    category: sql
+    aliases: []
+    match_names:
+    - azure_sql_server_failover_groups
+    typed_collector: false
+    mandatory: false
+  azure_sql_server_firewall_rules:
+    arm_type: Microsoft.Sql/serverFirewallRules
+    arm_type_source: heuristic
+    category: sql
+    aliases: []
+    match_names:
+    - azure_sql_server_firewall_rules
+    typed_collector: false
+    mandatory: false
+  azure_sql_server_security_alert_policies:
+    arm_type: Microsoft.Sql/serverSecurityAlertPolicies
+    arm_type_source: heuristic
+    category: sql
+    aliases: []
+    match_names:
+    - azure_sql_server_security_alert_policies
+    typed_collector: false
+    mandatory: false
+  azure_sql_server_virtual_network_rules:
+    arm_type: Microsoft.Sql/serverVirtualNetworkRules
+    arm_type_source: heuristic
+    category: sql
+    aliases: []
+    match_names:
+    - azure_sql_server_virtual_network_rules
+    typed_collector: false
+    mandatory: false
+  azure_sql_server_vulnerability_assessments:
+    arm_type: Microsoft.Sql/serverVulnerabilityAssessments
+    arm_type_source: heuristic
+    category: sql
+    aliases: []
+    match_names:
+    - azure_sql_server_vulnerability_assessments
+    typed_collector: false
+    mandatory: false
+  azure_sql_servers:
+    arm_type: Microsoft.Sql/servers
+    arm_type_source: override
+    category: sql
+    aliases: []
+    match_names:
+    - azure_sql_servers
+    typed_collector: false
+    mandatory: false
+  azure_sql_transparent_data_encryptions:
+    arm_type: Microsoft.Sql/transparentDataEncryptions
+    arm_type_source: heuristic
+    category: sql
+    aliases: []
+    match_names:
+    - azure_sql_transparent_data_encryptions
+    typed_collector: false
+    mandatory: false
+  azure_sql_virtual_clusters:
+    arm_type: Microsoft.Sql/virtualClusters
+    arm_type_source: heuristic
+    category: sql
+    aliases: []
+    match_names:
+    - azure_sql_virtual_clusters
+    typed_collector: false
+    mandatory: false
+  azure_sqlvirtualmachine_groups:
+    arm_type: Microsoft.Sqlvirtualmachine/groups
+    arm_type_source: heuristic
+    category: sqlvirtualmachine
+    aliases: []
+    match_names:
+    - azure_sqlvirtualmachine_groups
+    typed_collector: false
+    mandatory: false
+  azure_sqlvirtualmachine_sql_virtual_machines:
+    arm_type: Microsoft.Sqlvirtualmachine/sqlVirtualMachines
+    arm_type_source: heuristic
+    category: sqlvirtualmachine
+    aliases: []
+    match_names:
+    - azure_sqlvirtualmachine_sql_virtual_machines
+    typed_collector: false
+    mandatory: false
+  azure_storage_account_keys:
+    arm_type: Microsoft.Storage/accountKeys
+    arm_type_source: heuristic
+    category: storage
+    aliases: []
+    match_names:
+    - azure_storage_account_keys
+    typed_collector: false
+    mandatory: false
+  azure_storage_accounts:
+    arm_type: Microsoft.Storage/storageAccounts
+    arm_type_source: override
+    category: storage
+    aliases: []
+    match_names:
+    - azure_storage_accounts
+    typed_collector: true
+    mandatory: false
+  azure_storage_blob_services:
+    arm_type: Microsoft.Storage/storageAccounts/blobServices
+    arm_type_source: override
+    category: storage
+    aliases: []
+    match_names:
+    - azure_storage_blob_services
+    typed_collector: false
+    mandatory: false
+  azure_storage_containers:
+    arm_type: Microsoft.Storage/containers
+    arm_type_source: heuristic
+    category: storage
+    aliases: []
+    match_names:
+    - azure_storage_containers
+    typed_collector: false
+    mandatory: false
+  azure_storage_encryption_scopes:
+    arm_type: Microsoft.Storage/encryptionScopes
+    arm_type_source: heuristic
+    category: storage
+    aliases: []
+    match_names:
+    - azure_storage_encryption_scopes
+    typed_collector: false
+    mandatory: false
+  azure_storage_file_shares:
+    arm_type: Microsoft.Storage/storageAccounts/fileServices/shares
+    arm_type_source: override
+    category: storage
+    aliases: []
+    match_names:
+    - azure_storage_file_shares
+    typed_collector: false
+    mandatory: false
+  azure_storage_management_policies:
+    arm_type: Microsoft.Storage/managementPolicies
+    arm_type_source: heuristic
+    category: storage
+    aliases: []
+    match_names:
+    - azure_storage_management_policies
+    typed_collector: false
+    mandatory: false
+  azure_storage_queue_acl:
+    arm_type: Microsoft.Storage/queueAcl
+    arm_type_source: heuristic
+    category: storage
+    aliases: []
+    match_names:
+    - azure_storage_queue_acl
+    typed_collector: false
+    mandatory: false
+  azure_storage_queue_services:
+    arm_type: Microsoft.Storage/storageAccounts/queueServices
+    arm_type_source: override
+    category: storage
+    aliases: []
+    match_names:
+    - azure_storage_queue_services
+    typed_collector: false
+    mandatory: false
+  azure_storage_queues:
+    arm_type: Microsoft.Storage/storageAccounts/queueServices/queues
+    arm_type_source: override
+    category: storage
+    aliases: []
+    match_names:
+    - azure_storage_queues
+    typed_collector: false
+    mandatory: false
+  azure_storage_tables:
+    arm_type: Microsoft.Storage/storageAccounts/tableServices/tables
+    arm_type_source: override
+    category: storage
+    aliases: []
+    match_names:
+    - azure_storage_tables
+    typed_collector: false
+    mandatory: false
+  azure_storagecache_caches:
+    arm_type: Microsoft.Storagecache/caches
+    arm_type_source: heuristic
+    category: storagecache
+    aliases: []
+    match_names:
+    - azure_storagecache_caches
+    typed_collector: false
+    mandatory: false
+  azure_storagemover_agents:
+    arm_type: Microsoft.Storagemover/agents
+    arm_type_source: heuristic
+    category: storagemover
+    aliases: []
+    match_names:
+    - azure_storagemover_agents
+    typed_collector: false
+    mandatory: false
+  azure_storagemover_endpoints:
+    arm_type: Microsoft.Storagemover/endpoints
+    arm_type_source: heuristic
+    category: storagemover
+    aliases: []
+    match_names:
+    - azure_storagemover_endpoints
+    typed_collector: false
+    mandatory: false
+  azure_storagemover_job_definitions:
+    arm_type: Microsoft.Storagemover/jobDefinitions
+    arm_type_source: heuristic
+    category: storagemover
+    aliases: []
+    match_names:
+    - azure_storagemover_job_definitions
+    typed_collector: false
+    mandatory: false
+  azure_storagemover_job_runs:
+    arm_type: Microsoft.Storagemover/jobRuns
+    arm_type_source: heuristic
+    category: storagemover
+    aliases: []
+    match_names:
+    - azure_storagemover_job_runs
+    typed_collector: false
+    mandatory: false
+  azure_storagemover_operations:
+    arm_type: Microsoft.Storagemover/operations
+    arm_type_source: heuristic
+    category: storagemover
+    aliases: []
+    match_names:
+    - azure_storagemover_operations
+    typed_collector: false
+    mandatory: false
+  azure_storagemover_projects:
+    arm_type: Microsoft.Storagemover/projects
+    arm_type_source: heuristic
+    category: storagemover
+    aliases: []
+    match_names:
+    - azure_storagemover_projects
+    typed_collector: false
+    mandatory: false
+  azure_storagemover_storagemovers:
+    arm_type: Microsoft.Storagemover/storagemovers
+    arm_type_source: heuristic
+    category: storagemover
+    aliases: []
+    match_names:
+    - azure_storagemover_storagemovers
+    typed_collector: false
+    mandatory: false
+  azure_storagesync_service_private_endpoint_connections:
+    arm_type: Microsoft.StorageSync/servicePrivateEndpointConnections
+    arm_type_source: heuristic
+    category: storagesync
+    aliases: []
+    match_names:
+    - azure_storagesync_service_private_endpoint_connections
+    typed_collector: false
+    mandatory: false
+  azure_storagesync_service_private_link_resources:
+    arm_type: Microsoft.StorageSync/servicePrivateLinkResources
+    arm_type_source: heuristic
+    category: storagesync
+    aliases: []
+    match_names:
+    - azure_storagesync_service_private_link_resources
+    typed_collector: false
+    mandatory: false
+  azure_storagesync_service_registered_servers:
+    arm_type: Microsoft.StorageSync/serviceRegisteredServers
+    arm_type_source: heuristic
+    category: storagesync
+    aliases: []
+    match_names:
+    - azure_storagesync_service_registered_servers
+    typed_collector: false
+    mandatory: false
+  azure_storagesync_service_sync_group_server_endpoints:
+    arm_type: Microsoft.StorageSync/serviceSyncGroupServerEndpoints
+    arm_type_source: heuristic
+    category: storagesync
+    aliases: []
+    match_names:
+    - azure_storagesync_service_sync_group_server_endpoints
+    typed_collector: false
+    mandatory: false
+  azure_storagesync_service_sync_groups:
+    arm_type: Microsoft.StorageSync/serviceSyncGroups
+    arm_type_source: heuristic
+    category: storagesync
+    aliases: []
+    match_names:
+    - azure_storagesync_service_sync_groups
+    typed_collector: false
+    mandatory: false
+  azure_storagesync_services:
+    arm_type: Microsoft.StorageSync/services
+    arm_type_source: heuristic
+    category: storagesync
+    aliases: []
+    match_names:
+    - azure_storagesync_services
+    typed_collector: false
+    mandatory: false
+  azure_streamanalytics_streaming_jobs:
+    arm_type: Microsoft.StreamAnalytics/streamingjobs
+    arm_type_source: override
+    category: streamanalytics
+    aliases: []
+    match_names:
+    - azure_streamanalytics_streaming_jobs
+    typed_collector: false
+    mandatory: false
+  azure_subscription_subscription_locations:
+    arm_type: Microsoft.Subscription/subscriptionLocations
+    arm_type_source: heuristic
+    category: subscription
+    aliases: []
+    match_names:
+    - azure_subscription_subscription_locations
+    typed_collector: false
+    mandatory: false
+  azure_subscription_subscriptions:
+    arm_type: Microsoft.Subscription/subscriptions
+    arm_type_source: heuristic
+    category: subscription
+    aliases: []
+    match_names:
+    - azure_subscription_subscriptions
+    typed_collector: true
+    mandatory: false
+  azure_subscription_tenants:
+    arm_type: Microsoft.Subscription/tenants
+    arm_type_source: heuristic
+    category: subscription
+    aliases: []
+    match_names:
+    - azure_subscription_tenants
+    typed_collector: false
+    mandatory: false
+  azure_support_services:
+    arm_type: Microsoft.Support/services
+    arm_type_source: heuristic
+    category: support
+    aliases: []
+    match_names:
+    - azure_support_services
+    typed_collector: false
+    mandatory: false
+  azure_support_tickets:
+    arm_type: Microsoft.Support/tickets
+    arm_type_source: heuristic
+    category: support
+    aliases: []
+    match_names:
+    - azure_support_tickets
+    typed_collector: false
+    mandatory: false
+  azure_synapse_ip_firewall_rules:
+    arm_type: Microsoft.Synapse/ipFirewallRules
+    arm_type_source: heuristic
+    category: synapse
+    aliases: []
+    match_names:
+    - azure_synapse_ip_firewall_rules
+    typed_collector: false
+    mandatory: false
+  azure_synapse_keys:
+    arm_type: Microsoft.Synapse/keys
+    arm_type_source: heuristic
+    category: synapse
+    aliases: []
+    match_names:
+    - azure_synapse_keys
+    typed_collector: false
+    mandatory: false
+  azure_synapse_private_link_hubs:
+    arm_type: Microsoft.Synapse/privateLinkHubs
+    arm_type_source: heuristic
+    category: synapse
+    aliases: []
+    match_names:
+    - azure_synapse_private_link_hubs
+    typed_collector: false
+    mandatory: false
+  azure_synapse_restorable_dropped_sql_pools:
+    arm_type: Microsoft.Synapse/restorableDroppedSqlPools
+    arm_type_source: heuristic
+    category: synapse
+    aliases: []
+    match_names:
+    - azure_synapse_restorable_dropped_sql_pools
+    typed_collector: false
+    mandatory: false
+  azure_synapse_sql_pool_blob_auditing_policies:
+    arm_type: Microsoft.Synapse/sqlPoolBlobAuditingPolicies
+    arm_type_source: heuristic
+    category: synapse
+    aliases: []
+    match_names:
+    - azure_synapse_sql_pool_blob_auditing_policies
+    typed_collector: false
+    mandatory: false
+  azure_synapse_sql_pool_current_sensitivity_labels:
+    arm_type: Microsoft.Synapse/sqlPoolCurrentSensitivityLabels
+    arm_type_source: heuristic
+    category: synapse
+    aliases: []
+    match_names:
+    - azure_synapse_sql_pool_current_sensitivity_labels
+    typed_collector: false
+    mandatory: false
+  azure_synapse_sql_pool_geo_backup_policies:
+    arm_type: Microsoft.Synapse/sqlPoolGeoBackupPolicies
+    arm_type_source: heuristic
+    category: synapse
+    aliases: []
+    match_names:
+    - azure_synapse_sql_pool_geo_backup_policies
+    typed_collector: false
+    mandatory: false
+  azure_synapse_sql_pool_operations:
+    arm_type: Microsoft.Synapse/sqlPoolOperations
+    arm_type_source: heuristic
+    category: synapse
+    aliases: []
+    match_names:
+    - azure_synapse_sql_pool_operations
+    typed_collector: false
+    mandatory: false
+  azure_synapse_sql_pool_recommended_sensitivity_labels:
+    arm_type: Microsoft.Synapse/sqlPoolRecommendedSensitivityLabels
+    arm_type_source: heuristic
+    category: synapse
+    aliases: []
+    match_names:
+    - azure_synapse_sql_pool_recommended_sensitivity_labels
+    typed_collector: false
+    mandatory: false
+  azure_synapse_sql_pool_replication_links:
+    arm_type: Microsoft.Synapse/sqlPoolReplicationLinks
+    arm_type_source: heuristic
+    category: synapse
+    aliases: []
+    match_names:
+    - azure_synapse_sql_pool_replication_links
+    typed_collector: false
+    mandatory: false
+  azure_synapse_sql_pool_restore_points:
+    arm_type: Microsoft.Synapse/sqlPoolRestorePoints
+    arm_type_source: heuristic
+    category: synapse
+    aliases: []
+    match_names:
+    - azure_synapse_sql_pool_restore_points
+    typed_collector: false
+    mandatory: false
+  azure_synapse_sql_pool_schema_table_columns:
+    arm_type: Microsoft.Synapse/sqlPoolSchemaTableColumns
+    arm_type_source: heuristic
+    category: synapse
+    aliases: []
+    match_names:
+    - azure_synapse_sql_pool_schema_table_columns
+    typed_collector: false
+    mandatory: false
+  azure_synapse_sql_pool_schema_tables:
+    arm_type: Microsoft.Synapse/sqlPoolSchemaTables
+    arm_type_source: heuristic
+    category: synapse
+    aliases: []
+    match_names:
+    - azure_synapse_sql_pool_schema_tables
+    typed_collector: false
+    mandatory: false
+  azure_synapse_sql_pool_schemas:
+    arm_type: Microsoft.Synapse/sqlPoolSchemas
+    arm_type_source: heuristic
+    category: synapse
+    aliases: []
+    match_names:
+    - azure_synapse_sql_pool_schemas
+    typed_collector: false
+    mandatory: false
+  azure_synapse_sql_pool_security_alert_policies:
+    arm_type: Microsoft.Synapse/sqlPoolSecurityAlertPolicies
+    arm_type_source: heuristic
+    category: synapse
+    aliases: []
+    match_names:
+    - azure_synapse_sql_pool_security_alert_policies
+    typed_collector: false
+    mandatory: false
+  azure_synapse_sql_pool_transparent_data_encryptions:
+    arm_type: Microsoft.Synapse/sqlPoolTransparentDataEncryptions
+    arm_type_source: heuristic
+    category: synapse
+    aliases: []
+    match_names:
+    - azure_synapse_sql_pool_transparent_data_encryptions
+    typed_collector: false
+    mandatory: false
+  azure_synapse_sql_pool_usages:
+    arm_type: Microsoft.Synapse/sqlPoolUsages
+    arm_type_source: heuristic
+    category: synapse
+    aliases: []
+    match_names:
+    - azure_synapse_sql_pool_usages
+    typed_collector: false
+    mandatory: false
+  azure_synapse_sql_pools:
+    arm_type: Microsoft.Synapse/workspaces/sqlPools
+    arm_type_source: override
+    category: synapse
+    aliases: []
+    match_names:
+    - azure_synapse_sql_pools
+    typed_collector: false
+    mandatory: false
+  azure_synapse_workspaces:
+    arm_type: Microsoft.Synapse/workspaces
+    arm_type_source: override
+    category: synapse
+    aliases: []
+    match_names:
+    - azure_synapse_workspaces
+    typed_collector: false
+    mandatory: false
+  azure_trafficmanager_profiles:
+    arm_type: Microsoft.Trafficmanager/profiles
+    arm_type_source: heuristic
+    category: trafficmanager
+    aliases: []
+    match_names:
+    - azure_trafficmanager_profiles
+    typed_collector: false
+    mandatory: false
+  azure_windowsiot_services:
+    arm_type: Microsoft.WindowsIoT/services
+    arm_type_source: heuristic
+    category: windowsiot
+    aliases: []
+    match_names:
+    - azure_windowsiot_services
+    typed_collector: false
+    mandatory: false
+  azure_workloads_monitors:
+    arm_type: Microsoft.Workloads/monitors
+    arm_type_source: heuristic
+    category: workloads
+    aliases: []
+    match_names:
+    - azure_workloads_monitors
+    typed_collector: false
+    mandatory: false

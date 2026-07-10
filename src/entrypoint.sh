@@ -77,28 +77,12 @@ fi
 # Use TMPDIR if set, or fall back to /tmp
 TMPDIR="${TMPDIR:-/tmp}"
 
-# Only start mkdocs when cheat sheet is enabled (WB_DEBUG_SUPPRESS_CHEAT_SHEET defaults to "true")
-WB_SUPPRESS="${WB_DEBUG_SUPPRESS_CHEAT_SHEET:-true}"
-if [ "${WB_SUPPRESS,,}" = "false" ] || [ "$WB_SUPPRESS" = "0" ]; then
-  MKDOCS_TMP="$TMPDIR/mkdocs-temp"
-  rm -rf "$MKDOCS_TMP"
-  mkdir -p "$MKDOCS_TMP"
-  cp -r /workspace-builder/cheat-sheet-docs/* "$MKDOCS_TMP"
-  cd "$MKDOCS_TMP"
-  mkdocs serve -f mkdocs.yml &
-  echo "MkDocs serve started in the background, serving from $MKDOCS_TMP"
-else
-  echo "Cheat sheet disabled (WB_DEBUG_SUPPRESS_CHEAT_SHEET=${WB_SUPPRESS}) — skipping MkDocs server"
-fi
-
 ## Clean stale lock files
 rm $TMPDIR/.wb_lock || true
 
 ## Execute main discovery process
 
 cd $RUNWHEN_HOME
-# Run Django in the background
-python manage.py migrate
 echo Starting workspace builder REST server
 
 # Check if AUTORUN_WORKSPACE_BUILDER_INTERVAL environment variable is set
@@ -107,65 +91,100 @@ echo Starting workspace builder REST server
 if [ -n "$AUTORUN_WORKSPACE_BUILDER_INTERVAL" ]; 
 then
     echo "AUTORUN_WORKSPACE_BUILDER_INTERVAL is set. Running workspace-builder"
-    python manage.py runserver 0.0.0.0:8000 &
-    # Put this back after testing
-    # python manage.py runserver 0.0.0.0:8000 --noreload &
-    sleep 60
-    
-    # Configure which files to watch for changes (inclusive list)
-    # Can be overridden via RW_WATCH_FILES environment variable (colon-separated)
-    # or via /shared/watch-files.conf config file (one file per line)
-    # This prevents race conditions with script-generated files like kubeconfig
-    
-    if [ -f "/shared/watch-files.conf" ]; then
-        echo "Loading watch list from /shared/watch-files.conf"
-        mapfile -t WATCH_FILES < <(grep -v '^#' /shared/watch-files.conf | grep -v '^[[:space:]]*$')
-    elif [ -n "$RW_WATCH_FILES" ]; then
-        echo "Loading watch list from RW_WATCH_FILES environment variable"
-        IFS=':' read -ra WATCH_FILES <<< "$RW_WATCH_FILES"
-    else
-        echo "Using default watch list"
-        WATCH_FILES=(
-            "/shared/workspaceInfo.yaml"
-            "/shared/uploadInfo.yaml"
-        )
-    fi
-    
-    get_config_checksum() {
-        local checksum=""
-        
-        # Generate checksum only for files in the watch list
-        for file in "${WATCH_FILES[@]}"; do
-            if [ -f "$file" ]; then
-                # Use stat to get modification time (works on both Linux and macOS)
-                local mtime=$(stat -c %Y "$file" 2>/dev/null || stat -f %m "$file" 2>/dev/null)
-                checksum="${checksum}${file}:${mtime}|"
+    uvicorn workspace_builder.api:app --host 0.0.0.0 --port 8000 &
+    sleep 5
+
+    CONFIG_RELOADER_PID=""
+    CONFIG_RELOAD_POLL_SECONDS="${RW_CONFIG_RELOAD_CHECK_INTERVAL:-5}"
+
+    # Failure-retry interval (seconds). When ./run.sh exits non-zero — most
+    # commonly because git clone of one or more code collections failed and
+    # useLocalGit is false — we don't want to wait the full
+    # $AUTORUN_WORKSPACE_BUILDER_INTERVAL before trying again (that interval
+    # is tuned for "successful run, pause before the next discovery sweep").
+    # Default is 5 minutes; tune via the helm/env var.
+    RW_RUN_RETRY_INTERVAL_SECONDS="${RW_RUN_RETRY_INTERVAL_SECONDS:-300}"
+
+    trap 'echo "ConfigMap/Secret change detected — exiting for pod restart"; exit 1' USR1
+
+    start_config_reloader() {
+        if [ "${RW_CONFIG_RELOAD_ENABLED:-auto}" = "false" ]; then
+            return
+        fi
+        if [ "${RW_CONFIG_RELOAD_ENABLED:-auto}" = "auto" ]; then
+            if [ ! -f /var/run/secrets/kubernetes.io/serviceaccount/token ]; then
+                return
+            fi
+        fi
+        echo "Starting Kubernetes config reloader (watches mounted ConfigMaps/Secrets)..."
+        python "$RUNWHEN_HOME/config_reloader.py" &
+        CONFIG_RELOADER_PID=$!
+    }
+
+    check_config_reloader_exit() {
+        if [ -n "${CONFIG_RELOADER_PID:-}" ] && ! kill -0 "$CONFIG_RELOADER_PID" 2>/dev/null; then
+            wait "$CONFIG_RELOADER_PID" 2>/dev/null
+            local exit_code=$?
+            if [ "$exit_code" -eq 0 ]; then
+                echo "ConfigMap/Secret change detected — exiting for pod restart"
+                exit 1
+            fi
+            echo "Config reloader exited unexpectedly (code $exit_code); continuing without auto-reload"
+            CONFIG_RELOADER_PID=""
+        fi
+    }
+
+    run_discovery_with_reload_watch() {
+        "$@" &
+        local discovery_pid=$!
+        while kill -0 "$discovery_pid" 2>/dev/null; do
+            check_config_reloader_exit
+            sleep "$CONFIG_RELOAD_POLL_SECONDS"
+        done
+        wait "$discovery_pid"
+        return $?
+    }
+
+    # Sleep $1 seconds while still polling the config reloader so a
+    # ConfigMap/Secret change during a retry-backoff window doesn't have to
+    # wait the full sleep before triggering a pod restart.
+    sleep_with_reload_watch() {
+        local total=$1
+        local poll="$CONFIG_RELOAD_POLL_SECONDS"
+        local remaining=$total
+        while [ "$remaining" -gt 0 ]; do
+            check_config_reloader_exit
+            if [ "$remaining" -lt "$poll" ]; then
+                sleep "$remaining"
+                remaining=0
+            else
+                sleep "$poll"
+                remaining=$((remaining - poll))
             fi
         done
-        
-        echo "$checksum"
     }
-    
-    LAST_CONFIG_CHECKSUM=$(get_config_checksum)
-    
-    # Log which files are being watched from the watch list
-    echo "File watcher enabled with inclusive watch list..."
-    WATCHED_COUNT=0
-    for file in "${WATCH_FILES[@]}"; do
-        if [ -f "$file" ]; then
-            echo "  ✓ $file (found)"
-            WATCHED_COUNT=$((WATCHED_COUNT + 1))
+
+    # subPath-mounted ConfigMaps/Secrets never update in-place; watch via the API.
+    start_config_reloader
+
+    # Pick the sleep interval based on whether the previous run succeeded.
+    # Non-zero exit from ./run.sh means the workspace builder refused to
+    # produce a pack (most commonly: code-collection clone failure with
+    # useLocalGit=false). In that case we back off for the failure-retry
+    # interval (default 5 min) and try again, rather than spinning at the
+    # normal discovery cadence or — worse — uploading nothing.
+    run_loop_sleep() {
+        local exit_code=$1
+        local label=$2
+        if [ "$exit_code" -ne 0 ]; then
+            echo "Workspace builder ${label} failed (exit=${exit_code}); " \
+                 "retrying in ${RW_RUN_RETRY_INTERVAL_SECONDS}s."
+            sleep_with_reload_watch "$RW_RUN_RETRY_INTERVAL_SECONDS"
         else
-            echo "  ✗ $file (not found)"
+            sleep_with_reload_watch "$AUTORUN_WORKSPACE_BUILDER_INTERVAL"
         fi
-    done
-    
-    if [ "$WATCHED_COUNT" -gt 0 ]; then
-        echo "Monitoring $WATCHED_COUNT file(s) from watch list for changes"
-    else
-        echo "No watched files found yet (files may not be mounted)"
-    fi
-    
+    }
+
     if [[ "${RW_LOCAL_UPLOAD_ENABLED,,}" == "true" ]]; 
     then
         echo "Upload to RunWhen Platform Enabled"
@@ -173,51 +192,28 @@ then
         then
             echo "Merge Mode: keep-uploaded"
             while true; do
-                ./run.sh --upload --upload-merge-mode keep-uploaded --prune-stale-slxs
-                
-                # Check for config changes and adjust sleep accordingly
-                CURRENT_CONFIG_CHECKSUM=$(get_config_checksum)
-                if [ "$CURRENT_CONFIG_CHECKSUM" != "$LAST_CONFIG_CHECKSUM" ]; then
-                    echo "Configuration change detected! Running discovery immediately..."
-                    LAST_CONFIG_CHECKSUM=$CURRENT_CONFIG_CHECKSUM
-                    sleep 5  # Short delay to allow potential cascading updates
-                else
-                    sleep $AUTORUN_WORKSPACE_BUILDER_INTERVAL
-                fi
+                run_discovery_with_reload_watch ./run.sh --upload --upload-merge-mode keep-uploaded --prune-stale-slxs
+                run_exit=$?
+                check_config_reloader_exit
+                run_loop_sleep "$run_exit" "discovery+upload (keep-uploaded)"
             done
         else
             echo "Merge Mode: keep-existing"
             while true; do
-                ./run.sh --upload --upload-merge-mode keep-existing --prune-stale-slxs
-                
-                # Check for config changes and adjust sleep accordingly
-                CURRENT_CONFIG_CHECKSUM=$(get_config_checksum)
-                if [ "$CURRENT_CONFIG_CHECKSUM" != "$LAST_CONFIG_CHECKSUM" ]; then
-                    echo "Configuration change detected! Running discovery immediately..."
-                    LAST_CONFIG_CHECKSUM=$CURRENT_CONFIG_CHECKSUM
-                    sleep 5  # Short delay to allow potential cascading updates
-                else
-                    sleep $AUTORUN_WORKSPACE_BUILDER_INTERVAL
-                fi
+                run_discovery_with_reload_watch ./run.sh --upload --upload-merge-mode keep-existing --prune-stale-slxs
+                run_exit=$?
+                check_config_reloader_exit
+                run_loop_sleep "$run_exit" "discovery+upload (keep-existing)"
             done
         fi
     else
         while true; do
-            ./run.sh
-            
-            # Check for config changes and adjust sleep accordingly
-            CURRENT_CONFIG_CHECKSUM=$(get_config_checksum)
-            if [ "$CURRENT_CONFIG_CHECKSUM" != "$LAST_CONFIG_CHECKSUM" ]; then
-                echo "Configuration change detected! Running discovery immediately..."
-                LAST_CONFIG_CHECKSUM=$CURRENT_CONFIG_CHECKSUM
-                sleep 5  # Short delay to allow potential cascading updates
-            else
-                sleep $AUTORUN_WORKSPACE_BUILDER_INTERVAL
-            fi
+            run_discovery_with_reload_watch ./run.sh
+            run_exit=$?
+            check_config_reloader_exit
+            run_loop_sleep "$run_exit" "discovery"
         done
     fi 
 else
-  python manage.py runserver 0.0.0.0:8000 
-  # Put this back after testing
-  # python manage.py runserver 0.0.0.0:8000 --noreload
+  uvicorn workspace_builder.api:app --host 0.0.0.0 --port 8000
 fi

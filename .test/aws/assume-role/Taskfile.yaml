@@ -52,6 +52,12 @@ tasks:
         workspaceOwnerEmail: test@runwhen.com
         defaultLocation: location-01
         defaultLOD: detailed
+        # Legacy CloudQuery AWS path: pin to cloudquery so this assume-role
+        # credential fixture keeps exercising the CloudQuery indexer now that the
+        # native awsapi indexer is the default. Use the sqlite resource store
+        # (the default) so SLX counting/verification can read output/resources.sqlite.
+        awsIndexerBackend: cloudquery
+        resourceStoreBackend: sqlite
         cloudConfig:
           aws:
             region: "${REGION}"
@@ -111,7 +117,7 @@ tasks:
           -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
           -e AWS_SESSION_TOKEN="${AWS_SESSION_TOKEN}" \
           -e AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION:-us-east-1}" \
-          --name $CONTAINER_NAME -p 8081:8081 -p 8000:8000 -v $(pwd):/shared -d runwhen-local:test || {
+          --name $CONTAINER_NAME -p 8000:8000 -v $(pwd):/shared -d runwhen-local:test || {
           echo "Failed to start container"; exit 1;
         }
 
@@ -120,8 +126,10 @@ tasks:
           echo "Error executing script in container"; exit 1;
         }
 
-        echo "Review generated config files under output/workspaces/"
-        total_slxs=$(find $(find 'output/' -type d -name 'slxs') -mindepth 1 -type d | wc -l)
+        echo "Review rendered SLXs via the explorer UI (http://localhost:8000/explorer/) or output/resources.sqlite"
+        # Rendered files are no longer written to disk by default
+        # (writeWorkspaceFilesToDisk=False); count SLXs from the sqlite store.
+        total_slxs=$(python3 ../../lib/slx_db.py --db output/resources.sqlite count)
         echo "Total SLXs: $total_slxs"
         echo "$total_slxs" > slx_count.txt
     silent: true
@@ -170,9 +178,10 @@ tasks:
           echo "WARNING: resources.yaml not found"
         fi
         
-        # Check for SLX files
-        SLX_COUNT=$(find output -name "*.yaml" -path "*/slxs/*" 2>/dev/null | wc -l)
-        echo "Found $SLX_COUNT SLX files"
+        # Check for SLXs (rendered content lives in output/resources.sqlite,
+        # not an on-disk slxs/ tree, under the writeWorkspaceFilesToDisk=False default).
+        SLX_COUNT=$(python3 ../../lib/slx_db.py --db output/resources.sqlite count 2>/dev/null || echo 0)
+        echo "Found $SLX_COUNT SLXs"
         
         echo "=== Verification complete ==="
 

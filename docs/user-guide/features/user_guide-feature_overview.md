@@ -1,84 +1,43 @@
-# Troubleshooting Cheat Sheet
+# Discovery Output
 
-The Troubleshooting Cheat Sheet first performs a discovery process and builds up an inventory of your Kubernetes and cloud resources, matching them with troubleshooting commands that are from open-source "CodeCollection" libraries (such as [this](https://github.com/runwhen-contrib/rw-cli-codecollection)). See [broken-reference](broken-reference/ "mention")for more details on how this works.
+RunWhen Local performs discovery on your Kubernetes and cloud resources, matches them with troubleshooting commands from open-source CodeCollection libraries (such as [this](https://github.com/runwhen-contrib/rw-cli-codecollection)), and writes the results to `/shared/output`. See [workspace-builder.md](workspace-builder.md) for how the pipeline works.
 
-{% hint style="info" %}
-See our [RunWhen Authors](https://docs.runwhen.com/public/runwhen-authors/getting-started-with-codecollection-development) for more about open source troubleshooting CodeCollections.
-{% endhint %}
+> **Where rendered SLXs live.** With the default `resourceStoreBackend: sqlite`, the rendered SLX/SLI/runbook/workspace content is stored in `output/resources.sqlite` (the `workspace_artifacts` table) and is **not** written to an `output/workspaces/<ws>/` file tree on disk. Inspect rendered SLXs in the [Workspace Explorer](#rest-api) (the **Rendered workspace** / **SLX Bundles** tabs), via the `/explorer/api/*` endpoints, or with `sqlite3 output/resources.sqlite`. If you need the on-disk file tree (for debugging or file-based tooling), set `writeWorkspaceFilesToDisk: true` in `workspaceInfo.yaml`.
 
-## Troubleshooting Home Page
+## Running discovery
 
-When discovery is complete, the RunWhen Local home page provides a main search bar to help you find useful troubleshooting commands, along with some details about the discovery process, such as:
+From a running container:
 
-* The number of commands generated
-* The number of clusters scanned
-* How many community authors wrote the troubleshooting commands
-* Who ran the discovery process
+```
+docker exec -w /workspace-builder RunWhenLocal ./run.sh
+```
 
+When discovery completes, generated configuration and resource data are available under `$workdir/shared/output` on the host (or `/shared/output` inside the container).
 
+## REST API
 
-<figure><img src="../../.gitbook/assets/image.png" alt=""><figcaption><p>RunWhen Local Cheat Sheet Home Page</p></figcaption></figure>
+The workspace-builder service exposes a FastAPI server on port **8000**:
 
-#### Home Page Quick Links
+* `GET /info/` — version, available indexers/enrichers/renderers, and settings catalog
+* `POST /run/` — run the discovery pipeline (used internally by `./run.sh`)
+* `GET /health/` — service health and last-run status
 
-Within the home page, you will also notice some quick links that will allow you to easily navigate through your tailored troubleshooting commands, or interact with the open source community.
+Example:
 
-<figure><img src="../../.gitbook/assets/image (1).png" alt=""><figcaption></figcaption></figure>
+```
+curl http://localhost:8000/health/
+```
 
-## Searching for Content
+Browse indexed resources in the Workspace Explorer at [http://localhost:8000/explorer/](http://localhost:8000/explorer/) after running discovery with `resourceStoreBackend: sqlite`. The explorer has three tabs: **SLX Bundles** (each card groups the rendered SLX, SLI, runbook, and overlaid `Skill.md` for one SLX directory), **Discovered Resources** (the indexer graph), and **All Artifacts**. For HTTP and SQL examples, see [Resource store query API](../architecture/resource-store-query-api.md).
 
-Search bars are everywhere! The home page sports a large search bar to help find the right troubleshooting command. There is also a search bar in the top right corner of every page - you can input items such as the name of your application, namespace, or a particular type of resource you are trying to troubleshoot.
+### Terminology
 
-<figure><img src="../../assets/feature_overview_3.png" alt=""><figcaption><p>Home Page Search Bar</p></figcaption></figure>
+In the Skills Registry vocabulary used by the explorer:
 
-<figure><img src="../../assets/feature_overview_4.png" alt=""><figcaption><p>In-Page Search Bar</p></figcaption></figure>
+- A **CodeBundle** is a directory under `codebundles/` in a CodeCollection git repo. It defines a **Skill** (or "Skill Template") that an agent can invoke.
+- A **Skill** is documented by an optional Skill markdown file at the CodeBundle root (case-insensitive — commonly `SKILL.md` or `Skill.md`).
+- An **SLX** is an *instance* of a Skill, bound to a specific resource. RunWhen Local renders an SLX "directory" (logically `workspaces/<ws>/slxs/<slx>/`) containing `slx.yaml`, `sli.yaml`, `runbook.yaml`, and a verbatim copy of the source CodeBundle's Skill markdown file (when present), preserving the upstream filename casing. These are stored as `workspace_artifacts` rows in `output/resources.sqlite` (and only written to disk under `output/workspaces/<ws>/slxs/<slx>/` when `writeWorkspaceFilesToDisk: true`).
 
-## Command Details
+## Upload to RunWhen Platform
 
-Each page is generated based on a particular resource that was discovered and combines troubleshooting commands from the open source community that best match the resource.
-
-<figure><img src="../../assets/feature_overview_5.png" alt=""><figcaption><p>Example List of Troiubleshooting Commands for the Argo Namespace</p></figcaption></figure>
-
-### Links/Resources
-
-At the top of this page, we see a few additional resources to learn more about the commands, such as:
-
-* The GitHub user that authored the commands
-* How many troubleshooting commands the page includes
-* The last time the troubleshooting command source code was updated
-* The links to the (open source) troubleshooting source code
-* The link to view the \*private\* configuration, which tailors the commands to make them copy/paste ready but is never shared outside of your container
-* A link to GitHub Discussions to engage with the community about the commands found on this page
-
-<figure><img src="../../assets/feature_overview_6.png" alt=""><figcaption><p>Example Page Hearder with Communtiy Resources</p></figcaption></figure>
-
-### Commands
-
-The list of commands in a copy & paste format, ready to be used in your terminal:
-
-<figure><img src="../../assets/feature_overview_7.png" alt=""><figcaption></figcaption></figure>
-
-### Explanations
-
-If you want to understand what each command does, click the **What does it do? tab** to display documentation about the command. All documentation is statically generated and stored with the public source code of the command and does not have access to, or context of, your resource names, namespace names, and so on. These explanations are generic and do not share any of your resource details with RunWhen.
-
-### Running Commands from the Terminal
-
-{% hint style="danger" %}
-The built in terminal provides **unauthenticated access** to the container, with access to tools like `kubectl`. This feature should be disabled ([terminal-configuration.md](../../configuration/cheat-sheet-features/terminal-configuration.md "mention")) if running in a shared cluster - or the service account permissions thoroughly reviewed.
-{% endhint %}
-
-A simple terminal has been added to the RunWhen Local application in order to provide a quicker way to run commands from within the same window. The terminal has command line tools like `kubectl` installed, and is configured to use the same KUBECONFIG that was used to discover cluster resources.
-
-<figure><img src="../../.gitbook/assets/terminal.gif" alt=""><figcaption><p>Running Commands in the Terminal</p></figcaption></figure>
-
-## Feedback <a href="#tool-feedback" id="tool-feedback"></a>
-
-This tool gets better with feedback and contributions from a growing community. If you are passionte about sharing your best troubleshooting commands or finding other commands that suit your needs, please consider sharing your experience in any of the following avenues:
-
-* [Fill out a very short feedback form](https://docs.google.com/forms/d/e/1FAIpQLScuso8SQMdj9d-0VnxxBMcvdZrcZ2M389EbwE355flnkQOUFQ/viewform)
-* [Open up a GitHub issue](https://github.com/runwhen-contrib/runwhen-local/issues/new/choose)
-  * Ask for help
-  * Contribute a command
-  * Provide any other ideas or issues
-* [Join our GitHub Discussions](https://github.com/orgs/runwhen-contrib/discussions)
+To push discovery results to the RunWhen Platform instead of only writing local output files, see [upload-to-runwhen-platform.md](upload-to-runwhen-platform.md).

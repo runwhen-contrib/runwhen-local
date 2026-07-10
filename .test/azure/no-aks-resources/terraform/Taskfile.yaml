@@ -1,0 +1,51 @@
+version: "3"
+
+# Terraform-only lifecycle for the no-aks-resources fixture.
+# Mirrors the pattern in .test/azure/multi-subscription-aks/terraform/Taskfile.yaml.
+
+env:
+  TERM: screen-256color
+
+tasks:
+  default:
+    cmds:
+      - task: test
+
+  test:
+    desc: "fmt + init + validate (no apply)"
+    cmds:
+      - task: test-terraform
+
+  format-and-init-terraform:
+    desc: "terraform fmt + init"
+    cmds:
+      - |
+        terraform fmt
+        terraform init
+
+  test-terraform:
+    desc: "fmt --check, init -backend=false, validate"
+    silent: true
+    cmds:
+      - |
+        BOLD=$(tput bold || true)
+        NORM=$(tput sgr0 || true)
+        echo "${BOLD}$PWD:${NORM}"
+        if ! terraform fmt -check=true -list=false -recursive=false; then
+          echo "  fmt failed" && exit 1
+        fi
+        echo "  fmt ok"
+        if ! terraform init -backend=false -input=false -get=true -no-color > /dev/null; then
+          echo "  init failed" && exit 1
+        fi
+        echo "  init ok"
+        if ! terraform validate > /dev/null; then
+          echo "  validate failed" && exit 1
+        fi
+        echo "  validate ok"
+
+  clean-terraform:
+    desc: "Remove .terraform / lock file"
+    cmds:
+      - find . -type d -name .terraform -exec rm -rf {} +
+      - find . -type f -name .terraform.lock.hcl -delete

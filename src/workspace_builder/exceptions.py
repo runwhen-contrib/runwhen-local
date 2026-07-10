@@ -1,65 +1,53 @@
+"""Error response helpers for the workspace-builder REST service."""
+
+from __future__ import annotations
+
 import json
 import logging
 import traceback
+from typing import Any
 
-from rest_framework import views, status
-from rest_framework.response import Response
+from exceptions import WorkspaceBuilderUserException
 
 logger = logging.getLogger(__name__)
 
 
-def handle(e, context):
-    """
-    Return a  response that has as much detail as practical to help debugging.
-
-    Args:
-      e (BaseException): The exception that caused the issue
-      context (dict): A rich set of data (e.g. the view) given to us by the DRF framework for handling
-    """
-    next_exc = e
-    stack_traces = []
+def _collect_stack_traces(exc: BaseException) -> str:
+    stack_traces: list[str] = []
+    next_exc: BaseException | None = exc
     while next_exc:
-        next_stack_trace = "\n".join(traceback.format_tb(next_exc.__traceback__))
-        stack_traces.append(next_stack_trace)
+        stack_traces.append("\n".join(traceback.format_tb(next_exc.__traceback__)))
         next_exc = next_exc.__cause__
-    stack_trace = "\nCaused by:\n\n".join(stack_traces)
+    return "\nCaused by:\n\n".join(stack_traces)
 
-    try:
-        # Call the DRF default exception handler first, and decorate the results.
-        # The code below is DRF standard boilerplate
-        response = views.exception_handler(e, context)
-        if not response:
-            response = Response(str(e), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        ed = dict()
-        ed["drf"] = str(response)
-        ed["message"] = f"{e}"
-        ed["exceptionType"] = str(type(e))
-        ed["stackTrace"] = stack_trace
-        ed["context"] = str(context)
-        # ed["originalRequestHeaders"] = context.get("request").headers
-        ed["originalRequestData"] = context.get("request").data
-        pw = ed.get("originalRequestData", {}).get("password")
-        if pw:
-            ed["originalRequestData"]["password"] = '*******'
-        ed["originalRequestPath"] = context.get("request").path_info
-        # ed["originalRequestBody"] = context.get("request").text
-        # ed["originalRequestSession"] = context.get("request").session
-        if response.data:
-            if isinstance(response.data, dict):
-                ed.update(response.data)
-            else:
-                ed["pd"] = response.data
-        response.data = ed
-        logger.debug(
-            f"Error handling successful: type {type(e)}, "
-            f"returning response {response} with data {json.dumps(response.data, indent=2)}, "
-            f"stack trace {stack_trace}"
-        )
-        return response
-    except Exception as exc:
-        logger.warning(
-            f"Error handling unsuccessful: type {type(e)}, "
-            f"e: {str(e)} and stacktrace {stack_trace} with context {str(context)}"
-        )
-        logger.exception(exc)
-        raise exc
+
+def build_error_response(
+    exc: Exception,
+    path: str,
+    request_data: dict[str, Any] | None,
+) -> tuple[dict[str, Any], int]:
+    """Return JSON payload and HTTP status compatible with run.py error handling."""
+    stack_trace = _collect_stack_traces(exc)
+    status_code = 400 if isinstance(exc, WorkspaceBuilderUserException) else 500
+
+    redacted_request = dict(request_data) if request_data else {}
+    password = redacted_request.get("password")
+    if password:
+        redacted_request["password"] = "*******"
+
+    payload: dict[str, Any] = {
+        "message": f"{exc}",
+        "exceptionType": str(type(exc)),
+        "stackTrace": stack_trace,
+        "originalRequestData": redacted_request,
+        "originalRequestPath": path,
+    }
+
+    logger.debug(
+        "Error handling successful: type %s, returning status %s with data %s, stack trace %s",
+        type(exc),
+        status_code,
+        json.dumps(payload, indent=2),
+        stack_trace,
+    )
+    return payload, status_code

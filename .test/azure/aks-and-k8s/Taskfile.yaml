@@ -74,6 +74,7 @@ tasks:
         workspaceOwnerEmail: authors@runwhen.com
         defaultLocation: location-01
         defaultLOD: none
+        azureIndexerBackend: azureapi
         cloudConfig:
           kubernetes:             
             kubeconfigFile: /shared/kubeconfig.secret
@@ -157,7 +158,7 @@ tasks:
 
         echo "Starting new container $CONTAINER_NAME..."
 
-        docker run -e DEBUG_LOGS=true --name $CONTAINER_NAME -p 8081:8081 -v $(pwd):/shared -d runwhen-local:test || {
+        docker run -e DEBUG_LOGS=true --name $CONTAINER_NAME -p 8000:8000 -v $(pwd):/shared -d runwhen-local:test || {
           echo "Failed to start container"; exit 1;
         }
 
@@ -166,8 +167,10 @@ tasks:
           echo "Error executing script in container"; exit 1;
         }
 
-        echo "Review generated config files under output/workspaces/"
-        total_slxs=$(find $(find 'output/' -type d -name 'slxs') -mindepth 1 -type d | wc -l)
+        echo "Review rendered SLXs via the explorer UI (http://localhost:8000/explorer/) or output/resources.sqlite"
+        # Rendered files are no longer written to disk by default
+        # (writeWorkspaceFilesToDisk=False); count SLXs from the sqlite store.
+        total_slxs=$(python3 ../../lib/slx_db.py --db output/resources.sqlite count)
         echo "Total SLXs: $total_slxs"
         echo "$total_slxs" > slx_count.txt
     silent: true
@@ -197,10 +200,9 @@ tasks:
 
         # 1. Start container in the background
         docker run -d \
-          -e WB_DEBUG_SUPPRESS_CHEAT_SHEET="true" \
           -e DEBUG_LOGS=true \
           --name "$CONTAINER_NAME" \
-          -p 8081:8081 \
+          -p 8000:8000 \
           -v "$(pwd):/shared" \
           runwhen-local:test
 
@@ -215,8 +217,10 @@ tasks:
         docker stop "$CONTAINER_NAME"
         docker rm "$CONTAINER_NAME"  
 
-        echo "Review generated config files under output/workspaces/"
-        total_slxs=$(find $(find 'output/' -type d -name 'slxs') -mindepth 1 -type d | wc -l)
+        echo "Review rendered SLXs via the explorer UI (http://localhost:8000/explorer/) or output/resources.sqlite"
+        # Rendered files are no longer written to disk by default
+        # (writeWorkspaceFilesToDisk=False); count SLXs from the sqlite store.
+        total_slxs=$(python3 ../../lib/slx_db.py --db output/resources.sqlite count)
         echo "Total SLXs: $total_slxs"
         echo "$total_slxs" > slx_count.txt
     silent: true
@@ -262,6 +266,7 @@ tasks:
         workspaceOwnerEmail: authors@runwhen.com
         defaultLocation: location-01
         defaultLOD: none
+        azureIndexerBackend: azureapi
         cloudConfig:
           kubernetes:             
             kubeconfigFile: /shared/kubeconfig.secret
@@ -338,6 +343,7 @@ tasks:
           workspaceOwnerEmail: authors@runwhen.com
           defaultLocation: location-01
           defaultLOD: none
+          azureIndexerBackend: azureapi
           cloudConfig:
             kubernetes:             
               kubeconfigFile: /shared/kubeconfig.secret
@@ -392,8 +398,12 @@ tasks:
             .values.outputs.cluster_rg.value')
           cluster_sub=$(terraform show -json  | jq -r '
             .values.outputs.cluster_sub.value')
-          node_pool_rg=$(terraform show -json  | jq -r '
-            .values.root_module.resources[] | select(.type == "azurerm_kubernetes_cluster") | .values.node_resource_group')
+          # Scope to the single cluster we write into workspaceInfo.yaml. The
+          # fixture deploys multiple AKS clusters, so an unscoped query returns
+          # several node_resource_group values; interpolating a multi-line value
+          # into the heredoc below corrupts the generated YAML.
+          node_pool_rg=$(terraform show -json  | jq -r --arg name "$cluster_name" '
+            .values.root_module.resources[] | select(.type == "azurerm_kubernetes_cluster" and .values.name == $name) | .values.node_resource_group' | head -n1)
           popd > /dev/null
 
           # Check if any of the required cluster variables are empty
@@ -408,6 +418,7 @@ tasks:
           workspaceOwnerEmail: authors@runwhen.com
           defaultLocation: location-01
           defaultLOD: none
+          azureIndexerBackend: azureapi
           cloudConfig:
             kubernetes:             
               kubeconfigFile: /shared/kubeconfig.secret
@@ -470,8 +481,12 @@ tasks:
             .values.outputs.cluster_rg.value')
           cluster_sub=$(terraform show -json | jq -r '
             .values.outputs.cluster_sub.value')
-          node_pool_rg=$(terraform show -json  | jq -r '
-            .values.root_module.resources[] | select(.type == "azurerm_kubernetes_cluster") | .values.node_resource_group')
+          # Scope to the single cluster we write into workspaceInfo.yaml. The
+          # fixture deploys multiple AKS clusters, so an unscoped query returns
+          # several node_resource_group values; interpolating a multi-line value
+          # into the heredoc below corrupts the generated YAML.
+          node_pool_rg=$(terraform show -json  | jq -r --arg name "$cluster_name" '
+            .values.root_module.resources[] | select(.type == "azurerm_kubernetes_cluster" and .values.name == $name) | .values.node_resource_group' | head -n1)
 
           popd > /dev/null
 
@@ -487,6 +502,7 @@ tasks:
           workspaceOwnerEmail: authors@runwhen.com
           defaultLocation: location-01
           defaultLOD: none
+          azureIndexerBackend: azureapi
           cloudConfig:
             kubernetes: null
             azure:
@@ -556,6 +572,7 @@ tasks:
           workspaceOwnerEmail: authors@runwhen.com
           defaultLocation: location-01
           defaultLOD: none
+          azureIndexerBackend: azureapi
           cloudConfig:
             kubernetes:             
               kubeconfigFile: /shared/kubeconfig.secret
@@ -618,6 +635,7 @@ tasks:
         workspaceOwnerEmail: authors@runwhen.com
         defaultLocation: location-01
         defaultLOD: none
+        azureIndexerBackend: azureapi
         taskTagExclusions: 
           - "access:read-write"
         cloudConfig:

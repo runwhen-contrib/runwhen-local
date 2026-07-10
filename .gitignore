@@ -60,3 +60,16 @@ src/rw-cli-codecollection-cache
 .test/k8s/upload/gitlab_sas.json
 .test/azure/ado/run_sh_output.log
 .test/azure/ado/container_logs.log
+.test/azure/no-aks-resources/run_sh_output.log
+.test/azure/no-aks-resources/container_logs.log
+.test/gcp/gcp-and-k8s/run_sh_output.log
+.test/gcp/gcp-and-k8s/container_logs.log
+# Ephemeral local code collection built by generate-gcpapi-test-codecollection
+.test/gcp/gcp-and-k8s/gcpapi-test-codecollection/
+.scratch/*
+
+# Ignore Python bytecode / caches
+**/__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/

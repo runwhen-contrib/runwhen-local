@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RunWhen Local</title>
+  <link rel="icon" type="image/png" href="/static/favicon.png">
+  <link rel="stylesheet" href="/static/rw-ui.css">
+  <script src="/static/rw-ui.js" defer></script>
+</head>
+<body class="page-home">
+  <header class="appbar appbar--overlay">
+    <a class="brand" href="/">
+      <img class="brand-logo" src="/static/assets/white_runwhen_logo_transparent_bg.png" alt="RunWhen">
+      <span class="brand-title">Local</span>
+    </a>
+    <span class="appbar-spacer"></span>
+    <nav class="appbar-actions">
+      <a class="nav-link" data-nav href="/">Home</a>
+      <a class="nav-link" data-nav href="/explorer/">Explorer</a>
+      <a class="nav-link" href="/health/" target="_blank" rel="noopener">Health JSON</a>
+    </nav>
+    <button class="icon-btn" id="themeToggle" type="button" aria-label="Toggle theme" title="Toggle theme">☾</button>
+  </header>
+
+  <section class="hero hero--brand">
+    <div class="container">
+      <div class="hero-subtitle">RunWhen Local</div>
+      <h1>Control center</h1>
+      <p>
+        Browse what the workspace builder has discovered, check on the latest
+        run, and confirm what configuration the pod is using.
+        Troubleshooting tools and a richer discovery activity timeline are on
+        the way and will land here as separate cards.
+      </p>
+    </div>
+  </section>
+
+  <main>
+    <div class="container">
+      <div class="grid">
+        <!-- Tools / shortcuts row -->
+        <div class="col-4">
+          <a class="link-card" href="/explorer/">
+            <div class="label"><span class="icon">⌕</span>Workspace Explorer</div>
+            <div class="desc">
+              Browse every discovered resource, rendered SLX bundle and
+              workspace artifact. Search by display name, resource id or
+              file contents.
+            </div>
+            <div class="more">Open Explorer →</div>
+          </a>
+        </div>
+        <div class="col-4">
+          <div class="link-card disabled">
+            <div class="label"><span class="icon">⚙</span>Troubleshooting tools <span class="pill pill-grey">Coming soon</span></div>
+            <div class="desc">
+              Re-run a single code bundle, inspect generation-rule
+              evaluations against the live resource store, and trigger
+              on-demand discovery for a subset of platforms.
+            </div>
+            <div class="more">Planned</div>
+          </div>
+        </div>
+        <div class="col-4">
+          <div class="link-card disabled">
+            <div class="label"><span class="icon">⏱</span>Discovery activity <span class="pill pill-grey">Coming soon</span></div>
+            <div class="desc">
+              A chronological view of each discovery cycle: per-platform
+              durations, throttle events, code-collection clone results
+              and a diff of what changed.
+            </div>
+            <div class="more">Planned</div>
+          </div>
+        </div>
+
+        <!-- Latest run card -->
+        <div class="col-8">
+          <div class="card">
+            <div class="card-head">
+              <h2>Latest discovery run</h2>
+              <span id="runStatusPill"></span>
+            </div>
+            <div class="card-body" id="runBody">
+              <div class="skeleton" style="width:60%"></div>
+              <div class="skeleton" style="width:40%"></div>
+              <div class="skeleton" style="width:80%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Service / version card -->
+        <div class="col-4">
+          <div class="card">
+            <div class="card-head"><h2>Service</h2></div>
+            <div class="card-body" id="serviceBody">
+              <div class="skeleton" style="width:80%"></div>
+              <div class="skeleton" style="width:60%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Resource store card -->
+        <div class="col-8">
+          <div class="card">
+            <div class="card-head">
+              <h2>Discovered resources</h2>
+              <div class="head-actions">
+                <a class="head-link" href="/explorer/">Open in Explorer →</a>
+              </div>
+            </div>
+            <div class="card-body" id="storeBody">
+              <div class="skeleton" style="width:90%"></div>
+              <div class="skeleton" style="width:60%"></div>
+              <div class="skeleton" style="width:75%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent SLX bundles card -->
+        <div class="col-4">
+          <div class="card">
+            <div class="card-head"><h2>Recent SLX bundles</h2></div>
+            <div class="card-body tight" id="recentBundlesBody">
+              <div class="skeleton"></div>
+              <div class="skeleton"></div>
+              <div class="skeleton"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Configuration card -->
+        <div class="col-12">
+          <div class="card">
+            <div class="card-head">
+              <h2>Discovery configuration</h2>
+              <span id="configPathPill" class="pill pill-grey" style="font-size:0.7rem"></span>
+            </div>
+            <div class="card-body" id="configBody">
+              <div class="skeleton" style="width:50%"></div>
+              <div class="skeleton" style="width:70%"></div>
+              <div class="skeleton" style="width:60%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <a class="footer-link" href="https://github.com/runwhen-contrib/runwhen-local" target="_blank" rel="noopener">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        GitHub
+      </a>
+      <a class="footer-link" href="https://runwhen.slack.com" target="_blank" rel="noopener">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zm10.124 2.521a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.52 2.521h-2.522V8.834zm-1.271 0a2.528 2.528 0 0 1-2.521 2.521 2.528 2.528 0 0 1-2.521-2.521V2.522A2.528 2.528 0 0 1 15.166 0a2.528 2.528 0 0 1 2.521 2.522v6.312zm-2.521 10.124a2.528 2.528 0 0 1 2.521 2.522A2.528 2.528 0 0 1 15.166 24a2.528 2.528 0 0 1-2.521-2.52v-2.522h2.521zm0-1.271a2.528 2.528 0 0 1-2.521-2.521 2.528 2.528 0 0 1 2.521-2.521h6.312A2.528 2.528 0 0 1 24 15.165a2.528 2.528 0 0 1-2.52 2.521h-6.314z"/></svg>
+        Slack
+      </a>
+      <span class="footer-copy">© 2026 RunWhen Inc. All rights reserved.</span>
+    </div>
+  </footer>
+
+  <script>
+    const $ = function (sel) { return document.querySelector(sel); };
+    const $$ = function (sel) { return Array.from(document.querySelectorAll(sel)); };
+
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str).replace(/[&<>"']/g, function (c) {
+        return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]);
+      });
+    }
+    function fmtNumber(n) {
+      if (n === null || n === undefined) return '—';
+      try { return Number(n).toLocaleString(); } catch (e) { return String(n); }
+    }
+    function fmtDuration(sec) {
+      if (sec === null || sec === undefined) return '—';
+      const s = Number(sec);
+      if (Number.isNaN(s)) return String(sec);
+      if (s < 1) return s.toFixed(2) + 's';
+      if (s < 60) return s.toFixed(1) + 's';
+      if (s < 3600) return Math.floor(s / 60) + 'm ' + Math.round(s % 60) + 's';
+      return Math.floor(s / 3600) + 'h ' + Math.floor((s % 3600) / 60) + 'm';
+    }
+    function fmtTime(iso) {
+      if (!iso) return '—';
+      try {
+        const d = new Date(iso);
+        if (Number.isNaN(d.getTime())) return iso;
+        return d.toLocaleString();
+      } catch (e) { return iso; }
+    }
+    function statusPill(status) {
+      if (!status) return '<span class="pill pill-grey">unknown</span>';
+      const s = String(status).toLowerCase();
+      const cls = s === 'completed' || s === 'healthy' ? 'pill-green'
+        : s === 'running' ? 'pill-blue'
+        : s === 'error' || s === 'failed' ? 'pill-red'
+        : 'pill-grey';
+      return '<span class="pill ' + cls + '">' + escapeHtml(status) + '</span>';
+    }
+
+    // ── data load ──
+    async function fetchJSON(url) {
+      const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
+      return res.json();
+    }
+
+    async function load() {
+      let data;
+      try {
+        data = await fetchJSON('/api/overview');
+      } catch (err) {
+        const msg = '<div class="empty error">Failed to load /api/overview: ' + escapeHtml(err.message) + '</div>';
+        $('#runBody').innerHTML = msg;
+        $('#storeBody').innerHTML = msg;
+        $('#serviceBody').innerHTML = msg;
+        $('#recentBundlesBody').innerHTML = msg;
+        $('#configBody').innerHTML = msg;
+        return;
+      }
+      renderRun(data.health || {});
+      renderService(data.health || {}, data.version || {});
+      renderStore(data.resource_store || {});
+      renderRecentBundles(data.resource_store || {});
+      renderConfig(data.workspace_info || {});
+    }
+
+    function renderRun(health) {
+      if (health.error) {
+        $('#runStatusPill').innerHTML = statusPill('unknown');
+        $('#runBody').innerHTML = '<div class="empty error">' + escapeHtml(health.error) + '</div>';
+        return;
+      }
+      const last = health.last_run;
+      $('#runStatusPill').innerHTML = statusPill(last ? last.status : 'idle');
+      if (!last) {
+        $('#runBody').innerHTML = '<div class="empty">No discovery has completed yet. The first <code>./run.sh</code> invocation will populate this card.</div>';
+        return;
+      }
+      const errors = [];
+      if (last.error_message) {
+        errors.push('<div class="empty error" style="margin-top:0.5rem">' + escapeHtml(last.error_message) + '</div>');
+      }
+      const components = (last.components_run || []).map(escapeHtml);
+      $('#runBody').innerHTML =
+        '<div class="stat-row" style="margin-bottom:1rem">' +
+          tile(fmtNumber(last.slx_count), 'SLXs') +
+          tile(fmtDuration(last.duration_seconds), 'Duration') +
+          tile(fmtNumber(last.warnings_count), 'Warnings') +
+          tile(fmtNumber(last.parsing_errors_count), 'Parse errors') +
+        '</div>' +
+        '<dl class="kv">' +
+          '<dt>Started</dt><dd>' + escapeHtml(fmtTime(last.start_time)) + '</dd>' +
+          '<dt>Ended</dt><dd>' + escapeHtml(fmtTime(last.end_time)) + '</dd>' +
+          '<dt>Components</dt><dd>' + (components.length ? components.map(function (c) { return '<span class="pill pill-blue" style="margin:0 0.25rem 0.25rem 0">' + c + '</span>'; }).join('') : '—') + '</dd>' +
+          (last.current_stage || last.current_component ?
+            '<dt>Stage</dt><dd>' + escapeHtml(last.current_stage || '—') + (last.current_component ? ' / ' + escapeHtml(last.current_component) : '') + '</dd>'
+            : '') +
+        '</dl>' + errors.join('');
+    }
+
+    function renderService(health, version) {
+      if (health.error) {
+        $('#serviceBody').innerHTML = '<div class="empty error">' + escapeHtml(health.error) + '</div>';
+        return;
+      }
+      const versionStr = version && version.version ? version.version : (version && version.name) || '—';
+      $('#serviceBody').innerHTML =
+        '<dl class="kv">' +
+          '<dt>Status</dt><dd>' + statusPill(health.service_status) + '</dd>' +
+          '<dt>Healthy</dt><dd>' + (health.is_healthy ? '<span class="pill pill-green">yes</span>' : '<span class="pill pill-red">no</span>') + '</dd>' +
+          '<dt>Ready</dt><dd>' + (health.is_ready ? '<span class="pill pill-green">yes</span>' : '<span class="pill pill-blue">running</span>') + '</dd>' +
+          '<dt>Uptime</dt><dd>' + escapeHtml(fmtDuration(health.uptime_seconds)) + '</dd>' +
+          '<dt>Started</dt><dd>' + escapeHtml(fmtTime(health.service_start_time)) + '</dd>' +
+          '<dt>Version</dt><dd><code>' + escapeHtml(versionStr) + '</code></dd>' +
+        '</dl>';
+    }
+
+    function tile(num, label) {
+      return '<div class="stat-tile"><div class="num">' + num + '</div><div class="lbl">' + label + '</div></div>';
+    }
+
+    function renderStore(store) {
+      if (store.error) {
+        $('#storeBody').innerHTML =
+          '<div class="empty">No resource store yet — discovery has not populated <code>resources.sqlite</code>.</div>' +
+          '<div class="footnote">' + escapeHtml(store.error) + '</div>';
+        return;
+      }
+      const platforms = (store.platforms || []).map(function (p) {
+        return '<span class="pill pill-blue" style="margin:0 0.25rem 0.25rem 0">' + escapeHtml(p) + '</span>';
+      }).join('') || '—';
+      $('#storeBody').innerHTML =
+        '<div class="stat-row" style="margin-bottom:1rem">' +
+          tile(fmtNumber(store.resource_count), 'Resources') +
+          tile(fmtNumber(store.resource_type_count), 'Types') +
+          tile(fmtNumber(store.artifact_count), 'Artifacts') +
+          tile(fmtNumber(store.slx_bundle_count), 'SLX bundles') +
+        '</div>' +
+        '<dl class="kv">' +
+          '<dt>Platforms</dt><dd>' + platforms + '</dd>' +
+          '<dt>DB path</dt><dd><code>' + escapeHtml(store.db_path || '—') + '</code></dd>' +
+        '</dl>';
+    }
+
+    function renderRecentBundles(store) {
+      if (store.error) {
+        $('#recentBundlesBody').innerHTML = '<div class="empty">No SLX bundles yet.</div>';
+        return;
+      }
+      const recent = store.recent_slx_bundles || [];
+      if (!recent.length) {
+        $('#recentBundlesBody').innerHTML = '<div class="empty">No SLX bundles yet — run discovery to populate them.</div>';
+        return;
+      }
+      $('#recentBundlesBody').innerHTML = '<ul class="plain">' + recent.map(function (b) {
+        const title = b.display_name || b.slx_name || '(unnamed)';
+        const internal = b.slx_name && b.slx_name !== b.display_name ? '<div class="meta"><code>' + escapeHtml(b.slx_name) + '</code></div>' : '';
+        const kinds = (b.kinds || []).map(function (k) { return '<span class="pill pill-grey" style="margin-right:0.25rem">' + escapeHtml(k) + '</span>'; }).join('');
+        return '<li>' +
+          '<div style="font-weight:600">' + escapeHtml(title) + '</div>' +
+          internal +
+          '<div style="margin-top:0.25rem">' + kinds + '</div>' +
+        '</li>';
+      }).join('') + '</ul>' +
+      '<div class="footnote">Showing the first ' + recent.length + ' bundles. <a href="/explorer/">Browse all in the Explorer →</a></div>';
+    }
+
+    function renderConfig(ws) {
+      if (ws.error) {
+        $('#configPathPill').textContent = ws.path || '';
+        $('#configBody').innerHTML = '<div class="empty error">' + escapeHtml(ws.error) + '</div>';
+        return;
+      }
+      $('#configPathPill').textContent = ws.path || '';
+      const s = ws.summary || {};
+      const platforms = (s.platforms || []).map(function (p) {
+        return '<span class="pill pill-blue" style="margin:0 0.25rem 0.25rem 0">' + escapeHtml(p) + '</span>';
+      }).join('') || '—';
+      const ccRows = (s.codeCollections || []).map(function (cc) {
+        const branch = cc.branch ? ' <span class="pill pill-grey" style="margin-left:0.25rem">' + escapeHtml(cc.branch) + '</span>' : '';
+        const action = cc.action && cc.action !== 'include' ? ' <span class="pill pill-orange" style="margin-left:0.25rem">' + escapeHtml(cc.action) + '</span>' : '';
+        return '<li><code>' + escapeHtml(cc.repoURL || '—') + '</code>' + branch + action + '</li>';
+      }).join('');
+      const backends = s.indexerBackends || {};
+      const backendBits = Object.keys(backends).map(function (k) {
+        const v = backends[k];
+        if (!v) return null;
+        return '<span class="pill pill-grey" style="margin-right:0.25rem">' + escapeHtml(k) + ': ' + escapeHtml(v) + '</span>';
+      }).filter(Boolean).join('') || '<span class="pill pill-grey">defaults</span>';
+
+      let yamlBlock = '';
+      if (ws.redacted) {
+        const text = jsonToYaml(ws.redacted);
+        yamlBlock = '<details style="margin-top:1rem"><summary>View full workspaceInfo.yaml (sensitive values redacted)</summary><pre class="pre">' + escapeHtml(text) + '</pre></details>';
+      }
+
+      $('#configBody').innerHTML =
+        '<dl class="kv">' +
+          '<dt>Workspace</dt><dd><code>' + escapeHtml(s.workspaceName || '—') + '</code></dd>' +
+          '<dt>Owner</dt><dd>' + escapeHtml(s.workspaceOwnerEmail || '—') + '</dd>' +
+          '<dt>Default LOD</dt><dd>' + escapeHtml(s.defaultLOD || '—') + '</dd>' +
+          '<dt>useLocalGit</dt><dd>' + (s.useLocalGit === true ? '<span class="pill pill-blue">true</span>' : s.useLocalGit === false ? '<span class="pill pill-grey">false</span>' : '—') + '</dd>' +
+          '<dt>Platforms</dt><dd>' + platforms + '</dd>' +
+          '<dt>Indexer backends</dt><dd>' + backendBits + '</dd>' +
+          '<dt>Code collections</dt><dd>' + (ccRows ? '<ul class="plain" style="margin-top:0.25rem">' + ccRows + '</ul>' : '—') + '</dd>' +
+        '</dl>' + yamlBlock +
+        '<div class="footnote">Values like client secrets, tokens and API keys are masked. Set <code>RW_WORKSPACE_INFO_PATH</code> to point at a non-default file.</div>';
+    }
+
+    // Minimal "good-enough" YAML emitter for the redacted payload. We use
+    // it instead of pulling in a third-party library so the explorer pages
+    // stay dependency-free; the output is for human inspection, not for
+    // re-parsing.
+    function jsonToYaml(value, indent) {
+      indent = indent || 0;
+      const pad = '  '.repeat(indent);
+      if (value === null || value === undefined) return 'null';
+      if (Array.isArray(value)) {
+        if (value.length === 0) return '[]';
+        return value.map(function (item) {
+          if (item !== null && typeof item === 'object') {
+            const sub = jsonToYaml(item, indent + 1);
+            return pad + '- ' + sub.trimStart();
+          }
+          return pad + '- ' + yamlScalar(item);
+        }).join('\n');
+      }
+      if (typeof value === 'object') {
+        const keys = Object.keys(value);
+        if (keys.length === 0) return '{}';
+        return keys.map(function (k) {
+          const v = value[k];
+          if (v !== null && typeof v === 'object' && Object.keys(v).length > 0) {
+            return pad + k + ':\n' + jsonToYaml(v, indent + 1);
+          }
+          if (Array.isArray(v) && v.length > 0) {
+            return pad + k + ':\n' + jsonToYaml(v, indent + 1);
+          }
+          return pad + k + ': ' + yamlScalar(v);
+        }).join('\n');
+      }
+      return yamlScalar(value);
+    }
+    function yamlScalar(v) {
+      if (v === null || v === undefined) return 'null';
+      if (typeof v === 'boolean') return v ? 'true' : 'false';
+      if (typeof v === 'number') return String(v);
+      const s = String(v);
+      if (s === '' || /[:#\-&*!|>%@`{}\[\],]/.test(s) || /^\s|\s$/.test(s) || /^(true|false|null|yes|no|~)$/i.test(s) || /^-?\d/.test(s)) {
+        return '"' + s.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
+      }
+      return s;
+    }
+
+    load();
+  </script>
+</body>
+</html>

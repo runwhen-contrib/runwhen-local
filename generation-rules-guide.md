@@ -6,7 +6,7 @@
 apiVersion: runwhen.com/v1
 kind: GenerationRules
 spec:
-  platform: <platform-name>  # azure, kubernetes, gcp, aws
+  platform: <platform-name>  # azure, kubernetes, gcp, aws, runwhen
   generationRules:
     - resourceTypes: [<resource-types>]
       matchRules: [<match-rules>]
@@ -16,90 +16,101 @@ spec:
 
 ## Resource Type Specifications
 
-### Basic Resource Types
-```yaml
-resourceTypes:
-  - resource_group                    # Simple name
-  - azure:resource_group             # Platform-prefixed
-  - kubernetes:pod                   # Cross-platform
-```
+Each rule block lists names under `resourceTypes`. The file-level **`spec.platform`**
+(`azure`, `kubernetes`, `aws`, `gcp`, `runwhen`) is the default platform for
+every entry in that file unless an entry overrides it.
 
-### Discovering Available Resource Types
+### Typical names (canonical + aliases)
 
-To find the exact resource types available in your environment, examine your resource dump:
+Indexers resolve names through per-platform registries. Use the **CloudQuery table
+name** (canonical) or a documented **alias** — both work when `spec.platform`
+is set:
 
 ```yaml
-# Resource dump structure shows available resource types
-platforms:
-  azure: !Platform
-    resourceTypes:
-      resource_group: !ResourceType     # <- This is the resource type name to use
-        instances: {...}
-      virtual_machine: !ResourceType    # <- Another available resource type
-        instances: {...}
+# spec.platform: azure
+resourceTypes:
+  - azure_compute_virtual_machines    # canonical
+  - virtual_machine                   # alias → same type as above
+  - azure_appservice_web_apps
+
+# spec.platform: kubernetes
+resourceTypes:
+  - deployment
+  - pod
+  - buckets.storage.gcp.upbound.io    # CRD: plural.group[/version]
+
+# spec.platform: aws
+resourceTypes:
+  - aws_ec2_instances
+  - aws_s3_buckets
+
+# spec.platform: gcp
+resourceTypes:
+  - gcp_compute_instances
+  - gcp_storage_buckets
+
+# spec.platform: runwhen  (MCP tool-builder / workspace-scoped SLXs)
+resourceTypes:
+  - workspace
 ```
 
-You can also use the CloudQuery documentation to find the full list of supported resource types for your specific provider:
-- **Azure**: [CloudQuery Azure Plugin](https://www.cloudquery.io/docs/plugins/sources/azure/tables) - All Azure resource types
-- **AWS**: [CloudQuery AWS Plugin](https://www.cloudquery.io/docs/plugins/sources/aws/tables) - All AWS resource types  
-- **GCP**: [CloudQuery GCP Plugin](https://www.cloudquery.io/docs/plugins/sources/gcp/tables) - All GCP resource types
-- **Kubernetes**: [CloudQuery Kubernetes Plugin](https://www.cloudquery.io/docs/plugins/sources/k8s/tables) - All Kubernetes resource types
+Full lists: [`docs/authoring/indexed-resources/`](../docs/authoring/indexed-resources/)
+and the generated `*-resource-catalog.md` files (regenerated from indexer code).
 
-> **Important**: The available resource types depend on which CloudQuery provider plugins you have configured and enabled in your environment.
+### Optional platform override (`platform:type`)
 
-### Platform-Specific Resource Types
-
-RunWhen Local supports **all CloudQuery resource types for the specific provider/platform** you're using. The resource type names correspond to the CloudQuery table schema names, but are typically simplified (e.g., `azure_resources_resource_groups` becomes `resource_group`).
+Only the **first** `:` splits platform from type. Use this when one entry must
+target a different platform than `spec.platform` (uncommon):
 
 ```yaml
-# Azure - Examples from CloudQuery Azure plugin
-resourceTypes:
-  - resource_group                    # azure_resources_resource_groups
-  - virtual_machine                   # azure_compute_virtual_machines
-  - storage_account                   # azure_storage_accounts
-  - app_service                       # azure_web_apps
-  - sql_database                      # azure_sql_databases
-  - key_vault                         # azure_keyvault_vaults
-  - network_security_group           # azure_network_security_groups
-  - virtual_network                   # azure_network_virtual_networks
-  - load_balancer                     # azure_network_load_balancers
-
-# Kubernetes - Examples from CloudQuery Kubernetes plugin
-resourceTypes:
-  - pod                               # k8s_core_pods
-  - service                           # k8s_core_services
-  - deployment                        # k8s_apps_deployments
-  - namespace                         # k8s_core_namespaces
-  - configmap                         # k8s_core_config_maps
-  - secret                            # k8s_core_secrets
-  - ingress                           # k8s_networking_ingresses
-  - persistent_volume                 # k8s_core_persistent_volumes
-  - statefulset                       # k8s_apps_stateful_sets
-
-# AWS - Examples from CloudQuery AWS plugin
-resourceTypes:
-  - ec2_instance                      # aws_ec2_instances
-  - s3_bucket                         # aws_s3_buckets
-  - rds_instance                      # aws_rds_instances
-  - lambda_function                   # aws_lambda_functions
-  - vpc                               # aws_ec2_vpcs
-  - security_group                    # aws_ec2_security_groups
-  - iam_role                          # aws_iam_roles
-  - cloudformation_stack              # aws_cloudformation_stacks
-  - elb_load_balancer                 # aws_elbv2_load_balancers
-
-# GCP - Examples from CloudQuery GCP plugin
-resourceTypes:
-  - compute_instance                  # gcp_compute_instances
-  - storage_bucket                    # gcp_storage_buckets
-  - sql_instance                      # gcp_sql_instances
-  - kubernetes_cluster                # gcp_container_clusters
-  - cloud_function                    # gcp_cloudfunctions_functions
-  - firewall_rule                     # gcp_compute_firewall_rules
-  - vpc_network                       # gcp_compute_networks
+spec:
+  platform: azure
+  generationRules:
+    - resourceTypes:
+        - resource_group           # → azure (from spec.platform)
+        - kubernetes:deployment    # → kubernetes (override for this entry)
 ```
 
-> **Note**: The exact resource type names may vary. Check your resource dump or CloudQuery documentation for the specific resource types available in your environment.
+This is **not** “cross-platform matching” in one rule — it selects which indexer
+serves that entry. Prefer **separate generation-rule files** per `spec.platform`.
+
+Kubernetes CRDs use `plural.group[/version]` (dots in the group; optional
+`/version`). Do not confuse CRD syntax with `platform:type` overrides.
+
+### Dict form
+
+```yaml
+resourceTypes:
+  - resourceType: azure_keyvault_vaults
+  - platform: gcp
+    resourceType: gcp_compute_instances
+```
+
+### Discovering available resource types
+
+**Review discovered resources in the Workspace Explorer UI** (workspace-builder on
+port **8000**) — not by opening `resource-dump.yaml` on the filesystem:
+
+| Method | Use |
+| --- | --- |
+| [http://localhost:8000/explorer/](http://localhost:8000/explorer/) | Browse platforms, resource types, and instance payloads after discovery |
+| `GET /explorer/api/summary` | JSON overview of indexed platforms and counts |
+| `GET /explorer/api/resources?platform=…&resource_type=…` | Filter instances; inspect fields for `matchRules` paths |
+| `docs/authoring/indexed-resources/*-resource-catalog.md` | Full type list from indexer registries (no cluster required) |
+
+See [Resource store query API](docs/architecture/resource-store-query-api.md) for
+API details. Legacy YAML dumps under `shared/` are deprecated for authoring.
+
+CloudQuery plugin tables remain useful background for field shapes:
+
+- **Azure**: [CloudQuery Azure Plugin](https://www.cloudquery.io/docs/plugins/sources/azure/tables)
+- **AWS**: [CloudQuery AWS Plugin](https://www.cloudquery.io/docs/plugins/sources/aws/tables)
+- **GCP**: [CloudQuery GCP Plugin](https://www.cloudquery.io/docs/plugins/sources/gcp/tables)
+- **Kubernetes**: [CloudQuery Kubernetes Plugin](https://www.cloudquery.io/docs/plugins/sources/k8s/tables)
+
+> **Important**: Which types appear in Explorer depends on your generation rules
+> (selective discovery) and indexer backend — not every catalog row is indexed in
+> every run.
 
 ## Match Rules
 
@@ -424,8 +435,8 @@ All matched resources provide these template variables:
 ## Common Troubleshooting
 
 ### Issue: Generation Rule Not Matching
-- Check that `resourceTypes` matches exactly what's in your resource dump
-- Verify `properties` paths are correct (use `/` for nested paths)
+- Confirm `resourceTypes` against Explorer (`http://localhost:8000/explorer/`) or the authoring catalogs — not legacy filesystem dumps
+- Verify `properties` paths against a live resource payload in Explorer (use `/` for nested paths)
 - Test regex patterns with online regex testers
 - Enable debug logging to see match attempts
 

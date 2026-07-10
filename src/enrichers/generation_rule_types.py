@@ -153,10 +153,41 @@ class PlatformHandler:
         but if the resource type name encodes other information (e.g. Kubernetes custom
         resources), then this is where that info would be parsed and translated into lookup
         calls in the registry.
+
+        Cloud platforms (Azure/GCP/AWS) resolve the requested name through the
+        registry-driven accepted-name set so a rule matches a resource whenever
+        the requested type is any of the type's accepted names (canonical
+        CloudQuery/native name OR a legacy/alias name), regardless of which of
+        those names the indexer happened to store the resource under. For
+        platforms with no cloud registry (Kubernetes, azure_devops, custom
+        types) the resolver returns no accepted-name set and we fall back to an
+        exact-string lookup, preserving existing behavior.
         """
+        from resource_type_resolver import resolve_lookup_names
+
         registry: Registry = context.get_property(REGISTRY_PROPERTY_NAME)
-        resource_type = registry.lookup_resource_type(self.name, resource_type_spec.resource_type_name)
-        return resource_type.instances.values() if resource_type else list()
+        requested_name = resource_type_spec.resource_type_name
+        lookup_names = resolve_lookup_names(self.name, requested_name)
+        if len(lookup_names) == 1:
+            # Fast path: exact-string match (k8s/custom/unknown, or a cloud type
+            # whose only accepted name is the canonical one).
+            resource_type = registry.lookup_resource_type(self.name, lookup_names[0])
+            return resource_type.instances.values() if resource_type else list()
+        # Alias-aware path: union the instances across every accepted name. The
+        # accepted-name sets are pairwise disjoint (enforced by the registry's
+        # load-time invariant) and each resource is stored under exactly one
+        # name, so this neither double-counts nor mixes types.
+        result: list[Resource] = []
+        seen: set[int] = set()
+        for name in lookup_names:
+            resource_type = registry.lookup_resource_type(self.name, name)
+            if not resource_type:
+                continue
+            for resource in resource_type.instances.values():
+                if id(resource) not in seen:
+                    seen.add(id(resource))
+                    result.append(resource)
+        return result
 
     def get_level_of_detail(self, resource: Resource) -> LevelOfDetail:
         """

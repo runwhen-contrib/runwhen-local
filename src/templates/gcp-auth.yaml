@@ -1,10 +1,12 @@
-{% if cluster is defined and cluster.cluster_type | default('') == "gke" and cluster.auth_type | default('') == "gcp_service_account" %}
+{% if custom is defined and custom.gcp_credentials_key is defined %}
     - name: gcp_credentials
-      workspaceKey: gcp:sa@cli
-    - name: gcp_projectId
-      workspaceKey: k8s:file@secret/{{ custom.gcp_service_account_secret_name | default('undefined') }}:projectId
-    - name: gcp_serviceAccountKey
-      workspaceKey: k8s:file@secret/{{ custom.gcp_service_account_secret_name | default('undefined') }}:serviceAccountKey
+      workspaceKey: "{{ custom.gcp_credentials_key }}"
+{% elif custom is defined and custom.gcp_ops_suite_sa is defined and custom.gcp_ops_suite_sa | default('') not in ['none', ''] %}
+    - name: gcp_credentials
+      workspaceKey: "{{ custom.gcp_ops_suite_sa }}"
+{% elif secrets is defined and secrets.gcp_service_account is defined %}
+    - name: gcp_credentials
+      workspaceKey: "{{ secrets.gcp_service_account }}"
 {% elif cluster is defined and cluster.cluster_type | default('') == "gke" and cluster.auth_type | default('') == "gcp_service_account_secret" %}
     - name: gcp_credentials
       workspaceKey: gcp:sa@cli
@@ -12,13 +14,6 @@
       workspaceKey: k8s:file@secret/{{ cluster.auth_secret | default('undefined') }}:projectId
     - name: gcp_serviceAccountKey
       workspaceKey: k8s:file@secret/{{ cluster.auth_secret | default('undefined') }}:serviceAccountKey
-{% elif match_resource is defined and match_resource.auth_type | default('') == "gcp_service_account" %}
-    - name: gcp_credentials
-      workspaceKey: gcp:sa@cli
-    - name: gcp_projectId
-      workspaceKey: k8s:file@secret/{{ custom.gcp_service_account_secret_name | default('undefined') }}:projectId
-    - name: gcp_serviceAccountKey
-      workspaceKey: k8s:file@secret/{{ custom.gcp_service_account_secret_name | default('undefined') }}:serviceAccountKey
 {% elif match_resource is defined and match_resource.auth_type | default('') == "gcp_service_account_secret" %}
     - name: gcp_credentials
       workspaceKey: gcp:sa@cli
@@ -32,13 +27,20 @@
 {% elif cluster is defined and cluster.cluster_type | default('') == "gke" and cluster.auth_type | default('') == "gcp_adc" %}
     - name: gcp_credentials
       workspaceKey: gcp:adc@cli
-{% elif custom is defined and custom.gcp_credentials_key is defined %}
+{% elif custom is defined and custom.gcp_service_account_secret_name | default('') != '' and (
+       (cluster is defined and cluster.cluster_type | default('') == "gke" and cluster.auth_type | default('') == "gcp_service_account") or
+       (match_resource is defined and match_resource.auth_type | default('') == "gcp_service_account")
+     ) %}
+    {% set gcp_sa_key = custom.gcp_service_account_secret_key | default(custom.gcp_service_account_secret_name) %}
     - name: gcp_credentials
-      workspaceKey: "{{ custom.gcp_credentials_key }}"
-{% elif secrets is defined and secrets.gcp_service_account is defined %}
+      workspaceKey: k8s:file@secret/{{ custom.gcp_service_account_secret_name }}:{{ gcp_sa_key }}
+{% elif cluster is defined and cluster.cluster_type | default('') == "gke" and cluster.auth_type | default('') == "gcp_service_account" %}
     - name: gcp_credentials
-      workspaceKey: "{{ secrets.gcp_service_account }}"
+      workspaceKey: gcp:sa@cli
+{% elif match_resource is defined and match_resource.auth_type | default('') == "gcp_service_account" %}
+    - name: gcp_credentials
+      workspaceKey: gcp:sa@cli
 {% else %}
     - name: gcp_credentials
       workspaceKey: GCP AUTH DETAILS NOT FOUND
-{% endif %} 
+{% endif %}

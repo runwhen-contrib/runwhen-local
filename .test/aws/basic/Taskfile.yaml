@@ -61,7 +61,7 @@ tasks:
 
         echo "Starting new container $CONTAINER_NAME..."
 
-        docker run -e DEBUG_LOGGING=false --name $CONTAINER_NAME -p 8081:8081 -v $(pwd):/shared -d runwhen-local:test || {
+        docker run -e DEBUG_LOGGING=false --name $CONTAINER_NAME -p 8000:8000 -v $(pwd):/shared -d runwhen-local:test || {
           echo "Failed to start container"; exit 1;
         }
 
@@ -70,57 +70,33 @@ tasks:
           echo "Error executing script in container"; exit 1;
         }
 
-        echo "Review generated config files under output/workspaces/"
-        total_slxs=$(find $(find 'output/' -type d -name 'slxs') -mindepth 1 -type d | wc -l)
+        echo "Review rendered SLXs via the explorer UI (http://localhost:8000/explorer/) or output/resources.sqlite"
+        # Rendered files are no longer written to disk by default
+        # (writeWorkspaceFilesToDisk=False); count SLXs from the sqlite store.
+        total_slxs=$(python3 ../../lib/slx_db.py --db output/resources.sqlite count)
         echo "Total SLXs: $total_slxs"
         echo "$total_slxs" > slx_count.txt
     silent: true
 
   upload-slxs:
-      desc: "Upload SLX files to the appropriate URL"
+      desc: "Upload SLX files to the appropriate URL (sourced from the sqlite resource store)"
       env:
         RW_WORKSPACE: "{{.RW_WORKSPACE}}"
         RW_API_URL: "{{.RW_API}}"
         RW_PAT: "{{.RW_PAT}}"
       cmds:
         - |
-          BASE_DIR="output/workspaces/${RW_WORKSPACE}/slxs"
-          if [ ! -d "$BASE_DIR" ]; then
-            echo "Directory $BASE_DIR does not exist. Upload aborted."
-            exit 1
-          fi
-
-          for dir in "$BASE_DIR"/*; do
-            if [ -d "$dir" ]; then
-              SLX_NAME=$(basename "$dir")
-              PAYLOAD=$(jq -n --arg commitMsg "Creating new SLX $SLX_NAME" '{ commitMsg: $commitMsg, files: {} }')
-              for file in slx.yaml runbook.yaml sli.yaml; do
-                if [ -f "$dir/$file" ]; then
-                  CONTENT=$(cat "$dir/$file")
-                  PAYLOAD=$(echo "$PAYLOAD" | jq --arg fileContent "$CONTENT" --arg fileName "$file" '.files[$fileName] = $fileContent')
-                fi
-              done
-
-              URL="https://${RW_API_URL}/api/v3/workspaces/${RW_WORKSPACE}/branches/main/slxs/${SLX_NAME}"
-              echo "Uploading SLX: $SLX_NAME to $URL"
-              # response_code=$(curl -X POST "$URL" \
-              #   -H "Authorization: Bearer $RW_PAT" \
-              #   -H "Content-Type: application/json" \
-              #   -d "$PAYLOAD" \
-              #   -w "%{http_code}" -o /dev/null -s)
-              curl -X POST "$URL" \
-                -H "Authorization: Bearer $RW_PAT" \
-                -H "Content-Type: application/json" \
-                -d "$PAYLOAD"             
-              if [[ "$response_code" == "200" || "$response_code" == "201" ]]; then
-                echo "Successfully uploaded SLX: $SLX_NAME to $URL"
-              elif [[ "$response_code" == "405" ]]; then
-                echo "Failed to upload SLX: $SLX_NAME to $URL. Method not allowed (405)."
-              else
-                echo "Failed to upload SLX: $SLX_NAME to $URL. Unexpected response code: $response_code"
-              fi
-            fi
-          done
+          # Rendered SLX/SLI/runbook content lives in output/resources.sqlite
+          # (workspace_artifacts) rather than an on-disk workspaces/<ws>/ tree.
+          # The helper rebuilds the same per-SLX {slx,runbook,sli}.yaml payload
+          # and POSTs to the identical branches/main/slxs/<name> URL.
+          python3 ../../lib/slx_db.py \
+            --db output/resources.sqlite \
+            --workspace "${RW_WORKSPACE}" \
+            upload \
+            --api "${RW_API_URL}" \
+            --pat "${RW_PAT}" \
+            --branch main
       silent: true
 
   delete-slxs:
@@ -131,15 +107,16 @@ tasks:
       RW_PAT: "{{.RW_PAT}}"
     cmds:
       - |
-        BASE_DIR="output/workspaces/${RW_WORKSPACE}/slxs"
-        if [ ! -d "$BASE_DIR" ]; then
-          echo "Directory $BASE_DIR does not exist. Deletion aborted."
+        # SLX names come from the sqlite resource store (workspace_artifacts),
+        # not an on-disk workspaces/<ws>/ tree which is no longer written by default.
+        SLX_NAMES=$(python3 ../../lib/slx_db.py --db output/resources.sqlite --workspace "${RW_WORKSPACE}" slx-names)
+        if [ -z "$SLX_NAMES" ]; then
+          echo "No SLXs found in output/resources.sqlite. Deletion aborted."
           exit 1
         fi
 
-        for dir in "$BASE_DIR"/*; do
-          if [ -d "$dir" ]; then
-            SLX_NAME=$(basename "$dir")
+        echo "$SLX_NAMES" | while read -r SLX_NAME; do
+          if [ -n "$SLX_NAME" ]; then
             URL="https://${RW_API_URL}/api/v3/workspaces/${RW_WORKSPACE}/branches/main/slxs/${SLX_NAME}"
             echo "Deleting SLX: $SLX_NAME from $URL"
             response_code=$(curl -X DELETE "$URL" \

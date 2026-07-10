@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RunWhen Local · Workspace Explorer</title>
+  <link rel="icon" type="image/png" href="/static/favicon.png">
+  <link rel="stylesheet" href="/static/rw-ui.css">
+  <link rel="stylesheet" href="/static/explorer.css">
+  <script src="/static/rw-ui.js" defer></script>
+</head>
+<body class="page-explorer">
+  <header class="appbar appbar--overlay">
+    <a class="brand" href="/">
+      <img class="brand-logo" src="/static/assets/white_runwhen_logo_transparent_bg.png" alt="RunWhen">
+      <span class="brand-title">Local · Explorer</span>
+    </a>
+    <span class="appbar-spacer"></span>
+    <nav class="appbar-actions">
+      <a class="nav-link" data-nav href="/">Home</a>
+      <a class="nav-link" data-nav href="/explorer/">Explorer</a>
+    </nav>
+    <button class="icon-btn" id="refreshBtn" type="button" title="Refresh">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+    </button>
+    <button class="icon-btn" id="themeBtn" type="button" aria-label="Toggle theme" title="Toggle theme">☾</button>
+  </header>
+
+  <section class="hero hero--brand">
+    <div class="container">
+      <div class="hero-subtitle">RunWhen Local</div>
+      <h1>Workspace Explorer</h1>
+      <p>Browse the discovered cloud and Kubernetes resources, plus the SLXs, SLIs, runbooks and Skills that RunWhen Local rendered for them. Each SLX is an instance of a Skill defined by a CodeBundle, and every artifact below comes straight from the local SQLite resource store.</p>
+      <form class="search" id="globalSearchForm" autocomplete="off">
+        <span class="search-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </span>
+        <input id="globalSearch" type="search" placeholder="Search resources, SLXs, runbooks…">
+      </form>
+      <div class="stat-row" id="statRow"></div>
+    </div>
+  </section>
+
+  <main>
+    <div class="container">
+      <div class="tabs" id="tabs">
+        <button class="tab active" data-tab="bundles">SLX Bundles</button>
+        <button class="tab" data-tab="resources">Discovered Resources</button>
+        <button class="tab" data-tab="artifacts">All Artifacts</button>
+      </div>
+
+      <div class="layout">
+        <aside class="sidebar" id="sidebar"></aside>
+        <section class="content">
+          <div class="toolbar" id="toolbar"></div>
+          <div class="list" id="list"></div>
+          <div class="pagination" id="pagination"></div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <a class="footer-link" href="https://github.com/runwhen-contrib/runwhen-local" target="_blank" rel="noopener">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        GitHub
+      </a>
+      <a class="footer-link" href="https://runwhen.slack.com" target="_blank" rel="noopener">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zm10.124 2.521a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.52 2.521h-2.522V8.834zm-1.271 0a2.528 2.528 0 0 1-2.521 2.521 2.528 2.528 0 0 1-2.521-2.521V2.522A2.528 2.528 0 0 1 15.166 0a2.528 2.528 0 0 1 2.521 2.522v6.312zm-2.521 10.124a2.528 2.528 0 0 1 2.521 2.522A2.528 2.528 0 0 1 15.166 24a2.528 2.528 0 0 1-2.521-2.52v-2.522h2.521zm0-1.271a2.528 2.528 0 0 1-2.521-2.521 2.528 2.528 0 0 1 2.521-2.521h6.312A2.528 2.528 0 0 1 24 15.165a2.528 2.528 0 0 1-2.52 2.521h-6.314z"/></svg>
+        Slack
+      </a>
+      <span class="footer-copy">© 2026 RunWhen Inc. All rights reserved.</span>
+    </div>
+  </footer>
+
+  <div class="scrim" id="scrim"></div>
+  <aside class="detail" id="detail" aria-hidden="true">
+    <div class="detail-header">
+      <h2 id="detailTitle">Details</h2>
+      <button class="btn ghost" id="copyBtn" title="Copy raw content">Copy</button>
+      <button class="btn ghost" id="closeDetail" aria-label="Close detail panel">×</button>
+    </div>
+    <div class="detail-body" id="detailBody"></div>
+  </aside>
+  <div class="toast" id="toast"></div>
+  <script>
+    const state = {
+      tab: 'bundles',
+      summary: null,
+      filter: { platform: null, resource_type: null, artifact_kind: null, workspace_name: null, q: '' },
+      pagination: { limit: 25, offset: 0, total: 0 },
+      currentList: []
+    };
+    const $ = function (sel) { return document.querySelector(sel); };
+    const $$ = function (sel) { return Array.from(document.querySelectorAll(sel)); };
+
+    function escapeHtml(s) {
+      if (s === null || s === undefined) return '';
+      return String(s).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+    function fmtBytes(n) {
+      if (n == null) return '';
+      if (n < 1024) return n + ' B';
+      if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+      return (n / 1048576).toFixed(2) + ' MB';
+    }
+    function kindPill(kind) {
+      const map = { slx: 'pill-blue', sli: 'pill-green', runbook: 'pill-orange', workspace: 'pill-purple', skill: 'pill-pink' };
+      return '<span class="pill ' + (map[kind] || '') + '">' + escapeHtml(kind || 'file') + '</span>';
+    }
+    function showToast(msg) {
+      const t = $('#toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      clearTimeout(showToast._t);
+      showToast._t = setTimeout(function () { t.classList.remove('show'); }, 1800);
+    }
+    async function api(path) {
+      const res = await fetch(path);
+      if (!res.ok) {
+        const text = await res.text().catch(function () { return res.statusText; });
+        throw new Error(res.status + ': ' + text);
+      }
+      return res.json();
+    }
+    function debounce(fn, ms) {
+      let t;
+      return function () {
+        const args = arguments;
+        clearTimeout(t);
+        t = setTimeout(function () { fn.apply(null, args); }, ms);
+      };
+    }
+
+    async function loadSummary() {
+      try {
+        state.summary = await api('/explorer/api/summary');
+      } catch (err) {
+        state.summary = { error: err.message, platforms: [], tree: [], artifact_kinds: [], resource_count: 0, artifact_count: 0, platform_count: 0, resource_type_count: 0 };
+      }
+      renderStatRow();
+      renderSidebar();
+    }
+
+    function renderStatRow() {
+      const s = state.summary || {};
+      const slxCount = (s.artifact_kinds || []).filter(function (k) { return k.kind === 'slx'; }).reduce(function (a, b) { return a + b.count; }, 0);
+      const dbLabel = s.db_path ? s.db_path.split('/').slice(-2).join('/') : 'No database';
+      const cards = [
+        { label: 'Discovered Resources', count: s.resource_count || 0, desc: (s.platform_count || 0) + ' platforms · ' + (s.resource_type_count || 0) + ' types', tab: 'resources', icon: '⛁' },
+        { label: 'SLX Bundles', count: slxCount, desc: 'Generated SLXs grouped by directory', tab: 'bundles', icon: '◆' },
+        { label: 'Workspace Artifacts', count: s.artifact_count || 0, desc: (s.artifact_kinds || []).length + ' kinds rendered', tab: 'artifacts', icon: '◊' },
+        { label: 'Schema', count: 'v' + (s.schema_version || 0), desc: dbLabel, tab: null, icon: '⌬' }
+      ];
+      $('#statRow').innerHTML = cards.map(function (c) {
+        return '<a href="#" class="stat-card ' + (state.tab === c.tab ? 'active' : '') + '" data-tab="' + (c.tab || '') + '">' +
+          '<div class="stat-card-top"><div class="stat-icon">' + c.icon + '</div><div class="stat-count">' + escapeHtml(c.count) + '</div></div>' +
+          '<div class="stat-label">' + escapeHtml(c.label) + '</div>' +
+          '<div class="stat-desc">' + escapeHtml(c.desc) + '</div>' +
+          '</a>';
+      }).join('');
+      $$('#statRow .stat-card').forEach(function (el) {
+        el.addEventListener('click', function (e) {
+          e.preventDefault();
+          const t = el.getAttribute('data-tab');
+          if (t) switchTab(t);
+        });
+      });
+    }
+
+    function renderSidebar() {
+      const s = state.summary || {};
+      let html = '';
+      if (state.tab === 'resources') {
+        html += '<h3>Platforms</h3><ul>';
+        html += '<li><button class="' + (!state.filter.platform ? 'active' : '') + '" data-platform="">All platforms <span class="badge">' + (s.resource_count || 0) + '</span></button></li>';
+        (s.tree || []).forEach(function (tree) {
+          const isActive = state.filter.platform === tree.name;
+          html += '<li><button class="' + (isActive ? 'active' : '') + '" data-platform="' + escapeHtml(tree.name) + '">' + escapeHtml(tree.name) + ' <span class="badge">' + tree.count + '</span></button></li>';
+          if (isActive && tree.resource_types && tree.resource_types.length) {
+            tree.resource_types.forEach(function (rt) {
+              const rtActive = state.filter.resource_type === rt.name;
+              html += '<li class="indent"><button class="' + (rtActive ? 'active' : '') + '" data-platform="' + escapeHtml(tree.name) + '" data-resource-type="' + escapeHtml(rt.name) + '">' + escapeHtml(rt.name) + ' <span class="badge">' + rt.count + '</span></button></li>';
+            });
+          }
+        });
+        html += '</ul>';
+      } else if (state.tab === 'artifacts') {
+        html += '<h3>Artifact kinds</h3><ul>';
+        html += '<li><button class="' + (!state.filter.artifact_kind ? 'active' : '') + '" data-kind="">All kinds <span class="badge">' + (s.artifact_count || 0) + '</span></button></li>';
+        (s.artifact_kinds || []).forEach(function (k) {
+          const isActive = state.filter.artifact_kind === k.kind;
+          html += '<li><button class="' + (isActive ? 'active' : '') + '" data-kind="' + escapeHtml(k.kind) + '">' + escapeHtml(k.kind) + ' <span class="badge">' + k.count + '</span></button></li>';
+        });
+        html += '</ul>';
+      } else {
+        html += '<h3>SLX bundles</h3>';
+        html += '<p style="font-size:0.8125rem;color:var(--text-secondary);margin:0 0 1rem;">Each card is titled with the SLX <strong>display name</strong> (the <code>spec.alias</code> from <code>slx.yaml</code>) and groups the SLX, SLI and runbook files that share an SLX directory.</p>';
+        html += '<h3>Tip</h3>';
+        html += '<p style="font-size:0.8125rem;color:var(--text-secondary);margin:0;">Click a bundle to see all its rendered files inline. The search box matches the display name, directory and file contents.</p>';
+      }
+      $('#sidebar').innerHTML = html;
+      $$('#sidebar button').forEach(function (b) {
+        b.addEventListener('click', function () {
+          const platform = b.getAttribute('data-platform');
+          const rt = b.getAttribute('data-resource-type');
+          const kind = b.getAttribute('data-kind');
+          if (platform !== null) {
+            state.filter.platform = platform || null;
+            state.filter.resource_type = rt || null;
+          }
+          if (kind !== null) state.filter.artifact_kind = kind || null;
+          state.pagination.offset = 0;
+          renderSidebar();
+          renderToolbar();
+          loadList();
+        });
+      });
+    }
+
+    function renderToolbar() {
+      const tb = $('#toolbar');
+      const placeholder = state.tab === 'bundles' ? 'Filter SLX bundles…' : (state.tab === 'resources' ? 'Filter resources…' : 'Filter artifacts…');
+      tb.innerHTML =
+        '<input id="localSearch" type="search" placeholder="' + placeholder + '" value="' + escapeHtml(state.filter.q) + '">' +
+        '<span class="grow"></span>' +
+        '<span class="pill" id="resultCount">— results</span>';
+      $('#localSearch').addEventListener('input', debounce(function (e) {
+        state.filter.q = e.target.value;
+        state.pagination.offset = 0;
+        loadList();
+      }, 300));
+    }
+
+    async function loadList() {
+      const list = $('#list');
+      list.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
+      const params = new URLSearchParams();
+      params.set('limit', state.pagination.limit);
+      params.set('offset', state.pagination.offset);
+      if (state.filter.q) params.set('q', state.filter.q);
+      try {
+        let data;
+        if (state.tab === 'resources') {
+          if (state.filter.platform) params.set('platform', state.filter.platform);
+          if (state.filter.resource_type) params.set('resource_type', state.filter.resource_type);
+          data = await api('/explorer/api/resources?' + params.toString());
+          renderResourceList(data);
+        } else if (state.tab === 'artifacts') {
+          if (state.filter.artifact_kind) params.set('artifact_kind', state.filter.artifact_kind);
+          data = await api('/explorer/api/artifacts?' + params.toString());
+          renderArtifactList(data);
+        } else {
+          data = await api('/explorer/api/slx-bundles?' + params.toString());
+          renderBundleList(data);
+        }
+        state.currentList = data.items || [];
+        state.pagination.total = data.total || 0;
+        $('#resultCount').textContent = (data.total || 0) + ' result' + (data.total === 1 ? '' : 's');
+        renderPagination();
+      } catch (err) {
+        list.innerHTML = '<div class="empty"><h3>Could not load data</h3><p>' + escapeHtml(err.message) + '</p></div>';
+        $('#pagination').innerHTML = '';
+      }
+    }
+
+    function renderResourceList(data) {
+      if (!data.items || !data.items.length) {
+        $('#list').innerHTML = '<div class="empty"><h3>No resources match</h3><p>Try clearing filters or running discovery.</p></div>';
+        return;
+      }
+      $('#list').innerHTML = data.items.map(function (r, i) {
+        return '<a class="item" href="#" data-idx="' + i + '" data-kind="resource">' +
+          '<div class="item-row">' +
+            '<div><div class="item-title">' + escapeHtml(r.name || r.qualified_name) + '</div>' +
+            '<div class="item-meta">' + escapeHtml(r.qualified_name) + '</div></div>' +
+            '<div class="item-tags">' +
+              '<span class="pill pill-blue">' + escapeHtml(r.platform) + '</span>' +
+              '<span class="pill">' + escapeHtml(r.resource_type) + '</span>' +
+            '</div>' +
+          '</div></a>';
+      }).join('');
+      bindItemClicks();
+    }
+
+    function renderArtifactList(data) {
+      if (!data.items || !data.items.length) {
+        $('#list').innerHTML = '<div class="empty"><h3>No rendered artifacts</h3><p>Run discovery to populate SLXs, SLIs and runbooks.</p></div>';
+        return;
+      }
+      $('#list').innerHTML = data.items.map(function (a, i) {
+        return '<a class="item" href="#" data-idx="' + i + '" data-kind="artifact">' +
+          '<div class="item-row">' +
+            '<div><div class="item-title">' + escapeHtml(a.relative_path) + '</div>' +
+            '<div class="item-meta">' + escapeHtml(a.workspace_name) + ' · ' + fmtBytes(a.size_bytes) + ' · ' + escapeHtml(a.media_type || '') + '</div></div>' +
+            '<div class="item-tags">' + kindPill(a.artifact_kind) + '</div>' +
+          '</div></a>';
+      }).join('');
+      bindItemClicks();
+    }
+
+    function renderBundleList(data) {
+      if (!data.items || !data.items.length) {
+        $('#list').innerHTML = '<div class="empty"><h3>No SLX bundles yet</h3><p>SLX bundles appear once discovery has rendered SLX/SLI/runbook files.</p></div>';
+        return;
+      }
+      $('#list').innerHTML = data.items.map(function (b, i) {
+        const extras = (b.kinds || []).filter(function (k) { return ['slx', 'sli', 'runbook', 'skill'].indexOf(k) === -1; }).map(kindPill).join('');
+        // Prefer the human-readable spec.alias from the rendered slx.yaml.
+        // Fall back to the on-disk slx_name (cryptic, short-hashed) and then
+        // the directory path so older / partially-rendered bundles still show.
+        const title = b.display_name || b.slx_name || b.slx_directory;
+        const showInternal = title !== b.slx_name && b.slx_name;
+        const metaBits = [];
+        if (showInternal) metaBits.push(escapeHtml(b.slx_name));
+        metaBits.push(escapeHtml(b.slx_directory));
+        metaBits.push(b.file_count + ' file' + (b.file_count === 1 ? '' : 's'));
+        metaBits.push('workspace ' + escapeHtml(b.workspace_name));
+        return '<a class="item" href="#" data-idx="' + i + '" data-kind="bundle">' +
+          '<div class="item-row">' +
+            '<div><div class="item-title">' + escapeHtml(title) + '</div>' +
+            '<div class="item-meta">' + metaBits.join(' · ') + '</div></div>' +
+            '<div class="item-tags">' +
+              (b.has_slx ? kindPill('slx') : '') +
+              (b.has_sli ? kindPill('sli') : '') +
+              (b.has_runbook ? kindPill('runbook') : '') +
+              (b.has_skill ? kindPill('skill') : '') +
+              extras +
+            '</div>' +
+          '</div></a>';
+      }).join('');
+      bindItemClicks();
+    }
+
+    function bindItemClicks() {
+      $$('#list .item').forEach(function (a) {
+        a.addEventListener('click', function (e) {
+          e.preventDefault();
+          const idx = parseInt(a.getAttribute('data-idx'), 10);
+          const kind = a.getAttribute('data-kind');
+          $$('#list .item').forEach(function (x) { x.classList.remove('selected'); });
+          a.classList.add('selected');
+          openDetail(kind, state.currentList[idx]);
+        });
+      });
+    }
+
+    function renderPagination() {
+      const p = state.pagination;
+      const start = p.total === 0 ? 0 : p.offset + 1;
+      const end = Math.min(p.total, p.offset + p.limit);
+      $('#pagination').innerHTML =
+        '<span>' + start + '–' + end + ' of ' + p.total + '</span>' +
+        '<span>' +
+        '<button class="btn ghost" id="prevBtn" ' + (p.offset === 0 ? 'disabled' : '') + '>Prev</button> ' +
+        '<button class="btn ghost" id="nextBtn" ' + (end >= p.total ? 'disabled' : '') + '>Next</button>' +
+        '</span>';
+      const prev = $('#prevBtn');
+      const next = $('#nextBtn');
+      if (prev) prev.addEventListener('click', function () {
+        state.pagination.offset = Math.max(0, state.pagination.offset - state.pagination.limit);
+        loadList();
+      });
+      if (next) next.addEventListener('click', function () {
+        state.pagination.offset += state.pagination.limit;
+        loadList();
+      });
+    }
+
+    let currentDetail = null;
+    function openDetail(kind, item) {
+      currentDetail = null;
+      $('#detailBody').innerHTML = '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
+      $('#detail').classList.add('open');
+      $('#detail').setAttribute('aria-hidden', 'false');
+      $('#scrim').classList.add('open');
+      if (kind === 'resource') {
+        $('#detailTitle').textContent = item.qualified_name;
+        const params = new URLSearchParams({ platform: item.platform, resource_type: item.resource_type, qualified_name: item.qualified_name });
+        api('/explorer/api/resource?' + params.toString()).then(function (res) { currentDetail = res; renderResourceDetail(res); }).catch(renderError);
+      } else if (kind === 'artifact') {
+        $('#detailTitle').textContent = item.relative_path;
+        const params = new URLSearchParams({ workspace_name: item.workspace_name, relative_path: item.relative_path });
+        api('/explorer/api/artifact?' + params.toString()).then(function (res) { currentDetail = res; renderArtifactDetail(res); }).catch(renderError);
+      } else if (kind === 'bundle') {
+        $('#detailTitle').textContent = item.display_name || item.slx_name || item.slx_directory;
+        currentDetail = item;
+        renderBundleDetail(item);
+      }
+    }
+    function renderError(err) {
+      $('#detailBody').innerHTML = '<div class="empty"><h3>Failed to load</h3><p>' + escapeHtml(err.message) + '</p></div>';
+    }
+    function renderResourceDetail(r) {
+      const attrs = r.attributes || {};
+      $('#detailBody').innerHTML =
+        '<div class="detail-section"><h3>Identity</h3>' +
+        '<dl class="detail-meta">' +
+        '<dt>Platform</dt><dd>' + escapeHtml(r.platform) + '</dd>' +
+        '<dt>Type</dt><dd>' + escapeHtml(r.resource_type) + '</dd>' +
+        '<dt>Name</dt><dd>' + escapeHtml(r.name || '') + '</dd>' +
+        '<dt>Qualified name</dt><dd>' + escapeHtml(r.qualified_name) + '</dd>' +
+        '<dt>Updated</dt><dd>' + escapeHtml(r.updated_at || '') + '</dd>' +
+        '</dl></div>' +
+        '<div class="detail-section"><h3>Attributes</h3>' +
+        '<pre class="code">' + escapeHtml(JSON.stringify(attrs, null, 2)) + '</pre></div>';
+    }
+    function renderArtifactDetail(a) {
+      $('#detailBody').innerHTML =
+        '<div class="detail-section"><h3>Artifact</h3>' +
+        '<dl class="detail-meta">' +
+        '<dt>Workspace</dt><dd>' + escapeHtml(a.workspace_name) + '</dd>' +
+        '<dt>Path</dt><dd>' + escapeHtml(a.relative_path) + '</dd>' +
+        '<dt>Kind</dt><dd>' + kindPill(a.artifact_kind) + '</dd>' +
+        '<dt>Media type</dt><dd>' + escapeHtml(a.media_type || '') + '</dd>' +
+        '<dt>SLX directory</dt><dd>' + escapeHtml(a.slx_directory || '—') + '</dd>' +
+        '<dt>Size</dt><dd>' + fmtBytes((a.content || '').length) + '</dd>' +
+        '</dl></div>' +
+        '<div class="detail-section"><h3>Content</h3>' +
+        '<pre class="code">' + escapeHtml(a.content || '') + '</pre></div>';
+    }
+    function renderBundleDetail(b) {
+      // ``display_name`` is the human-readable spec.alias from the rendered
+      // slx.yaml; show both it and the internal slx_name so operators can
+      // correlate UI labels with on-disk directories when needed.
+      const displayName = b.display_name || b.slx_name || b.slx_directory;
+      $('#detailBody').innerHTML =
+        '<div class="detail-section"><h3>SLX bundle</h3>' +
+        '<dl class="detail-meta">' +
+        '<dt>Display name</dt><dd>' + escapeHtml(displayName) + '</dd>' +
+        '<dt>Internal name</dt><dd>' + escapeHtml(b.slx_name || '—') + '</dd>' +
+        '<dt>Workspace</dt><dd>' + escapeHtml(b.workspace_name) + '</dd>' +
+        '<dt>SLX directory</dt><dd>' + escapeHtml(b.slx_directory) + '</dd>' +
+        '<dt>Files</dt><dd>' + b.file_count + '</dd>' +
+        '</dl></div>' +
+        '<div class="detail-section"><h3>Files</h3><div id="bundleFiles"></div></div>';
+      const container = $('#bundleFiles');
+      container.innerHTML = (b.files || []).map(function (f, i) {
+        return '<div class="item" data-idx="' + i + '">' +
+          '<div class="item-row">' +
+          '<div><div class="item-title" style="font-size:0.875rem">' + escapeHtml(f.relative_path) + '</div>' +
+          '<div class="item-meta">' + fmtBytes(f.size_bytes) + ' · ' + escapeHtml(f.media_type || '') + '</div></div>' +
+          '<div class="item-tags">' + kindPill(f.artifact_kind) + '</div>' +
+          '</div>' +
+          '<div class="bundle-content" style="display:none;margin-top:0.625rem"></div>' +
+          '</div>';
+      }).join('');
+      $$('#bundleFiles .item').forEach(function (el) {
+        el.addEventListener('click', async function (e) {
+          e.preventDefault();
+          const idx = parseInt(el.getAttribute('data-idx'), 10);
+          const f = b.files[idx];
+          const target = el.querySelector('.bundle-content');
+          if (target.dataset.loaded === 'true') {
+            target.style.display = target.style.display === 'none' ? 'block' : 'none';
+            return;
+          }
+          target.innerHTML = '<div class="skeleton"></div>';
+          target.style.display = 'block';
+          try {
+            const params = new URLSearchParams({ workspace_name: b.workspace_name, relative_path: f.relative_path });
+            const data = await api('/explorer/api/artifact?' + params.toString());
+            target.innerHTML = '<pre class="code">' + escapeHtml(data.content || '') + '</pre>';
+            target.dataset.loaded = 'true';
+          } catch (err) {
+            target.innerHTML = '<div class="empty">' + escapeHtml(err.message) + '</div>';
+          }
+        });
+      });
+    }
+    function closeDetail() {
+      $('#detail').classList.remove('open');
+      $('#detail').setAttribute('aria-hidden', 'true');
+      $('#scrim').classList.remove('open');
+      $$('#list .item.selected').forEach(function (x) { x.classList.remove('selected'); });
+    }
+    $('#closeDetail').addEventListener('click', closeDetail);
+    $('#scrim').addEventListener('click', closeDetail);
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeDetail(); });
+    $('#copyBtn').addEventListener('click', async function () {
+      if (!currentDetail) return;
+      const text = currentDetail.content || JSON.stringify(currentDetail, null, 2);
+      try { await navigator.clipboard.writeText(text); showToast('Copied to clipboard'); }
+      catch (e) { showToast('Copy failed'); }
+    });
+
+    function switchTab(tab) {
+      state.tab = tab;
+      state.pagination.offset = 0;
+      state.filter.platform = null;
+      state.filter.resource_type = null;
+      state.filter.artifact_kind = null;
+      state.filter.workspace_name = null;
+      $$('.tab').forEach(function (t) { t.classList.toggle('active', t.getAttribute('data-tab') === tab); });
+      renderStatRow();
+      renderSidebar();
+      renderToolbar();
+      loadList();
+    }
+    $$('.tab').forEach(function (t) { t.addEventListener('click', function () { switchTab(t.getAttribute('data-tab')); }); });
+
+    $('#globalSearchForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      state.filter.q = $('#globalSearch').value;
+      state.pagination.offset = 0;
+      renderToolbar();
+      loadList();
+    });
+    $('#globalSearch').addEventListener('input', debounce(function (e) {
+      state.filter.q = e.target.value;
+      state.pagination.offset = 0;
+      const local = $('#localSearch');
+      if (local) local.value = e.target.value;
+      loadList();
+    }, 350));
+
+    $('#refreshBtn').addEventListener('click', async function () {
+      await loadSummary();
+      loadList();
+      showToast('Refreshed');
+    });
+
+    (async function () {
+      await loadSummary();
+      renderToolbar();
+      loadList();
+    })();
+  </script>
+</body>
+</html>

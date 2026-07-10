@@ -58,13 +58,35 @@ class HealthInfo:
         return result
 
 
+def _parse_iso_timestamp(value: str) -> datetime:
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
 class HealthTracker:
     """Simple health tracker without complex threading - uses file-based state."""
     
     def __init__(self):
-        self._service_start_time = datetime.now(timezone.utc)
-        self._health_file_path = "/tmp/health_status.json"
+        self._health_file_path = os.environ.get(
+            "RW_HEALTH_STATUS_FILE", "/tmp/health_status.json"
+        )
         self._lock = threading.Lock()  # Simple lock for file operations only
+        # Uptime must survive new tracker instances (each API call constructs a
+        # fresh HealthTracker). Persist the process start time in the health file.
+        self._service_start_time = self._load_or_init_service_start_time()
+
+    def _load_or_init_service_start_time(self) -> datetime:
+        state = self._read_state()
+        raw = state.get("service_start_time")
+        if raw:
+            try:
+                return _parse_iso_timestamp(raw)
+            except (TypeError, ValueError):
+                pass
+        start = datetime.now(timezone.utc)
+        state["service_start_time"] = start.isoformat()
+        state.setdefault("service_status", HealthStatus.HEALTHY.value)
+        self._write_state(state)
+        return start
     
     def _read_state(self) -> dict:
         """Read health state from file."""
@@ -167,7 +189,15 @@ class HealthTracker:
     def get_health_info(self) -> HealthInfo:
         """Get current health information."""
         state = self._read_state()
-        uptime = (datetime.now(timezone.utc) - self._service_start_time).total_seconds()
+        start_time = self._service_start_time
+        raw = state.get("service_start_time")
+        if raw:
+            try:
+                start_time = _parse_iso_timestamp(raw)
+                self._service_start_time = start_time
+            except (TypeError, ValueError):
+                pass
+        uptime = (datetime.now(timezone.utc) - start_time).total_seconds()
         
         # Get current or last run
         run_data = state.get('current_run') or state.get('last_run')
@@ -175,7 +205,7 @@ class HealthTracker:
         
         return HealthInfo(
             service_status=state.get('service_status', HealthStatus.HEALTHY.value),
-            service_start_time=self._service_start_time.isoformat(),
+            service_start_time=start_time.isoformat(),
             last_run=last_run,
             uptime_seconds=uptime
         )
