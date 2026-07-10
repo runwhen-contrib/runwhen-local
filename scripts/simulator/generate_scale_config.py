@@ -127,5 +127,86 @@ def select_sli_slo(index: int, sli_ratio: float, slo_ratio: float) -> tuple[bool
     return has_sli, has_slo
 
 
+DEFAULT_CODE_COLLECTION = "rw-cli-codecollection"
+DEFAULT_REPO_URL = "https://github.com/runwhen-contrib/rw-cli-codecollection.git"
+DEFAULT_REF = "main"
+
+
+def _slug(cluster: str, namespace: str, name: str) -> str:
+    """Globally-unique, DNS-safe slug/id. Components are single-hyphen tokens,
+    so a `--` separator can never be produced inside a component -> no collision.
+    """
+    return f"{cluster}--{namespace}--{name}"
+
+
+def build_config(count: int, clusters: int, namespaces_per_cluster: int,
+                 seed: int, sli_ratio: float, slo_ratio: float,
+                 code_bundles: list[str], skew: str = "longtail") -> dict:
+    """Assemble a full simulator test config (defaults + inventory + slxs)."""
+    if not code_bundles:
+        raise ValueError("code_bundles must be non-empty")
+    rng = random.Random(seed)
+    slots = plan_namespaces(count, clusters, namespaces_per_cluster, skew, rng)
+
+    # inventory.clusters: dedupe cluster -> its namespaces (in slot order).
+    clusters_out: dict[str, list[str]] = {}
+    for s in slots:
+        clusters_out.setdefault(s.cluster, [])
+        clusters_out[s.cluster].append(s.namespace)
+
+    resources: list[dict] = []
+    slxs: dict[str, dict] = {}
+    used_by_cluster: dict[str, set[str]] = {}
+    index = 0
+    for s in slots:
+        used = used_by_cluster.setdefault(s.cluster, set())
+        for _ in range(s.size):
+            name = compose_name(rng, used)
+            service, component = name.split("-")[0], name.split("-")[1]
+            kind = weighted_kind(rng)
+            slug = _slug(s.cluster, s.namespace, name)
+            resources.append({
+                "id": slug,
+                "kind": kind,
+                "name": name,
+                "cluster": s.cluster,
+                "namespace": s.namespace,
+                "labels": coherent_labels(service, component),
+            })
+            has_sli, has_slo = select_sli_slo(index, sli_ratio, slo_ratio)
+            slx: dict = {
+                "codeBundle": code_bundles[index % len(code_bundles)],
+                "resources": [slug],
+                "levelOfDetail": "basic",
+                "runbook": {},
+            }
+            if has_sli:
+                slx["sli"] = {"intervalStrategy": "intermezzo", "intervalSeconds": 180}
+            if has_slo:
+                slx["slo"] = {"target": 99.5}
+            slxs[slug] = slx
+            index += 1
+
+    return {
+        "defaults": {
+            "codeCollection": DEFAULT_CODE_COLLECTION,
+            "repoURL": DEFAULT_REPO_URL,
+            "ref": DEFAULT_REF,
+            "runbook": {"secretsProvided": [
+                {"name": "kubeconfig", "workspaceKey": "kubeconfig"}]},
+            "sli": {"secretsProvided": [
+                {"name": "kubeconfig", "workspaceKey": "kubeconfig"}]},
+        },
+        "inventory": {
+            "clusters": [
+                {"name": c, "namespaces": [{"name": n} for n in nss]}
+                for c, nss in clusters_out.items()
+            ],
+            "resources": resources,
+        },
+        "slxs": slxs,
+    }
+
+
 if __name__ == "__main__":  # pragma: no cover  (wired fully in Task 6)
     raise SystemExit("CLI wired in a later task")
