@@ -115,5 +115,17 @@ def coherent_labels(service: str, component: str) -> dict[str, str]:
     }
 
 
+def select_sli_slo(index: int, sli_ratio: float, slo_ratio: float) -> tuple[bool, bool]:
+    """Deterministic per-index SLI/SLO membership using a modulo band so the
+    SLO set (band [0, slo)) is a subset of the SLI set (band [0, sli)).
+    """
+    if not (0.0 <= sli_ratio <= 1.0 and 0.0 <= slo_ratio <= 1.0):
+        raise ValueError("sli_ratio and slo_ratio must be in [0, 1]")
+    band = index % 100
+    has_sli = band < round(sli_ratio * 100)
+    has_slo = has_sli and band < round(slo_ratio * 100)
+    return has_sli, has_slo
+
+
 if __name__ == "__main__":  # pragma: no cover  (wired fully in Task 6)
     raise SystemExit("CLI wired in a later task")
