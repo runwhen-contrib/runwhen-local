@@ -1,5 +1,6 @@
 import logging
-from typing import Any
+import threading
+from typing import Any, Callable, Optional
 
 from jinja2.loaders import FileSystemLoader
 from jinja2.sandbox import SandboxedEnvironment
@@ -10,6 +11,48 @@ from jinja2 import Undefined
 from exceptions import WorkspaceBuilderException
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Environment cache: rebuild a Jinja2 SandboxEnvironment (with disk loaders +
+# template bytecode caching) on every render call is wasteful — for a workspace
+# with 500 output items that's 500 environment + FileSystemLoader constructions
+# and 500 template re-parses from disk. We cache one environment per loader
+# configuration so repeated render_template_file calls reuse the parsed
+# template objects. The SandboxedEnvironment is thread-safe for read-only
+# template rendering (the Jinja2 docs explicitly support this).
+# ---------------------------------------------------------------------------
+
+_env_cache: dict[str, SandboxedEnvironment] = {}
+_env_cache_lock = threading.Lock()
+
+
+def _get_environment(template_loader_func: Optional[Callable] = None) -> SandboxedEnvironment:
+    """Return a cached (or newly built) SandboxedEnvironment for the given
+    loader configuration."""
+    # Cache key: presence/absence of a custom loader is the only variable.
+    cache_key = "custom" if template_loader_func else "default"
+    env = _env_cache.get(cache_key)
+    if env is not None:
+        return env
+    with _env_cache_lock:
+        # Double-checked lock.
+        env = _env_cache.get(cache_key)
+        if env is not None:
+            return env
+        loaders = [FileSystemLoader("templates")]
+        if template_loader_func:
+            loaders.insert(0, CustomTemplateLoader(template_loader_func))
+        env = SandboxedEnvironment(
+            loader=ChoiceLoader(loaders),
+            trim_blocks=True,
+            lstrip_blocks=True,
+            undefined=CustomUndefined,
+            # Enable bytecode caching so compiled templates are reused across
+            # calls without re-parsing the .yaml source.
+            auto_reload=False,
+        )
+        _env_cache[cache_key] = env
+        return env
 
 
 class CustomUndefined(Undefined):
@@ -71,12 +114,7 @@ def render_template_file(template_file_name: str,
                          template_variables: dict[str, Any],
                          template_loader_func = None) -> str:
     try:
-        # The environment setup code should never raise an exception,
-        # but put it in the try block just to be safe...
-        loaders = [FileSystemLoader("templates")]
-        if template_loader_func:
-            loaders.insert(0, CustomTemplateLoader(template_loader_func))
-        env = SandboxedEnvironment(loader=ChoiceLoader(loaders), trim_blocks=True, lstrip_blocks=True, undefined=CustomUndefined)
+        env = _get_environment(template_loader_func)
         template = env.get_template(template_file_name)
         return template.render(**template_variables)
     except TemplateNotFound as e:

@@ -371,8 +371,22 @@ def render(context: Context):
     context.set_property("RENDER_STATS", render_stats)
 
     sorted_items = sorted(output_items.values(), key=_slx_first_sort_key)
+    total_items = len(sorted_items)
 
-    for output_item in sorted_items:
+    for idx, output_item in enumerate(sorted_items):
+        # Report progress to the health tracker so the liveness probe can see
+        # the render phase is advancing, even on very large workspaces.
+        if idx % 25 == 0 or idx == total_items - 1:
+            try:
+                from workspace_builder.health import get_health_tracker
+                health_tracker = get_health_tracker()
+                health_tracker.update_stage(
+                    "rendering",
+                    f"render_output_items ({idx + 1}/{total_items})",
+                )
+            except Exception:
+                pass
+
         slx_dir = os.path.dirname(output_item.path)
 
         if slx_dir in failed_slx_dirs:

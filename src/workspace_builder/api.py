@@ -77,7 +77,12 @@ def info() -> dict[str, Any]:
 @app.post("/run/")
 async def run(request: Request) -> dict[str, Any]:
     request_data = await request.json()
-    result = execute_run(request_data)
+    # execute_run is a long-running synchronous call (discovery + rendering
+    # can take minutes). Running it in the event loop would block /health/
+    # and other endpoints, causing the liveness probe to kill the pod.
+    # Delegate to a thread so the event loop stays responsive.
+    import asyncio
+    result = await asyncio.to_thread(execute_run, request_data)
     return serialize_run_result(result)
 
 
