@@ -321,23 +321,33 @@ def _decode_service_account_key(service_account_key: Optional[str]) -> Optional[
 def _normalize_project_ids(value) -> list[str]:
     """Normalize a projects config value into a de-duplicated list of project IDs.
 
-    Accepts a single string, a list of strings, or None.
+    Accepts a single string, a list of strings, or None.  Duplicate IDs are
+    removed (preserving first-occurrence order) so we never make redundant
+    ``list_clusters`` calls.
     """
     if value is None:
         return []
     if isinstance(value, str):
-        return [p.strip() for p in value.split(",") if p.strip()]
-    if isinstance(value, (list, tuple)):
-        out: list[str] = []
+        raw = [p.strip() for p in value.split(",") if p.strip()]
+    elif isinstance(value, (list, tuple)):
+        raw: list[str] = []
         for item in value:
             if isinstance(item, dict):
                 pid = item.get("projectId") or item.get("project_id") or item.get("id")
                 if pid:
-                    out.append(str(pid).strip())
+                    raw.append(str(pid).strip())
             elif item:
-                out.append(str(item).strip())
-        return out
-    return [str(value).strip()]
+                raw.append(str(item).strip())
+    else:
+        raw = [str(value).strip()]
+    # De-duplicate while preserving order.
+    seen: set[str] = set()
+    out: list[str] = []
+    for pid in raw:
+        if pid and pid not in seen:
+            seen.add(pid)
+            out.append(pid)
+    return out
 
 
 # Scope every GKE credential to the full cloud-platform scope so the same token
@@ -540,9 +550,17 @@ def generate_kubeconfig_for_gke(gke_clusters, workspace_info):
                 c.setdefault('projectId', pid)
             discovered_clusters.extend(clusters_in_project)
 
-        # De-dupe discovered clusters already named explicitly.
-        explicit_names = {c.get('name') for c in explicit_clusters}
-        discovered_clusters = [c for c in discovered_clusters if c.get('name') not in explicit_names]
+        # De-dupe discovered clusters already named explicitly. Match on the
+        # (name, projectId) pair so an explicit cluster in project A does not
+        # suppress a discovered cluster with the same name in project B.
+        explicit_keys = {
+            (c.get('name'), c.get('projectId') or project_id)
+            for c in explicit_clusters
+        }
+        discovered_clusters = [
+            c for c in discovered_clusters
+            if (c.get('name'), c.get('projectId')) not in explicit_keys
+        ]
         all_clusters = explicit_clusters + discovered_clusters
         logger.info(
             f"Auto-discovered GKE clusters across {len(discovery_project_ids)} project(s): "
