@@ -314,6 +314,32 @@ def _decode_service_account_key(service_account_key: Optional[str]) -> Optional[
     return text
 
 
+# ---------------------------------------------------------------------------
+# Project-ID normalization (shared by GKE auto-discovery)
+# ---------------------------------------------------------------------------
+
+def _normalize_project_ids(value) -> list[str]:
+    """Normalize a projects config value into a de-duplicated list of project IDs.
+
+    Accepts a single string, a list of strings, or None.
+    """
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [p.strip() for p in value.split(",") if p.strip()]
+    if isinstance(value, (list, tuple)):
+        out: list[str] = []
+        for item in value:
+            if isinstance(item, dict):
+                pid = item.get("projectId") or item.get("project_id") or item.get("id")
+                if pid:
+                    out.append(str(pid).strip())
+            elif item:
+                out.append(str(item).strip())
+        return out
+    return [str(value).strip()]
+
+
 # Scope every GKE credential to the full cloud-platform scope so the same token
 # works for the Container API call and for talking to the cluster apiserver.
 GKE_OAUTH_SCOPES = ["https://www.googleapis.com/auth/cloud-platform"]
@@ -477,13 +503,50 @@ def generate_kubeconfig_for_gke(gke_clusters, workspace_info):
     if auto_discover:
         logger.info("Auto-discovery enabled for GKE clusters")
         discovery_config = gke_config.get('discoveryConfig', {}) or {}
-        discovery_project = discovery_config.get('projectId') or project_id
-        discovered_clusters = discover_gke_clusters(discovery_project, client=client)
+
+        # Resolve the set of projects to enumerate. The GCP Container API
+        # ``list_clusters`` is scoped per-project (``projects/{id}/locations/-``),
+        # so to discover clusters across multiple projects we must call it once
+        # per project and merge.
+        #
+        # Priority:
+        #   1. ``discoveryConfig.projectId`` — if set, discover ONLY that project
+        #      (acts as an explicit filter). Can be a single string or a list.
+        #   2. ``cloudConfig.gcp.projects`` — discover ALL configured projects.
+        #   3. ``cloudConfig.gcp.projectId`` — single-project fallback.
+        discovery_project_ids: list[str] = []
+        discovery_project_id = discovery_config.get('projectId')
+        if discovery_project_id:
+            discovery_project_ids = _normalize_project_ids(discovery_project_id)
+        if not discovery_project_ids:
+            gcp_config = workspace_info.get('cloudConfig', {}).get('gcp', {}) or {}
+            discovery_project_ids = _normalize_project_ids(gcp_config.get('projects'))
+        if not discovery_project_ids:
+            discovery_project_ids = _normalize_project_ids(gcp_config.get('projectId'))
+        if not discovery_project_ids and project_id:
+            discovery_project_ids = [project_id]
+        if not discovery_project_ids:
+            logger.warning(
+                "GKE auto-discovery enabled but no projects configured; "
+                "set cloudConfig.gcp.projects or gkeClusters.discoveryConfig.projectId"
+            )
+
+        discovered_clusters: list[dict[str, str]] = []
+        for pid in discovery_project_ids:
+            clusters_in_project = discover_gke_clusters(pid, client=client)
+            # Tag each discovered cluster with its project so _fetch_gke_cluster_details
+            # uses the right project when the user hasn't set projectId explicitly.
+            for c in clusters_in_project:
+                c.setdefault('projectId', pid)
+            discovered_clusters.extend(clusters_in_project)
+
         # De-dupe discovered clusters already named explicitly.
         explicit_names = {c.get('name') for c in explicit_clusters}
         discovered_clusters = [c for c in discovered_clusters if c.get('name') not in explicit_names]
         all_clusters = explicit_clusters + discovered_clusters
         logger.info(
+            f"Auto-discovered GKE clusters across {len(discovery_project_ids)} project(s): "
+            f"{discovery_project_ids}. "
             f"Using {len(explicit_clusters)} explicit clusters + "
             f"{len(discovered_clusters)} discovered clusters = {len(all_clusters)} total"
         )
