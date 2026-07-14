@@ -650,6 +650,12 @@ def generate_kubeconfig_for_gke(gke_clusters, workspace_info):
                 f"Adding defaultNamespaceLOD to extension for cluster '{kubeconfig_name}': "
                 f"{cluster['defaultNamespaceLOD']}"
             )
+        if 'namespaceLODs' in cluster:
+            extension_data['namespaceLODs'] = cluster['namespaceLODs']
+            logger.info(
+                f"Adding namespaceLODs to extension for cluster '{kubeconfig_name}': "
+                f"{cluster['namespaceLODs']}"
+            )
 
         cluster_entry = {
             'name': kubeconfig_name,

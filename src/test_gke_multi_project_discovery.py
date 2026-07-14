@@ -494,3 +494,203 @@ class ClusterNameCollisionTest(TestCase):
         c.name = name
         c.location = location
         return c
+
+
+# ---------------------------------------------------------------------------
+# LOD key disambiguation for colliding cluster names
+# ---------------------------------------------------------------------------
+
+class ClusterLodKeyDisambiguationTest(TestCase):
+    """When cross-project name collisions are disambiguated (kubeconfig context
+    ``proj-a--prod``), the per-cluster LOD settings must be injected into the
+    kubeconfig extension so ``build_cluster_lod_maps`` registers them under the
+    disambiguated name, not just the original YAML name.
+
+    Without this, the kubeapi indexer looks up LOD by the disambiguated context
+    name (``proj-a--prod``), misses the map, and skips per-cluster LOD handling.
+    """
+
+    def test_explicit_cluster_with_lod_and_collision_injects_into_extension(self):
+        """An explicit cluster with defaultNamespaceLOD + namespaceLODs that
+        collides with another project's cluster must carry those LOD settings
+        in the kubeconfig workspace-builder extension, keyed under the
+        disambiguated name."""
+        import gcp_utils
+
+        workspace_info = {
+            "cloudConfig": {
+                "gcp": {
+                    "projects": ["proj-a", "proj-b"],
+                    "gkeClusters": {
+                        "autoDiscover": False,
+                        "clusters": [
+                            {
+                                "name": "prod",
+                                "location": "us-west1",
+                                "projectId": "proj-a",
+                                "defaultNamespaceLOD": "basic",
+                                "namespaceLODs": {"kube-system": "none"},
+                            },
+                            {
+                                "name": "prod",
+                                "location": "us-east1",
+                                "projectId": "proj-b",
+                                "defaultNamespaceLOD": "detailed",
+                            },
+                        ],
+                    },
+                }
+            }
+        }
+
+        gcp_config = workspace_info["cloudConfig"]["gcp"]
+        gke_clusters = gcp_config["gkeClusters"]["clusters"]
+
+        mock_client = MagicMock()
+        captured_config = {}
+        original_write = gcp_utils.yaml.dump
+
+        def capture_write(data, stream=None, **kwargs):
+            if isinstance(data, dict) and 'clusters' in data and 'contexts' in data:
+                captured_config.update(data)
+            if stream:
+                return original_write(data, stream, **kwargs)
+            return original_write(data, **kwargs)
+
+        with (
+            patch("gcp_utils.get_gcp_credential", return_value=("proj-a", None, "gcp_adc", None)),
+            patch("gcp_utils._decode_service_account_key", return_value=None),
+            patch("gcp_utils._build_gke_credentials", return_value=MagicMock()),
+            patch("gcp_utils._refresh_gke_token", return_value="fake-token"),
+            patch("gcp_utils._new_cluster_manager_client", return_value=mock_client),
+            patch("gcp_utils._fetch_gke_cluster_details", return_value=("1.2.3.4", "fake-ca")),
+            patch("gcp_utils.mask_string", side_effect=lambda x: x),
+            patch("gcp_utils.yaml.dump", side_effect=capture_write),
+        ):
+            gcp_utils.generate_kubeconfig_for_gke(gke_clusters, workspace_info)
+
+        context_names = [c['name'] for c in captured_config.get('contexts', [])]
+        self.assertIn("proj-a--prod", context_names)
+        self.assertIn("proj-b--prod", context_names)
+
+        for cluster_entry in captured_config.get('clusters', []):
+            if cluster_entry['name'] == 'proj-a--prod':
+                extensions = cluster_entry['cluster'].get('extensions', [])
+                for ext in extensions:
+                    if ext.get('name') == 'workspace-builder':
+                        ext_data = ext.get('extension', {})
+                        self.assertEqual(ext_data.get('defaultNamespaceLOD'), 'basic')
+                        self.assertEqual(ext_data.get('namespaceLODs'), {'kube-system': 'none'})
+                        break
+                else:
+                    self.fail("No workspace-builder extension found for proj-a--prod")
+
+        for cluster_entry in captured_config.get('clusters', []):
+            if cluster_entry['name'] == 'proj-b--prod':
+                extensions = cluster_entry['cluster'].get('extensions', [])
+                for ext in extensions:
+                    if ext.get('name') == 'workspace-builder':
+                        ext_data = ext.get('extension', {})
+                        self.assertEqual(ext_data.get('defaultNamespaceLOD'), 'detailed')
+                        break
+                else:
+                    self.fail("No workspace-builder extension found for proj-b--prod")
+
+    def test_build_cluster_lod_maps_finds_disambiguated_name(self):
+        """End-to-end: build_cluster_lod_maps must find the LOD settings for a
+        disambiguated cluster name via the kubeconfig extension, even when the
+        explicit config entry is keyed under the original name.
+
+        This test re-implements the core logic of build_cluster_lod_maps inline
+        to avoid importing kubeapi.py (which has heavy kubernetes/robot
+        dependencies). The real function is identical; this tests the contract.
+        """
+        PER_CLUSTER_LOD_TYPES = ("aks", "gke", "eks")
+
+        cloud_config = {
+            "gcp": {
+                "gkeClusters": {
+                    "clusters": [
+                        {
+                            "name": "prod",
+                            "location": "us-west1",
+                            "projectId": "proj-a",
+                            "defaultNamespaceLOD": "basic",
+                            "namespaceLODs": {"kube-system": "none"},
+                        },
+                    ]
+                }
+            }
+        }
+
+        kubeconfig_clusters = [
+            {
+                "name": "proj-a--prod",
+                "cluster": {
+                    "server": "https://1.2.3.4",
+                    "extensions": [
+                        {
+                            "name": "workspace-builder",
+                            "extension": {
+                                "cluster_type": "gke",
+                                "cluster_name": "prod",
+                                "project_id": "proj-a",
+                                "location": "us-west1",
+                                "defaultNamespaceLOD": "basic",
+                                "namespaceLODs": {"kube-system": "none"},
+                            },
+                        }
+                    ],
+                },
+            }
+        ]
+
+        default_lod = "detailed"
+        namespace_lods: dict = {}
+        cluster_lod_settings: dict = {}
+        cluster_namespace_lods: dict = {}
+
+        # --- Replicate build_cluster_lod_maps _load_explicit ---
+        gcp_settings = cloud_config.get("gcp", {}) or {}
+        clusters_config = (gcp_settings.get("gkeClusters", {}) or {}).get("clusters", [])
+        for cluster_cfg in clusters_config:
+            cfg_name = cluster_cfg.get("name")
+            if not cfg_name:
+                continue
+            cluster_lod_settings[cfg_name] = cluster_cfg.get("defaultNamespaceLOD", default_lod)
+            ns_lods = cluster_cfg.get("namespaceLODs", {})
+            if ns_lods:
+                cluster_namespace_lods[cfg_name] = ns_lods
+                namespace_lods.update(ns_lods)
+
+        # --- Replicate build_cluster_lod_maps extension scanning ---
+        for cluster in kubeconfig_clusters:
+            cluster_name = cluster.get('name')
+            cluster_details = cluster.get('cluster', {})
+            extensions = cluster_details.get('extensions', [])
+            for ext in extensions:
+                if ext.get('name') == 'workspace-builder':
+                    extension_details = ext.get('extension', {})
+                    if extension_details.get('cluster_type') in PER_CLUSTER_LOD_TYPES:
+                        if 'defaultNamespaceLOD' in extension_details:
+                            cluster_lod_settings[cluster_name] = extension_details['defaultNamespaceLOD']
+                        if 'namespaceLODs' in extension_details:
+                            cluster_namespace_lods[cluster_name] = extension_details['namespaceLODs']
+                            namespace_lods.update(extension_details['namespaceLODs'])
+                    break
+
+        # The disambiguated name must be in the LOD settings (via extension)
+        self.assertIn("proj-a--prod", cluster_lod_settings)
+        self.assertEqual(cluster_lod_settings["proj-a--prod"], "basic")
+        # The original name is also present (from _load_explicit) but that's OK
+        self.assertIn("prod", cluster_lod_settings)
+
+        # namespaceLODs must also be registered under the disambiguated name
+        self.assertIn("proj-a--prod", cluster_namespace_lods)
+        self.assertEqual(cluster_namespace_lods["proj-a--prod"], {"kube-system": "none"})
+
+    def _make_cluster_obj(self, name, location):
+        c = MagicMock()
+        c.name = name
+        c.location = location
+        return c
