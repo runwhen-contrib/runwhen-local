@@ -22,15 +22,21 @@ logger = logging.getLogger(__name__)
 # template rendering (the Jinja2 docs explicitly support this).
 # ---------------------------------------------------------------------------
 
-_env_cache: dict[str, SandboxedEnvironment] = {}
+_env_cache: dict[Any, SandboxedEnvironment] = {}
 _env_cache_lock = threading.Lock()
 
 
 def _get_environment(template_loader_func: Optional[Callable] = None) -> SandboxedEnvironment:
     """Return a cached (or newly built) SandboxedEnvironment for the given
-    loader configuration."""
-    # Cache key: presence/absence of a custom loader is the only variable.
-    cache_key = "custom" if template_loader_func else "default"
+    loader configuration.
+
+    The cache key is the ``template_loader_func`` object itself (or ``None``
+    for the default ``FileSystemLoader``-only path). Different codecollections
+    create distinct lambda closures (each capturing its own
+    ``code_collection``), so they correctly get separate environments. The
+    cache dict holds a reference to the callable, preventing premature GC.
+    """
+    cache_key: Any = template_loader_func  # None or the callable object
     env = _env_cache.get(cache_key)
     if env is not None:
         return env
