@@ -34,6 +34,7 @@ class RunInfo:
     parsing_errors_count: int = 0
     current_stage: Optional[str] = None
     current_component: Optional[str] = None
+    last_progress_time: Optional[str] = None
     slx_count: Optional[int] = None
     duration_seconds: Optional[float] = None
     

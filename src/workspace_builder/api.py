@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -58,6 +59,15 @@ if _mcp_lifespan is not None:
 else:
     logger.info("MCP server disabled via RW_MCP_DISABLED")
 
+# ---------------------------------------------------------------------------
+# /run/ concurrency guard — the health tracker state file, combined kubeconfig
+# (~/.kube/gke-kubeconfig), and per-run resources are not designed for
+# overlapping discovery runs. A single non-reentrant module-level lock
+# serialises /run/ so a second request returns 503 immediately instead of
+# racing on shared state.
+# ---------------------------------------------------------------------------
+_run_lock = threading.Lock()
+
 
 @app.get("/info/")
 def info() -> dict[str, Any]:
@@ -77,13 +87,25 @@ def info() -> dict[str, Any]:
 @app.post("/run/")
 async def run(request: Request) -> dict[str, Any]:
     request_data = await request.json()
-    # execute_run is a long-running synchronous call (discovery + rendering
-    # can take minutes). Running it in the event loop would block /health/
-    # and other endpoints, causing the liveness probe to kill the pod.
-    # Delegate to a thread so the event loop stays responsive.
-    import asyncio
-    result = await asyncio.to_thread(execute_run, request_data)
-    return serialize_run_result(result)
+    # Serialise /run/ calls — overlapping discovery/rendering races on the
+    # health tracker state file, combined kubeconfig (~/.kube/), and
+    # per-run resource registry. A second request returns 503.
+    if not _run_lock.acquire(blocking=False):
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "A workspace build is already running; try again later."},
+        )
+    try:
+        # execute_run is a long-running synchronous call (discovery +
+        # rendering can take minutes). Running it in the event loop would
+        # block /health/ and other endpoints, causing the liveness probe
+        # to kill the pod. Delegate to a thread so the event loop stays
+        # responsive.
+        import asyncio
+        result = await asyncio.to_thread(execute_run, request_data)
+        return serialize_run_result(result)
+    finally:
+        _run_lock.release()
 
 
 @app.get("/health/")
