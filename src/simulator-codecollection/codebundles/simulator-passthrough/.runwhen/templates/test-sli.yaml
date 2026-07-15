@@ -1,0 +1,35 @@
+{# Skip rendering when the test config didn't supply an "sli" subdict for
+   this SLX. Trigger a deliberate Jinja error so render_output_items
+   classifies this template as skipped (and the file is never written). #}
+{% if not match_resource.sli %}{% set _skip = (1 / 0) %}{% endif %}
+apiVersion: runwhen.com/v1
+kind: ServiceLevelIndicator
+metadata:
+  name: {{ slx_name }}
+  labels:
+{% include "common-labels.yaml" %}
+  annotations:
+    fullSlxName: {{ full_slx_name }}
+    sourceGenerationRuleRepoURL: {{ repo_url }}
+    sourceGenerationRuleRepoRef: {{ ref }}
+    sourceGenerationRulePath: {{ generation_rule_file_path }}
+    qualifiers: '{{ qualifiers | tojson }}'
+    internal.runwhen.com/generated-by: {{ generated_by }}
+spec:
+  location: {{ location_id }}
+  locations:
+    - {{ location_id }}
+  codeBundle:
+    repoUrl: {{ match_resource.repo_url }}
+    ref: {{ match_resource.ref }}
+    pathToRobot: {{ match_resource.sli.get("pathToRobot", "") }}
+  description: {{ match_resource.sli.get("description", "") | tojson }}
+  displayUnitsLong: {{ match_resource.sli.get("displayUnitsLong", "") | tojson }}
+  displayUnitsShort: {{ match_resource.sli.get("displayUnitsShort", "") | tojson }}
+  intervalStrategy: {{ match_resource.sli.get("intervalStrategy", "intermezzo") | tojson }}
+  intervalSeconds: {{ match_resource.sli.get("intervalSeconds", 60) }}
+  configProvided: {{ match_resource.sli.get("configProvided", []) | tojson }}
+  secretsProvided: {{ match_resource.sli.get("secretsProvided", []) | tojson }}
+{% if match_resource.sli.get("alertConfig") %}
+  alertConfig: {{ match_resource.sli.get("alertConfig") | tojson }}
+{% endif %}
