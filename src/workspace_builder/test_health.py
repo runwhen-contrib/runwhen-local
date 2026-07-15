@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import tempfile
 import unittest
@@ -168,6 +169,33 @@ class LivenessProbeTests(unittest.TestCase):
         progress_time = datetime.fromisoformat(progress_str.replace("Z", "+00:00"))
         self.assertGreaterEqual(progress_time, before - timedelta(seconds=1))
         self.assertLessEqual(progress_time, after + timedelta(seconds=1))
+
+
+class ProbeAccessLogFilterTests(unittest.TestCase):
+    def test_drops_health_probe_access_lines(self):
+        from workspace_builder.access_log_filters import ProbeAccessLogFilter
+
+        filt = ProbeAccessLogFilter()
+        health = logging.LogRecord(
+            name="uvicorn.access",
+            level=logging.INFO,
+            pathname=__file__,
+            lineno=1,
+            msg='10.128.0.2:55136 - "GET /health/ HTTP/1.1" 200 OK',
+            args=(),
+            exc_info=None,
+        )
+        other = logging.LogRecord(
+            name="uvicorn.access",
+            level=logging.INFO,
+            pathname=__file__,
+            lineno=1,
+            msg='10.128.0.2:12345 - "GET /info/ HTTP/1.1" 200 OK',
+            args=(),
+            exc_info=None,
+        )
+        self.assertFalse(filt.filter(health))
+        self.assertTrue(filt.filter(other))
 
 
 if __name__ == "__main__":  # pragma: no cover

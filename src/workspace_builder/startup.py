@@ -9,6 +9,7 @@ import sys
 
 from component import init_components
 from enrichers.code_collection import init_code_collections
+from .access_log_filters import ProbeAccessLogFilter
 
 _BOOTSTRAPPED = False
 
@@ -45,6 +46,11 @@ def configure_logging() -> None:
             },
         }
     )
+    # Uvicorn attaches its own access handler after import; filtering the logger
+    # (not a specific handler) applies regardless of how uvicorn configures it.
+    access_logger = logging.getLogger("uvicorn.access")
+    if not any(isinstance(f, ProbeAccessLogFilter) for f in access_logger.filters):
+        access_logger.addFilter(ProbeAccessLogFilter())
 
 
 def bootstrap() -> None:

@@ -12,7 +12,37 @@ The "namespaceLODs" field is a dictionary/object where the key/field is the name
 
 The "namespaces" field should only be needed in cases of limited privilege where the credentials in the kubeconfig file don't have privileges to list all the available namespaces, but do have privileges to access resources in certain namespaces, but you need to already know the names of the namespaces. So this is a mechanism for specifying this explicit list of namespaces.
 
+#### OpenShift / restricted RBAC: grant `namespaces` get
 
+On OpenShift (and other restricted clusters) it is common to:
+
+- Disable cluster-wide `view` for the workspace-builder ServiceAccount
+- Bind a namespaced Role that can list Deployments, Services, etc. in selected projects
+- Use `cloudConfig.kubernetes.namespaces` (or fall back to OpenShift `projects`) to name those projects
+
+That lets discovery **enter** the namespaces and scan in-namespace resources. It does **not** replace permission to **`GET` the cluster-scoped `Namespace` API object**.
+
+Without `get`/`list` on `namespaces` (via a **ClusterRole** — a namespaced Role cannot grant this):
+
+- Discovery may continue with a synthesized stub Namespace (name only)
+- CodeCollection templates that expect a real Namespace (e.g. `resource.metadata`, LOD annotations) fail at render time, for example:
+
+```text
+Error processing template content: template_file_name=k8s-namespace-healthcheck-slx.yaml;
+underlying_error='dict object' has no attribute 'metadata'; error_type=UndefinedError
+```
+
+The same failure mode shows up for other namespace-rooted SLXs (`k8s-pod-resources-slx.yaml`, `k8s-serviceaccount-check-slx.yaml`, …), with runbook/sli artifacts skipped because `slx.yaml` did not render.
+
+**Recommended:** keep the namespaced Roles for workload discovery, and separately grant the SA:
+
+```yaml
+apiGroups: [""]
+resources: ["namespaces"]
+verbs: ["get", "list"]
+```
+
+as a ClusterRole + ClusterRoleBinding (or use cluster `view` if that is acceptable for the environment).
 
 ### Discovery Exclusions
 
