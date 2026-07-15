@@ -817,6 +817,13 @@ def index(component_context: Context):
                             # I doubt will be an issue for the foreseeable future (famous last words).
                             # And also, that's an issue with the current format of the namespace
                             # LODs dict too, i.e. the key names are not scoped to a specific cluster.
+                            namespace_names.update(custom_namespace_names or [])
+
+                        # Always union configured explicit namespaces. list_namespace (and
+                        # OpenShift projects) may return a *partial* set the SA can see;
+                        # cloudConfig.kubernetes.namespaces must still be interrogated on
+                        # OpenShift installs that cannot list all namespaces.
+                        if custom_namespace_names:
                             namespace_names.update(custom_namespace_names)
 
                         if len(namespace_names) == 0:
@@ -953,66 +960,93 @@ def index(component_context: Context):
                             logger.info(f"Cluster: {cluster_name}, Namespace: {namespace_name}, LOD: {namespace_lod}")
 
                             try:
-                                # Fetch namespace details from the K8s API
+                                # Prefer live Namespace object (annotations drive LOD overrides /
+                                # include-exclude filters). On OpenShift this often 403s because
+                                # Namespace is cluster-scoped and RoleBindings cannot grant it —
+                                # that is expected. Fall through to a stub so explicitly listed
+                                # (or project-discovered) namespaces still get namespaced
+                                # Deployments/Services/... interrogated below.
                                 raw_resource = core_api_client.read_namespace(namespace_name)
+                                namespace_from_api = True
+                            except ApiException as e:
+                                logger.info(
+                                    f"Cannot read Namespace object '{namespace_name}' in cluster "
+                                    f"'{cluster_name}' (status={e.status}); synthesizing stub and "
+                                    f"continuing with namespaced resource scan. Error: {e}"
+                                )
+                                raw_resource = None
+                                namespace_from_api = False
 
+                            if namespace_from_api:
                                 # **Always fetch annotations first**
                                 annotation_lod = get_lod_from_annotations(raw_resource, lod_annotations)
                                 if annotation_lod is not None:
                                     logger.info(f"Overriding LOD for namespace '{namespace_name}' based on annotation: {annotation_lod}")
                                     namespace_lod = annotation_lod  # **Annotations override any config-based LOD**
 
-                                # **Final Fallback** (if no valid LOD is set, use BASIC)
-                                if namespace_lod is None:
-                                    namespace_lod = LevelOfDetail.BASIC
+                            # **Final Fallback** (if no valid LOD is set, use BASIC)
+                            if namespace_lod is None:
+                                namespace_lod = LevelOfDetail.BASIC
 
-                                logger.info(f"Final LOD for namespace '{namespace_name}': {namespace_lod}")
+                            logger.info(f"Final LOD for namespace '{namespace_name}': {namespace_lod}")
 
-                                if namespace_lod == LevelOfDetail.NONE:
-                                    continue  # Skip namespace if LOD is set to NONE
+                            if namespace_lod == LevelOfDetail.NONE:
+                                continue  # Skip namespace if LOD is set to NONE
 
+                            if namespace_from_api:
                                 if (include_annotations or include_labels) and not has_included_annotations_or_labels(raw_resource, include_annotations, include_labels):
                                     continue  # Skip this resource if it doesn't meet inclusion criteria
 
                                 if has_excluded_annotations_or_labels(raw_resource, exclude_annotations, exclude_labels):
                                     continue
-                                                 
+
                                 # Extract owner metadata if available
                                 owner_name = extract_owner_name(raw_resource)
                                 namespace_attributes = kubeapi_parsers.parse_namespace(raw_resource)
-                                namespace_attributes['cluster'] = cluster
-                                namespace_attributes['lod'] = namespace_lod
-                                if owner_name:
-                                    namespace_attributes['owner'] = owner_name
+                            else:
+                                # Stub Namespace for OpenShift / restricted-RBAC: we know the
+                                # name from config (or projects), but cannot GET the cluster-
+                                # scoped Namespace object. Downstream list_namespaced_* calls
+                                # are the real accessibility check.
+                                owner_name = None
+                                namespace_attributes = {
+                                    'name': namespace_name,
+                                    'uid': None,
+                                    'kind': 'Namespace',
+                                    'labels': {},
+                                    'annotations': {},
+                                    'resource': {},
+                                }
 
-                                # Check if namespace already exists in registry (from another context)
-                                existing_namespace = registry.lookup_resource(
-                                    KUBERNETES_PLATFORM,
-                                    KubernetesResourceType.NAMESPACE.value,
-                                    namespace_qualified_name
-                                )
-                                
-                                if existing_namespace:
-                                    logger.info(f"Namespace '{namespace_qualified_name}' already exists in registry from previous context. "
-                                               f"Current context '{context_name}' will update LOD to '{namespace_lod}' and process resources.")
-                                else:
-                                    logger.info(f"Adding new namespace '{namespace_qualified_name}' to registry from context '{context_name}' with LOD '{namespace_lod}'")
-                                
-                                namespace = registry.add_resource(
-                                    KUBERNETES_PLATFORM,
-                                    KubernetesResourceType.NAMESPACE.value,
-                                    namespace_name,
-                                    namespace_qualified_name,
-                                    namespace_attributes
-                                )
+                            namespace_attributes['cluster'] = cluster
+                            namespace_attributes['lod'] = namespace_lod
+                            if owner_name:
+                                namespace_attributes['owner'] = owner_name
 
-                                cluster_namespaces[namespace_qualified_name] = namespace
-                                namespaces[namespace_qualified_name] = namespace
-                                logger.debug(f"Added namespace '{namespace_qualified_name}' to local namespaces dict for resource processing in context '{context_name}'")
+                            # Check if namespace already exists in registry (from another context)
+                            existing_namespace = registry.lookup_resource(
+                                KUBERNETES_PLATFORM,
+                                KubernetesResourceType.NAMESPACE.value,
+                                namespace_qualified_name
+                            )
 
-                            except ApiException as e:
-                                logger.info(f"Error accessing namespace '{namespace_name}' in cluster '{cluster_name}'; skipping. Error: {e}")
-                                pass
+                            if existing_namespace:
+                                logger.info(f"Namespace '{namespace_qualified_name}' already exists in registry from previous context. "
+                                           f"Current context '{context_name}' will update LOD to '{namespace_lod}' and process resources.")
+                            else:
+                                logger.info(f"Adding new namespace '{namespace_qualified_name}' to registry from context '{context_name}' with LOD '{namespace_lod}'")
+
+                            namespace = registry.add_resource(
+                                KUBERNETES_PLATFORM,
+                                KubernetesResourceType.NAMESPACE.value,
+                                namespace_name,
+                                namespace_qualified_name,
+                                namespace_attributes
+                            )
+
+                            cluster_namespaces[namespace_qualified_name] = namespace
+                            namespaces[namespace_qualified_name] = namespace
+                            logger.debug(f"Added namespace '{namespace_qualified_name}' to local namespaces dict for resource processing in context '{context_name}'")
                         logger.info(f"Context '{context_name}' will process {len(namespaces)} namespace(s) for resources: {list(namespaces.keys())}")
                         for namespace in namespaces.values():
                             namespace_qualified_name = namespace.qualified_name

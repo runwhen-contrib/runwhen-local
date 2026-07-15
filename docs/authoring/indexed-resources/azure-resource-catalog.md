@@ -2,7 +2,7 @@
 
 Resource types the native `azureapi` indexer can discover. Use the canonical CloudQuery table name (or any listed alias) as the `resourceTypes` value in a generation rule. This page is the companion catalog for [`azure.md`](./azure.md); see that page for how to enable the indexer and what data each row carries.
 
-_619 resource types - 25 typed (rich-payload), 594 generic (basic envelope). Generated 2026-07-09 from `src/indexers/azure_resource_type_registry.yaml`._
+_619 resource types - 25 typed (rich-payload), 594 generic (basic envelope). Generated 2026-07-15 from `src/indexers/azure_resource_type_registry.yaml`._
 
 _Regenerate with `python scripts/azure/dump_azure_resource_catalog.py` after touching the registry or overrides; do not hand-edit this file._
 
