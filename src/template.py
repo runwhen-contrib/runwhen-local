@@ -1,5 +1,6 @@
 import logging
-from typing import Any
+import threading
+from typing import Any, Callable, Optional
 
 from jinja2.loaders import FileSystemLoader
 from jinja2.sandbox import SandboxedEnvironment
@@ -10,6 +11,60 @@ from jinja2 import Undefined
 from exceptions import WorkspaceBuilderException
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Environment cache: rebuild a Jinja2 SandboxedEnvironment (with disk loaders)
+# on every render_template_file call is wasteful — for a workspace with 500
+# output items that's 500 FileSystemLoader constructions and 500 template
+# re-parses from disk.
+#
+# We cache one environment for the DEFAULT (no custom loader) path — this
+# covers the majority of render_template_file calls (built-in templates like
+# kubernetes-auth.yaml, gcp-auth.yaml, etc.). Custom-loader paths
+# (codecollection templates) get fresh environments since each
+# generate_output_item call creates a new lambda closure, making
+# function-object-based caching O(num_output_items).
+# ---------------------------------------------------------------------------
+
+_env_cache: SandboxedEnvironment | None = None
+_env_cache_lock = threading.Lock()
+
+
+def _get_environment(template_loader_func: Optional[Callable] = None) -> SandboxedEnvironment:
+    """Return a (possibly cached) SandboxedEnvironment.
+
+    Only the default loader configuration (``template_loader_func is None``)
+    is cached — it's the hot path used for every built-in template. Custom
+    loaders get fresh environments to avoid unbounded cache growth from the
+    per-output-item lambdas created by ``generate_output_item``.
+    """
+    global _env_cache
+
+    if template_loader_func is not None:
+        loaders: list = [CustomTemplateLoader(template_loader_func), FileSystemLoader("templates")]
+        return SandboxedEnvironment(
+            loader=ChoiceLoader(loaders),
+            trim_blocks=True,
+            lstrip_blocks=True,
+            undefined=CustomUndefined,
+        )
+
+    # Default path — cached.
+    env = _env_cache
+    if env is not None:
+        return env
+    with _env_cache_lock:
+        env = _env_cache
+        if env is not None:
+            return env
+        env = SandboxedEnvironment(
+            loader=ChoiceLoader([FileSystemLoader("templates")]),
+            trim_blocks=True,
+            lstrip_blocks=True,
+            undefined=CustomUndefined,
+        )
+        _env_cache = env
+        return env
 
 
 class CustomUndefined(Undefined):
@@ -71,12 +126,7 @@ def render_template_file(template_file_name: str,
                          template_variables: dict[str, Any],
                          template_loader_func = None) -> str:
     try:
-        # The environment setup code should never raise an exception,
-        # but put it in the try block just to be safe...
-        loaders = [FileSystemLoader("templates")]
-        if template_loader_func:
-            loaders.insert(0, CustomTemplateLoader(template_loader_func))
-        env = SandboxedEnvironment(loader=ChoiceLoader(loaders), trim_blocks=True, lstrip_blocks=True, undefined=CustomUndefined)
+        env = _get_environment(template_loader_func)
         template = env.get_template(template_file_name)
         return template.render(**template_variables)
     except TemplateNotFound as e:

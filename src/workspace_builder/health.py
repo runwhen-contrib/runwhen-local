@@ -34,6 +34,7 @@ class RunInfo:
     parsing_errors_count: int = 0
     current_stage: Optional[str] = None
     current_component: Optional[str] = None
+    last_progress_time: Optional[str] = None
     slx_count: Optional[int] = None
     duration_seconds: Optional[float] = None
     
@@ -179,11 +180,17 @@ class HealthTracker:
             self._write_state(state)
     
     def update_stage(self, stage: str, component: str = None) -> None:
-        """Update the current stage and component being processed."""
+        """Update the current stage and component being processed.
+
+        Also stamps ``last_progress_time`` so the liveness probe can detect
+        true stuck runs (no stage advancement for a configurable timeout)
+        without killing long but healthy runs.
+        """
         state = self._read_state()
         if state.get('current_run'):
             state['current_run']['current_stage'] = stage
             state['current_run']['current_component'] = component
+            state['current_run']['last_progress_time'] = datetime.now(timezone.utc).isoformat()
             self._write_state(state)
     
     def get_health_info(self) -> HealthInfo:
@@ -211,27 +218,40 @@ class HealthTracker:
         )
     
     def is_healthy(self) -> bool:
-        """Check if the service is healthy for liveness probe."""
+        """Check if the service is healthy for liveness probe.
+
+        The liveness probe must answer the question "is the uvicorn process
+        alive and making progress?" — NOT "has this run finished within an
+        arbitrary time budget?". A long discovery run (multi-cluster, many
+        projects, slow cloud APIs) can legitimately take 30+ minutes, and
+        killing it mid-render loses all work and forces a restart from scratch.
+
+        Stuck-run detection is still valuable, but it's now based on **stage
+        progress staleness** rather than a hard wall-clock cap: if the current
+        stage/component hasn't advanced in a configurable timeout (default
+        1 hour, via ``RW_STUCK_RUN_TIMEOUT_SECONDS``), *then* we consider it
+        stuck. Stage updates happen on every component transition in
+        ``component.py`` → ``update_stage``, so a live run keeps refreshing
+        the staleness clock even though the overall run is long.
+        """
         state = self._read_state()
-        
-        # Service is healthy if:
-        # 1. No current error status
-        # 2. If there's a current run, it's not stuck (< 30 minutes)
-        
+
         if state.get('service_status') == HealthStatus.ERROR.value:
             return False
-        
+
         current_run = state.get('current_run')
         if current_run and current_run.get('start_time'):
-            # Check if run has been going for more than 30 minutes
+            stuck_timeout = int(os.environ.get("RW_STUCK_RUN_TIMEOUT_SECONDS", "3600"))
+            # Use the most recent of: start_time, or last stage update time.
+            progress_time_str = current_run.get('last_progress_time') or current_run.get('start_time')
             try:
-                start_time = datetime.fromisoformat(current_run['start_time'].replace('Z', '+00:00'))
-                elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
-                if elapsed > 1800:  # 30 minutes
+                progress_time = datetime.fromisoformat(progress_time_str.replace('Z', '+00:00'))
+                elapsed = (datetime.now(timezone.utc) - progress_time).total_seconds()
+                if elapsed > stuck_timeout:
                     return False
             except Exception:
                 pass
-        
+
         return True
     
     def is_ready(self) -> bool:

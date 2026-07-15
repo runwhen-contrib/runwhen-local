@@ -150,7 +150,5 @@ advanced cases.
 
 * [`generation-rules-guide.md`](../../../generation-rules-guide.md) — full
   syntax reference
-* [Worked examples](./examples/) — end-to-end narratives
 * [Tag-hierarchy contract](./tag-hierarchy-contract.md)
 * [Indexed resources](../indexed-resources/README.md) — matchable type catalogs
-* [Concepts](../concepts.md) — CodeCollection / Skill / SLX terminology

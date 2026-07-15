@@ -314,6 +314,42 @@ def _decode_service_account_key(service_account_key: Optional[str]) -> Optional[
     return text
 
 
+# ---------------------------------------------------------------------------
+# Project-ID normalization (shared by GKE auto-discovery)
+# ---------------------------------------------------------------------------
+
+def _normalize_project_ids(value) -> list[str]:
+    """Normalize a projects config value into a de-duplicated list of project IDs.
+
+    Accepts a single string, a list of strings, or None.  Duplicate IDs are
+    removed (preserving first-occurrence order) so we never make redundant
+    ``list_clusters`` calls.
+    """
+    if value is None:
+        return []
+    if isinstance(value, str):
+        raw = [p.strip() for p in value.split(",") if p.strip()]
+    elif isinstance(value, (list, tuple)):
+        raw: list[str] = []
+        for item in value:
+            if isinstance(item, dict):
+                pid = item.get("projectId") or item.get("project_id") or item.get("id")
+                if pid:
+                    raw.append(str(pid).strip())
+            elif item:
+                raw.append(str(item).strip())
+    else:
+        raw = [str(value).strip()]
+    # De-duplicate while preserving order.
+    seen: set[str] = set()
+    out: list[str] = []
+    for pid in raw:
+        if pid and pid not in seen:
+            seen.add(pid)
+            out.append(pid)
+    return out
+
+
 # Scope every GKE credential to the full cloud-platform scope so the same token
 # works for the Container API call and for talking to the cluster apiserver.
 GKE_OAUTH_SCOPES = ["https://www.googleapis.com/auth/cloud-platform"]
@@ -477,13 +513,58 @@ def generate_kubeconfig_for_gke(gke_clusters, workspace_info):
     if auto_discover:
         logger.info("Auto-discovery enabled for GKE clusters")
         discovery_config = gke_config.get('discoveryConfig', {}) or {}
-        discovery_project = discovery_config.get('projectId') or project_id
-        discovered_clusters = discover_gke_clusters(discovery_project, client=client)
-        # De-dupe discovered clusters already named explicitly.
-        explicit_names = {c.get('name') for c in explicit_clusters}
-        discovered_clusters = [c for c in discovered_clusters if c.get('name') not in explicit_names]
+
+        # Resolve the set of projects to enumerate. The GCP Container API
+        # ``list_clusters`` is scoped per-project (``projects/{id}/locations/-``),
+        # so to discover clusters across multiple projects we must call it once
+        # per project and merge.
+        #
+        # Priority:
+        #   1. ``discoveryConfig.projectId`` — if set, discover ONLY that project
+        #      (acts as an explicit filter). Can be a single string or a list.
+        #   2. ``cloudConfig.gcp.projects`` — discover ALL configured projects.
+        #   3. ``cloudConfig.gcp.projectId`` — single-project fallback.
+        discovery_project_ids: list[str] = []
+        discovery_project_id = discovery_config.get('projectId')
+        if discovery_project_id:
+            discovery_project_ids = _normalize_project_ids(discovery_project_id)
+        if not discovery_project_ids:
+            gcp_config = workspace_info.get('cloudConfig', {}).get('gcp', {}) or {}
+            discovery_project_ids = _normalize_project_ids(gcp_config.get('projects'))
+        if not discovery_project_ids:
+            discovery_project_ids = _normalize_project_ids(gcp_config.get('projectId'))
+        if not discovery_project_ids and project_id:
+            discovery_project_ids = [project_id]
+        if not discovery_project_ids:
+            logger.warning(
+                "GKE auto-discovery enabled but no projects configured; "
+                "set cloudConfig.gcp.projects or gkeClusters.discoveryConfig.projectId"
+            )
+
+        discovered_clusters: list[dict[str, str]] = []
+        for pid in discovery_project_ids:
+            clusters_in_project = discover_gke_clusters(pid, client=client)
+            # Tag each discovered cluster with its project so _fetch_gke_cluster_details
+            # uses the right project when the user hasn't set projectId explicitly.
+            for c in clusters_in_project:
+                c.setdefault('projectId', pid)
+            discovered_clusters.extend(clusters_in_project)
+
+        # De-dupe discovered clusters already named explicitly. Match on the
+        # (name, projectId) pair so an explicit cluster in project A does not
+        # suppress a discovered cluster with the same name in project B.
+        explicit_keys = {
+            (c.get('name'), c.get('projectId') or project_id)
+            for c in explicit_clusters
+        }
+        discovered_clusters = [
+            c for c in discovered_clusters
+            if (c.get('name'), c.get('projectId')) not in explicit_keys
+        ]
         all_clusters = explicit_clusters + discovered_clusters
         logger.info(
+            f"Auto-discovered GKE clusters across {len(discovery_project_ids)} project(s): "
+            f"{discovery_project_ids}. "
             f"Using {len(explicit_clusters)} explicit clusters + "
             f"{len(discovered_clusters)} discovered clusters = {len(all_clusters)} total"
         )
@@ -495,32 +576,59 @@ def generate_kubeconfig_for_gke(gke_clusters, workspace_info):
         logger.warning("No GKE clusters configured or discovered")
         return
 
+    # Detect cross-project name collisions. Two GKE clusters in different
+    # projects can share the same name (e.g. "prod-cluster" in both proj-a and
+    # proj-b). The kubeconfig context/cluster/user names must be unique or the
+    # second entry silently overwrites the first. When a collision is detected,
+    # prefix the kubeconfig name with the project ID (e.g.
+    # "proj-a--prod-cluster") so both clusters are reachable. The original GKE
+    # cluster name is still passed to the Container API.
+    name_counts: dict[str, int] = {}
     for cluster in all_clusters:
-        cluster_name = cluster.get('name')
+        cn = cluster.get('name')
+        if cn:
+            name_counts[cn] = name_counts.get(cn, 0) + 1
+    collided_names = {n for n, c in name_counts.items() if c > 1}
+    if collided_names:
+        logger.info(
+            f"Disambiguating GKE clusters with cross-project name collisions: "
+            f"{collided_names}"
+        )
+
+    for cluster in all_clusters:
+        original_name = cluster.get('name')
         # Accept location, zone, or region; get_cluster treats them the same.
         location = cluster.get('location') or cluster.get('zone') or cluster.get('region')
         cluster_project_id = cluster.get('projectId') or project_id
 
-        if not cluster_name or not location:
+        if not original_name or not location:
             logger.error(
-                f"Skipping GKE cluster with missing name/location: name={cluster_name}, location={location}"
+                f"Skipping GKE cluster with missing name/location: name={original_name}, location={location}"
             )
             continue
 
+        # Disambiguate the kubeconfig context/cluster/user name when the GKE
+        # cluster name collides across projects. The original name is still used
+        # for the Container API call below.
+        if original_name in collided_names and cluster_project_id:
+            kubeconfig_name = f"{cluster_project_id}--{original_name}"
+        else:
+            kubeconfig_name = original_name
+
         try:
             endpoint, ca_cert = _fetch_gke_cluster_details(
-                client, cluster_project_id, location, cluster_name
+                client, cluster_project_id, location, original_name
             )
         except Exception as e:
             logger.error(
-                f"Skipping GKE cluster {mask_string(cluster_name)}: "
+                f"Skipping GKE cluster {mask_string(original_name)}: "
                 f"failed to fetch cluster details: {e}"
             )
             continue
 
         if not endpoint or not ca_cert:
             logger.error(
-                f"Skipping GKE cluster {mask_string(cluster_name)}: missing "
+                f"Skipping GKE cluster {mask_string(original_name)}: missing "
                 f"endpoint={endpoint is not None} / ca={ca_cert is not None}"
             )
             continue
@@ -530,7 +638,7 @@ def generate_kubeconfig_for_gke(gke_clusters, workspace_info):
         # treat GKE identically.
         extension_data = {
             'cluster_type': 'gke',
-            'cluster_name': cluster_name,
+            'cluster_name': original_name,
             'project_id': cluster_project_id,
             'location': location,
             'auth_type': auth_type,
@@ -539,12 +647,18 @@ def generate_kubeconfig_for_gke(gke_clusters, workspace_info):
         if 'defaultNamespaceLOD' in cluster:
             extension_data['defaultNamespaceLOD'] = cluster['defaultNamespaceLOD']
             logger.info(
-                f"Adding defaultNamespaceLOD to extension for cluster '{cluster_name}': "
+                f"Adding defaultNamespaceLOD to extension for cluster '{kubeconfig_name}': "
                 f"{cluster['defaultNamespaceLOD']}"
+            )
+        if 'namespaceLODs' in cluster:
+            extension_data['namespaceLODs'] = cluster['namespaceLODs']
+            logger.info(
+                f"Adding namespaceLODs to extension for cluster '{kubeconfig_name}': "
+                f"{cluster['namespaceLODs']}"
             )
 
         cluster_entry = {
-            'name': cluster_name,
+            'name': kubeconfig_name,
             'cluster': {
                 'server': f"https://{endpoint}",
                 'certificate-authority-data': ca_cert,
@@ -558,14 +672,14 @@ def generate_kubeconfig_for_gke(gke_clusters, workspace_info):
         # GKE uses short-lived OAuth bearer tokens for apiserver auth. Embed the
         # token minted above directly (the gke-gcloud-auth-plugin exec flow is
         # intentionally avoided -- that's the gcloud dependency being removed).
-        user_name = f"{cluster_name}-user"
+        user_name = f"{kubeconfig_name}-user"
         user_entry = {
             'name': user_name,
             'user': {'token': oauth_token},
         }
         context_entry = {
-            'name': cluster_name,
-            'context': {'cluster': cluster_name, 'user': user_name},
+            'name': kubeconfig_name,
+            'context': {'cluster': kubeconfig_name, 'user': user_name},
         }
 
         combined_kubeconfig['clusters'].append(cluster_entry)
@@ -573,10 +687,10 @@ def generate_kubeconfig_for_gke(gke_clusters, workspace_info):
         combined_kubeconfig['contexts'].append(context_entry)
 
         if not combined_kubeconfig['current-context']:
-            combined_kubeconfig['current-context'] = cluster_name
-            logger.info(f"Setting current context to: {cluster_name}")
+            combined_kubeconfig['current-context'] = kubeconfig_name
+            logger.info(f"Setting current context to: {kubeconfig_name}")
 
-        logger.info(f"Added kubeconfig entry for GKE cluster {mask_string(cluster_name)} in {location}")
+        logger.info(f"Added kubeconfig entry for GKE cluster {mask_string(kubeconfig_name)} in {location}")
 
     if not combined_kubeconfig['clusters']:
         logger.warning("No GKE clusters were successfully added to the kubeconfig")

@@ -1,16 +1,19 @@
 {% if cluster is defined and cluster.cluster_type | default('') == "gke" and cluster.auth_type | default('') == "gcp_service_account_secret" %}
     - name: kubeconfig
-      workspaceKey: gcp:sa@kubeconfig:{{ cluster.name | default('undefined') }}/{{ cluster.zone | default(cluster.region | default('undefined')) }}
+      workspaceKey: gcp:sa@kubeconfig:{{ cluster.name | default('undefined') }}/{{ cluster.location or cluster.zone or cluster.region or 'undefined' }}
     - name: gcp_projectId
       workspaceKey: k8s:file@secret/{{ cluster.auth_secret | default('undefined') }}:projectId
     - name: gcp_serviceAccountKey
       workspaceKey: k8s:file@secret/{{ cluster.auth_secret | default('undefined') }}:serviceAccountKey
-{% elif cluster is defined and cluster.cluster_type | default('') == "gke" and cluster.auth_type | default('') == "gcp_service_account" %}
+{% elif cluster is defined and cluster.cluster_type | default('') == "gke" and (cluster.auth_type | default('') == "gcp_service_account" or cluster.auth_type | default('') == "gcp_service_account_file") %}
     - name: kubeconfig
-      workspaceKey: gcp:sa@kubeconfig:{{ cluster.name | default('undefined') }}/{{ cluster.zone | default(cluster.region | default('undefined')) }}
+      workspaceKey: gcp:sa@kubeconfig:{{ cluster.name | default('undefined') }}/{{ cluster.location or cluster.zone or cluster.region or 'undefined' }}
 {% elif cluster is defined and cluster.cluster_type | default('') == "gke" and cluster.auth_type | default('') == "gcp_adc" %}
     - name: kubeconfig
-      workspaceKey: gcp:adc@kubeconfig:{{ cluster.name | default('undefined') }}/{{ cluster.zone | default(cluster.region | default('undefined')) }}
+      workspaceKey: gcp:adc@kubeconfig:{{ cluster.name | default('undefined') }}/{{ cluster.location or cluster.zone or cluster.region or 'undefined' }}
+{% elif cluster is defined and cluster.cluster_type | default('') == "gke" %}
+    - name: kubeconfig
+      workspaceKey: gcp:adc@kubeconfig:{{ cluster.name | default('undefined') }}/{{ cluster.location or cluster.zone or cluster.region or 'undefined' }}
 {% elif custom is defined and custom.kubeconfig_secret_name | default('') != '' %}
     - name: kubeconfig
       workspaceKey: {{ custom.kubeconfig_secret_name | default('undefined') }}
