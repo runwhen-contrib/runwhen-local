@@ -1,3 +1,4 @@
+import base64
 from dataclasses import dataclass
 from fnmatch import fnmatch
 import logging
@@ -16,7 +17,8 @@ from exceptions import (
     WorkspaceBuilderObjectNotFoundException
 )
 from .match_predicate import StringMatchMode
-from git_utils import get_repo_name, create_repo_directory
+from git_utils import get_repo_name, create_repo_directory, get_repo_url_with_auth
+from utils import mask_string
 
 logger = logging.getLogger(__name__)
 
@@ -161,6 +163,9 @@ class CodeCollectionConfig:
     repo_url: str
     auth_user: Optional[str]
     auth_token: Optional[str]
+    auth_token_secret_name: Optional[str]
+    auth_token_secret_key: Optional[str]
+    auth_token_from_env: Optional[str]
     ref_name: str
     action: CodeCollectionAction
     code_bundle_configs: list[CodeBundleConfig]
@@ -171,6 +176,9 @@ class CodeCollectionConfig:
             repo_url = code_collection_config
             auth_user = None
             auth_token = None
+            auth_token_secret_name = None
+            auth_token_secret_key = None
+            auth_token_from_env = None
             ref_name = "main"
             action = CodeCollectionAction.INCLUDE
             code_bundle_configs = [CODE_BUNDLE_CONFIG_INCLUDE_ALL]
@@ -180,6 +188,9 @@ class CodeCollectionConfig:
                 raise WorkspaceBuilderUserException('Invalid code collection config; must specify a "repoUrl" field')
             auth_user = code_collection_config.get("authUser")
             auth_token = code_collection_config.get("authToken")
+            auth_token_secret_name = code_collection_config.get("authTokenSecretName")
+            auth_token_secret_key = code_collection_config.get("authTokenSecretKey", "token")
+            auth_token_from_env = code_collection_config.get("authTokenFromEnv")
             ref_name = code_collection_config.get("ref")
             if not ref_name:
                 ref_name = code_collection_config.get("tag")
@@ -196,7 +207,9 @@ class CodeCollectionConfig:
             code_bundle_configs = [CodeBundleConfig.construct_from_config(data, code_bundle_match_defaults)
                                    for data in code_bundle_configs_data]
 
-        return CodeCollectionConfig(repo_url, auth_user, auth_token, ref_name, action, code_bundle_configs)
+        return CodeCollectionConfig(repo_url, auth_user, auth_token,
+                                    auth_token_secret_name, auth_token_secret_key, auth_token_from_env,
+                                    ref_name, action, code_bundle_configs)
 
     def is_included_code_bundle(self, code_bundle_name):
         for code_bundle_config in self.code_bundle_configs:
@@ -217,12 +230,19 @@ class CodeCollection:
     repo_url: str
     auth_user: Optional[str]
     auth_token: Optional[str]
+    auth_token_secret_name: Optional[str]
+    auth_token_secret_key: Optional[str]
+    auth_token_from_env: Optional[str]
     repo_directory_path: Optional[str]
     repo: Optional[Repo]
+    _resolved_auth_token: Optional[str]
 
     def __init__(self, repo_url: str,
                  auth_user: Optional[str],
-                 auth_token: Optional[str]):
+                 auth_token: Optional[str],
+                 auth_token_secret_name: Optional[str] = None,
+                 auth_token_secret_key: Optional[str] = "token",
+                 auth_token_from_env: Optional[str] = None):
         # We just set up the configured state here, but don't do anything substantial
         # like cloning the repo. The rationale is that we do those operations on
         # demand when a request is made, so that if there is a temporary problem with
@@ -231,8 +251,95 @@ class CodeCollection:
         self.repo_url = repo_url
         self.auth_user = auth_user
         self.auth_token = auth_token
+        self.auth_token_secret_name = auth_token_secret_name
+        self.auth_token_secret_key = auth_token_secret_key or "token"
+        self.auth_token_from_env = auth_token_from_env
         self.repo_directory_path = None
         self.repo = None
+        self._resolved_auth_token = None  # cached after first resolution
+
+    def _resolve_auth_token(self) -> Optional[str]:
+        """Resolve the auth token from configured sources in priority order:
+        1. K8s secret (auth_token_secret_name + auth_token_secret_key)
+        2. Environment variable (auth_token_from_env)
+        3. Inline value (auth_token)
+
+        The resolved value is cached so the secret is only read once per CodeCollection instance.
+        """
+        if self._resolved_auth_token is not None:
+            return self._resolved_auth_token
+
+        # 1. Try K8s secret
+        if self.auth_token_secret_name and self.auth_token_secret_key:
+            try:
+                from k8s_utils import get_secret
+                secret_data = get_secret(self.auth_token_secret_name)
+                token_b64 = secret_data.get(self.auth_token_secret_key)
+                if token_b64:
+                    token = base64.b64decode(token_b64).decode("utf-8").strip()
+                    if token:
+                        logger.info(
+                            "Resolved code-collection auth token from K8s secret %s key %s",
+                            mask_string(self.auth_token_secret_name),
+                            self.auth_token_secret_key,
+                        )
+                        self._resolved_auth_token = token
+                        return self._resolved_auth_token
+                logger.warning(
+                    "K8s secret %s exists but key %s is empty or missing; "
+                    "falling back to other auth sources for repo %s",
+                    mask_string(self.auth_token_secret_name),
+                    self.auth_token_secret_key,
+                    self.repo_url,
+                )
+            except SystemExit:
+                logger.warning(
+                    "Failed to read K8s secret %s (workspace builder may not be running in-cluster); "
+                    "falling back to other auth sources for repo %s",
+                    mask_string(self.auth_token_secret_name),
+                    self.repo_url,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Unexpected error reading K8s secret %s: %s; "
+                    "falling back to other auth sources for repo %s",
+                    mask_string(self.auth_token_secret_name),
+                    exc,
+                    self.repo_url,
+                )
+
+        # 2. Try environment variable
+        if self.auth_token_from_env:
+            token = os.environ.get(self.auth_token_from_env)
+            if token:
+                logger.info(
+                    "Resolved code-collection auth token from env var %s",
+                    self.auth_token_from_env,
+                )
+                self._resolved_auth_token = token
+                return self._resolved_auth_token
+            logger.warning(
+                "authTokenFromEnv=%s is set but environment variable is empty or unset; "
+                "falling back for repo %s",
+                self.auth_token_from_env,
+                self.repo_url,
+            )
+
+        # 3. Fall back to inline token
+        if self.auth_token:
+            logger.info("Using inline authToken for repo %s", self.repo_url)
+            self._resolved_auth_token = self.auth_token
+            return self._resolved_auth_token
+
+        return None
+
+    def _get_auth_url(self) -> str:
+        """Return the repo URL with embedded auth credentials, or the raw URL
+        if no auth is configured."""
+        token = self._resolve_auth_token()
+        if token:
+            return get_repo_url_with_auth(self.repo_url, self.auth_user or "", token)
+        return self.repo_url
 
     # def update_repo(self, ref_name: str) -> None:
     #     # FIXME: This code needs synchronization properly handle concurrent requests.
@@ -254,7 +361,8 @@ class CodeCollection:
         # already loaded – normal path
         if self.repo:
             if self.repo.remotes and not USE_LOCAL_GIT:
-                # remote available ⇒ refresh
+                auth_url = self._get_auth_url()
+                self.repo.remote().set_url(auth_url)
                 self.repo.remote().fetch(ref_name, tags=True)
             return
 
@@ -294,12 +402,13 @@ class CodeCollection:
                 )
 
         # online clone (only when USE_LOCAL_GIT is false)
+        auth_url = self._get_auth_url()
         logger.info(f"Cloning from git source: {self.repo_url}")
         if not self.repo_directory_path:
             repo_name = get_repo_name(self.repo_url)
             self.repo_directory_path = create_repo_directory(code_collection_cache_dir, repo_name)
         self.repo = Repo.clone_from(
-            self.repo_url,
+            auth_url,
             self.repo_directory_path,
             mirror=True  # includes tags/branches
         )
@@ -548,7 +657,8 @@ def get_code_collection(code_collection_config: CodeCollectionConfig) -> CodeCol
     # code_collection = code_collection_cache.get(code_collection_config.repo_url)
     # if not code_collection:
     #     repo_url = code_collection_config.repo_url
-    #     code_collection = CodeCollection(repo_url, code_collection_config.auth_user, code_collection_config.auth_token)
+    #     code_collection = CodeCollection(repo_url, code_collection_config.auth_user, code_collection_config.auth_token,
+    #                                     code_collection_config.auth_token_secret_name)
     #     code_collection_cache[repo_url.lower()] = code_collection
     # return code_collection
     key = code_collection_config.repo_url.lower()
@@ -558,6 +668,9 @@ def get_code_collection(code_collection_config: CodeCollectionConfig) -> CodeCol
             code_collection_config.repo_url,
             code_collection_config.auth_user,
             code_collection_config.auth_token,
+            code_collection_config.auth_token_secret_name,
+            code_collection_config.auth_token_secret_key,
+            code_collection_config.auth_token_from_env,
         )
         code_collection_cache[key] = code_collection
     return code_collection

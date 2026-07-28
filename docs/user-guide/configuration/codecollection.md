@@ -33,20 +33,73 @@ For the string specification the string is just the URL of the git repo. The str
 
 The object block format for a code collection entry is an object/dictionary with the following fields:
 
-| Field Name  | Description                                                           |
-| ----------- | --------------------------------------------------------------------- |
-| repoURL     | URL of the git repo for the code collection                           |
-| branch      | branch to use in the repo                                             |
-| tag         | tag to use in the repo                                                |
-| ref         | git ref to use in the repo                                            |
-| authUser    | user id to use when cloning the repo                                  |
-| authToken   | auth token credential to use when cloning repo                        |
-| action      | inclusion action, either "include" or "exclude", defaults to "include |
-| codeBundles | List of code bundles to enable for the code collection                |
+| Field Name           | Description                                                           |
+| -------------------- | --------------------------------------------------------------------- |
+| repoURL              | URL of the git repo for the code collection                           |
+| branch               | branch to use in the repo                                             |
+| tag                  | tag to use in the repo                                                |
+| ref                  | git ref to use in the repo                                            |
+| authUser             | user id to use when cloning the repo                                  |
+| authToken            | auth token credential to use when cloning repo                        |
+| authTokenSecretName  | Name of a Kubernetes Secret in the workspace-builder namespace containing the auth token |
+| authTokenSecretKey   | Key within the Kubernetes Secret holding the token (default: "token") |
+| authTokenFromEnv     | Environment variable name whose value contains the auth token         |
+| action               | inclusion action, either "include" or "exclude", defaults to "include |
+| codeBundles          | List of code bundles to enable for the code collection                |
 
 Only one of the branch, tag or ref fields should be specified.
 
-The authUser and authToken fields are only necessary for non-public repos. All the RunWhen-provided code collections are open source, so they don't require any credentials.
+The authentication fields are only necessary for non-public repos. All the RunWhen-provided code collections are open source, so they don't require any credentials.
+
+**Authentication priority** (checked in order):
+1. `authTokenSecretName` + `authTokenSecretKey` — reads from a Kubernetes Secret in the workspace-builder namespace. The secret must exist in the same namespace as the workspace builder pod.
+2. `authTokenFromEnv` — reads from the named environment variable.
+3. `authToken` — inline token value (least preferred; embeds the token in workspaceInfo).
+
+**Recommended: Kubernetes Secret** (does not embed the token in workspaceInfo):
+
+```yaml
+codeCollections:
+- repoURL: https://github.com/author-account/my-private-code-collection.git
+  authTokenSecretName: git-token
+  authTokenSecretKey: token
+  codeBundles:
+  - my-code-bundle
+```
+
+The referenced Kubernetes Secret should be created in the workspace-builder namespace:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: git-token
+  namespace: runwhen-local
+type: Opaque
+data:
+  token: <base64-encoded-git-token>
+```
+
+**Alternative: Environment variable:**
+
+```yaml
+codeCollections:
+- repoURL: https://github.com/author-account/my-private-code-collection.git
+  authTokenFromEnv: GIT_AUTH_TOKEN
+  codeBundles:
+  - my-code-bundle
+```
+
+**Inline token** (not recommended for production):
+
+```yaml
+codeCollections:
+- repoURL: https://github.com/author-account/my-private-code-collection.git
+  authUser: my-user
+  authToken: ghp_abc123...
+  codeBundles:
+  - my-code-bundle
+```
 
 The "action" field lets you toggle between inclusion/whitelist and exclusion/blacklist. The most common use case will just be an explicit whitelist of included code collections. Since the "action" field defaults to "include" you can just omit it for that use case.
 
@@ -57,6 +110,28 @@ The custom code collection configuration is useful for code collection authors. 
 ```yaml
 codeCollections:
 - repoURL: https://github.com/author-account/my-custom-code-collection.git
+  codeBundles:
+  - my-code-bundle
+```
+
+For private repositories, use `authTokenSecretName` (recommended) to reference a Kubernetes Secret instead of embedding the token in workspaceInfo:
+
+```yaml
+codeCollections:
+- repoURL: https://github.com/author-account/my-private-code-collection.git
+  authTokenSecretName: git-token
+  authTokenSecretKey: token
+  codeBundles:
+  - my-code-bundle
+```
+
+If your git provider uses a username+token scheme, set `authUser` alongside `authTokenSecretName`:
+
+```yaml
+codeCollections:
+- repoURL: https://github.com/author-account/my-private-code-collection.git
+  authUser: my-user
+  authTokenSecretName: git-token
   codeBundles:
   - my-code-bundle
 ```

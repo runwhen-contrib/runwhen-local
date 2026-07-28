@@ -1,5 +1,8 @@
 version: "3"
 
+vars:
+  CONTAINER_ENGINE: '{{.CONTAINER_ENGINE | default "docker"}}'
+
 tasks:
   default:
     desc: "Generate workspaceInfo and rebuild/test"
@@ -75,12 +78,13 @@ tasks:
       - |
         BUILD_DIR=../../../src/
         CONTAINER_NAME="RunWhenLocal"
-        if docker ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+        CE="{{.CONTAINER_ENGINE}}"
+        if $CE ps -q --filter "name=$CONTAINER_NAME" | grep -q .; then
           echo "Stopping and removing existing container $CONTAINER_NAME..."
-          docker stop $CONTAINER_NAME && docker rm $CONTAINER_NAME
-        elif docker ps -a -q --filter "name=$CONTAINER_NAME" | grep -q .; then
+          $CE stop $CONTAINER_NAME && $CE rm $CONTAINER_NAME
+        elif $CE ps -a -q --filter "name=$CONTAINER_NAME" | grep -q .; then
           echo "Removing existing stopped container $CONTAINER_NAME..."
-          docker rm $CONTAINER_NAME
+          $CE rm $CONTAINER_NAME
         else
           echo "No existing container named $CONTAINER_NAME found."
         fi
@@ -89,10 +93,18 @@ tasks:
         rm -rf output || { echo "Failed to remove output directory"; exit 1; }
         mkdir output && chmod 777 output || { echo "Failed to set permissions"; exit 1; }
         ## Building Container Image
-        docker buildx build --builder mybuilder --platform linux/amd64  --build-arg INCLUDE_CODE_COLLECTION_CACHE=true -t runwhen-local:test -f $BUILD_DIR/Dockerfile $BUILD_DIR --load
+        if [[ "$CE" == *podman* ]]; then
+          $CE build --platform linux/amd64 --build-arg INCLUDE_CODE_COLLECTION_CACHE=true -t runwhen-local:test -f $BUILD_DIR/Dockerfile $BUILD_DIR
+        else
+          $CE buildx build --builder mybuilder --platform linux/amd64 --build-arg INCLUDE_CODE_COLLECTION_CACHE=true -t runwhen-local:test -f $BUILD_DIR/Dockerfile $BUILD_DIR --load
+        fi
 
         ## Use this if you need to test both arm64/amd64 builds
-        # docker buildx build --builder mybuilder --platform linux/amd64,linux/arm64  -t runwhen-local:test -f $BUILD_DIR/Dockerfile $BUILD_DIR
+        # if [[ "$CE" == *podman* ]]; then
+        #   $CE build --platform linux/amd64,linux/arm64 --build-arg INCLUDE_CODE_COLLECTION_CACHE=true -t runwhen-local:test -f $BUILD_DIR/Dockerfile $BUILD_DIR
+        # else
+        #   $CE buildx build --builder mybuilder --platform linux/amd64,linux/arm64 -t runwhen-local:test -f $BUILD_DIR/Dockerfile $BUILD_DIR
+        # fi
 
     silent: true
 
@@ -135,8 +147,8 @@ tasks:
         _rwl_wait_for_rest "$CONTAINER_NAME"
         _rwl_run_discovery "$CONTAINER_NAME" "{{.CLI_ARGS}}"
         _rwl_write_slx_count
-        docker stop "$CONTAINER_NAME" 2>/dev/null || true
-        docker rm "$CONTAINER_NAME" 2>/dev/null || true
+        {{.CONTAINER_ENGINE}} stop "$CONTAINER_NAME" 2>/dev/null || true
+        {{.CONTAINER_ENGINE}} rm "$CONTAINER_NAME" 2>/dev/null || true
     silent: true
 
 
@@ -154,8 +166,8 @@ tasks:
         _rwl_wait_for_rest "$CONTAINER_NAME"
         _rwl_run_discovery "$CONTAINER_NAME" "{{.CLI_ARGS}}"
         _rwl_write_slx_count
-        docker stop "$CONTAINER_NAME" 2>/dev/null || true
-        docker rm "$CONTAINER_NAME" 2>/dev/null || true
+        {{.CONTAINER_ENGINE}} stop "$CONTAINER_NAME" 2>/dev/null || true
+        {{.CONTAINER_ENGINE}} rm "$CONTAINER_NAME" 2>/dev/null || true
     silent: true
 
   ci-test-1:
@@ -538,7 +550,7 @@ tasks:
     desc: "Check and clean up RunWhen Local discovery output"
     cmds:
       - |
-        docker rm -f RunWhenLocal 2>/dev/null || true
+        {{.CONTAINER_ENGINE}} rm -f RunWhenLocal 2>/dev/null || true
         rm -rf output
         rm -f workspaceInfo.yaml run_sh_output.log container_logs.log slx_count.txt
     silent: true
