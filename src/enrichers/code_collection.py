@@ -166,6 +166,7 @@ class CodeCollectionConfig:
     auth_token_secret_name: Optional[str]
     auth_token_secret_key: Optional[str]
     auth_token_from_env: Optional[str]
+    repo_path: Optional[str]
     ref_name: str
     action: CodeCollectionAction
     code_bundle_configs: list[CodeBundleConfig]
@@ -179,6 +180,7 @@ class CodeCollectionConfig:
             auth_token_secret_name = None
             auth_token_secret_key = None
             auth_token_from_env = None
+            repo_path = None
             ref_name = "main"
             action = CodeCollectionAction.INCLUDE
             code_bundle_configs = [CODE_BUNDLE_CONFIG_INCLUDE_ALL]
@@ -191,6 +193,7 @@ class CodeCollectionConfig:
             auth_token_secret_name = code_collection_config.get("authTokenSecretName")
             auth_token_secret_key = code_collection_config.get("authTokenSecretKey", "token")
             auth_token_from_env = code_collection_config.get("authTokenFromEnv")
+            repo_path = code_collection_config.get("repoPath")
             ref_name = code_collection_config.get("ref")
             if not ref_name:
                 ref_name = code_collection_config.get("tag")
@@ -209,6 +212,7 @@ class CodeCollectionConfig:
 
         return CodeCollectionConfig(repo_url, auth_user, auth_token,
                                     auth_token_secret_name, auth_token_secret_key, auth_token_from_env,
+                                    repo_path,
                                     ref_name, action, code_bundle_configs)
 
     def is_included_code_bundle(self, code_bundle_name):
@@ -233,6 +237,7 @@ class CodeCollection:
     auth_token_secret_name: Optional[str]
     auth_token_secret_key: Optional[str]
     auth_token_from_env: Optional[str]
+    repo_path: Optional[str]
     repo_directory_path: Optional[str]
     repo: Optional[Repo]
     _resolved_auth_token: Optional[str]
@@ -242,7 +247,8 @@ class CodeCollection:
                  auth_token: Optional[str],
                  auth_token_secret_name: Optional[str] = None,
                  auth_token_secret_key: Optional[str] = "token",
-                 auth_token_from_env: Optional[str] = None):
+                 auth_token_from_env: Optional[str] = None,
+                 repo_path: Optional[str] = None):
         # We just set up the configured state here, but don't do anything substantial
         # like cloning the repo. The rationale is that we do those operations on
         # demand when a request is made, so that if there is a temporary problem with
@@ -254,6 +260,7 @@ class CodeCollection:
         self.auth_token_secret_name = auth_token_secret_name
         self.auth_token_secret_key = auth_token_secret_key or "token"
         self.auth_token_from_env = auth_token_from_env
+        self.repo_path = repo_path
         self.repo_directory_path = None
         self.repo = None
         self._resolved_auth_token = None  # cached after first resolution
@@ -441,6 +448,8 @@ class CodeCollection:
     def get_code_bundles_tree(self, ref_name: str):
         ref: Reference = getattr(self.repo.refs, ref_name)
         root = ref.commit.tree
+        if self.repo_path:
+            root = self.resolve_path(root, self.repo_path)
         return self.resolve_path(root, "codebundles")
 
     def get_code_bundle_names(self, ref_name: str, code_collection_config: CodeCollectionConfig) -> list[str]:
@@ -495,7 +504,8 @@ class CodeCollection:
                 generation_rule_bytes: bytes = generation_rule_blob.data_stream.read()
                 generation_rule_text = generation_rule_bytes.decode('utf-8')
                 # FIXME: Not great to have the hard-coded path component strings in here
-                generation_rule_file_path = f"codebundles/{code_bundle_name}/.runwhen/generation-rules/{generation_rule_name}"
+                prefix = f"{self.repo_path}/" if self.repo_path else ""
+                generation_rule_file_path = f"{prefix}codebundles/{code_bundle_name}/.runwhen/generation-rules/{generation_rule_name}"
                 generation_rule_file_spec = GenerationRuleFileSpec(self.repo_url,
                                                                    ref_name,
                                                                    code_bundle_name,
@@ -658,7 +668,8 @@ def get_code_collection(code_collection_config: CodeCollectionConfig) -> CodeCol
     # if not code_collection:
     #     repo_url = code_collection_config.repo_url
     #     code_collection = CodeCollection(repo_url, code_collection_config.auth_user, code_collection_config.auth_token,
-    #                                     code_collection_config.auth_token_secret_name)
+    #                                     code_collection_config.auth_token_secret_name,
+    #                                     repo_path=code_collection_config.repo_path)
     #     code_collection_cache[repo_url.lower()] = code_collection
     # return code_collection
     key = code_collection_config.repo_url.lower()
@@ -671,6 +682,7 @@ def get_code_collection(code_collection_config: CodeCollectionConfig) -> CodeCol
             code_collection_config.auth_token_secret_name,
             code_collection_config.auth_token_secret_key,
             code_collection_config.auth_token_from_env,
+            repo_path=code_collection_config.repo_path,
         )
         code_collection_cache[key] = code_collection
     return code_collection

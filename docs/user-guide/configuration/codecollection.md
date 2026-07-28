@@ -46,6 +46,38 @@ The object block format for a code collection entry is an object/dictionary with
 | authTokenFromEnv     | Environment variable name whose value contains the auth token         |
 | action               | inclusion action, either "include" or "exclude", defaults to "include |
 | codeBundles          | List of code bundles to enable for the code collection                |
+| repoPath             | Subdirectory path within the repo where `codebundles/` lives (default: repo root). Use this to store codebundles for multiple workspaces in a single repo. |
+
+**`repoPath` — Workspace-scoped codebundles:**
+
+By default, the workspace builder expects a `codebundles/` directory at the repo root. Use `repoPath` to point to codebundles nested under an arbitrary path. This enables a single git repository to host codebundles for multiple workspaces:
+
+```
+<repo_root>/
+  zzz_generated/
+    my-workspace/
+      codebundles/
+        my-code-bundle/
+          .runwhen/
+            generation-rules/
+              generation-rule.yaml
+            templates/
+              ...
+  another-workspace/
+    codebundles/
+      ...
+```
+
+```yaml
+codeCollections:
+- repoURL: https://git.example.com/org/custom-code-collections.git
+  ref: master
+  repoPath: zzz_generated/my-workspace
+  codeBundles:
+  - my-code-bundle
+```
+
+When `repoPath` is omitted or empty (the default), codebundles are expected at the repo root (existing behavior).
 
 Only one of the branch, tag or ref fields should be specified.
 
