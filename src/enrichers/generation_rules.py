@@ -418,7 +418,7 @@ class SLX:
         base_name_length_limit = 15
         if len(shortened_base_name) > base_name_length_limit:
             self.shortened_base_name = shorten_name(shortened_base_name, base_name_length_limit)
-            logger.info(f'SLX base name is too long, so shortening it from '
+            logger.debug(f'SLX base name is too long, so shortening it from '
                            f'"{shortened_base_name}" to "{self.shortened_base_name}". '
                            f"The base name in the generation rule should be updated to "
                            f"comply with the max length of {base_name_length_limit}")
