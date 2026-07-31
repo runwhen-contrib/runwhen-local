@@ -20,16 +20,16 @@ def get_subscription_id(credential):
     try:
         subscription_client = SubscriptionClient(credential)
         subscription = next(subscription_client.subscriptions.list())
-        print(f"Successfully retrieved subscription ID: {mask_string(subscription.subscription_id)}")
+        logger.info("Successfully retrieved subscription ID: %s", mask_string(subscription.subscription_id))
         return subscription.subscription_id
     except StopIteration:
-        print("Error: No subscriptions found for the provided credentials.")
+        logger.error("No subscriptions found for the provided credentials.")
         sys.exit(1)
     except AzureError as e:
-        print(f"Azure error occurred while retrieving subscription ID: {e}")
+        logger.error("Azure error occurred while retrieving subscription ID: %s", e)
         sys.exit(1)
     except Exception as e:
-        print(f"Unexpected error occurred while retrieving subscription ID: {e}")
+        logger.error("Unexpected error occurred while retrieving subscription ID: %s", e)
         sys.exit(1)
 
 
@@ -80,11 +80,12 @@ def get_azure_credential(workspace_info):
     sp_secret_name = azure_config.get('spSecretName')
 
     if tenant_id and client_id and client_secret:
-        print("Using explicit tenant client configuration from workspaceInfo.yaml")
+        logger.info("Using explicit tenant client configuration from workspaceInfo.yaml")
         subscription_id = azure_config.get('subscriptionId')
         auth_type = "azure_explicit"
         if not subscription_id:
-            print("Warning: subscriptionId not found in workspaceInfo.yaml. Attempting to retrieve it using service principal credentials.")
+            logger.warning("subscriptionId not found in workspaceInfo.yaml. "
+                            "Attempting to retrieve it using service principal credentials.")
             credential = ClientSecretCredential(tenant_id=tenant_id, client_id=client_id, client_secret=client_secret)
             subscription_id = get_subscription_id(credential)
         return ClientSecretCredential(tenant_id=tenant_id, client_id=client_id, client_secret=client_secret), subscription_id, client_id, client_secret, auth_type, auth_secret
@@ -109,18 +110,18 @@ def get_azure_credential(workspace_info):
 
         return ClientSecretCredential(tenant_id=tenant_id, client_id=client_id, client_secret=client_secret), subscription_id, client_id, client_secret, auth_type, auth_secret
 
-    print("Using managed service identity for authentication")
+    logger.info("Using managed service identity for authentication")
     try:
         credential = DefaultAzureCredential()
         subscription_id = azure_config.get('subscriptionId')
         auth_type = "azure_managed_identity"
         if not subscription_id:
-            print("Subscription ID not provided in workspaceInfo.yaml. Retrieving using managed identity.")
+            logger.info("Subscription ID not provided in workspaceInfo.yaml. Retrieving using managed identity.")
             subscription_id = get_subscription_id(credential)
-        logger.info(f"Found Azure Subscription ID: {mask_string(subscription_id)}")
+        logger.info("Found Azure Subscription ID: %s", mask_string(subscription_id))
         return credential, subscription_id, None, None, auth_type, auth_secret
     except Exception as e:
-        print(f"Failed to authenticate using managed identity: {e}")
+        logger.error("Failed to authenticate using managed identity: %s", e)
         sys.exit(1)
 
 def enumerate_subscriptions(credential):

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -23,6 +24,7 @@ from .mcp.server import build_mcp_lifespan, build_streamable_http_app, is_mcp_en
 from .models import InfoResult
 from .run_handler import execute_run
 from .serialization import serialize_info, serialize_run_result
+from .startup import configure_uvicorn_loggers
 
 startup.bootstrap()
 
@@ -38,7 +40,18 @@ logger = logging.getLogger("workspace_builder")
 # server running.
 _mcp_lifespan = build_mcp_lifespan() if is_mcp_enabled() else None
 
-app = FastAPI(title="RunWhen Local Workspace Builder", lifespan=_mcp_lifespan)
+
+@asynccontextmanager
+async def _combined_lifespan(app):
+    configure_uvicorn_loggers()
+    if _mcp_lifespan is not None:
+        async with _mcp_lifespan(app):
+            yield
+    else:
+        yield
+
+
+app = FastAPI(title="RunWhen Local Workspace Builder", lifespan=_combined_lifespan)
 # ``home_router`` owns ``GET /`` (the landing page) plus ``GET /api/overview``;
 # include it before ``explorer_router`` so the root path resolves to the home
 # page rather than 404.
@@ -148,7 +161,7 @@ def health() -> dict[str, Any]:
 
         return response_data
     except Exception as exc:
-        print(f"Warning: Health tracker failed: {exc}")
+        logger.warning("Health tracker failed: %s", exc)
         import traceback
 
         traceback.print_exc()

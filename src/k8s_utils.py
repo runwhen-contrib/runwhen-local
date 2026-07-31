@@ -17,20 +17,20 @@ def get_namespace():
         with open(namespace_file, 'r') as file:
             return file.read().strip()
     except IOError as e:
-        print(f"Failed to read namespace file at {namespace_file}: {e}", file=sys.stderr)
+        logger.error("Failed to read namespace file at %s: %s", namespace_file, e)
         sys.exit(1)
 
 def get_secret(secret_name):
     try:
         # Load the in-cluster Kubernetes configuration
         config.load_incluster_config()
-        print("In-cluster Kubernetes configuration loaded successfully.")
+        logger.info("In-cluster Kubernetes configuration loaded successfully.")
     except config.ConfigException as e:
-        print(f"Failed to load in-cluster Kubernetes configuration: {e}", file=sys.stderr)
+        logger.error("Failed to load in-cluster Kubernetes configuration: %s", e)
         sys.exit(1)
 
     namespace = get_namespace()
-    print(f"Using namespace: {namespace}")
+    logger.info("Using namespace: %s", namespace)
     
     v1 = client.CoreV1Api()
 
@@ -39,16 +39,19 @@ def get_secret(secret_name):
         secret = v1.read_namespaced_secret(secret_name, namespace)
         
         if not secret.data:
-            logger.error(f"Error: Secret '{mask_string(secret_name)}' in namespace '{namespace}' is empty or has no data.", file=sys.stderr)
+            logger.error("Secret '%s' in namespace '%s' is empty or has no data.",
+                          mask_string(secret_name), namespace)
             sys.exit(1)
 
         logger.info(f"Secret '{mask_string(secret_name)}' fetched successfully from namespace '{namespace}'.")
         return secret.data
 
     except client.exceptions.ApiException as e:
-        print(f"API error occurred while fetching secret '{mask_string(secret_name)}' in namespace '{namespace}': {e.reason}", file=sys.stderr)
-        print(f"HTTP response status code: {e.status}, response body: {e.body}", file=sys.stderr)
+        logger.error("API error occurred while fetching secret '%s' in namespace '%s': %s",
+                      mask_string(secret_name), namespace, e.reason)
+        logger.error("HTTP response status code: %s, response body: %s", e.status, e.body)
         sys.exit(1)
     except Exception as e:
-        print(f"Unexpected error occurred while fetching secret '{mask_string(secret_name)}' in namespace '{namespace}': {e}", file=sys.stderr)
+        logger.error("Unexpected error occurred while fetching secret '%s' in namespace '%s': %s",
+                      mask_string(secret_name), namespace, e)
         sys.exit(1)

@@ -18,6 +18,25 @@ from .log_formatter import StructuredJsonFormatter
 _BOOTSTRAPPED = False
 
 
+def _configure_uvicorn_logger_formatters() -> None:
+    """Set StructuredJsonFormatter on all uvicorn logger handlers."""
+    for logger_name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
+        uvicorn_logger = logging.getLogger(logger_name)
+        for handler in uvicorn_logger.handlers:
+            handler.setFormatter(StructuredJsonFormatter())
+
+
+def configure_uvicorn_loggers() -> None:
+    """Re-configure uvicorn log handlers to use structured JSON.
+
+    Call this from the ASGI startup lifespan *after* uvicorn has started and
+    attached its own handlers.  The same loop also runs early in
+    :func:`configure_logging` (import time) as a no-op safety net in case
+    uvicorn pre-registers handlers in future versions.
+    """
+    _configure_uvicorn_logger_formatters()
+
+
 class RingBufferHandler(logging.Handler):
     """Logging handler that pushes every record into the global LogRingBuffer."""
 
@@ -103,6 +122,13 @@ def configure_logging() -> None:
     logging.getLogger("src.indexers").setLevel(log_level_indexers)
     logging.getLogger("src.enrichers").setLevel(log_level_enrichers)
     logging.getLogger("src.renderers").setLevel(log_level_renderers)
+
+    # Configure uvicorn's loggers to use structured JSON formatting.
+    # (uvicorn creates its own handlers at application start; when this
+    # runs at import time those handlers may not exist yet, so the loop
+    # below is a no-op for now. The same function is re-called from the
+    # ASGI startup lifespan in api.py after uvicorn attaches its handlers.)
+    _configure_uvicorn_logger_formatters()
 
     # Uvicorn attaches its own access handler after import; filtering the logger
     # (not a specific handler) applies regardless of how uvicorn configures it.

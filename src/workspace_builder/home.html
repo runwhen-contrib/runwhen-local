@@ -253,20 +253,21 @@
           const timeStr = !isNaN(d.getTime()) ? d.toTimeString().split(' ')[0] : e.timestamp;
           const msg = e.message.length > 120 ? e.message.substring(0, 120) + '...' : e.message;
           const pillClass = e.level === 'ERROR' ? 'pill-red' : (e.level === 'WARNING' ? 'pill-yellow' : 'pill-grey');
-          return '<li style="margin-bottom:0.75rem">' +
+          return '<li style="margin-bottom:0.75rem; border-left: 3px solid #ef4444; padding-left: 0.5rem;">' +
             '<div style="display:flex;align-items:center;margin-bottom:0.25rem">' +
               '<span class="pill ' + pillClass + '" style="margin-right:0.5rem">' + escapeHtml(e.level) + '</span>' +
               '<span style="font-size:0.75rem;color:var(--text-secondary)">' + escapeHtml(timeStr) + '</span>' +
             '</div>' +
-            '<div style="font-size:0.875rem;word-break:break-word">' + escapeHtml(msg) + '</div>' +
+            '<div style="font-size:0.875rem;word-break:break-word;font-weight:bold;">' + escapeHtml(msg) + '</div>' +
           '</li>';
-        }).join('') + '</ul>';
+        }).join('') + '</ul>' +
+        '<div style="margin-top:1rem;text-align:center"><a href="/explorer/?tab=logs" style="font-size:0.875rem;font-weight:500">View all logs →</a></div>';
       } catch (err) {
         $('#issuesBody').innerHTML = '<div class="empty error">Failed to load issues.</div>';
       }
     }
 
-    function renderRun(health) {
+    async function renderRun(health) {
       if (health.error) {
         $('#runStatusPill').innerHTML = statusPill('unknown');
         $('#runBody').innerHTML = '<div class="empty error">' + escapeHtml(health.error) + '</div>';
@@ -283,13 +284,32 @@
         errors.push('<div class="empty error" style="margin-top:0.5rem">' + escapeHtml(last.error_message) + '</div>');
       }
       const components = (last.components_run || []).map(escapeHtml);
+      
+      let warningsHtml = '';
+      if (last.warnings_count > 0) {
+        try {
+          const data = await fetchJSON('/explorer/api/logs?level=WARNING&limit=5');
+          if (data.entries && data.entries.length > 0) {
+            warningsHtml = '<details style="margin-top:1rem;margin-bottom:1rem"><summary>View recent warnings</summary><ul class="plain" style="margin-top:0.5rem">' + data.entries.map(function(e) {
+              const d = new Date(e.timestamp);
+              const timeStr = !isNaN(d.getTime()) ? d.toTimeString().split(' ')[0] : e.timestamp;
+              const msg = e.message.length > 150 ? e.message.substring(0, 150) + '...' : e.message;
+              return '<li style="margin-bottom:0.5rem;font-size:0.875rem"><span style="color:var(--text-secondary);margin-right:0.5rem">' + escapeHtml(timeStr) + '</span>' + escapeHtml(msg) + '</li>';
+            }).join('') + '</ul></details>';
+          }
+        } catch (err) {
+          // ignore
+        }
+      }
+
       $('#runBody').innerHTML =
         '<div class="stat-row" style="margin-bottom:1rem">' +
           tile(fmtNumber(last.slx_count), 'SLXs') +
           tile(fmtDuration(last.duration_seconds), 'Duration') +
-          tile(fmtNumber(last.warnings_count), 'Warnings') +
+          '<a href="/explorer/?tab=logs&level=WARNING" style="text-decoration:none;color:inherit" class="stat-tile-link">' + tile(fmtNumber(last.warnings_count), 'Warnings') + '</a>' +
           tile(fmtNumber(last.parsing_errors_count), 'Parse errors') +
         '</div>' +
+        warningsHtml +
         '<dl class="kv">' +
           '<dt>Started</dt><dd>' + escapeHtml(fmtTime(last.start_time)) + '</dd>' +
           '<dt>Ended</dt><dd>' + escapeHtml(fmtTime(last.end_time)) + '</dd>' +
