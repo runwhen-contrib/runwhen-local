@@ -42,7 +42,13 @@ def configure_logging() -> None:
     log_level_enrichers = os.getenv("LOG_LEVEL_ENRICHERS", log_level_root)
     log_level_renderers = os.getenv("LOG_LEVEL_RENDERERS", log_level_root)
     log_level_workspace_builder = os.getenv("LOG_LEVEL_WORKSPACE_BUILDER", log_level_root)
-    log_json_console = os.getenv("LOG_JSON_CONSOLE", "false").lower() in ("true", "1")
+    # LOG_FORMAT: "json" (default — structured, machine-readable) or "simple"
+    # (plain-text [LEVEL] logger: message). LOG_JSON_CONSOLE is still accepted
+    # as a legacy alias for LOG_FORMAT=json.
+    log_format = os.getenv("LOG_FORMAT", "json").lower()
+    if os.getenv("LOG_JSON_CONSOLE", "").lower() in ("true", "1"):
+        log_format = "json"
+    use_json_console = log_format == "json"
 
     # DEBUG_LOGGING shortcut overrides everything.
     if debug_logging:
@@ -52,15 +58,19 @@ def configure_logging() -> None:
         log_level_renderers = "DEBUG"
         log_level_workspace_builder = "DEBUG"
 
-    # Base configuration: simple human-readable console handler.
+    # Console formatter: structured JSON by default; opt-out to simple text.
+    console_formatter: dict[str, Any]
+    if use_json_console:
+        console_formatter = {"()": "workspace_builder.log_formatter.StructuredJsonFormatter"}
+    else:
+        console_formatter = {"format": "[%(levelname)s] %(name)s: %(message)s"}
+
     logging.config.dictConfig(
         {
             "version": 1,
             "disable_existing_loggers": False,
             "formatters": {
-                "simple": {
-                    "format": "[%(levelname)s] %(name)s: %(message)s",
-                },
+                "simple": console_formatter,
             },
             "handlers": {
                 "console": {
@@ -82,12 +92,6 @@ def configure_logging() -> None:
             },
         }
     )
-
-    # Optional JSON console handler for structured output.
-    if log_json_console:
-        json_handler = logging.StreamHandler(sys.stdout)
-        json_handler.setFormatter(StructuredJsonFormatter())
-        logging.getLogger().addHandler(json_handler)
 
     # Ring-buffer handler: always active, captures every log entry.
     ring_handler = RingBufferHandler()
