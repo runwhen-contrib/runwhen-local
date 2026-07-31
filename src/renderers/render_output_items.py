@@ -8,6 +8,7 @@ from component import Context, Setting, SettingDependency, WORKSPACE_NAME_SETTIN
     LOCATION_ID_SETTING, WORKSPACE_OUTPUT_PATH_SETTING
 from template import render_template_file
 from exceptions import WorkspaceBuilderException
+from workspace_builder.log_buffer import get_log_buffer
 from renderers.rendered_artifacts import init_rendered_artifacts, record_rendered_artifact
 from indexers.resource_writer import (
     RESOURCE_STORE_BACKEND_SETTING,
@@ -432,6 +433,12 @@ def render(context: Context):
             render_stats['successfully_rendered'] += 1
         except WorkspaceBuilderException as e:
             logger.warning(f"Skipping template {output_item.template_name} for {output_item.path}: {str(e)}")
+            get_log_buffer().append({
+                "level": "ERROR",
+                "logger": __name__,
+                "message": f"Skipping template {output_item.template_name} for {output_item.path}: {e}",
+                "phase": "render",
+            })
             skipped_templates.append({
                 "path": output_item.path,
                 "template": output_item.template_name,
@@ -442,6 +449,12 @@ def render(context: Context):
                 failed_slx_dirs.add(slx_dir)
         except Exception as e:
             logger.warning(f"Unexpected error rendering {output_item.template_name} for {output_item.path}: {str(e)}")
+            get_log_buffer().append({
+                "level": "ERROR",
+                "logger": __name__,
+                "message": f"Skipping template {output_item.template_name} for {output_item.path}: {e}",
+                "phase": "render",
+            })
             skipped_templates.append({
                 "path": output_item.path,
                 "template": output_item.template_name,

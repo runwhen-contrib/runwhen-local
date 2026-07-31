@@ -141,7 +141,10 @@ def health() -> dict[str, Any]:
                 "current_component": last_run.current_component,
                 "slx_count": last_run.slx_count,
                 "duration_seconds": last_run.duration_seconds,
+                "phase_durations": last_run.phase_durations,
+                "recent_errors": last_run.recent_errors,
             }
+            response_data["phase_durations"] = last_run.phase_durations
 
         return response_data
     except Exception as exc:

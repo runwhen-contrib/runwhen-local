@@ -89,6 +89,16 @@
           </div>
         </div>
 
+        <!-- Recent Issues card -->
+        <div class="col-4">
+          <div class="card">
+            <div class="card-head"><h2>Recent Issues</h2></div>
+            <div class="card-body tight" id="issuesBody">
+              <div class="skeleton"></div>
+            </div>
+          </div>
+        </div>
+
         <!-- Service / version card -->
         <div class="col-4">
           <div class="card">
@@ -220,13 +230,40 @@
         $('#serviceBody').innerHTML = msg;
         $('#recentBundlesBody').innerHTML = msg;
         $('#configBody').innerHTML = msg;
+        $('#issuesBody').innerHTML = msg;
         return;
       }
       renderRun(data.health || {});
+      renderIssues(data.health || {});
       renderService(data.health || {}, data.version || {});
       renderStore(data.resource_store || {});
       renderRecentBundles(data.resource_store || {});
       renderConfig(data.workspace_info || {});
+    }
+
+    async function renderIssues(health) {
+      try {
+        const data = await fetchJSON('/explorer/api/logs?level=ERROR&limit=5');
+        if (!data.entries || !data.entries.length) {
+          $('#issuesBody').innerHTML = '<div class="empty">No recent issues.</div>';
+          return;
+        }
+        $('#issuesBody').innerHTML = '<ul class="plain">' + data.entries.map(function (e) {
+          const d = new Date(e.timestamp);
+          const timeStr = !isNaN(d.getTime()) ? d.toTimeString().split(' ')[0] : e.timestamp;
+          const msg = e.message.length > 120 ? e.message.substring(0, 120) + '...' : e.message;
+          const pillClass = e.level === 'ERROR' ? 'pill-red' : (e.level === 'WARNING' ? 'pill-yellow' : 'pill-grey');
+          return '<li style="margin-bottom:0.75rem">' +
+            '<div style="display:flex;align-items:center;margin-bottom:0.25rem">' +
+              '<span class="pill ' + pillClass + '" style="margin-right:0.5rem">' + escapeHtml(e.level) + '</span>' +
+              '<span style="font-size:0.75rem;color:var(--text-secondary)">' + escapeHtml(timeStr) + '</span>' +
+            '</div>' +
+            '<div style="font-size:0.875rem;word-break:break-word">' + escapeHtml(msg) + '</div>' +
+          '</li>';
+        }).join('') + '</ul>';
+      } catch (err) {
+        $('#issuesBody').innerHTML = '<div class="empty error">Failed to load issues.</div>';
+      }
     }
 
     function renderRun(health) {

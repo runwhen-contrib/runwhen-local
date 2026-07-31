@@ -356,7 +356,7 @@ class AzurePlatformHandler(PlatformHandler):
                                 rg_resource = rg
                                 resource_attributes["resource_group"] = rg
                                 qualified_name = f"{rg.name}/{name}"
-                                logger.info(f"SUCCESS: Linked resource '{name}' to resource group '{rg.name}' in subscription '{subscription_id}'")
+                                logger.debug(f"SUCCESS: Linked resource '{name}' to resource group '{rg.name}' in subscription '{subscription_id}'")
                                 break
                         
                         if not rg_resource:
@@ -369,7 +369,7 @@ class AzurePlatformHandler(PlatformHandler):
                                 "subscription_id": subscription_id,
                                 "resource_id": resource_id
                             }
-                            logger.info(f"DEFERRED: Storing resource group lookup info for '{name}' - will resolve after all resources loaded")
+                            logger.debug(f"DEFERRED: Storing resource group lookup info for '{name}' - will resolve after all resources loaded")
                     
                     # If resource group not found in registry, look up LOD directly from config
                     if not rg_resource:
@@ -462,7 +462,7 @@ class AzurePlatformHandler(PlatformHandler):
         if qualifier_name == "resource_group":
             resource_group = get_resource_group(resource)
             if resource_group is not None:
-                logger.info(f"Found resource_group reference for {resource.name}: {resource_group.name}")
+                logger.debug(f"Found resource_group reference for {resource.name}: {resource_group.name}")
                 return resource_group.name
             else:
                 # Fallback: Extract resource group name from resource ID when reference is missing
@@ -472,7 +472,7 @@ class AzurePlatformHandler(PlatformHandler):
                 resource_id = ''
                 if hasattr(resource, 'resource') and isinstance(resource.resource, dict):
                     resource_id = resource.resource.get('id', '')
-                logger.info(f"Resource ID for {resource.name}: '{resource_id}'")
+                logger.debug(f"Resource ID for {resource.name}: '{resource_id}'")
                 if "/resourceGroups/" in resource_id:
                     parts = resource_id.split("/resourceGroups/")
                     if len(parts) > 1:

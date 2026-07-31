@@ -715,14 +715,14 @@ def get_template_variables(output_item: OutputItem,
                         override_codebundle_dir == current_codebundle_dir and 
                         override_type == current_type):
                         
-                        logger.info(f"MATCH FOUND! Applying overrides for {current_codebundle_dir}/{current_type}")
+                        logger.debug(f"MATCH FOUND! Applying overrides for {current_codebundle_dir}/{current_type}")
                         
                         # Apply variable overrides directly to template_variables
                         config_overrides = override.get('configProvided', {})
                         for var_name, var_value in config_overrides.items():
                             # Set the variable directly in template_variables so templates can access it
                             template_variables[var_name] = var_value
-                            logger.info(f"Applied configProvided override: {var_name} = {var_value}")
+                            logger.debug(f"Applied configProvided override: {var_name} = {var_value}")
                         break
                 else:
                     logger.debug(f"No matching override found for {current_codebundle_dir}/{current_type}")
@@ -1270,7 +1270,7 @@ def load(context: Context) -> None:
                                   f'code-bundle="{generation_rule_file_spec.code_bundle_name}"; ' \
                                   f'code-collection="{code_collection_config.repo_url}"; ' \
                                   f'exception={e}'
-                        logger.info(message)
+                        logger.debug(message)
                         context.add_warning(message)
                         continue
 
@@ -1477,9 +1477,9 @@ def enrich(context: Context) -> None:
     
     for generation_rule_info in generation_rule_infos:
         # Check if this codebundle is allowed based on tag exclusion list
-        logger.info(f"Processing generation rule for codebundle: {generation_rule_info.generation_rule_file_spec.code_bundle_name}")
+        logger.debug(f"Processing generation rule for codebundle: {generation_rule_info.generation_rule_file_spec.code_bundle_name}")
         if not check_codebundle_access_allowed(generation_rule_info, context):
-            logger.info(f"Skipping codebundle {generation_rule_info.generation_rule_file_spec.code_bundle_name} due to excluded tags")
+            logger.debug(f"Skipping codebundle {generation_rule_info.generation_rule_file_spec.code_bundle_name} due to excluded tags")
             continue
             
         generation_rule = generation_rule_info.generation_rule
@@ -1604,7 +1604,7 @@ def check_codebundle_access_allowed(generation_rule_info: "GenerationRuleInfo", 
     
     if not tag_exclusion_list:
         # If no exclusion list is set, allow all codebundles
-        logger.info(f"No tag exclusion list configured, allowing all codebundles")
+        logger.debug(f"No tag exclusion list configured, allowing all codebundles")
         return True
     
     # Convert to lowercase for case-insensitive comparison
@@ -1614,9 +1614,9 @@ def check_codebundle_access_allowed(generation_rule_info: "GenerationRuleInfo", 
     code_bundle_name = generation_rule_info.generation_rule_file_spec.code_bundle_name
     ref_name = generation_rule_info.generation_rule_file_spec.ref_name
     
-    logger.info(f"Checking codebundle {code_bundle_name} for excluded tags: {exclusion_tags}")
-    logger.info(f"Code collection repo URL: {code_collection.repo_url}")
-    logger.info(f"Reference: {ref_name}")
+    logger.debug(f"Checking codebundle {code_bundle_name} for excluded tags: {exclusion_tags}")
+    logger.debug(f"Code collection repo URL: {code_collection.repo_url}")
+    logger.debug(f"Reference: {ref_name}")
     
     try:
         # Get the codebundle tree to find robot files
@@ -1629,7 +1629,7 @@ def check_codebundle_access_allowed(generation_rule_info: "GenerationRuleInfo", 
             if hasattr(item, 'name') and item.name.endswith('.robot'):
                 robot_files.append(item.name)
         
-        logger.info(f"Found robot files in {code_bundle_name}: {robot_files}")
+        logger.debug(f"Found robot files in {code_bundle_name}: {robot_files}")
         
         # Check each robot file for excluded tags
         for robot_file_name in robot_files:
@@ -1638,12 +1638,12 @@ def check_codebundle_access_allowed(generation_rule_info: "GenerationRuleInfo", 
                 if hasattr(robot_blob, 'data_stream'):
                     robot_content = robot_blob.data_stream.read().decode('utf-8')
                     
-                    logger.info(f"Checking robot file {robot_file_name} for excluded tags")
-                    logger.info(f"Robot file content preview (first 500 chars): {robot_content[:500]}")
+                    logger.debug(f"Checking robot file {robot_file_name} for excluded tags")
+                    logger.debug(f"Robot file content preview (first 500 chars): {robot_content[:500]}")
                     
                     # Parse the robot file to check for excluded tags
                     if has_excluded_tags(robot_content, exclusion_tags):
-                        logger.info(f"Codebundle {code_bundle_name} contains excluded tags, filtering out")
+                        logger.debug(f"Codebundle {code_bundle_name} contains excluded tags, filtering out")
                         return False
                         
             except Exception as e:
@@ -1655,7 +1655,7 @@ def check_codebundle_access_allowed(generation_rule_info: "GenerationRuleInfo", 
         # If we can't check tags, err on the side of caution and allow it
         return True
     
-    logger.info(f"Codebundle {code_bundle_name} allowed (no excluded tags found)")
+    logger.debug(f"Codebundle {code_bundle_name} allowed (no excluded tags found)")
     return True
 
 
@@ -1674,17 +1674,17 @@ def has_excluded_tags(robot_content: str, exclusion_tags: list[str]) -> bool:
             try:
                 suite = TestSuite.from_file_system(temp_file.name)
                 
-                logger.info(f"Parsing robot file with {len(suite.tests)} tasks")
+                logger.debug(f"Parsing robot file with {len(suite.tests)} tasks")
                 
                 # Check all tasks for excluded tags
                 for task in suite.tests:
                     task_tags = [str(tag).lower() for tag in task.tags]
-                    logger.info(f"Task '{task.name}' has tags: {task_tags}")
+                    logger.debug(f"Task '{task.name}' has tags: {task_tags}")
                     
                     for tag in task.tags:
                         tag_str = str(tag).lower()
                         if tag_str in exclusion_tags:
-                            logger.info(f"Found excluded tag '{tag_str}' in task '{task.name}'")
+                            logger.debug(f"Found excluded tag '{tag_str}' in task '{task.name}'")
                             return True
                             
             finally:
@@ -1695,5 +1695,5 @@ def has_excluded_tags(robot_content: str, exclusion_tags: list[str]) -> bool:
         # If we can't parse, assume it's safe (no excluded tags)
         return False
     
-    logger.info(f"No excluded tags found in robot content")
+    logger.debug(f"No excluded tags found in robot content")
     return False

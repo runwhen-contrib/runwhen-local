@@ -24,6 +24,7 @@ from indexers.sqlite_resource_writer import (
     list_resource_types,
     search_workspace_artifacts,
 )
+from workspace_builder.log_buffer import get_log_buffer
 
 router = APIRouter(prefix="/explorer", tags=["resource-explorer"])
 
@@ -201,3 +202,24 @@ def explorer_slx_bundles(
             return json_safe(data)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/api/logs")
+def explorer_logs(
+    since: Optional[str] = None,
+    level: Optional[str] = None,
+    phase: Optional[str] = None,
+    limit: int = Query(default=100, ge=1, le=500),
+) -> dict[str, Any]:
+    """Return recent log entries from the in-memory ring buffer."""
+    from datetime import datetime, timezone
+
+    since_dt = None
+    if since:
+        try:
+            since_dt = datetime.fromisoformat(since.replace("Z", "+00:00"))
+        except ValueError:
+            pass
+    buf = get_log_buffer()
+    entries = buf.get_entries(since=since_dt, level=level, phase=phase, limit=limit)
+    return {"total": len(entries), "limit": limit, "entries": entries}

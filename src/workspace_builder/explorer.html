@@ -8,6 +8,9 @@
   <link rel="stylesheet" href="/static/rw-ui.css">
   <link rel="stylesheet" href="/static/explorer.css">
   <script src="/static/rw-ui.js" defer></script>
+  <style>
+    .log-entry--template-error { border-left: 4px solid #ef4444; padding-left: 0.5rem; }
+  </style>
 </head>
 <body class="page-explorer">
   <header class="appbar appbar--overlay">
@@ -47,6 +50,7 @@
         <button class="tab active" data-tab="bundles">SLX Bundles</button>
         <button class="tab" data-tab="resources">Discovered Resources</button>
         <button class="tab" data-tab="artifacts">All Artifacts</button>
+        <button class="tab" data-tab="logs">Logs</button>
       </div>
 
       <div class="layout">
@@ -88,7 +92,7 @@
     const state = {
       tab: 'bundles',
       summary: null,
-      filter: { platform: null, resource_type: null, artifact_kind: null, workspace_name: null, q: '' },
+      filter: { platform: null, resource_type: null, artifact_kind: null, workspace_name: null, q: '', level: null, phase: null },
       pagination: { limit: 25, offset: 0, total: 0 },
       currentList: []
     };
@@ -152,7 +156,7 @@
       const cards = [
         { label: 'Discovered Resources', count: s.resource_count || 0, desc: (s.platform_count || 0) + ' platforms · ' + (s.resource_type_count || 0) + ' types', tab: 'resources', icon: '⛁' },
         { label: 'SLX Bundles', count: slxCount, desc: 'Generated SLXs grouped by directory', tab: 'bundles', icon: '◆' },
-        { label: 'Workspace Artifacts', count: s.artifact_count || 0, desc: (s.artifact_kinds || []).length + ' kinds rendered', tab: 'artifacts', icon: '◊' },
+        { label: 'Workspace Artifacts', count: s.artifact_count || 0, desc: (s.artifact_kinds || []).map(function(k) { return k.kind; }).join(', ') + ' kinds rendered', tab: 'artifacts', icon: '◊' },
         { label: 'Schema', count: 'v' + (s.schema_version || 0), desc: dbLabel, tab: null, icon: '⌬' }
       ];
       $('#statRow').innerHTML = cards.map(function (c) {
@@ -190,7 +194,7 @@
         html += '</ul>';
       } else if (state.tab === 'artifacts') {
         html += '<h3>Artifact kinds</h3><ul>';
-        html += '<li><button class="' + (!state.filter.artifact_kind ? 'active' : '') + '" data-kind="">All kinds <span class="badge">' + (s.artifact_count || 0) + '</span></button></li>';
+        html += '<li><button class="' + (!state.filter.artifact_kind ? 'active' : '') + '" data-kind="">All kinds <span class="badge">' + (s.artifact_kinds || []).map(function(k) { return k.kind; }).join(', ') + '</span></button></li>';
         (s.artifact_kinds || []).forEach(function (k) {
           const isActive = state.filter.artifact_kind === k.kind;
           html += '<li><button class="' + (isActive ? 'active' : '') + '" data-kind="' + escapeHtml(k.kind) + '">' + escapeHtml(k.kind) + ' <span class="badge">' + k.count + '</span></button></li>';
@@ -223,6 +227,36 @@
 
     function renderToolbar() {
       const tb = $('#toolbar');
+      if (state.tab === 'logs') {
+        tb.innerHTML =
+          '<span style="font-size:0.8125rem;color:var(--text-secondary)">Last 500 log entries from the current session</span>' +
+          '<span class="grow"></span>' +
+          '<select id="logLevelFilter" class="select" style="margin-right:0.5rem">' +
+            '<option value="">All levels</option>' +
+            '<option value="ERROR">ERROR</option>' +
+            '<option value="WARNING">WARNING</option>' +
+            '<option value="INFO">INFO</option>' +
+            '<option value="DEBUG">DEBUG</option>' +
+          '</select>' +
+          '<select id="logPhaseFilter" class="select">' +
+            '<option value="">All phases</option>' +
+            '<option value="index">index</option>' +
+            '<option value="enrich">enrich</option>' +
+            '<option value="render">render</option>' +
+            '<option value="http">http</option>' +
+          '</select>';
+        $('#logLevelFilter').value = state.filter.level || '';
+        $('#logPhaseFilter').value = state.filter.phase || '';
+        $('#logLevelFilter').addEventListener('change', function(e) {
+          state.filter.level = e.target.value;
+          loadLogs();
+        });
+        $('#logPhaseFilter').addEventListener('change', function(e) {
+          state.filter.phase = e.target.value;
+          loadLogs();
+        });
+        return;
+      }
       const placeholder = state.tab === 'bundles' ? 'Filter SLX bundles…' : (state.tab === 'resources' ? 'Filter resources…' : 'Filter artifacts…');
       tb.innerHTML =
         '<input id="localSearch" type="search" placeholder="' + placeholder + '" value="' + escapeHtml(state.filter.q) + '">' +
@@ -333,6 +367,46 @@
           '</div></a>';
       }).join('');
       bindItemClicks();
+    }
+
+    async function loadLogs() {
+      const list = $('#list');
+      list.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
+      const params = new URLSearchParams();
+      params.set('limit', 100);
+      if (state.filter.level) params.set('level', state.filter.level);
+      if (state.filter.phase) params.set('phase', state.filter.phase);
+      try {
+        const data = await api('/explorer/api/logs?' + params.toString());
+        renderLogList(data);
+        $('#pagination').innerHTML = '';
+      } catch (err) {
+        list.innerHTML = '<div class="empty"><h3>Could not load logs</h3><p>' + escapeHtml(err.message) + '</p></div>';
+        $('#pagination').innerHTML = '';
+      }
+    }
+
+    function logLevelPill(level) {
+      const map = { ERROR: 'pill-red', WARNING: 'pill-yellow', INFO: 'pill-blue', DEBUG: 'pill-grey' };
+      return '<span class="pill ' + (map[level] || 'pill-grey') + '">' + escapeHtml(level) + '</span>';
+    }
+
+    function renderLogList(data) {
+      if (!data.entries || !data.entries.length) {
+        $('#list').innerHTML = '<div class="empty"><h3>No logs match</h3><p>Try clearing filters.</p></div>';
+        return;
+      }
+      $('#list').innerHTML = data.entries.map(function (e, i) {
+        const isTemplateError = (e.message && e.message.includes('Error processing template')) || (e.logger && e.logger.includes('template'));
+        const extraClass = isTemplateError ? ' log-entry--template-error' : '';
+        
+        return '<div class="item' + extraClass + '">' +
+          '<div class="item-row">' +
+            '<div><div class="item-title" style="font-family: monospace; font-size: 0.875rem; white-space: pre-wrap;">' + escapeHtml(e.message) + '</div>' +
+            '<div class="item-meta">' + escapeHtml(e.timestamp) + ' · ' + escapeHtml(e.logger) + '</div></div>' +
+            '<div class="item-tags">' + logLevelPill(e.level) + '</div>' +
+          '</div></div>';
+      }).join('');
     }
 
     function bindItemClicks() {
@@ -494,11 +568,19 @@
       state.filter.resource_type = null;
       state.filter.artifact_kind = null;
       state.filter.workspace_name = null;
+      state.filter.level = null;
+      state.filter.phase = null;
       $$('.tab').forEach(function (t) { t.classList.toggle('active', t.getAttribute('data-tab') === tab); });
       renderStatRow();
-      renderSidebar();
-      renderToolbar();
-      loadList();
+      if (tab === 'logs') {
+        $('#sidebar').innerHTML = '';
+        renderToolbar();
+        loadLogs();
+      } else {
+        renderSidebar();
+        renderToolbar();
+        loadList();
+      }
     }
     $$('.tab').forEach(function (t) { t.addEventListener('click', function () { switchTab(t.getAttribute('data-tab')); }); });
 
