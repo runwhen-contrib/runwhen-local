@@ -279,34 +279,34 @@
         $('#runBody').innerHTML = '<div class="empty">No discovery has completed yet. The first <code>./run.sh</code> invocation will populate this card.</div>';
         return;
       }
-      const errors = [];
+      let warningCount = 0;
+      let errors = [];
       if (last.error_message) {
         errors.push('<div class="empty error" style="margin-top:0.5rem">' + escapeHtml(last.error_message) + '</div>');
       }
       const components = (last.components_run || []).map(escapeHtml);
       
       let warningsHtml = '';
-      if (last.warnings_count > 0) {
-        try {
-          const data = await fetchJSON('/explorer/api/logs?level=WARNING&limit=5');
-          if (data.entries && data.entries.length > 0) {
-            warningsHtml = '<details style="margin-top:1rem;margin-bottom:1rem"><summary>View recent warnings</summary><ul class="plain" style="margin-top:0.5rem">' + data.entries.map(function(e) {
+      try {
+        const warnData = await fetchJSON('/explorer/api/logs?level=WARNING&limit=5');
+        if (warnData.total > 0) {
+          warningCount = warnData.total;
+          if (warnData.entries && warnData.entries.length > 0) {
+            warningsHtml = '<details style="margin-top:1rem;margin-bottom:1rem"><summary>View recent warnings (' + warningCount + ' total)</summary><ul class="plain" style="margin-top:0.5rem">' + warnData.entries.map(function(e) {
               const d = new Date(e.timestamp);
               const timeStr = !isNaN(d.getTime()) ? d.toTimeString().split(' ')[0] : e.timestamp;
               const msg = e.message.length > 150 ? e.message.substring(0, 150) + '...' : e.message;
               return '<li style="margin-bottom:0.5rem;font-size:0.875rem"><span style="color:var(--text-secondary);margin-right:0.5rem">' + escapeHtml(timeStr) + '</span>' + escapeHtml(msg) + '</li>';
             }).join('') + '</ul></details>';
           }
-        } catch (err) {
-          // ignore
         }
-      }
+      } catch (err) { /* ignore */ }
 
       $('#runBody').innerHTML =
         '<div class="stat-row" style="margin-bottom:1rem">' +
           tile(fmtNumber(last.slx_count), 'SLXs') +
           tile(fmtDuration(last.duration_seconds), 'Duration') +
-          '<a href="/explorer/?tab=logs&level=WARNING" style="text-decoration:none;color:inherit" class="stat-tile-link">' + tile(fmtNumber(last.warnings_count), 'Warnings') + '</a>' +
+          '<a href="/explorer/?tab=logs&level=WARNING" style="text-decoration:none;color:inherit" class="stat-tile-link">' + tile(fmtNumber(warningCount), 'Warnings') + '</a>' +
           tile(fmtNumber(last.parsing_errors_count), 'Parse errors') +
         '</div>' +
         warningsHtml +

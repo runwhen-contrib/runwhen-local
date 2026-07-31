@@ -418,7 +418,7 @@ class SLX:
         base_name_length_limit = 15
         if len(shortened_base_name) > base_name_length_limit:
             self.shortened_base_name = shorten_name(shortened_base_name, base_name_length_limit)
-            logger.warning(f'SLX base name is too long, so shortening it from '
+            logger.info(f'SLX base name is too long, so shortening it from '
                            f'"{shortened_base_name}" to "{self.shortened_base_name}". '
                            f"The base name in the generation rule should be updated to "
                            f"comply with the max length of {base_name_length_limit}")
@@ -1245,7 +1245,7 @@ def load(context: Context) -> None:
                               f'file="{generation_rule_file_spec.generation_rule_file_name}"; ' \
                               f'code-bundle="{generation_rule_file_spec.code_bundle_name}"; ' \
                               f'code-collection="{code_collection_config.repo_url}"; '
-                    logger.warning(message)
+                    logger.info(message)
                     context.add_warning(message)
                     continue
                 spec_config = generation_rules_config.get("spec", dict())

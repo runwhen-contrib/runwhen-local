@@ -73,9 +73,9 @@ class CustomUndefined(Undefined):
         # Log the missing variable or substitute with a placeholder
         # Note: self._undefined_name gives the name of the missing variable
         missing_var_name = self._undefined_name
-        logging.warning(f"Custom variable '{missing_var_name}' not defined. Substituting with placeholder.")
+        logger.info(f"Custom variable '{missing_var_name}' not defined. Substituting with placeholder.")
         get_log_buffer().append({
-            "level": "WARNING",
+            "level": "INFO",
             "logger": __name__,
             "message": f"Custom variable '{missing_var_name}' not defined",
             "phase": "render",
