@@ -240,7 +240,7 @@ def apply_config_provided_overrides(context: Context, output_text: str, output_i
         try:
             parsed_yaml = yaml.safe_load(output_text)
         except yaml.YAMLError:
-            logger.warning(f"Could not parse YAML for override processing: {output_item.path}")
+            logger.info(f"Could not parse YAML for override processing: {output_item.path}")
             return output_text
             
         # Check if this is a file that has configProvided section
@@ -312,7 +312,7 @@ def apply_config_provided_overrides(context: Context, output_text: str, output_i
         return output_text
         
     except Exception as e:
-        logger.warning(f"Error in post-render configProvided override processing: {e}")
+        logger.info(f"Error in post-render configProvided override processing: {e}")
         return output_text
 
 def _slx_first_sort_key(item: OutputItem) -> tuple:
@@ -402,7 +402,7 @@ def render(context: Context):
             render_stats['skipped'] += 1
             continue
 
-        logger.info(f"Rendering output item: {output_item.path}")
+        logger.debug(f"Rendering output item: {output_item.path}")
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f"Template variables for {output_item.path}: {output_item.template_variables}")
 
@@ -432,7 +432,7 @@ def render(context: Context):
             record_rendered_artifact(context, output_item.path, deduplicated_output)
             render_stats['successfully_rendered'] += 1
         except WorkspaceBuilderException as e:
-            logger.warning(f"Skipping template {output_item.template_name} for {output_item.path}: {str(e)}")
+            logger.info(f"Skipping template {output_item.template_name} for {output_item.path}: {str(e)}")
             get_log_buffer().append({
                 "level": "ERROR",
                 "logger": __name__,
@@ -465,7 +465,7 @@ def render(context: Context):
                 failed_slx_dirs.add(slx_dir)
 
     if failed_slx_dirs:
-        logger.warning(f"SLX directories skipped due to errors: {sorted(failed_slx_dirs)}")
+        logger.info(f"SLX directories skipped due to errors: {sorted(failed_slx_dirs)}")
         context.set_property("FAILED_SLX_DIRS", failed_slx_dirs)
     
     # Generate report of skipped templates if any

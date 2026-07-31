@@ -153,15 +153,15 @@ def get_subscription_name(subscription_id: str) -> str:
                 return subscription.display_name
         
         # If we got here, we couldn't find the subscription
-        logger.warning(f"Could not find display name for subscription ID: {subscription_id}")
+        logger.info(f"Could not find display name for subscription ID: {subscription_id}")
         subscription_ids = [s.subscription_id for s in subscriptions]
-        logger.warning(f"Available subscription IDs: {subscription_ids}")
+        logger.debug(f"Available subscription IDs: {subscription_ids}")
         
         # Use just the ID as fallback
         subscription_names_cache[subscription_id] = subscription_id
         return subscription_id
     except Exception as e:
-        logger.warning(f"Error fetching subscription display name for {subscription_id}: {e}")
+        logger.info(f"Error fetching subscription display name for {subscription_id}: {e}")
         # Use just the ID as fallback
         subscription_names_cache[subscription_id] = subscription_id
         return subscription_id
@@ -185,7 +185,7 @@ def get_resource_group(resource: Resource) -> Optional[Resource]:
             return parent
     
     # Log a warning if resource group cannot be resolved
-    logger.warning(f"Resource group not found for resource: {resource.resource_type.name}")
+    logger.info(f"Resource group not found for resource: {resource.resource_type.name}")
     return None
 
 
@@ -266,7 +266,7 @@ class AzurePlatformHandler(PlatformHandler):
                              f"Using ID field value.")
             subscription_id = extracted_subscription_id
         elif not subscription_id:
-            logger.warning(f"Could not determine subscription_id for resource {name}")
+            logger.info(f"Could not determine subscription_id for resource {name}")
             subscription_id = None
         
         # ============== FIX: Filter subscription resources based on configured list ==============
@@ -360,7 +360,7 @@ class AzurePlatformHandler(PlatformHandler):
                                 break
                         
                         if not rg_resource:
-                            logger.warning(f"FAILED: Could not find resource group '{rg_name}' in subscription '{subscription_id}' for resource '{name}'. Available RGs: {[(rg.name, getattr(rg, 'subscription_id', None)) for rg in rg_type.instances.values()]}")
+                            logger.info(f"FAILED: Could not find resource group '{rg_name}' in subscription '{subscription_id}' for resource '{name}'. Available RGs: {[(rg.name, getattr(rg, 'subscription_id', None)) for rg in rg_type.instances.values()]}")
                             
                             # DEFERRED RELATIONSHIP: Store info for later resolution
                             # This handles cases where storage accounts are processed before their resource groups
@@ -439,21 +439,21 @@ class AzurePlatformHandler(PlatformHandler):
                     if subscription_id and rg_name:
                         # Try to look up LOD configuration directly
                         # This is a fallback when resource group relationship isn't properly established
-                        logger.warning(f"Resource group relationship not found for {resource.name}, attempting direct LOD lookup for RG: {rg_name} in subscription: {subscription_id}")
+                        logger.info(f"Resource group relationship not found for {resource.name}, attempting direct LOD lookup for RG: {rg_name} in subscription: {subscription_id}")
                         
                         # We need access to the platform config data to do the lookup
                         # For now, log the issue and return a default
-                        logger.warning(f"Cannot perform direct LOD lookup without platform config access. Resource: {resource.name}, RG: {rg_name}")
+                        logger.info(f"Cannot perform direct LOD lookup without platform config access. Resource: {resource.name}, RG: {rg_name}")
                         
                 except (IndexError, AttributeError) as e:
-                    logger.warning(f"Failed to extract resource group info from resource ID: {e}")
+                    logger.info(f"Failed to extract resource group info from resource ID: {e}")
             else:
                 # Resource has no resource group in its ID (might be a top-level resource)
                 logger.debug(f"Resource {resource.name} has no resource group in ID, using BASIC LOD as default")
                 return LevelOfDetail.BASIC
         
         # Fallback to BASIC LOD instead of crashing
-        logger.warning(f"No LOD found for resource {resource.name}, using BASIC as fallback")
+        logger.info(f"No LOD found for resource {resource.name}, using BASIC as fallback")
         return LevelOfDetail.BASIC
 
 
@@ -466,7 +466,7 @@ class AzurePlatformHandler(PlatformHandler):
                 return resource_group.name
             else:
                 # Fallback: Extract resource group name from resource ID when reference is missing
-                logger.warning(f"No resource_group reference found for {resource.name}, trying fallback extraction")
+                logger.info(f"No resource_group reference found for {resource.name}, trying fallback extraction")
                 
                 # Access the original CloudQuery resource data
                 resource_id = ''
@@ -477,7 +477,7 @@ class AzurePlatformHandler(PlatformHandler):
                     parts = resource_id.split("/resourceGroups/")
                     if len(parts) > 1:
                         rg_name = parts[1].split("/")[0]
-                        logger.warning(f"FALLBACK: Extracted resource group name '{rg_name}' from resource ID for {resource.name}")
+                        logger.debug(f"FALLBACK: Extracted resource group name '{rg_name}' from resource ID for {resource.name}")
                         
                         # CRITICAL: Try to find the actual resource group Resource object in the registry
                         # Templates expect resource.resource_group to be a Resource object, not a string
@@ -499,13 +499,13 @@ class AzurePlatformHandler(PlatformHandler):
                                     for rg_qualified_name, rg_resource in rg_type.instances.items():
                                         if (rg_resource.name.upper() == rg_name.upper() and 
                                             getattr(rg_resource, 'subscription_id', None) == subscription_id):
-                                            logger.warning(f"FALLBACK: Found matching resource group Resource object for {resource.name}")
+                                            logger.debug(f"FALLBACK: Found matching resource group Resource object for {resource.name}")
                                             setattr(resource, 'resource_group', rg_resource)
                                             return rg_name
                             
-                            logger.warning(f"FALLBACK: Could not find resource group Resource object, using string fallback for {resource.name}")
+                            logger.info(f"FALLBACK: Could not find resource group Resource object, using string fallback for {resource.name}")
                         except Exception as e:
-                            logger.warning(f"FALLBACK: Error looking up resource group Resource object: {e}")
+                            logger.info(f"FALLBACK: Error looking up resource group Resource object: {e}")
                         
                         return rg_name
                 logger.error(f"FAILED: Could not determine resource group for resource {resource.name}")
@@ -523,7 +523,7 @@ class AzurePlatformHandler(PlatformHandler):
         logger.debug(f"Azure platform handler requested qualifier '{qualifier_name}' for resource '{resource.name}'")
         result = self.get_common_resource_property_values(resource, qualifier_name)
         if result is None:
-            logger.warning(f"Azure platform handler could not resolve qualifier '{qualifier_name}' for resource '{resource.name}'")
+            logger.debug(f"Azure platform handler could not resolve qualifier '{qualifier_name}' for resource '{resource.name}'")
         else:
             logger.debug(f"Azure platform handler resolved qualifier '{qualifier_name}' = '{result}' for resource '{resource.name}'")
         return result
@@ -561,7 +561,7 @@ class AzurePlatformHandler(PlatformHandler):
                 # CRITICAL: Also set the resource_group attribute on the resource object itself
                 # Templates may access match_resource.resource_group directly
                 setattr(resource, 'resource_group', minimal_rg)
-                logger.warning(f"TEMPLATE FALLBACK: Created minimal resource_group object for {resource.name} with name '{rg_name}' and set resource.resource_group attribute")
+                logger.debug(f"TEMPLATE FALLBACK: Created minimal resource_group object for {resource.name} with name '{rg_name}' and set resource.resource_group attribute")
         
         # Always add subscription information as top-level template variables
         # Access subscription info using the same methods as qualifiers

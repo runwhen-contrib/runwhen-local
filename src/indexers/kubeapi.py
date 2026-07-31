@@ -827,7 +827,7 @@ def index(component_context: Context):
                             namespace_names.update(custom_namespace_names)
 
                         if len(namespace_names) == 0:
-                            logger.warning("Unable to determine any namespace names, so can't index any Kubernetes resources")
+                            logger.info("Unable to determine any namespace names, so can't index any Kubernetes resources")
                             continue
 
                         namespaces = dict()

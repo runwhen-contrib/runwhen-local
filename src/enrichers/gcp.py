@@ -73,12 +73,12 @@ def get_project_name(project_id: str) -> str:
             project_names_cache[project_id] = project_name
             return project_name
         else:
-            logger.warning(f"Could not retrieve project name for {mask_string(project_id)}: {result.stderr}")
+            logger.info(f"Could not retrieve project name for {mask_string(project_id)}: {result.stderr}")
             project_names_cache[project_id] = project_id
             return project_id
             
     except Exception as e:
-        logger.warning(f"Error retrieving project name for {mask_string(project_id)}: {e}")
+        logger.info(f"Error retrieving project name for {mask_string(project_id)}: {e}")
         project_names_cache[project_id] = project_id
         return project_id
 

@@ -35,7 +35,7 @@ def get_qualifier_value(qualifier: str, resource: Resource, context: Context) ->
         return value
 
     except WorkspaceBuilderException as e:
-        logger.warning(f"Unresolved qualifier for SLX '{qualifier}' in resource '{resource.name}'. "
+        logger.info(f"Unresolved qualifier for SLX '{qualifier}' in resource '{resource.name}'. "
                        f"Check include/exclude labels on parent resources: {e}")
         return None  # Return None to allow calling function to handle missing qualifier gracefully
     except Exception as e:
@@ -76,7 +76,7 @@ class SLXInfo:
         self.qualifiers = {q: get_qualifier_value(q, resource, context) for q in slx.qualifiers}
         
         # DEBUG: Log qualifier resolution for collision debugging
-        logger.warning(f"SLXInfo DEBUG for resource '{resource.name}': qualifiers={self.qualifiers}")
+        logger.debug("SLXInfo qualifiers for resource '%s': qualifiers=%s", resource.name, self.qualifiers)
         
         # Check for None values in qualifiers which would cause issues
         if None in self.qualifiers.values():
@@ -87,7 +87,7 @@ class SLXInfo:
         self.full_name = make_qualified_slx_name(slx.base_name, self.qualifier_values, None)
         
         # DEBUG: Log full name generation
-        logger.warning(f"SLXInfo DEBUG for resource '{resource.name}': qualifier_values={self.qualifier_values}, full_name='{self.full_name}'")
+        logger.debug("SLXInfo full name for resource '%s': qualifier_values=%s, full_name=%s", resource.name, self.qualifier_values, self.full_name)
         
         self.resource = resource
         # Track the initial resource; additional names may be aggregated later.

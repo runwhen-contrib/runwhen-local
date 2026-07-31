@@ -1096,6 +1096,7 @@ def main():
         return
 
     if args.upload_data or args.command == UPLOAD_COMMAND:
+        upload_start = time.time()
         # For uploading we only send the workload subdirectory not the entire
         # contents of the output directory. So access the workload directory
         # and archive the data to be included in upload data.
@@ -1193,7 +1194,7 @@ def main():
                 fatal(f"Error uploading map builder data; Invalid JSON response: {e}; "
                       f"status={response.status_code}; Response body: {response.text[:500]}")
 
-        logger.info("Workspace builder data uploaded successfully.")
+        logger.info("Workspace builder data uploaded successfully in %.1fs", time.time() - upload_start)
 
 
 if __name__ == "__main__":

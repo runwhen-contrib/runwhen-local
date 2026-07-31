@@ -715,7 +715,7 @@ tasks:
         fail=0
 
         # 1. The native gcpapi backend must have been selected (NOT cloudquery).
-        if grep -qE "indexers.gcpapi: GCP indexer backend: 'gcpapi'" run_sh_output.log container_logs.log 2>/dev/null; then
+        if grep -qE "indexers\.gcpapi.*GCP indexer backend: 'gcpapi'" run_sh_output.log container_logs.log 2>/dev/null; then
           echo "OK   baseline: native gcpapi backend ran"
         else
           echo "FAIL baseline: native gcpapi backend did not run (expected gcpIndexerBackend=gcpapi)"
