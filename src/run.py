@@ -25,6 +25,18 @@ from gcp_utils import generate_kubeconfig_for_gke
 
 logger = logging.getLogger(__name__)
 
+# Use structured JSON formatting, same as the server process, so CLI output
+# is machine-readable and consistent with the workspace-builder logs.
+try:
+    from workspace_builder.log_formatter import StructuredJsonFormatter
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(StructuredJsonFormatter())
+    logging.getLogger().handlers.clear()
+    logging.getLogger().addHandler(_handler)
+    logging.getLogger().setLevel(logging.INFO)
+except Exception:
+    pass  # keep default plain-text logging if the formatter can't be loaded
+
 
 SERVICE_NAME = "Workspace Builder"
 REST_SERVICE_HOST_DEFAULT = "localhost"
@@ -1050,7 +1062,7 @@ def main():
             if os.path.exists(slxs_path) and os.path.isdir(slxs_path):
                 slx_count = len([name for name in os.listdir(slxs_path) if os.path.isdir(os.path.join(slxs_path, name))])
 
-        print(f"{message} Total SLXs: {slx_count}")
+        logger.info("%s Total SLXs: %s", message, slx_count)
         for warning in warnings:
             logger.warning(warning)
 

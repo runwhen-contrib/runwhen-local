@@ -10,6 +10,32 @@
   <script src="/static/rw-ui.js" defer></script>
   <style>
     .log-entry--template-error { border-left: 4px solid #ef4444; padding-left: 0.5rem; }
+    .log-entry {
+      display: flex; align-items: flex-start; gap: 8px;
+      padding: 2px 0; border-bottom: 1px solid var(--border-color, #e5e7eb);
+      font-family: "JetBrains Mono", "Fira Code", monospace;
+      font-size: 0.75rem; line-height: 1.4;
+      white-space: pre-wrap; word-break: break-all;
+    }
+    .log-entry .log-ts {
+      color: var(--text-secondary, #6b7280); flex-shrink: 0;
+      min-width: 8ch;
+    }
+    .log-entry .log-lvl {
+      flex-shrink: 0; min-width: 7ch; text-align: center;
+      font-weight: 600; border-radius: 3px; padding: 0 4px;
+    }
+    .log-entry .log-lvl.ERROR { background: #fee2e2; color: #991b1b; }
+    .log-entry .log-lvl.WARNING { background: #fef3c7; color: #92400e; }
+    .log-entry .log-lvl.INFO { background: #dbeafe; color: #1e40af; }
+    .log-entry .log-lvl.DEBUG { background: #f3f4f6; color: #6b7280; }
+    .log-entry .log-logger {
+      color: var(--text-secondary, #6b7280); flex-shrink: 0;
+      max-width: 22ch; overflow: hidden; text-overflow: ellipsis;
+    }
+    .log-entry .log-msg {
+      flex: 1; min-width: 0;
+    }
   </style>
 </head>
 <body class="page-explorer">
@@ -151,12 +177,12 @@
 
     function renderStatRow() {
       const s = state.summary || {};
-      const slxCount = (s.artifact_kinds || []).filter(function (k) { return k.kind === 'slx'; }).reduce(function (a, b) { return a + b.count; }, 0);
+      const slxCount = (s.artifact_kinds || []).filter(function (k) { return k.artifact_kind === 'slx'; }).reduce(function (a, b) { return a + b.count; }, 0);
       const dbLabel = s.db_path ? s.db_path.split('/').slice(-2).join('/') : 'No database';
       const cards = [
         { label: 'Discovered Resources', count: s.resource_count || 0, desc: (s.platform_count || 0) + ' platforms · ' + (s.resource_type_count || 0) + ' types', tab: 'resources', icon: '⛁' },
         { label: 'SLX Bundles', count: slxCount, desc: 'Generated SLXs grouped by directory', tab: 'bundles', icon: '◆' },
-        { label: 'Workspace Artifacts', count: s.artifact_count || 0, desc: (s.artifact_kinds || []).map(function(k) { return k.kind; }).join(', ') + ' kinds rendered', tab: 'artifacts', icon: '◊' },
+        { label: 'Workspace Artifacts', count: s.artifact_count || 0, desc: (s.artifact_kinds || []).map(function(k) { return k.artifact_kind; }).join(', ') + ' kinds rendered', tab: 'artifacts', icon: '◊' },
         { label: 'Schema', count: 'v' + (s.schema_version || 0), desc: dbLabel, tab: null, icon: '⌬' }
       ];
       $('#statRow').innerHTML = cards.map(function (c) {
@@ -194,10 +220,10 @@
         html += '</ul>';
       } else if (state.tab === 'artifacts') {
         html += '<h3>Artifact kinds</h3><ul>';
-        html += '<li><button class="' + (!state.filter.artifact_kind ? 'active' : '') + '" data-kind="">All kinds <span class="badge">' + (s.artifact_kinds || []).map(function(k) { return k.kind; }).join(', ') + '</span></button></li>';
+        html += '<li><button class="' + (!state.filter.artifact_kind ? 'active' : '') + '" data-kind="">All kinds <span class="badge">' + (s.artifact_kinds || []).map(function(k) { return k.artifact_kind; }).join(', ') + '</span></button></li>';
         (s.artifact_kinds || []).forEach(function (k) {
-          const isActive = state.filter.artifact_kind === k.kind;
-          html += '<li><button class="' + (isActive ? 'active' : '') + '" data-kind="' + escapeHtml(k.kind) + '">' + escapeHtml(k.kind) + ' <span class="badge">' + k.count + '</span></button></li>';
+          const isActive = state.filter.artifact_kind === k.artifact_kind;
+          html += '<li><button class="' + (isActive ? 'active' : '') + '" data-kind="' + escapeHtml(k.artifact_kind) + '">' + escapeHtml(k.artifact_kind) + ' <span class="badge">' + k.count + '</span></button></li>';
         });
         html += '</ul>';
       } else {
@@ -437,13 +463,13 @@
       $('#list').innerHTML = entries.map(function (e, i) {
         const isTemplateError = (e.message && e.message.includes('Error processing template')) || (e.logger && e.logger.includes('template'));
         const extraClass = isTemplateError ? ' log-entry--template-error' : '';
-        
-        return '<div class="item' + extraClass + '">' +
-          '<div class="item-row">' +
-            '<div><div class="item-title" style="font-family: monospace; font-size: 0.875rem; white-space: pre-wrap;">' + escapeHtml(e.message) + '</div>' +
-            '<div class="item-meta">' + escapeHtml(e.timestamp) + ' · ' + escapeHtml(e.logger) + '</div></div>' +
-            '<div class="item-tags">' + logLevelPill(e.level) + '</div>' +
-          '</div></div>';
+        const ts = (e.timestamp || '').slice(11, 23) || e.timestamp || '';
+        return '<div class="log-entry' + extraClass + '">' +
+          '<span class="log-ts">' + escapeHtml(ts) + '</span>' +
+          '<span class="log-lvl ' + escapeHtml(e.level) + '">' + escapeHtml(e.level) + '</span>' +
+          '<span class="log-logger" title="' + escapeHtml(e.logger) + '">' + escapeHtml(e.logger) + '</span>' +
+          '<span class="log-msg">' + escapeHtml(e.message) + '</span>' +
+          '</div>';
       }).join('');
       
       const loadedCount = entries.length;
