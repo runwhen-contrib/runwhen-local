@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import json
+import os
 import threading
 from collections import deque
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional
 
 _MAX_ENTRIES = 500
@@ -89,3 +92,30 @@ _log_buffer = LogRingBuffer()
 def get_log_buffer() -> LogRingBuffer:
     """Return the global singleton LogRingBuffer instance."""
     return _log_buffer
+
+
+class FileLogSink:
+    """Append-only JSONL file sink for durable, complete log history.
+
+    Every log entry is serialised as a JSON line and flushed immediately
+    so data is durable even if the process crashes. The file is opened in
+    append mode at init and never rotated — it captures the full log
+    history since server start.
+    """
+
+    def __init__(self) -> None:
+        self.path = Path(os.environ.get("RW_LOG_FILE", "/tmp/runwhen-logs.jsonl"))
+        self._file = open(self.path, "a", encoding="utf-8")
+
+    def write(self, entry: dict) -> None:
+        """Append *entry* as a JSON line and flush to disk."""
+        self._file.write(json.dumps(entry, default=str) + "\n")
+        self._file.flush()
+
+
+_log_sink = FileLogSink()
+
+
+def get_log_sink() -> FileLogSink:
+    """Return the global singleton FileLogSink instance."""
+    return _log_sink

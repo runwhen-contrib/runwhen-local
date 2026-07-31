@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 
 from .resource_store_reader import (
     count_resources,
@@ -223,3 +223,18 @@ def explorer_logs(
     buf = get_log_buffer()
     entries = buf.get_entries(since=since_dt, level=level, phase=phase, limit=limit)
     return {"total": len(entries), "limit": limit, "entries": entries}
+
+
+@router.get("/api/logs/download")
+def explorer_logs_download() -> FileResponse:
+    """Download the full log history as a JSONL file."""
+    from workspace_builder.log_buffer import get_log_sink
+
+    sink = get_log_sink()
+    if not sink.path.exists():
+        raise HTTPException(status_code=404, detail="No log file yet")
+    return FileResponse(
+        sink.path,
+        media_type="application/x-ndjson",
+        filename="runwhen-logs.jsonl",
+    )

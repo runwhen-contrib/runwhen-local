@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from component import init_components
 from enrichers.code_collection import init_code_collections
 from .access_log_filters import ProbeAccessLogFilter
-from .log_buffer import get_log_buffer
+from .log_buffer import get_log_buffer, get_log_sink
 from .log_formatter import StructuredJsonFormatter
 
 _BOOTSTRAPPED = False
@@ -50,6 +50,7 @@ class RingBufferHandler(logging.Handler):
             "phase": "http",
         }
         get_log_buffer().append(entry)
+        get_log_sink().write(entry)
 
 
 def configure_logging() -> None:

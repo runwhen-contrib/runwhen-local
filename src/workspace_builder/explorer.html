@@ -273,17 +273,12 @@
         });
 
         $('#downloadLogsBtn').addEventListener('click', function() {
-          if (!state.currentLogs || !state.currentLogs.length) return;
-          const jsonl = state.currentLogs.map(function(e) { return JSON.stringify(e); }).join('\n');
-          const blob = new Blob([jsonl], { type: 'application/x-ndjson' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = 'runwhen-local-logs.jsonl';
+          var a = document.createElement('a');
+          a.href = '/explorer/api/logs/download';
+          a.download = 'runwhen-logs.jsonl';
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
-          URL.revokeObjectURL(url);
         });
         return;
       }
