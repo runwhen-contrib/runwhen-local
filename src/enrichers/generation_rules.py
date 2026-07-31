@@ -418,7 +418,7 @@ class SLX:
         base_name_length_limit = 15
         if len(shortened_base_name) > base_name_length_limit:
             self.shortened_base_name = shorten_name(shortened_base_name, base_name_length_limit)
-            logger.warning(f'SLX base name is too long, so shortening it from '
+            logger.debug(f'SLX base name is too long, so shortening it from '
                            f'"{shortened_base_name}" to "{self.shortened_base_name}". '
                            f"The base name in the generation rule should be updated to "
                            f"comply with the max length of {base_name_length_limit}")
@@ -644,14 +644,14 @@ def get_template_variables(output_item: OutputItem,
         try:
             template_variables['repo_url'] = generation_rule_info.code_collection.repo_url
         except Exception as e:
-            logger.warning(f"Error getting repo_url from generation_rule_info: {e}")
+            logger.info(f"Error getting repo_url from generation_rule_info: {e}")
             template_variables['repo_url'] = "undefined"
             
         try:
             template_variables['ref'] = generation_rule_info.generation_rule_file_spec.ref_name
             template_variables['generation_rule_file_path'] = generation_rule_info.generation_rule_file_spec.path
         except Exception as e:
-            logger.warning(f"Error getting ref or generation_rule_file_path: {e}")
+            logger.info(f"Error getting ref or generation_rule_file_path: {e}")
             template_variables['ref'] = "undefined"
             template_variables['generation_rule_file_path'] = "undefined"
             
@@ -664,7 +664,7 @@ def get_template_variables(output_item: OutputItem,
                     value = render_template_string(template_string, template_variables)
                 template_variables[name] = value
             except Exception as e:
-                logger.warning(f"Error processing template variable {name}: {e}")
+                logger.info(f"Error processing template variable {name}: {e}")
                 template_variables[name] = f"error_processing_template_variable_{name}"
 
         # Add qualifiers to template variables
@@ -675,7 +675,7 @@ def get_template_variables(output_item: OutputItem,
                     qualifiers_dict = {qual: template_variables.get(qual, f"undefined_{qual}") for qual in quals}
                     template_variables['qualifiers'] = qualifiers_dict
         except Exception as e:
-            logger.warning(f"Error processing qualifiers: {e}")
+            logger.info(f"Error processing qualifiers: {e}")
             template_variables['qualifiers'] = {}
 
         # Propagate child_resource_names from the base template variables (set upstream in
@@ -684,7 +684,7 @@ def get_template_variables(output_item: OutputItem,
         try:
             template_variables['child_resource_names'] = base_template_variables.get('child_resource_names', [])
         except Exception as e:
-            logger.warning(f"Error setting child_resource_names in get_template_variables: {e}")
+            logger.info(f"Error setting child_resource_names in get_template_variables: {e}")
             template_variables['child_resource_names'] = []
 
         logger.debug(f"Resolved template variables: {template_variables}")
@@ -715,19 +715,19 @@ def get_template_variables(output_item: OutputItem,
                         override_codebundle_dir == current_codebundle_dir and 
                         override_type == current_type):
                         
-                        logger.info(f"MATCH FOUND! Applying overrides for {current_codebundle_dir}/{current_type}")
+                        logger.debug(f"MATCH FOUND! Applying overrides for {current_codebundle_dir}/{current_type}")
                         
                         # Apply variable overrides directly to template_variables
                         config_overrides = override.get('configProvided', {})
                         for var_name, var_value in config_overrides.items():
                             # Set the variable directly in template_variables so templates can access it
                             template_variables[var_name] = var_value
-                            logger.info(f"Applied configProvided override: {var_name} = {var_value}")
+                            logger.debug(f"Applied configProvided override: {var_name} = {var_value}")
                         break
                 else:
                     logger.debug(f"No matching override found for {current_codebundle_dir}/{current_type}")
         except Exception as e:
-            logger.warning(f"Error applying configProvided overrides: {e}")
+            logger.info(f"Error applying configProvided overrides: {e}")
 
         return template_variables
     except Exception as e:
@@ -790,7 +790,7 @@ def get_template_variables(output_item: OutputItem,
                             logger.debug(f"Applied configProvided override (error case): {var_name} = {var_value}")
                         break
         except Exception as e:
-            logger.warning(f"Error applying configProvided overrides in error case: {e}")
+            logger.info(f"Error applying configProvided overrides in error case: {e}")
         
         return minimal_vars
 
@@ -826,7 +826,7 @@ def generate_output_item(generation_rule_info: GenerationRuleInfo,
             else: 
                 path = render_template_string(path_template, template_variables)
         except Exception as e:
-            logger.warning(f"Error rendering path template {path_template}: {e}")
+            logger.info(f"Error rendering path template {path_template}: {e}")
             # Generate a fallback path if there's an error
             try:
                 output_item_type = output_item.type.lower()
@@ -970,7 +970,7 @@ def collect_emitted_slxs(generation_rule_info: GenerationRuleInfo,
                     logger.debug(f"DEBUG: Collect Emitted SLXs: emit {slx_info}")
                     slxs[slx_info.full_name] = slx_info
             except WorkspaceBuilderException as e:
-                logger.warning(f"Skipping SLX due to error in processing resource '{resource.name}': {e}")
+                logger.info(f"Skipping SLX due to error in processing resource '{resource.name}': {e}")
                 # Skip this SLX if there's an error in SLXInfo initialization
             except Exception as e:
                 logger.warning(f"Unexpected error in SLX processing for resource '{resource.name}': {e}")
@@ -1053,7 +1053,7 @@ def generate_slx_output_items(slx_info: SLXInfo,
             slx_base_template_variables['slx_directory_path'] = slx_directory_path
             slx_base_template_variables['match_resource'] = resource
         except Exception as e:
-            logger.warning(f"Error setting up base template variables: {e}")
+            logger.info(f"Error setting up base template variables: {e}")
             # Still continue with what we have
         
         # Convert qualifiers list to a dictionary of key/value pairs
@@ -1061,7 +1061,7 @@ def generate_slx_output_items(slx_info: SLXInfo,
             qualifiers_dict = {qual: slx_info.qualifier_values[i] for i, qual in enumerate(slx_info.slx.qualifiers)}
             slx_base_template_variables['qualifiers'] = qualifiers_dict
         except Exception as e:
-            logger.warning(f"Error setting qualifiers: {e}")
+            logger.info(f"Error setting qualifiers: {e}")
             slx_base_template_variables['qualifiers'] = {}
 
         # Expose child resource names to templates
@@ -1073,7 +1073,7 @@ def generate_slx_output_items(slx_info: SLXInfo,
             logger.debug(
                 f"DEBUG: child_resource_names for {slx_info.full_name}: {slx_base_template_variables['child_resource_names']}")
         except Exception as e:
-            logger.warning(f"Error setting child_resource_names: {e}")
+            logger.info(f"Error setting child_resource_names: {e}")
             slx_base_template_variables['child_resource_names'] = []
 
         logger.debug(f"Resolved template variables: {slx_base_template_variables}")
@@ -1098,7 +1098,7 @@ def generate_slx_output_items(slx_info: SLXInfo,
                                 renderer_output_items,
                                 context)
         except Exception as e:
-            logger.warning(f"Error emitting Skill.md overlay for SLX {slx_info.full_name}: {e}")
+            logger.info(f"Error emitting Skill.md overlay for SLX {slx_info.full_name}: {e}")
 
         try:
             customization_variables = {
@@ -1114,7 +1114,7 @@ def generate_slx_output_items(slx_info: SLXInfo,
             standard_template_variables = platform_handler.get_standard_template_variables(resource)
             customization_variables.update(standard_template_variables)
         except Exception as e:
-            logger.warning(f"Error setting up customization variables: {e}")
+            logger.info(f"Error setting up customization variables: {e}")
             customization_variables = {
                 "resource": resource,
                 "slx-info": slx_info
@@ -1130,7 +1130,7 @@ def generate_slx_output_items(slx_info: SLXInfo,
                     groups[group_name] = group
                 group.add_slx(slx_info.qualified_name)
         except Exception as e:
-            logger.warning(f"Error processing group rules: {e}")
+            logger.info(f"Error processing group rules: {e}")
 
         try:
             subject_template, verb = map_customization_rules.match_slx_relationship_rules(slx_info)
@@ -1143,7 +1143,7 @@ def generate_slx_output_items(slx_info: SLXInfo,
                 slx_relationship = SLXRelationship(subject, verb, obj)
                 slx_relationships.append(slx_relationship)
         except Exception as e:
-            logger.warning(f"Error processing relationship rules: {e}")
+            logger.info(f"Error processing relationship rules: {e}")
             
     except Exception as e:
         logger.error(f"Unhandled error in generate_slx_output_items: {e}", exc_info=True)
@@ -1245,7 +1245,7 @@ def load(context: Context) -> None:
                               f'file="{generation_rule_file_spec.generation_rule_file_name}"; ' \
                               f'code-bundle="{generation_rule_file_spec.code_bundle_name}"; ' \
                               f'code-collection="{code_collection_config.repo_url}"; '
-                    logger.warning(message)
+                    logger.info(message)
                     context.add_warning(message)
                     continue
                 spec_config = generation_rules_config.get("spec", dict())
@@ -1270,7 +1270,7 @@ def load(context: Context) -> None:
                                   f'code-bundle="{generation_rule_file_spec.code_bundle_name}"; ' \
                                   f'code-collection="{code_collection_config.repo_url}"; ' \
                                   f'exception={e}'
-                        logger.info(message)
+                        logger.debug(message)
                         context.add_warning(message)
                         continue
 
@@ -1473,13 +1473,13 @@ def enrich(context: Context) -> None:
             all_settings[setting_name] = setting_value
         logger.info(f"All available settings: {all_settings}")
     except Exception as e:
-        logger.warning(f"Could not retrieve all settings: {e}")
+        logger.info(f"Could not retrieve all settings: {e}")
     
     for generation_rule_info in generation_rule_infos:
         # Check if this codebundle is allowed based on tag exclusion list
-        logger.info(f"Processing generation rule for codebundle: {generation_rule_info.generation_rule_file_spec.code_bundle_name}")
+        logger.debug(f"Processing generation rule for codebundle: {generation_rule_info.generation_rule_file_spec.code_bundle_name}")
         if not check_codebundle_access_allowed(generation_rule_info, context):
-            logger.info(f"Skipping codebundle {generation_rule_info.generation_rule_file_spec.code_bundle_name} due to excluded tags")
+            logger.debug(f"Skipping codebundle {generation_rule_info.generation_rule_file_spec.code_bundle_name} due to excluded tags")
             continue
             
         generation_rule = generation_rule_info.generation_rule
@@ -1604,7 +1604,7 @@ def check_codebundle_access_allowed(generation_rule_info: "GenerationRuleInfo", 
     
     if not tag_exclusion_list:
         # If no exclusion list is set, allow all codebundles
-        logger.info(f"No tag exclusion list configured, allowing all codebundles")
+        logger.debug(f"No tag exclusion list configured, allowing all codebundles")
         return True
     
     # Convert to lowercase for case-insensitive comparison
@@ -1614,9 +1614,9 @@ def check_codebundle_access_allowed(generation_rule_info: "GenerationRuleInfo", 
     code_bundle_name = generation_rule_info.generation_rule_file_spec.code_bundle_name
     ref_name = generation_rule_info.generation_rule_file_spec.ref_name
     
-    logger.info(f"Checking codebundle {code_bundle_name} for excluded tags: {exclusion_tags}")
-    logger.info(f"Code collection repo URL: {code_collection.repo_url}")
-    logger.info(f"Reference: {ref_name}")
+    logger.debug(f"Checking codebundle {code_bundle_name} for excluded tags: {exclusion_tags}")
+    logger.debug(f"Code collection repo URL: {code_collection.repo_url}")
+    logger.debug(f"Reference: {ref_name}")
     
     try:
         # Get the codebundle tree to find robot files
@@ -1629,7 +1629,7 @@ def check_codebundle_access_allowed(generation_rule_info: "GenerationRuleInfo", 
             if hasattr(item, 'name') and item.name.endswith('.robot'):
                 robot_files.append(item.name)
         
-        logger.info(f"Found robot files in {code_bundle_name}: {robot_files}")
+        logger.debug(f"Found robot files in {code_bundle_name}: {robot_files}")
         
         # Check each robot file for excluded tags
         for robot_file_name in robot_files:
@@ -1638,12 +1638,12 @@ def check_codebundle_access_allowed(generation_rule_info: "GenerationRuleInfo", 
                 if hasattr(robot_blob, 'data_stream'):
                     robot_content = robot_blob.data_stream.read().decode('utf-8')
                     
-                    logger.info(f"Checking robot file {robot_file_name} for excluded tags")
-                    logger.info(f"Robot file content preview (first 500 chars): {robot_content[:500]}")
+                    logger.debug(f"Checking robot file {robot_file_name} for excluded tags")
+                    logger.debug(f"Robot file content preview (first 500 chars): {robot_content[:500]}")
                     
                     # Parse the robot file to check for excluded tags
                     if has_excluded_tags(robot_content, exclusion_tags):
-                        logger.info(f"Codebundle {code_bundle_name} contains excluded tags, filtering out")
+                        logger.debug(f"Codebundle {code_bundle_name} contains excluded tags, filtering out")
                         return False
                         
             except Exception as e:
@@ -1655,7 +1655,7 @@ def check_codebundle_access_allowed(generation_rule_info: "GenerationRuleInfo", 
         # If we can't check tags, err on the side of caution and allow it
         return True
     
-    logger.info(f"Codebundle {code_bundle_name} allowed (no excluded tags found)")
+    logger.debug(f"Codebundle {code_bundle_name} allowed (no excluded tags found)")
     return True
 
 
@@ -1674,17 +1674,17 @@ def has_excluded_tags(robot_content: str, exclusion_tags: list[str]) -> bool:
             try:
                 suite = TestSuite.from_file_system(temp_file.name)
                 
-                logger.info(f"Parsing robot file with {len(suite.tests)} tasks")
+                logger.debug(f"Parsing robot file with {len(suite.tests)} tasks")
                 
                 # Check all tasks for excluded tags
                 for task in suite.tests:
                     task_tags = [str(tag).lower() for tag in task.tags]
-                    logger.info(f"Task '{task.name}' has tags: {task_tags}")
+                    logger.debug(f"Task '{task.name}' has tags: {task_tags}")
                     
                     for tag in task.tags:
                         tag_str = str(tag).lower()
                         if tag_str in exclusion_tags:
-                            logger.info(f"Found excluded tag '{tag_str}' in task '{task.name}'")
+                            logger.debug(f"Found excluded tag '{tag_str}' in task '{task.name}'")
                             return True
                             
             finally:
@@ -1695,5 +1695,5 @@ def has_excluded_tags(robot_content: str, exclusion_tags: list[str]) -> bool:
         # If we can't parse, assume it's safe (no excluded tags)
         return False
     
-    logger.info(f"No excluded tags found in robot content")
+    logger.debug(f"No excluded tags found in robot content")
     return False

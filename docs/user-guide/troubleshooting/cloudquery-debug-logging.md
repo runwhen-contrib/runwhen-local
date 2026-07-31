@@ -1,4 +1,45 @@
-# CloudQuery Debug Logging Control
+# Debug Logging Control
+
+RunWhen Local provides granular control over logging levels across different modules and output formats. This allows you to balance the need for detailed troubleshooting information with log readability and storage efficiency.
+
+## Environment Variables
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `LOG_LEVEL_ROOT` | Default log level for all modules | `INFO` |
+| `LOG_LEVEL_INDEXERS` | Log level for indexer modules | `LOG_LEVEL_ROOT` |
+| `LOG_LEVEL_ENRICHERS` | Log level for enricher modules | `LOG_LEVEL_ROOT` |
+| `LOG_LEVEL_RENDERERS` | Log level for renderer modules | `LOG_LEVEL_ROOT` |
+| `LOG_LEVEL_WORKSPACE_BUILDER` | Log level for workspace builder core | `LOG_LEVEL_ROOT` |
+| `LOG_FORMAT` | Console output format: `json` (default — structured) or `simple` (plain text) | `json` |
+| `DEBUG_LOGGING` | Global shortcut to set all modules to DEBUG | `false` |
+| `CQ_DEBUG` | CloudQuery-specific verbose debug logging | `false` |
+
+## Per-Module Log Levels
+
+RunWhen Local is divided into several functional modules, each with its own log level control. This allows you to enable debug logging for a specific area (like indexers) without being overwhelmed by logs from other modules.
+
+Each variable accepts standard Python log levels: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`.
+
+> **Note**: `DEBUG_LOGGING=true` acts as a global shortcut, setting all modules to `DEBUG` level regardless of their individual settings.
+
+## Structured JSON Logging
+
+For production environments or log aggregation systems (like ELK or Splunk), RunWhen Local uses structured JSON logging on the console **by default**.
+
+Set `LOG_FORMAT=simple` to switch back to plain-text `[LEVEL] logger: message` format.
+
+Each log entry has this JSON
+`{timestamp, level, message, logger, module}`
+
+Example output:
+```json
+{"timestamp": "2026-07-31T10:00:00.000Z", "level": "INFO", "message": "Starting workspace build", "logger": "workspace_builder", "module": "core"}
+```
+
+The internal ring buffer (used for the UI and troubleshooting reports) always captures logs in a structured format, regardless of the console output setting.
+
+## CloudQuery Debug Logging Control
 
 ## Overview
 
@@ -29,8 +70,14 @@ These can be set independently, giving you complete control over logging verbosi
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
-| `DEBUG_LOGGING` | General debug logging, Azure SDKs | `false` |
-| `CQ_DEBUG` | CloudQuery-specific debug logging | `false` |
+| `LOG_LEVEL_ROOT` | Default log level for all modules | `INFO` |
+| `LOG_LEVEL_INDEXERS` | Log level for indexer modules | `LOG_LEVEL_ROOT` |
+| `LOG_LEVEL_ENRICHERS` | Log level for enricher modules | `LOG_LEVEL_ROOT` |
+| `LOG_LEVEL_RENDERERS` | Log level for renderer modules | `LOG_LEVEL_ROOT` |
+| `LOG_LEVEL_WORKSPACE_BUILDER` | Log level for workspace builder core | `LOG_LEVEL_ROOT` |
+| `LOG_FORMAT` | Console output: `json` (default) or `simple` | `json` |
+| `DEBUG_LOGGING` | Global shortcut to set all modules to DEBUG | `false` |
+| `CQ_DEBUG` | CloudQuery-specific verbose debug logging | `false` |
 
 ### Common Scenarios
 
@@ -212,6 +259,48 @@ DEBUG_LOGGING=true ./run.sh
 ```bash
 # Enable all debug logging (very verbose!)
 DEBUG_LOGGING=true CQ_DEBUG=true ./run.sh
+```
+
+## Common Logging Scenarios
+
+#### 1. Normal Operation
+```bash
+# Default logging levels (INFO)
+./run.sh
+```
+
+#### 2. Debug Specific Module
+```bash
+# Enable debug logging only for indexers to troubleshoot discovery issues
+LOG_LEVEL_INDEXERS=DEBUG ./run.sh
+```
+
+#### 3. Plain-Text Logging (Opt-Out)
+```bash
+# Switch back to simple [LEVEL] logger: message format
+LOG_FORMAT=simple ./run.sh
+```
+
+#### 4. Full Debug
+```bash
+# Maximum verbosity (JSON is the default console format)
+DEBUG_LOGGING=true ./run.sh
+```
+
+### Docker Usage
+
+```bash
+# General debug without CloudQuery noise
+docker run -e DEBUG_LOGGING=true runwhen-local
+
+# CloudQuery debug only
+docker run -e CQ_DEBUG=true runwhen-local
+
+# Both (maximum verbosity)
+docker run -e DEBUG_LOGGING=true -e CQ_DEBUG=true runwhen-local
+
+# Plain-text logs (opt out of JSON default)
+docker run -e LOG_FORMAT=simple runwhen-local
 ```
 
 ## See Also

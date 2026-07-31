@@ -327,9 +327,14 @@ def build_reloader_from_env() -> ConfigReloader:
 
 
 def main() -> None:
+    from workspace_builder.log_formatter import StructuredJsonFormatter
+
+    handler = logging.StreamHandler()
+    handler.setFormatter(StructuredJsonFormatter())
     logging.basicConfig(
         level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(message)s",
+        handlers=[handler],
+        force=True,
     )
     if not in_cluster():
         logger.error("Not running in-cluster; config reloader disabled")

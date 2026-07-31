@@ -14,10 +14,11 @@ Workspace Builder ships with a small web UI served by the same FastAPI process t
 
 | Path | Description |
 | --- | --- |
-| `/` | **Control center / home page.** Cards for service status, the most recent discovery run (status, duration, SLX count, warnings), the current resource-store summary (resource and SLX bundle counts, platforms), recent SLX bundles by display name, and a redacted view of `workspaceInfo.yaml` (client secrets / tokens / passwords are masked before being shown). Also hosts placeholder cards for upcoming troubleshooting tools and a discovery activity timeline. |
+| `/` | **Control center / home page.** Cards for service status, the most recent discovery run (status, duration, SLX count, warnings), the current resource-store summary (resource and SLX bundle counts, platforms), recent SLX bundles by display name, a "Recent Issues" card showing the last 5 ERROR log entries, and a redacted view of `workspaceInfo.yaml` (client secrets / tokens / passwords are masked before being shown). Also hosts placeholder cards for upcoming troubleshooting tools and a discovery activity timeline. |
 | `/explorer/` | **Workspace Explorer.** Browse every discovered resource and rendered SLX/SLI/runbook/skill artifact. SLX bundles are titled by their `spec.alias` (display name) rather than the on-disk short hash, with the internal name shown as secondary metadata. The search box matches the display name, the SLX directory, and the rendered file contents. |
+| `/explorer/` (Logs tab) | **Live log viewer.** A new "Logs" tab in the Workspace Explorer shows the last 500 log entries from the current session. Color-coded level pills (ERROR=red, WARNING=yellow, INFO=blue, DEBUG=grey), filter dropdowns for level and phase (index/enrich/render/http), and template rendering errors are highlighted with a red border. Also available programmatically at `/explorer/api/logs?level=ERROR&phase=render&limit=100`. |
 
-Both pages run on port `8000` by default (`http://<pod-or-container>:8000/`) and share a JSON API surface (`/health/`, `/explorer/api/*`, `/api/overview`) that any external dashboard can hit.
+Both pages run on port `8000` by default (`http://<pod-or-container>:8000/`) and share a JSON API surface (`/health/`, `/explorer/api/*`, `/api/overview`) that any external dashboard can hit. The `/health/` endpoint includes `phase_durations` and `recent_errors` for monitoring discovery health.
 
 ### Redacted configuration view
 

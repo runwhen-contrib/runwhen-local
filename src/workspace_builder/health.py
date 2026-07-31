@@ -12,6 +12,8 @@ from typing import Optional, Dict, Any
 from dataclasses import dataclass, asdict
 from enum import Enum
 
+from workspace_builder.log_buffer import get_log_buffer
+
 
 class HealthStatus(Enum):
     """Health status enumeration."""
@@ -37,10 +39,16 @@ class RunInfo:
     last_progress_time: Optional[str] = None
     slx_count: Optional[int] = None
     duration_seconds: Optional[float] = None
+    phase_durations: dict = None
+    recent_errors: list = None
     
     def __post_init__(self):
         if self.components_run is None:
             self.components_run = []
+        if self.phase_durations is None:
+            self.phase_durations = {}
+        if self.recent_errors is None:
+            self.recent_errors = []
 
 
 @dataclass 
@@ -209,6 +217,9 @@ class HealthTracker:
         # Get current or last run
         run_data = state.get('current_run') or state.get('last_run')
         last_run = RunInfo(**run_data) if run_data else None
+        
+        if last_run:
+            last_run.recent_errors = get_log_buffer().get_recent_errors(limit=10)
         
         return HealthInfo(
             service_status=state.get('service_status', HealthStatus.HEALTHY.value),

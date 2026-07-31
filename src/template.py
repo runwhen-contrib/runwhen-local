@@ -9,6 +9,7 @@ from jinja2.exceptions import TemplateNotFound, TemplateError
 from jinja2 import Undefined
 
 from exceptions import WorkspaceBuilderException
+from workspace_builder.log_buffer import get_log_buffer
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +73,13 @@ class CustomUndefined(Undefined):
         # Log the missing variable or substitute with a placeholder
         # Note: self._undefined_name gives the name of the missing variable
         missing_var_name = self._undefined_name
-        logging.warning(f"Custom variable '{missing_var_name}' not defined. Substituting with placeholder.")
+        logger.info(f"Custom variable '{missing_var_name}' not defined. Substituting with placeholder.")
+        get_log_buffer().append({
+            "level": "INFO",
+            "logger": __name__,
+            "message": f"Custom variable '{missing_var_name}' not defined",
+            "phase": "render",
+        })
         return "missing_workspaceInfo_custom_variable"
 
 class CustomTemplateLoader(BaseLoader):
@@ -103,6 +110,12 @@ def render_template_string(template_string: str, template_variables: dict[str, A
         # template that is included by the top-level template.
         missing_template_file_name = e.name
         message = f"Error opening template file: {missing_template_file_name}"
+        get_log_buffer().append({
+            "level": "ERROR",
+            "logger": __name__,
+            "message": message,
+            "phase": "render",
+        })
         raise WorkspaceBuilderException(message) from e
     except TemplateError as e:
         message = (f"Error processing template content: "
@@ -119,6 +132,12 @@ def render_template_string(template_string: str, template_variables: dict[str, A
         # a gen rule or the associated template, so really should only
         # happen during development of the gen rules or of the core
         # workspace builder code, so probably not a big practical issue.
+        get_log_buffer().append({
+            "level": "ERROR",
+            "logger": __name__,
+            "message": message,
+            "phase": "render",
+        })
         raise WorkspaceBuilderException(message) from e
 
 
@@ -136,6 +155,12 @@ def render_template_file(template_file_name: str,
         parent_template_message = f"; accessed from {template_file_name}" \
             if missing_template_file_name != template_file_name else ""
         message = f"Error opening template file: {missing_template_file_name}{parent_template_message}"
+        get_log_buffer().append({
+            "level": "ERROR",
+            "logger": __name__,
+            "message": message,
+            "phase": "render",
+        })
         raise WorkspaceBuilderException(message) from e
     except TemplateError as e:
         # FIXME: Reduce/eliminate code duplication in the error/exception handling
@@ -149,4 +174,10 @@ def render_template_file(template_file_name: str,
             message += f"; template_variables={template_variables}"
         # FIXME: See comment above about possibly just logging an error
         # here instead of raising the exception.
+        get_log_buffer().append({
+            "level": "ERROR",
+            "logger": __name__,
+            "message": message,
+            "phase": "render",
+        })
         raise WorkspaceBuilderException(message) from e

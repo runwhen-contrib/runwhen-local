@@ -181,7 +181,7 @@ def index(context: Context) -> None:
     
     cloud_config = context.get_setting("CLOUD_CONFIG")
     if not cloud_config:
-        logger.warning("No cloud configuration found. Skipping Azure DevOps indexing.")
+        logger.info("No cloud configuration found. Skipping Azure DevOps indexing.")
         return
 
     logger.debug(f"Cloud config keys: {list(cloud_config.keys())}")
@@ -192,7 +192,7 @@ def index(context: Context) -> None:
     azure_devops_config = azure_config.get("devops", {})
     
     if not azure_devops_config:
-        logger.warning("No Azure DevOps configuration found. Skipping indexing.")
+        logger.info("No Azure DevOps configuration found. Skipping indexing.")
         return
 
     organization_url = azure_devops_config.get("organizationUrl")

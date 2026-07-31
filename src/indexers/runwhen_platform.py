@@ -29,7 +29,7 @@ def index(context: Context) -> None:
     location_name = context.get_setting("LOCATION_NAME")
 
     if not workspace_name:
-        logger.warning("WORKSPACE_NAME not set; skipping runwhen platform indexing")
+        logger.info("WORKSPACE_NAME not set; skipping runwhen platform indexing")
         return
 
     registry: Registry = context.get_property(REGISTRY_PROPERTY_NAME)

@@ -636,7 +636,7 @@ def discover_eks_clusters(session: boto3.Session, regions: list = None) -> list:
                         'certificateAuthority': cluster.get('certificateAuthority', {}).get('data'),
                         'cluster_type': 'eks'
                     })
-                    logger.info(f"Discovered EKS cluster: {cluster_name} in {region} (endpoint: {cluster.get('endpoint') is not None}, ca: {cluster.get('certificateAuthority', {}).get('data') is not None})")
+                    logger.debug(f"Discovered EKS cluster: {cluster_name} in {region} (endpoint: {cluster.get('endpoint') is not None}, ca: {cluster.get('certificateAuthority', {}).get('data') is not None})")
                     
                 except ClientError as e:
                     logger.warning(f"Error describing EKS cluster {cluster_name} in {region}: {e}")
@@ -713,7 +713,7 @@ def generate_kubeconfig_for_eks(clusters, workspace_info):
             cluster_arn = cluster_data.get('arn')
             cluster_ca_data = cluster_data.get('certificateAuthority', {}).get('data')
             
-            logger.info(f"Fetched cluster details for {cluster_name}: endpoint={cluster_endpoint is not None}, ca_data={cluster_ca_data is not None}")
+            logger.debug(f"Fetched cluster details for {cluster_name}: endpoint={cluster_endpoint is not None}, ca_data={cluster_ca_data is not None}")
             
         except ClientError as e:
             logger.error(f"Failed to describe EKS cluster {cluster_name} in region {cluster_region}: {e}")
@@ -747,7 +747,7 @@ def generate_kubeconfig_for_eks(clusters, workspace_info):
         # Add defaultNamespaceLOD if it exists in the cluster config
         if 'defaultNamespaceLOD' in cluster:
             cluster_entry['cluster']['extensions'][0]['extension']['defaultNamespaceLOD'] = cluster['defaultNamespaceLOD']
-            logger.info(f"Adding defaultNamespaceLOD to extension for cluster '{cluster_name}': {cluster['defaultNamespaceLOD']}")
+            logger.debug(f"Adding defaultNamespaceLOD to extension for cluster '{cluster_name}': {cluster['defaultNamespaceLOD']}")
         
         combined_kubeconfig['clusters'].append(cluster_entry)
         
@@ -828,7 +828,7 @@ def generate_kubeconfig_for_eks(clusters, workspace_info):
             combined_kubeconfig['current-context'] = context_name
             logger.info(f"Setting current context to: {context_name}")
         
-        logger.info(f"Added kubeconfig entry for EKS cluster {cluster_name} in region {cluster_region}")
+        logger.debug(f"Added kubeconfig entry for EKS cluster {cluster_name} in region {cluster_region}")
     
     # Save combined kubeconfig to file
     kubeconfig_dir = os.path.expanduser("~/.kube")

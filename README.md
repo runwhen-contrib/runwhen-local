@@ -54,16 +54,19 @@
 3. **Local explorer UI.** A FastAPI-backed UI at
    `http://localhost:8000/explorer/` lets you browse the discovered
    resources, the rendered SLXs, and their Skill descriptions side by
-   side.
+   side; includes a live **Logs tab** with structured filtering.
 
 4. **Built-in MCP server.** A read-only [Model Context Protocol](https://modelcontextprotocol.io)
    server is mounted at `http://localhost:8000/mcp/` so AI agents
    (Claude Code, Cursor, Claude Desktop, ...) can search, browse, and
    read your generated Skills directly. v1 is read-only — search and
    suggestion; execution is the natural follow-on. See the
-   [MCP server guide](docs/user-guide/features/mcp-server.md).
+      [MCP server guide](docs/user-guide/features/mcp-server.md).
 
-5. **Optional Platform pairing.** Push the same SLXs to the RunWhen
+5. **Structured logging.** JSON log output (`LOG_JSON_CONSOLE=true`), per-module log levels, and a `/explorer/api/logs` endpoint for programmatic access. The `/health/` endpoint reports phase-level durations and recent errors.
+
+6. **Optional Platform pairing.**
+ Push the same SLXs to the RunWhen
    Platform to gate execution behind RBAC, schedule them, and route
    results into alerts or developer self-service flows. Local is fully
    useful standalone; the Platform turns it into a production runtime.

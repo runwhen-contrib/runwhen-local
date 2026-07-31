@@ -8,6 +8,35 @@
   <link rel="stylesheet" href="/static/rw-ui.css">
   <link rel="stylesheet" href="/static/explorer.css">
   <script src="/static/rw-ui.js" defer></script>
+  <style>
+    .log-entry--template-error { border-left: 4px solid #ef4444; padding-left: 0.5rem; }
+    .log-entry {
+      display: flex; align-items: flex-start; gap: 8px;
+      padding: 2px 0; border-bottom: 1px solid var(--border-color, #e5e7eb);
+      font-family: "JetBrains Mono", "Fira Code", monospace;
+      font-size: 0.75rem; line-height: 1.4;
+      white-space: pre-wrap; word-break: break-all;
+    }
+    .log-entry .log-ts {
+      color: var(--text-secondary, #6b7280); flex-shrink: 0;
+      min-width: 8ch;
+    }
+    .log-entry .log-lvl {
+      flex-shrink: 0; min-width: 7ch; text-align: center;
+      font-weight: 600; border-radius: 3px; padding: 0 4px;
+    }
+    .log-entry .log-lvl.ERROR { background: #fee2e2; color: #991b1b; }
+    .log-entry .log-lvl.WARNING { background: #fef3c7; color: #92400e; }
+    .log-entry .log-lvl.INFO { background: #dbeafe; color: #1e40af; }
+    .log-entry .log-lvl.DEBUG { background: #f3f4f6; color: #6b7280; }
+    .log-entry .log-logger {
+      color: var(--text-secondary, #6b7280); flex-shrink: 0;
+      max-width: 22ch; overflow: hidden; text-overflow: ellipsis;
+    }
+    .log-entry .log-msg {
+      flex: 1; min-width: 0;
+    }
+  </style>
 </head>
 <body class="page-explorer">
   <header class="appbar appbar--overlay">
@@ -45,6 +74,7 @@
     <div class="container">
       <div class="tabs" id="tabs">
         <button class="tab active" data-tab="bundles">SLX Bundles</button>
+        <button class="tab" data-tab="logs">Logs</button>
         <button class="tab" data-tab="resources">Discovered Resources</button>
         <button class="tab" data-tab="artifacts">All Artifacts</button>
       </div>
@@ -88,7 +118,7 @@
     const state = {
       tab: 'bundles',
       summary: null,
-      filter: { platform: null, resource_type: null, artifact_kind: null, workspace_name: null, q: '' },
+      filter: { platform: null, resource_type: null, artifact_kind: null, workspace_name: null, q: '', level: null, phase: null },
       pagination: { limit: 25, offset: 0, total: 0 },
       currentList: []
     };
@@ -147,12 +177,12 @@
 
     function renderStatRow() {
       const s = state.summary || {};
-      const slxCount = (s.artifact_kinds || []).filter(function (k) { return k.kind === 'slx'; }).reduce(function (a, b) { return a + b.count; }, 0);
+      const slxCount = (s.artifact_kinds || []).filter(function (k) { return k.artifact_kind === 'slx'; }).reduce(function (a, b) { return a + b.count; }, 0);
       const dbLabel = s.db_path ? s.db_path.split('/').slice(-2).join('/') : 'No database';
       const cards = [
         { label: 'Discovered Resources', count: s.resource_count || 0, desc: (s.platform_count || 0) + ' platforms · ' + (s.resource_type_count || 0) + ' types', tab: 'resources', icon: '⛁' },
         { label: 'SLX Bundles', count: slxCount, desc: 'Generated SLXs grouped by directory', tab: 'bundles', icon: '◆' },
-        { label: 'Workspace Artifacts', count: s.artifact_count || 0, desc: (s.artifact_kinds || []).length + ' kinds rendered', tab: 'artifacts', icon: '◊' },
+        { label: 'Workspace Artifacts', count: s.artifact_count || 0, desc: (s.artifact_kinds || []).map(function(k) { return k.artifact_kind; }).join(', ') + ' kinds rendered', tab: 'artifacts', icon: '◊' },
         { label: 'Schema', count: 'v' + (s.schema_version || 0), desc: dbLabel, tab: null, icon: '⌬' }
       ];
       $('#statRow').innerHTML = cards.map(function (c) {
@@ -190,10 +220,10 @@
         html += '</ul>';
       } else if (state.tab === 'artifacts') {
         html += '<h3>Artifact kinds</h3><ul>';
-        html += '<li><button class="' + (!state.filter.artifact_kind ? 'active' : '') + '" data-kind="">All kinds <span class="badge">' + (s.artifact_count || 0) + '</span></button></li>';
+        html += '<li><button class="' + (!state.filter.artifact_kind ? 'active' : '') + '" data-kind="">All kinds <span class="badge">' + (s.artifact_kinds || []).map(function(k) { return k.artifact_kind; }).join(', ') + '</span></button></li>';
         (s.artifact_kinds || []).forEach(function (k) {
-          const isActive = state.filter.artifact_kind === k.kind;
-          html += '<li><button class="' + (isActive ? 'active' : '') + '" data-kind="' + escapeHtml(k.kind) + '">' + escapeHtml(k.kind) + ' <span class="badge">' + k.count + '</span></button></li>';
+          const isActive = state.filter.artifact_kind === k.artifact_kind;
+          html += '<li><button class="' + (isActive ? 'active' : '') + '" data-kind="' + escapeHtml(k.artifact_kind) + '">' + escapeHtml(k.artifact_kind) + ' <span class="badge">' + k.count + '</span></button></li>';
         });
         html += '</ul>';
       } else {
@@ -223,6 +253,61 @@
 
     function renderToolbar() {
       const tb = $('#toolbar');
+      if (state.tab === 'logs') {
+        tb.innerHTML =
+          '<label style="font-size:0.8125rem;display:flex;align-items:center;margin-right:1rem;cursor:pointer"><input type="checkbox" id="logAutoRefresh" style="margin-right:0.25rem"> Auto-refresh</label>' +
+          '<button class="btn ghost" id="downloadLogsBtn" style="margin-right:1rem;font-size:0.8125rem;padding:0.25rem 0.5rem">Download logs</button>' +
+          '<span class="grow"></span>' +
+          '<select id="logLevelFilter" class="select" style="margin-right:0.5rem">' +
+            '<option value="">All levels</option>' +
+            '<option value="ERROR">ERROR</option>' +
+            '<option value="WARNING">WARNING</option>' +
+            '<option value="INFO">INFO</option>' +
+            '<option value="DEBUG">DEBUG</option>' +
+          '</select>' +
+          '<select id="logPhaseFilter" class="select">' +
+            '<option value="">All phases</option>' +
+            '<option value="index">index</option>' +
+            '<option value="enrich">enrich</option>' +
+            '<option value="render">render</option>' +
+            '<option value="http">http</option>' +
+          '</select>';
+        $('#logLevelFilter').value = state.filter.level || '';
+        $('#logPhaseFilter').value = state.filter.phase || '';
+        $('#logLevelFilter').addEventListener('change', function(e) {
+          state.filter.level = e.target.value;
+          state.pagination.offset = 0;
+          loadLogs();
+        });
+        $('#logPhaseFilter').addEventListener('change', function(e) {
+          state.filter.phase = e.target.value;
+          state.pagination.offset = 0;
+          loadLogs();
+        });
+
+        const autoRefreshCb = $('#logAutoRefresh');
+        autoRefreshCb.checked = !!state.logAutoRefreshInterval;
+        autoRefreshCb.addEventListener('change', function(e) {
+          if (e.target.checked) {
+            state.logAutoRefreshInterval = setInterval(function() {
+              if (state.tab === 'logs') loadLogs(true);
+            }, 5000);
+          } else {
+            clearInterval(state.logAutoRefreshInterval);
+            state.logAutoRefreshInterval = null;
+          }
+        });
+
+        $('#downloadLogsBtn').addEventListener('click', function() {
+          var a = document.createElement('a');
+          a.href = '/explorer/api/logs/download';
+          a.download = 'runwhen-logs.jsonl';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        });
+        return;
+      }
       const placeholder = state.tab === 'bundles' ? 'Filter SLX bundles…' : (state.tab === 'resources' ? 'Filter resources…' : 'Filter artifacts…');
       tb.innerHTML =
         '<input id="localSearch" type="search" placeholder="' + placeholder + '" value="' + escapeHtml(state.filter.q) + '">' +
@@ -333,6 +418,78 @@
           '</div></a>';
       }).join('');
       bindItemClicks();
+    }
+
+    async function loadLogs(isAutoRefresh) {
+      const list = $('#list');
+      if (!isAutoRefresh && state.pagination.offset === 0) {
+        list.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
+      }
+      const limit = 100;
+      const params = new URLSearchParams();
+      params.set('limit', limit);
+      params.set('offset', state.pagination.offset || 0);
+      if (state.filter.level) params.set('level', state.filter.level);
+      if (state.filter.phase) params.set('phase', state.filter.phase);
+      try {
+        const data = await api('/explorer/api/logs?' + params.toString());
+        
+        if (state.pagination.offset === 0) {
+          state.currentLogs = data.entries || [];
+        } else {
+          state.currentLogs = (state.currentLogs || []).concat(data.entries || []);
+        }
+        
+        renderLogList(state.currentLogs, data.total || 0);
+      } catch (err) {
+        if (!isAutoRefresh) {
+          list.innerHTML = '<div class="empty"><h3>Could not load logs</h3><p>' + escapeHtml(err.message) + '</p></div>';
+          $('#pagination').innerHTML = '';
+        }
+      }
+    }
+
+    function logLevelPill(level) {
+      const map = { ERROR: 'pill-red', WARNING: 'pill-yellow', INFO: 'pill-blue', DEBUG: 'pill-grey' };
+      return '<span class="pill ' + (map[level] || 'pill-grey') + '">' + escapeHtml(level) + '</span>';
+    }
+
+    function renderLogList(entries, total) {
+      if (!entries || !entries.length) {
+        $('#list').innerHTML = '<div class="empty"><h3>No logs match</h3><p>Try clearing filters.</p></div>';
+        $('#pagination').innerHTML = '';
+        return;
+      }
+      $('#list').innerHTML = entries.map(function (e, i) {
+        const isTemplateError = (e.message && e.message.includes('Error processing template')) || (e.logger && e.logger.includes('template'));
+        const extraClass = isTemplateError ? ' log-entry--template-error' : '';
+        const ts = (e.timestamp || '').slice(11, 23) || e.timestamp || '';
+        return '<div class="log-entry' + extraClass + '">' +
+          '<span class="log-ts">' + escapeHtml(ts) + '</span>' +
+          '<span class="log-lvl ' + escapeHtml(e.level) + '">' + escapeHtml(e.level) + '</span>' +
+          '<span class="log-logger" title="' + escapeHtml(e.logger) + '">' + escapeHtml(e.logger) + '</span>' +
+          '<span class="log-msg">' + escapeHtml(e.message) + '</span>' +
+          '</div>';
+      }).join('');
+      
+      const loadedCount = entries.length;
+      const totalCount = total || loadedCount;
+      
+      let loadMoreBtn = '';
+      if (loadedCount < totalCount) {
+        loadMoreBtn = '<button class="btn ghost" id="loadMoreLogsBtn" style="margin-left:1rem">Load more</button>';
+      }
+      
+      $('#pagination').innerHTML =
+        '<span class="pill pill-grey">Showing ' + loadedCount + ' of ' + totalCount + ' entries</span>' + loadMoreBtn;
+        
+      const btn = $('#loadMoreLogsBtn');
+      if (btn) {
+        btn.addEventListener('click', function() {
+          state.pagination.offset += 100;
+          loadLogs();
+        });
+      }
     }
 
     function bindItemClicks() {
@@ -494,11 +651,25 @@
       state.filter.resource_type = null;
       state.filter.artifact_kind = null;
       state.filter.workspace_name = null;
+      state.filter.level = null;
+      state.filter.phase = null;
+      
+      if (state.logAutoRefreshInterval) {
+        clearInterval(state.logAutoRefreshInterval);
+        state.logAutoRefreshInterval = null;
+      }
+
       $$('.tab').forEach(function (t) { t.classList.toggle('active', t.getAttribute('data-tab') === tab); });
       renderStatRow();
-      renderSidebar();
-      renderToolbar();
-      loadList();
+      if (tab === 'logs') {
+        $('#sidebar').innerHTML = '';
+        renderToolbar();
+        loadLogs();
+      } else {
+        renderSidebar();
+        renderToolbar();
+        loadList();
+      }
     }
     $$('.tab').forEach(function (t) { t.addEventListener('click', function () { switchTab(t.getAttribute('data-tab')); }); });
 
@@ -524,9 +695,24 @@
     });
 
     (async function () {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tabParam = urlParams.get('tab');
+      if (tabParam) {
+        state.tab = tabParam;
+        $$('.tab').forEach(function (t) { t.classList.toggle('active', t.getAttribute('data-tab') === tabParam); });
+      }
+      const levelParam = urlParams.get('level');
+      if (levelParam) {
+        state.filter.level = levelParam;
+      }
+
       await loadSummary();
       renderToolbar();
-      loadList();
+      if (state.tab === 'logs') {
+        loadLogs();
+      } else {
+        loadList();
+      }
     })();
   </script>
 </body>

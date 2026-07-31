@@ -1141,7 +1141,7 @@ def index(context: Context):
                                                                          platform_config_data,
                                                                          context)
                             except WorkspaceBuilderException as e:
-                                logger.warning(f"Resource group or required qualifier missing for resource: {resource_data.get('name', 'unknown')}. Skipping. Error: {e}")
+                                logger.info(f"Resource group or required qualifier missing for resource: {resource_data.get('name', 'unknown')}. Skipping. Error: {e}")
                                 table_stats['skipped'] += 1
                                 platform_stats['skipped'] += 1
                                 cq_stats['total_skipped'] += 1
@@ -1159,7 +1159,7 @@ def index(context: Context):
                             except (KeyError, ValueError, TypeError, AttributeError) as e:
                                 # Handle common parsing errors that shouldn't crash the indexer
                                 resource_id = resource_data.get('id', resource_data.get('name', 'unknown'))
-                                logger.warning(f"Failed to parse resource data for {resource_id} in table {table_name}. Skipping. Error: {type(e).__name__}: {e}")
+                                logger.info(f"Failed to parse resource data for {resource_id} in table {table_name}. Skipping. Error: {type(e).__name__}: {e}")
                                 table_stats['skipped'] += 1
                                 platform_stats['skipped'] += 1
                                 cq_stats['total_skipped'] += 1
@@ -1243,7 +1243,7 @@ def index(context: Context):
     # Log parsing error summary if any errors occurred
     parsing_errors = cq_stats.get('parsing_errors', [])
     if parsing_errors:
-        logger.warning(f"  Parsing errors encountered: {len(parsing_errors)} resources failed to parse")
+        logger.info(f"  Parsing errors encountered: {len(parsing_errors)} resources failed to parse")
         
         # Group errors by type for summary
         error_summary = {}
@@ -1258,7 +1258,7 @@ def index(context: Context):
         for error_type, summary in error_summary.items():
             platforms_str = ', '.join(sorted(summary['platforms']))
             tables_str = ', '.join(sorted(summary['tables']))
-            logger.warning(f"    {error_type}: {summary['count']} errors across platforms [{platforms_str}] in tables [{tables_str}]")
+            logger.info(f"    {error_type}: {summary['count']} errors across platforms [{platforms_str}] in tables [{tables_str}]")
     
     # Log per-platform statistics
     for platform_name, platform_stats in cq_stats['platforms'].items():

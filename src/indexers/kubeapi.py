@@ -135,13 +135,13 @@ def get_custom_resource_scope(api_client, group: str, version: str, plural: str,
                              else CRD_SCOPE_CLUSTER)
                     cache[cache_key] = scope
                     return scope
-        logger.info(f"Could not find scope metadata for custom resource "
+        logger.debug(f"Could not find scope metadata for custom resource "
                     f"{plural}.{group}/{version}; defaulting to Namespaced")
     except ApiException as e:
-        logger.info(f"Discovery call for {plural}.{group}/{version} failed "
+        logger.debug(f"Discovery call for {plural}.{group}/{version} failed "
                     f"({e.status}); defaulting to Namespaced")
     except Exception as e:  # noqa: BLE001 - defensive: never let scope lookup abort indexing
-        logger.info(f"Unexpected error resolving scope for "
+        logger.debug(f"Unexpected error resolving scope for "
                     f"{plural}.{group}/{version}: {e}; defaulting to Namespaced")
 
     cache[cache_key] = CRD_SCOPE_NAMESPACED
@@ -247,18 +247,18 @@ def has_excluded_annotations_or_labels(resource, exclude_annotations: Dict[str, 
     # just a factor of how the collection is performed on certain resource types.     
     for key, value in exclude_annotations.items():
         if annotations.get(key) == value:
-            logger.info(f"Matched annotation {key} on {resource.metadata.name}, excluding from discovery.")
+            logger.debug(f"Matched annotation {key} on {resource.metadata.name}, excluding from discovery.")
             return True
     
     for key, values in exclude_labels.items():
         if key in labels:
             if isinstance(values, list):
                 if labels[key] in values:
-                    logger.info(f"Matched label {key} on {resource.metadata.name}, excluding from discovery.")
+                    logger.debug(f"Matched label {key} on {resource.metadata.name}, excluding from discovery.")
                     return True
             else:
                 if labels[key] == values:
-                    logger.info(f"Matched label {key} on {resource.metadata.name}, excluding from discovery.")
+                    logger.debug(f"Matched label {key} on {resource.metadata.name}, excluding from discovery.")
                     return True
     
     return False
@@ -827,7 +827,7 @@ def index(component_context: Context):
                             namespace_names.update(custom_namespace_names)
 
                         if len(namespace_names) == 0:
-                            logger.warning("Unable to determine any namespace names, so can't index any Kubernetes resources")
+                            logger.info("Unable to determine any namespace names, so can't index any Kubernetes resources")
                             continue
 
                         namespaces = dict()
@@ -895,7 +895,7 @@ def index(component_context: Context):
                             is_managed_cluster = cluster_name in cluster_lod_settings
                             if is_managed_cluster:
                                 if aks_explicit_namespace_names and namespace_name not in aks_explicit_namespace_names:
-                                    logger.info(f"Skipping {namespace_name} due to explicit namespace setting in workspaceInfo cloudConfig.azure.aksClusters.namespaces")
+                                    logger.debug(f"Skipping {namespace_name} due to explicit namespace setting in workspaceInfo cloudConfig.azure.aksClusters.namespaces")
                                     continue 
                                 
                                 # Enhanced LOD determination for managed (AKS/GKE/EKS) clusters with namespaceLODs support
@@ -917,10 +917,10 @@ def index(component_context: Context):
                                     namespace_lod = LevelOfDetail.construct_from_config(cluster_lod_settings.get(cluster_name, default_lod))
                                     lod_source = f"cluster '{cluster_name}' defaultNamespaceLOD"
                                 
-                                logger.info(f"Using {lod_source} for managed-cluster namespace '{namespace_name}': {namespace_lod}")
+                                logger.debug(f"Using {lod_source} for managed-cluster namespace '{namespace_name}': {namespace_lod}")
                             else:
                                 if kubernetes_explicit_namespace_names and namespace_name not in kubernetes_explicit_namespace_names:
-                                    logger.info(f"Skipping {namespace_name} due to explicit namespace setting in workspaceInfo cloudConfig.kubernetes.namespaces")
+                                    logger.debug(f"Skipping {namespace_name} due to explicit namespace setting in workspaceInfo cloudConfig.kubernetes.namespaces")
                                     continue
                                 
                                 # Enhanced LOD determination for non-AKS clusters
@@ -955,9 +955,9 @@ def index(component_context: Context):
                                         namespace_lod = default_lod  # Final fallback
                                     lod_source = f"context '{context_name}' defaultNamespaceLOD" if context_default_lod else "global defaultLOD"
                                 
-                                logger.info(f"Using {lod_source} for namespace '{namespace_name}': {namespace_lod}")
+                                logger.debug(f"Using {lod_source} for namespace '{namespace_name}': {namespace_lod}")
 
-                            logger.info(f"Cluster: {cluster_name}, Namespace: {namespace_name}, LOD: {namespace_lod}")
+                            logger.debug(f"Cluster: {cluster_name}, Namespace: {namespace_name}, LOD: {namespace_lod}")
 
                             try:
                                 # Prefer live Namespace object (annotations drive LOD overrides /
@@ -969,7 +969,7 @@ def index(component_context: Context):
                                 raw_resource = core_api_client.read_namespace(namespace_name)
                                 namespace_from_api = True
                             except ApiException as e:
-                                logger.info(
+                                logger.debug(
                                     f"Cannot read Namespace object '{namespace_name}' in cluster "
                                     f"'{cluster_name}' (status={e.status}); synthesizing stub and "
                                     f"continuing with namespaced resource scan. Error: {e}"
@@ -981,14 +981,14 @@ def index(component_context: Context):
                                 # **Always fetch annotations first**
                                 annotation_lod = get_lod_from_annotations(raw_resource, lod_annotations)
                                 if annotation_lod is not None:
-                                    logger.info(f"Overriding LOD for namespace '{namespace_name}' based on annotation: {annotation_lod}")
+                                    logger.debug(f"Overriding LOD for namespace '{namespace_name}' based on annotation: {annotation_lod}")
                                     namespace_lod = annotation_lod  # **Annotations override any config-based LOD**
 
                             # **Final Fallback** (if no valid LOD is set, use BASIC)
                             if namespace_lod is None:
                                 namespace_lod = LevelOfDetail.BASIC
 
-                            logger.info(f"Final LOD for namespace '{namespace_name}': {namespace_lod}")
+                            logger.debug(f"Final LOD for namespace '{namespace_name}': {namespace_lod}")
 
                             if namespace_lod == LevelOfDetail.NONE:
                                 continue  # Skip namespace if LOD is set to NONE
@@ -1031,10 +1031,10 @@ def index(component_context: Context):
                             )
 
                             if existing_namespace:
-                                logger.info(f"Namespace '{namespace_qualified_name}' already exists in registry from previous context. "
+                                logger.debug(f"Namespace '{namespace_qualified_name}' already exists in registry from previous context. "
                                            f"Current context '{context_name}' will update LOD to '{namespace_lod}' and process resources.")
                             else:
-                                logger.info(f"Adding new namespace '{namespace_qualified_name}' to registry from context '{context_name}' with LOD '{namespace_lod}'")
+                                logger.debug(f"Adding new namespace '{namespace_qualified_name}' to registry from context '{context_name}' with LOD '{namespace_lod}'")
 
                             namespace = registry.add_resource(
                                 KUBERNETES_PLATFORM,
@@ -1051,7 +1051,7 @@ def index(component_context: Context):
                         for namespace in namespaces.values():
                             namespace_qualified_name = namespace.qualified_name
                             namespace_name = namespace.name
-                            logger.info(f'Context "{context_name}" scanning for Kubernetes resources in namespace "{namespace_qualified_name}" with LOD:{namespace.lod}')
+                            logger.debug(f'Context "{context_name}" scanning for Kubernetes resources in namespace "{namespace_qualified_name}" with LOD:{namespace.lod}')
             
                             #
                             # Index Deployments, DaemonSets and StatefulSets (the common app Kinds)
@@ -1161,7 +1161,7 @@ def index(component_context: Context):
                                         service_qualified_name = get_qualified_name(namespace_name, service_name)
                                         ingresses_connected_services[service_qualified_name] = ingress
                             except ApiException as e:
-                                logger.info(f"Error scanning for Ingress instances; skipping and continuing; error: {e}")
+                                logger.debug(f"Error scanning for Ingress instances; skipping and continuing; error: {e}")
 
                             #
                             # Index the namespace services
@@ -1195,7 +1195,7 @@ def index(component_context: Context):
                                                                     service_attributes)
                                     services[service_qualified_name] = service
                             except ApiException as e:
-                                logger.info(f"Error scanning for Service instances; skipping and continuing; error: {e}")
+                                logger.debug(f"Error scanning for Service instances; skipping and continuing; error: {e}")
                             #
                             # Index the pvcs
                             #
@@ -1221,7 +1221,7 @@ def index(component_context: Context):
                                                                                   pvc_qualified_name,
                                                                                   pvc_attributes)
                             except ApiException as e:
-                                logger.info(f"Error scanning for PVC instances; skipping and continuing; error: {e}")
+                                logger.debug(f"Error scanning for PVC instances; skipping and continuing; error: {e}")
                             ## Dropping this for now since the granularity of pod discovery isn't something
                             ## we would typically add to a map.
                             #
@@ -1264,7 +1264,7 @@ def index(component_context: Context):
                                 # Should probably change the field in ResourceTypeSpec to be plural_name, since
                                 # it's really not the same as the kind field of the resource.
                                 plural_name = resource_type_spec.kind
-                                logger.info(f"Trying custom resource {plural_name}.{group}")
+                                logger.debug(f"Trying custom resource {plural_name}.{group}")
                                 if version:
                                     wildcard_spec = KubernetesResourceTypeSpec(KUBERNETES_PLATFORM,
                                                                                KubernetesResourceType.CUSTOM.value,
@@ -1357,8 +1357,10 @@ def index(component_context: Context):
                                                                                     custom_attributes)
                                 except ApiException as e:
                                     # Just log and continue, instead of raising a fatal exception.
-                                    logger.info(f"Error scanning for custom resource instances; skipping and continuing; "
+                                    logger.debug(f"Error scanning for custom resource instances; skipping and continuing; "
                                                 f"error: {e}, group={group}, kind={plural_name}")
+
+                        logger.info(f"Context '{context_name}' finished scanning resources across {len(namespaces)} namespace(s)")
 
                 except Exception as e:
                     # Handle cases where cluster_name or context_name might not be defined yet

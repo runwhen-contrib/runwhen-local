@@ -57,6 +57,65 @@ In some cases it may be helpful to add verbosity to the output, which can be ach
 <pre><code><strong>$ docker exec -w /workspace-builder -- RunWhenLocal ./run.sh --verbose
 </strong></code></pre>
 
+> Note: `DEBUG_LOGGING=true` now also supports per-module log level control. See [Structured JSON Logging](#structured-json-logging) and the [Logging reference](../configuration/logging.md).
+
+### Web UI Logs Tab
+
+The RunWhen Local Web UI includes a dedicated **Logs** tab (accessible at `/explorer/`) that provides a real-time view of the system's operations. This is often the fastest way to diagnose issues without needing to use `docker logs` or `kubectl logs`.
+
+Key features include:
+* **Level and Phase Filters**: Filter logs by severity (INFO, WARNING, ERROR) or by the specific discovery phase (Indexer, Enricher, Renderer, Workspace Builder).
+* **Template Error Highlighting**: If a renderer fails due to a Jinja2 template error, the Logs tab highlights the specific template path and line number.
+* **Recent Issues Card**: The home page of the Web UI features a "Recent Issues" card that surfaces the most critical log entries from the latest run.
+
+### Logs API
+
+For programmatic access to logs or integration with external monitoring tools, RunWhen Local exposes a REST API endpoint.
+
+**Endpoint**: `GET /explorer/api/logs`
+
+**Parameters**:
+* `level`: Filter by log level (e.g., `ERROR`, `WARNING`).
+* `phase`: Filter by discovery phase (e.g., `indexers`, `renderers`).
+* `limit`: The number of recent log entries to return (default is 100).
+
+Example request:
+```bash
+curl "http://localhost:8081/explorer/api/logs?level=ERROR&limit=10"
+```
+
+### Structured JSON Logging
+
+RunWhen Local uses structured JSON logging on the console **by default**, ideal for ingestion into log management systems like ELK, Splunk, or CloudWatch.
+
+To switch back to plain-text format, set:
+```bash
+LOG_FORMAT=simple
+```
+
+Each log line is a single JSON object with the following schema:
+```json
+{
+  "timestamp": "2024-03-20T15:04:05Z",
+  "level": "ERROR",
+  "message": "Failed to list resources",
+  "logger": "workspace_builder.indexers.kubernetes",
+  "module": "INDEXERS"
+}
+```
+
+#### Per-Module Log Levels
+
+You can control the verbosity of specific components using module-specific environment variables. This allows you to enable `DEBUG` logging for a problematic indexer while keeping the rest of the system at `INFO` level.
+
+Available environment variables:
+* `LOG_LEVEL_INDEXERS`
+* `LOG_LEVEL_ENRICHERS`
+* `LOG_LEVEL_RENDERERS`
+* `LOG_LEVEL_WORKSPACE_BUILDER`
+
+Valid values are `DEBUG`, `INFO`, `WARNING`, `ERROR`, and `CRITICAL`.
+
 #### Getting Logs while Running in Kubernetes
 
 As with any pod in Kubernetes, you can obtain the logs with the `kubectl` command:

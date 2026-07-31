@@ -350,7 +350,7 @@ def persist_sqlite_store(context: "Context", db_path: str | None = None) -> None
 
     registry = context.get_property(REGISTRY_PROPERTY_NAME)
     if registry is None:
-        logger.warning("persist_sqlite_store: no registry on context; skipping")
+        logger.info("persist_sqlite_store: no registry on context; skipping")
         return
 
     workspace_name = context.get_setting(WORKSPACE_NAME_SETTING) or "workspace"

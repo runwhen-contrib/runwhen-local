@@ -1,6 +1,7 @@
 import base64
 import io
 import json
+import logging
 import os
 import sys
 import tarfile
@@ -21,6 +22,20 @@ from utils import get_request_verify
 from azure_utils import generate_kubeconfig_for_aks
 from aws_utils import generate_kubeconfig_for_eks
 from gcp_utils import generate_kubeconfig_for_gke
+
+logger = logging.getLogger(__name__)
+
+# Use structured JSON formatting, same as the server process, so CLI output
+# is machine-readable and consistent with the workspace-builder logs.
+try:
+    from workspace_builder.log_formatter import StructuredJsonFormatter
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(StructuredJsonFormatter())
+    logging.getLogger().handlers.clear()
+    logging.getLogger().addHandler(_handler)
+    logging.getLogger().setLevel(logging.INFO)
+except Exception:
+    pass  # keep default plain-text logging if the formatter can't be loaded
 
 
 SERVICE_NAME = "Workspace Builder"
@@ -82,7 +97,7 @@ def call_rest_service_with_retries(rest_call_proc, max_attempts=10, retry_delay=
             if attempts == max_attempts:
                 fatal("Workspace builder REST service unavailable. "
                       "You must run it in a container before executing this tool.")
-            print("Workspace builder REST service isn't available yet; waiting and trying again.")
+            logger.info("Workspace builder REST service isn't available yet; waiting and trying again.")
             time.sleep(retry_delay)
 
 def _projected_service_account_token() -> str:
@@ -181,9 +196,9 @@ def _long_lived_service_account_token(
                 return base64.b64decode(token_b64).decode("utf-8")
             last_error = f"long-lived token secret {token_secret_name} has no token data yet"
         if attempt < max_attempts:
-            print(
-                f"Long-lived token not ready yet ({last_error}); retrying "
-                f"({attempt}/{max_attempts - 1})..."
+            logger.info(
+                "Long-lived token not ready yet (%s); retrying (%s/%s)...",
+                last_error, attempt, max_attempts - 1
             )
             time.sleep(retry_delay)
     raise RuntimeError(last_error)
@@ -203,16 +218,16 @@ def _resolve_kubeconfig_token(namespace: str, create_secret: bool):
     try:
         service_account_name = _service_account_name_for_kubeconfig_secret()
         token = _long_lived_service_account_token(namespace, service_account_name)
-        print(
-            f"Using long-lived service account token from secret/{service_account_name}-token "
-            "for runner kubeconfig secret"
+        logger.info(
+            "Using long-lived service account token from secret/%s-token "
+            "for runner kubeconfig secret", service_account_name
         )
         return token, True
     except (RuntimeError, ValueError) as exc:
-        print(
-            f"Warning: could not obtain a long-lived service account token "
-            f"({exc}); using the pod-bound projected token. This token is "
-            "invalidated when the workspace-builder pod restarts."
+        logger.warning(
+            "Could not obtain a long-lived service account token (%s); "
+            "using the pod-bound projected token. This token is invalidated "
+            "when the workspace-builder pod restarts.", exc
         )
         return _projected_service_account_token(), False
 
@@ -238,7 +253,7 @@ def _publish_kubeconfig_secret(namespace: str, secret_name: str, kubeconfig_b64:
     if result.returncode == 0:
         existing_b64 = result.stdout.strip()
         if existing_b64 == kubeconfig_b64:
-            print("Kubeconfig secret unchanged; skipping update.")
+            logger.info("Kubeconfig secret unchanged; skipping update.")
             return
         delete_cmd = ["kubectl", "delete", "secret", secret_name, "--namespace", namespace]
         subprocess.run(delete_cmd, check=True, text=True)
@@ -257,7 +272,7 @@ def _publish_kubeconfig_secret(namespace: str, secret_name: str, kubeconfig_b64:
     }
     create_cmd = ["kubectl", "create", "-f", "-"]
     subprocess.run(create_cmd, input=yaml.dump(secret_yaml), check=True, text=True)
-    print("Kubeconfig secret created successfully.")
+    logger.info("Kubeconfig secret created successfully.")
 
 
 def create_kubeconfig():
@@ -318,8 +333,8 @@ def create_kubeconfig():
         # cached runner auth on the next restart. Leave it untouched and keep
         # using the pod-bound token only for this pod's own discovery below.
         if exists and not token_is_long_lived:
-            print(
-                "Warning: keeping the existing kubeconfig secret unchanged; could "
+            logger.warning(
+                "Keeping the existing kubeconfig secret unchanged; could "
                 "not obtain a long-lived service account token this run, and "
                 "publishing a pod-bound token would break runner auth after a "
                 "workspace-builder restart."
@@ -354,9 +369,9 @@ def merge_kubeconfigs(kubeconfig_paths, output_path):
     if merged_config:
         with open(output_path, 'w') as stream:
             yaml.dump(merged_config, stream)
-        print(f"Merged kubeconfig written to {output_path}")
+        logger.info("Merged kubeconfig written to %s", output_path)
     else:
-        print("No valid kubeconfig files were found to merge.")
+        logger.info("No valid kubeconfig files were found to merge.")
 
 def clear_stale_kubeconfig_artifacts(cloud_config):
     """Remove kubeconfig artifacts this tool generates from a previous run.
@@ -382,9 +397,9 @@ def clear_stale_kubeconfig_artifacts(cloud_config):
             try:
                 os.remove(stale_path)
                 removed.append(stale_path)
-                print(f"Removed stale kubeconfig artifact from a previous run: {stale_path}")
+                logger.info("Removed stale kubeconfig artifact from a previous run: %s", stale_path)
             except OSError as e:
-                print(f"Warning: could not remove stale kubeconfig {stale_path}: {e}")
+                logger.warning("Could not remove stale kubeconfig %s: %s", stale_path, e)
     return removed
 
 
@@ -504,7 +519,7 @@ def main():
         # a case where there's some final cleanup we want to do. But for now that's not an issue.
         check_rest_service_error(response, args.command, args.verbose)
         response_data = response.json()
-        print(f"Workspace builder version: {response_data.get('version')}")
+        logger.info("Workspace builder version: %s", response_data.get('version'))
         wb_version=response_data.get('version')
         # TBD Format/print more of the info from the response
         return
@@ -514,7 +529,7 @@ def main():
     response = call_rest_service_with_retries(lambda: requests.get(info_url))
     check_rest_service_error(response, args.command, args.verbose)
     response_data = response.json()
-    print(f"Workspace builder version: {response_data.get('version')}")
+    logger.info("Workspace builder version: %s", response_data.get('version'))
     wb_version=response_data.get('version')
 
     # First, initialize request data setting from the explicit command line args
@@ -531,7 +546,7 @@ def main():
     base_directory = args.base_directory
     if not os.path.exists(base_directory):
         fatal(f'Base directory not found: {base_directory}')
-    print(f"Using base directory: {base_directory}")
+    logger.info("Using base directory: %s", base_directory)
     # Initialize the settings that don't have corresponding command line arguments
     upload_token = None
     namespace_lods = None
@@ -710,15 +725,16 @@ def main():
                 try:
                     generate_kubeconfig_for_aks(aks_clusters, workspace_info)
                     azure_kubeconfig_path = os.path.expanduser("~/.kube/azure-kubeconfig")
-                    print(f"Kubeconfig generated and saved to {azure_kubeconfig_path}")
+                    logger.info("Kubeconfig generated and saved to %s", azure_kubeconfig_path)
                 except Exception as e:
-                    print(f"Error generating kubeconfig for AKS clusters: {e}")
+                    logger.error("Error generating kubeconfig for AKS clusters: %s", e)
                     azure_kubeconfig_path = None  # Ensure path is None if generation fails
             else:
-                print("AKS clusters not found or improperly formatted, and auto-discovery is disabled. Skipping Kubernetes discovery for AKS.")
+                logger.info("AKS clusters not found or improperly formatted, and auto-discovery is disabled. "
+                             "Skipping Kubernetes discovery for AKS.")
 
     if not azure_config:
-        print("Azure configuration not found in workspace_info.")
+        logger.info("Azure configuration not found in workspace_info.")
 
     # Check AWS EKS configuration
     aws_config = None
@@ -741,20 +757,21 @@ def main():
                     # Only use the path if the file was actually created
                     if os.path.exists(eks_kubeconfig_path_candidate):
                         eks_kubeconfig_path = eks_kubeconfig_path_candidate
-                        print(f"EKS kubeconfig generated and saved to {eks_kubeconfig_path}")
+                        logger.info("EKS kubeconfig generated and saved to %s", eks_kubeconfig_path)
                     else:
-                        print(f"Warning: EKS kubeconfig was not created at {eks_kubeconfig_path_candidate}")
+                        logger.warning("EKS kubeconfig was not created at %s", eks_kubeconfig_path_candidate)
                         eks_kubeconfig_path = None
                 except Exception as e:
-                    print(f"Error generating kubeconfig for EKS clusters: {e}")
+                    logger.error("Error generating kubeconfig for EKS clusters: %s", e)
                     import traceback
                     traceback.print_exc()
                     eks_kubeconfig_path = None
             else:
-                print("EKS clusters not found or improperly formatted, and auto-discovery is disabled. Skipping Kubernetes discovery for EKS.")
+                logger.info("EKS clusters not found or improperly formatted, and auto-discovery is disabled. "
+                             "Skipping Kubernetes discovery for EKS.")
     
     if not aws_config:
-        print("AWS configuration not found in workspace_info.")
+        logger.info("AWS configuration not found in workspace_info.")
 
     # Check GCP GKE configuration
     gcp_config = None
@@ -777,17 +794,18 @@ def main():
                     # Only use the path if the file was actually created
                     if os.path.exists(gke_kubeconfig_path_candidate):
                         gke_kubeconfig_path = gke_kubeconfig_path_candidate
-                        print(f"GKE kubeconfig generated and saved to {gke_kubeconfig_path}")
+                        logger.info("GKE kubeconfig generated and saved to %s", gke_kubeconfig_path)
                     else:
-                        print(f"Warning: GKE kubeconfig was not created at {gke_kubeconfig_path_candidate}")
+                        logger.warning("GKE kubeconfig was not created at %s", gke_kubeconfig_path_candidate)
                         gke_kubeconfig_path = None
                 except Exception as e:
-                    print(f"Error generating kubeconfig for GKE clusters: {e}")
+                    logger.error("Error generating kubeconfig for GKE clusters: %s", e)
                     import traceback
                     traceback.print_exc()
                     gke_kubeconfig_path = None
             else:
-                print("GKE clusters not found or improperly formatted, and auto-discovery is disabled. Skipping Kubernetes discovery for GKE.")
+                logger.info("GKE clusters not found or improperly formatted, and auto-discovery is disabled. "
+                             "Skipping Kubernetes discovery for GKE.")
 
     # Check Kubernetes configuration in cloudConfig
     kubernetes_config = cloud_config.get('kubernetes') if cloud_config else None
@@ -795,32 +813,32 @@ def main():
 
     # Skip Kubernetes setup if kubernetes_config is None or doesn't exist
     if not kubernetes_config:
-        print("Skipping Kubernetes setup as cloudConfig.kubernetes is missing or null.")
+        logger.info("Skipping Kubernetes setup as cloudConfig.kubernetes is missing or null.")
         final_kubeconfig_path = None
     else:
         # Proceed with Kubernetes configuration if valid
-        print("Processing Kubernetes configuration...")
+        logger.info("Processing Kubernetes configuration...")
         kubeconfig_path = kubernetes_config.get('kubeconfigFile')
         in_cluster_auth_enabled = kubernetes_config.get('inClusterAuth', False)
 
         if kubeconfig_path and os.path.exists(kubeconfig_path):
-            print(f"Using specified kubeconfig path: {kubeconfig_path}")
+            logger.info("Using specified kubeconfig path: %s", kubeconfig_path)
             final_kubeconfig_path = kubeconfig_path
         elif in_cluster_auth_enabled and os.getenv('KUBERNETES_SERVICE_HOST'):
-            print("Creating in-cluster kubeconfig...")
+            logger.info("Creating in-cluster kubeconfig...")
             kubeconfig_data = create_kubeconfig()
             in_cluster_kubeconfig_file = os.path.join(base_directory, "in_cluster_kubeconfig.yaml")
             
             with open(in_cluster_kubeconfig_file, "w") as f:
                 f.write(yaml.dump(kubeconfig_data))
-            print(f"In-cluster kubeconfig created at {in_cluster_kubeconfig_file}")
+            logger.info("In-cluster kubeconfig created at %s", in_cluster_kubeconfig_file)
 
             kubeconfig_path = os.path.join(base_directory, "kubeconfig")
             shutil.copyfile(in_cluster_kubeconfig_file, kubeconfig_path)
             final_kubeconfig_path = kubeconfig_path
-            print(f"In-cluster Kubernetes auth configured with kubeconfig at {final_kubeconfig_path}")
+            logger.info("In-cluster Kubernetes auth configured with kubeconfig at %s", final_kubeconfig_path)
         else:
-            print("No valid kubeconfig found and inClusterAuth is disabled. Skipping Kubernetes setup.")
+            logger.info("No valid kubeconfig found and inClusterAuth is disabled. Skipping Kubernetes setup.")
             final_kubeconfig_path = None
 
     # Continue only if valid kubeconfig paths are found
@@ -831,21 +849,21 @@ def main():
         if ((isinstance(aks_clusters, list) and len(aks_clusters) > 0) or auto_discover) and azure_kubeconfig_path: 
             if os.path.exists(azure_kubeconfig_path):
                 kubeconfigs_to_merge.append(azure_kubeconfig_path)
-                print(f"Merging azure kubeconfig into {final_kubeconfig_path}...")
+                logger.info("Merging azure kubeconfig into %s...", final_kubeconfig_path)
 
         if ((isinstance(eks_clusters, list) and len(eks_clusters) > 0) or eks_auto_discover) and eks_kubeconfig_path:
             if os.path.exists(eks_kubeconfig_path):
                 kubeconfigs_to_merge.append(eks_kubeconfig_path)
-                print(f"Merging EKS kubeconfig into {final_kubeconfig_path}...")
+                logger.info("Merging EKS kubeconfig into %s...", final_kubeconfig_path)
 
         if ((isinstance(gke_clusters, list) and len(gke_clusters) > 0) or gke_auto_discover) and gke_kubeconfig_path:
             if os.path.exists(gke_kubeconfig_path):
                 kubeconfigs_to_merge.append(gke_kubeconfig_path)
-                print(f"Merging GKE kubeconfig into {final_kubeconfig_path}...")
+                logger.info("Merging GKE kubeconfig into %s...", final_kubeconfig_path)
 
         if kubeconfig_path and os.path.exists(kubeconfig_path):
             kubeconfigs_to_merge.append(kubeconfig_path)
-            print(f"Merging user-provided kubeconfig into {final_kubeconfig_path}...")
+            logger.info("Merging user-provided kubeconfig into %s...", final_kubeconfig_path)
 
         if kubeconfigs_to_merge:
             merge_kubeconfigs(kubeconfigs_to_merge, final_kubeconfig_path)
@@ -853,10 +871,10 @@ def main():
             # Nothing was generated or provided this run. Do NOT fall back to a
             # possibly-stale ~/.kube/config left over from a previous run --
             # skip Kubernetes indexing entirely instead.
-            print("No valid kubeconfigs found to merge; skipping Kubernetes discovery.")
+            logger.info("No valid kubeconfigs found to merge; skipping Kubernetes discovery.")
             final_kubeconfig_path = None
     else:
-        print("Skipping Kubernetes discovery due to missing kubeconfig, AKS clusters, EKS clusters, or GKE clusters configuration.")
+        logger.info("Skipping Kubernetes discovery due to missing kubeconfig, AKS clusters, EKS clusters, or GKE clusters configuration.")
         final_kubeconfig_path = None 
 
     if final_kubeconfig_path:
@@ -869,9 +887,9 @@ def main():
         try:
             transform_client_cloud_config(base_directory, cloud_config)
         except AttributeError as e:
-            print(f"Error in transforming cloud configuration: {e}")
+            logger.error("Error in transforming cloud configuration: %s", e)
     else:
-        print("Cloud configuration missing. Skipping client cloud configuration transformation.")
+        logger.info("Cloud configuration missing. Skipping client cloud configuration transformation.")
     # Add any custom definitions that were made as command line arguments to any custom
     # settings that came from the workspace info file
     if args.custom_definitions:
@@ -906,7 +924,7 @@ def main():
         # If a map customization rules path was specified, then encode the contents of
         # the file or directory and add it as a request data field.
         if map_customization_rules_path:
-            print(f"Using Map Customization Rules Path: {map_customization_rules_path}")
+            logger.info("Using Map Customization Rules Path: %s", map_customization_rules_path)
             if os.path.exists(map_customization_rules_path):
                 if os.path.isdir(map_customization_rules_path):
                     tar_bytes = io.BytesIO()
@@ -933,12 +951,12 @@ def main():
             fatal("Error: at least one component must be specified to run")
         request_data['components'] = args.components
         if final_kubeconfig_path and os.path.exists(final_kubeconfig_path):
-            print(f"Indexing Kubernetes with kubeconfig from {final_kubeconfig_path}")
+            logger.info("Indexing Kubernetes with kubeconfig from %s", final_kubeconfig_path)
             kubeconfig_data = read_file(final_kubeconfig_path, "rb")
             encoded_kubeconfig_data = base64.b64encode(kubeconfig_data).decode('utf-8')
             request_data['kubeconfig'] = encoded_kubeconfig_data
         else:
-            print("Kubernetes discovery not completed due to missing or invalid kubeconfig.")
+            logger.info("Kubernetes discovery not completed due to missing or invalid kubeconfig.")
         if wb_version: 
             request_data['wbVersion'] = wb_version
         if workspace_name:
@@ -1036,8 +1054,7 @@ def main():
                 from indexers.workspace_artifacts_tar import count_slxs_from_db_file
                 slx_count = count_slxs_from_db_file(store_db_path, workspace_name)
             except Exception as e:
-                print(f"WARNING: could not count SLXs from resource store DB ({e}); "
-                      "falling back to directory scan")
+                logger.warning("could not count SLXs from resource store DB: %s; falling back to directory scan", e)
                 slx_count = None
         if slx_count is None:
             slxs_path = os.path.join(output_path, "workspaces", workspace_name, "slxs")
@@ -1045,9 +1062,9 @@ def main():
             if os.path.exists(slxs_path) and os.path.isdir(slxs_path):
                 slx_count = len([name for name in os.listdir(slxs_path) if os.path.isdir(os.path.join(slxs_path, name))])
 
-        print(f"{message} Total SLXs: {slx_count}")
+        logger.info("%s Total SLXs: %s", message, slx_count)
         for warning in warnings:
-            print("WARNING: " + warning)
+            logger.warning(warning)
 
 
         # Note: Handling of the upload flag is done below, so that the code can be shared
@@ -1079,6 +1096,7 @@ def main():
         return
 
     if args.upload_data or args.command == UPLOAD_COMMAND:
+        upload_start = time.time()
         # For uploading we only send the workload subdirectory not the entire
         # contents of the output directory. So access the workload directory
         # and archive the data to be included in upload data.
@@ -1095,8 +1113,7 @@ def main():
                 from indexers.workspace_artifacts_tar import build_upload_tar_gz_from_db_file
                 archive_bytes = build_upload_tar_gz_from_db_file(store_db_path, workspace_name)
             except Exception as e:
-                print(f"WARNING: could not build upload archive from resource store DB ({e}); "
-                      "falling back to on-disk archive")
+                logger.warning("could not build upload archive from resource store DB: %s; falling back to on-disk archive", e)
                 archive_bytes = None
 
         if archive_bytes is None:
@@ -1177,7 +1194,7 @@ def main():
                 fatal(f"Error uploading map builder data; Invalid JSON response: {e}; "
                       f"status={response.status_code}; Response body: {response.text[:500]}")
 
-        print("Workspace builder data uploaded successfully.")
+        logger.info("Workspace builder data uploaded successfully in %.1fs", time.time() - upload_start)
 
 
 if __name__ == "__main__":

@@ -20,16 +20,16 @@ def get_subscription_id(credential):
     try:
         subscription_client = SubscriptionClient(credential)
         subscription = next(subscription_client.subscriptions.list())
-        print(f"Successfully retrieved subscription ID: {mask_string(subscription.subscription_id)}")
+        logger.info("Successfully retrieved subscription ID: %s", mask_string(subscription.subscription_id))
         return subscription.subscription_id
     except StopIteration:
-        print("Error: No subscriptions found for the provided credentials.")
+        logger.error("No subscriptions found for the provided credentials.")
         sys.exit(1)
     except AzureError as e:
-        print(f"Azure error occurred while retrieving subscription ID: {e}")
+        logger.error("Azure error occurred while retrieving subscription ID: %s", e)
         sys.exit(1)
     except Exception as e:
-        print(f"Unexpected error occurred while retrieving subscription ID: {e}")
+        logger.error("Unexpected error occurred while retrieving subscription ID: %s", e)
         sys.exit(1)
 
 
@@ -80,11 +80,12 @@ def get_azure_credential(workspace_info):
     sp_secret_name = azure_config.get('spSecretName')
 
     if tenant_id and client_id and client_secret:
-        print("Using explicit tenant client configuration from workspaceInfo.yaml")
+        logger.info("Using explicit tenant client configuration from workspaceInfo.yaml")
         subscription_id = azure_config.get('subscriptionId')
         auth_type = "azure_explicit"
         if not subscription_id:
-            print("Warning: subscriptionId not found in workspaceInfo.yaml. Attempting to retrieve it using service principal credentials.")
+            logger.warning("subscriptionId not found in workspaceInfo.yaml. "
+                            "Attempting to retrieve it using service principal credentials.")
             credential = ClientSecretCredential(tenant_id=tenant_id, client_id=client_id, client_secret=client_secret)
             subscription_id = get_subscription_id(credential)
         return ClientSecretCredential(tenant_id=tenant_id, client_id=client_id, client_secret=client_secret), subscription_id, client_id, client_secret, auth_type, auth_secret
@@ -109,18 +110,18 @@ def get_azure_credential(workspace_info):
 
         return ClientSecretCredential(tenant_id=tenant_id, client_id=client_id, client_secret=client_secret), subscription_id, client_id, client_secret, auth_type, auth_secret
 
-    print("Using managed service identity for authentication")
+    logger.info("Using managed service identity for authentication")
     try:
         credential = DefaultAzureCredential()
         subscription_id = azure_config.get('subscriptionId')
         auth_type = "azure_managed_identity"
         if not subscription_id:
-            print("Subscription ID not provided in workspaceInfo.yaml. Retrieving using managed identity.")
+            logger.info("Subscription ID not provided in workspaceInfo.yaml. Retrieving using managed identity.")
             subscription_id = get_subscription_id(credential)
-        logger.info(f"Found Azure Subscription ID: {mask_string(subscription_id)}")
+        logger.info("Found Azure Subscription ID: %s", mask_string(subscription_id))
         return credential, subscription_id, None, None, auth_type, auth_secret
     except Exception as e:
-        print(f"Failed to authenticate using managed identity: {e}")
+        logger.error("Failed to authenticate using managed identity: %s", e)
         sys.exit(1)
 
 def enumerate_subscriptions(credential):
@@ -188,7 +189,7 @@ def discover_aks_clusters(credential, discovery_config=None):
                             logger.warning("Skipping resource group config without name")
                             continue
                             
-                        logger.info(f"Discovering AKS clusters in resource group: {rg_name} with LOD: {rg_lod}")
+                        logger.debug(f"Discovering AKS clusters in resource group: {rg_name} with LOD: {rg_lod}")
                         try:
                             clusters = aks_client.managed_clusters.list_by_resource_group(rg_name)
                             for cluster in clusters:
@@ -199,7 +200,7 @@ def discover_aks_clusters(credential, discovery_config=None):
                                     'server': None,  # Will be retrieved during kubeconfig generation
                                     'defaultNamespaceLOD': rg_lod
                                 })
-                                logger.info(f"Discovered AKS cluster: {cluster.name} in {rg_name} with LOD: {rg_lod}")
+                                logger.debug(f"Discovered AKS cluster: {cluster.name} in {rg_name} with LOD: {rg_lod}")
                         except AzureError as e:
                             logger.warning(f"Error discovering clusters in resource group {rg_name}: {e}")
                 else:
@@ -215,7 +216,7 @@ def discover_aks_clusters(credential, discovery_config=None):
                                 'server': None,  # Will be retrieved during kubeconfig generation
                                 'defaultNamespaceLOD': subscription_default_lod
                             })
-                            logger.info(f"Discovered AKS cluster: {cluster.name} in {cluster.id.split('/')[4]} with LOD: {subscription_default_lod}")
+                            logger.debug(f"Discovered AKS cluster: {cluster.name} in {cluster.id.split('/')[4]} with LOD: {subscription_default_lod}")
                     except AzureError as e:
                         logger.warning(f"Error discovering clusters in subscription {mask_string(subscription_id)}: {e}")
                         
@@ -227,7 +228,7 @@ def discover_aks_clusters(credential, discovery_config=None):
         accessible_subscriptions = enumerate_subscriptions(credential)
         
         for subscription_id in accessible_subscriptions:
-            logger.info(f"Discovering AKS clusters in subscription {mask_string(subscription_id)} with LOD: {global_default_lod}")
+            logger.debug(f"Discovering AKS clusters in subscription {mask_string(subscription_id)} with LOD: {global_default_lod}")
             try:
                 aks_client = ContainerServiceClient(credential, subscription_id=subscription_id)
                 clusters = aks_client.managed_clusters.list()
@@ -240,7 +241,7 @@ def discover_aks_clusters(credential, discovery_config=None):
                         'server': None,  # Will be retrieved during kubeconfig generation
                         'defaultNamespaceLOD': global_default_lod
                     })
-                    logger.info(f"Discovered AKS cluster: {cluster.name} in {cluster.id.split('/')[4]} with LOD: {global_default_lod}")
+                    logger.debug(f"Discovered AKS cluster: {cluster.name} in {cluster.id.split('/')[4]} with LOD: {global_default_lod}")
                     
             except AzureError as e:
                 logger.warning(f"Error discovering clusters in subscription {mask_string(subscription_id)}: {e}")
@@ -292,7 +293,7 @@ def generate_kubeconfig_for_aks(clusters, workspace_info):
         # Determine subscriptions to check for this cluster
         subscription_ids_to_check = [specified_subscription_id] if specified_subscription_id else accessible_subscriptions
         for sub_id in subscription_ids_to_check:
-            logger.info(f"Checking subscription {sub_id} for cluster {cluster_name} in resource group {resource_group_name}")
+            logger.debug(f"Checking subscription {sub_id} for cluster {cluster_name} in resource group {resource_group_name}")
             try:
                 aks_client = ContainerServiceClient(credential, subscription_id=sub_id)
                 
@@ -308,7 +309,7 @@ def generate_kubeconfig_for_aks(clusters, workspace_info):
                         cluster_entry['cluster']['server'] = server_url
 
                 # Add resource_group to the "workspace-builder" extension
-                logger.info(f"Adding resource_group to workspace-builder extension for cluster: {cluster_name}")
+                logger.debug(f"Adding resource_group to workspace-builder extension for cluster: {cluster_name}")
                 for cluster_entry in kubeconfig_yaml['clusters']:
                     if 'extensions' not in cluster_entry['cluster']:
                         cluster_entry['cluster']['extensions'] = []
@@ -327,7 +328,7 @@ def generate_kubeconfig_for_aks(clusters, workspace_info):
                     # Add defaultNamespaceLOD if it exists in the cluster config
                     if 'defaultNamespaceLOD' in cluster:
                         extension_data['defaultNamespaceLOD'] = cluster['defaultNamespaceLOD']
-                        logger.info(f"Adding defaultNamespaceLOD to extension for cluster '{cluster_name}': {cluster['defaultNamespaceLOD']}")
+                        logger.debug(f"Adding defaultNamespaceLOD to extension for cluster '{cluster_name}': {cluster['defaultNamespaceLOD']}")
                     
                     cluster_entry['cluster']['extensions'].append({
                         'name': 'workspace-builder',
@@ -343,11 +344,11 @@ def generate_kubeconfig_for_aks(clusters, workspace_info):
                     combined_kubeconfig['current-context'] = kubeconfig_yaml['contexts'][0]['name']
                     logger.info(f"Setting current context to: {combined_kubeconfig['current-context']}")
 
-                logger.info(f"Successfully retrieved kubeconfig for cluster {cluster_name} in subscription {sub_id}")
+                logger.debug(f"Successfully retrieved kubeconfig for cluster {cluster_name} in subscription {sub_id}")
                 break  # Exit the loop once the cluster is found in a subscription
 
             except AzureError as e:
-                logger.info(f"Cluster {cluster_name} not found in subscription {sub_id} or error occurred: {e}")
+                logger.debug(f"Cluster {cluster_name} not found in subscription {sub_id} or error occurred: {e}")
 
         if not found_cluster:
             logger.error(f"Cluster {cluster_name} in resource group {resource_group_name} not found in any accessible subscriptions.")
