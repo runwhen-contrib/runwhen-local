@@ -11,7 +11,7 @@ from exceptions import (
     WorkspaceBuilderUserException,
     INVALID_GIT_REPO_MESSAGE
 )
-from name_utils import make_qualified_slx_name, make_slx_name, make_slx_name_and_qualified, shorten_name
+from name_utils import make_qualified_slx_name, make_slx_name, make_slx_name_and_qualified, shorten_name, matches_namespace
 from git_utils import (
     get_repo_name,
     get_repo_url_with_auth,
@@ -226,6 +226,45 @@ class NameUtilsTest(TestCase):
         # For example, "without-any-hash" should NOT become "without--any-hash" 
         # (incorrectly preserving "-any-hash" as if it were a hash suffix)
         self.assertNotIn('--', directory_name, "Should not have double dashes from incorrect hash detection")
+
+    def test_matches_namespace_exact(self):
+        """Exact names match, non-matching names do not."""
+        self.assertTrue(matches_namespace("prod", ["prod"]))
+        self.assertTrue(matches_namespace("staging", ["prod", "staging", "dev"]))
+        self.assertFalse(matches_namespace("qa", ["prod", "staging", "dev"]))
+
+    def test_matches_namespace_regex(self):
+        """Regex patterns match using fullmatch."""
+        self.assertTrue(matches_namespace("prod-us", ["prod-.*"]))
+        self.assertTrue(matches_namespace("dev-cluster", ["^dev-.*"]))
+        self.assertTrue(matches_namespace("kube-system", [".*-system$"]))
+        self.assertFalse(matches_namespace("qa-env", ["prod-.*", "staging-.*"]))
+
+    def test_matches_namespace_mixed(self):
+        """Mixed exact + regex patterns both work."""
+        self.assertTrue(matches_namespace("default", ["prod-.*", "default"]))
+        self.assertTrue(matches_namespace("prod-us", ["prod-.*", "default"]))
+        self.assertFalse(matches_namespace("qa-env", ["prod-.*", "default"]))
+
+    def test_matches_namespace_alternation(self):
+        """Regex alternation matches either branch."""
+        self.assertTrue(matches_namespace("dev-us", ["(dev|staging)-.*"]))
+        self.assertTrue(matches_namespace("staging-eu", ["(dev|staging)-.*"]))
+        self.assertFalse(matches_namespace("prod-us", ["(dev|staging)-.*"]))
+
+    def test_matches_namespace_empty(self):
+        """Empty or None patterns lists allow all namespaces."""
+        self.assertTrue(matches_namespace("anything", []))
+        self.assertTrue(matches_namespace("anything", None))
+
+    def test_matches_namespace_empty_string(self):
+        """Empty string in patterns list does not match everything."""
+        self.assertFalse(matches_namespace("anything", [""]))
+
+    def test_matches_namespace_escaped_dot(self):
+        """Escaped dot in pattern matches literal dot."""
+        self.assertTrue(matches_namespace("prod.us", [r"prod\.us"]))
+
 
 class RepoUtilsTest(TestCase):
 
