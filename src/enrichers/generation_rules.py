@@ -414,6 +414,14 @@ class SLX:
 
     def __init__(self, slx_config: dict[str, Any]):
         self.base_name = slx_config['baseName']
+        if not self.base_name:
+            logger.warning(
+                "SLX generation rule has empty or missing baseName; this will cause "
+                "SLX name collisions when multiple rules target the same resource "
+                "(only one SLX will survive per resource). "
+                "qualifiers=%s",
+                slx_config.get('qualifiers', [])
+            )
         shortened_base_name = slx_config.get('shortenedBaseName', self.base_name)
         base_name_length_limit = 15
         if len(shortened_base_name) > base_name_length_limit:
@@ -963,6 +971,17 @@ def collect_emitted_slxs(generation_rule_info: GenerationRuleInfo,
                     # Nothing else to do – keep the originally stored SLXInfo so we don't
                     # overwrite fields like level_of_detail that might have been resolved
                     # on the first encounter.
+                    logger.warning(
+                        "SLX full_name collision detected for resource '%s': "
+                        "full_name='%s' already exists (base_name='%s'). "
+                        "Incoming SLX (base_name='%s') is NOT replacing the existing entry. "
+                        "If base_name is empty or identical across generation rules, only "
+                        "one SLX will survive per resource.",
+                        resource.name,
+                        slx_info.full_name,
+                        existing_slx_info.base_name,
+                        slx_info.base_name,
+                    )
                     logger.debug(
                         f"DEBUG: Collect Emitted SLXs: aggregated child resource '{resource.name}' into existing SLX {existing_slx_info.full_name}"
                     )
@@ -995,6 +1014,14 @@ def assign_slx_names(slxs: dict[str, SLXInfo], workspace_name):
             # conflict occurred (e.g. long common prefix in the qualifier value) and then apply
             # smarter shortening logic to ensure that the shortened names are unique.
             # count_chars = len(f"{count+1}")
+            logger.warning(
+                "SLX shortened-name collision detected: %d SLXs share the same "
+                "qualified name '%s'. Disambiguating by appending incrementing integers. "
+                "Colliding base_names: %s",
+                count,
+                shortened_name,
+                [s.base_name for s in slx_list],
+            )
             for i, slx_info in enumerate(slx_list):
                 # IMPORTANT: Use shortened_base_name, not base_name, to keep qualified names short
                 # Using base_name here was a bug that caused qualified names to exceed expected length
