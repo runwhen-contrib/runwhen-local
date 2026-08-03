@@ -43,6 +43,7 @@ from enrichers.generation_rule_types import LevelOfDetail
 from enrichers.generation_rules import DEFAULT_LOD_SETTING
 from .kubetypes import KUBERNETES_PLATFORM, KubernetesResourceType, KubernetesResourceTypeSpec
 from resources import Registry, REGISTRY_PROPERTY_NAME
+from name_utils import matches_namespace
 from . import kubeapi_parsers
 from .common import CLOUD_CONFIG_SETTING
 from utils import write_file
@@ -398,6 +399,7 @@ def index(component_context: Context):
             kubernetes_settings: Optional[dict[str, Any]] = cloud_config_settings.get("kubernetes")
             kube_context_lod_settings = {}
             kube_context_namespace_lods = {}  # Store per-context namespaceLODs
+            kube_context_namespaces = {}  # Per-context namespace discovery filters
 
 
             if kubernetes_settings:
@@ -415,6 +417,11 @@ def index(component_context: Context):
                                 logger.info(f"Loaded namespaceLODs for context '{context_name}': {context_namespace_lods}")
                             else:
                                 logger.debug(f"Loaded context '{context_name}' with defaultNamespaceLOD: {context_data.get('defaultNamespaceLOD', 'not set')}")
+                            # Extract per-context namespace discovery filter
+                            context_namespaces = context_data.get("namespaces", [])
+                            if context_namespaces:
+                                kube_context_namespaces[context_name] = context_namespaces
+                                logger.info(f"Loaded namespace discovery filter for context '{context_name}': {context_namespaces}")
                 
                 # Load namespaceLODs from kubernetes settings (cloudConfig.kubernetes.namespaceLODs)
                 kubernetes_namespace_lods = kubernetes_settings.get("namespaceLODs", {})
@@ -894,7 +901,7 @@ def index(component_context: Context):
                             # config takes the per-cluster LOD path below.
                             is_managed_cluster = cluster_name in cluster_lod_settings
                             if is_managed_cluster:
-                                if aks_explicit_namespace_names and namespace_name not in aks_explicit_namespace_names:
+                                if aks_explicit_namespace_names and not matches_namespace(namespace_name, aks_explicit_namespace_names):
                                     logger.debug(f"Skipping {namespace_name} due to explicit namespace setting in workspaceInfo cloudConfig.azure.aksClusters.namespaces")
                                     continue 
                                 
@@ -919,9 +926,17 @@ def index(component_context: Context):
                                 
                                 logger.debug(f"Using {lod_source} for managed-cluster namespace '{namespace_name}': {namespace_lod}")
                             else:
-                                if kubernetes_explicit_namespace_names and namespace_name not in kubernetes_explicit_namespace_names:
-                                    logger.debug(f"Skipping {namespace_name} due to explicit namespace setting in workspaceInfo cloudConfig.kubernetes.namespaces")
-                                    continue
+                                # Check per-context namespace discovery filter first,
+                                # then fall back to global kubernetes.namespaces.
+                                context_ns_filter = kube_context_namespaces.get(context_name)
+                                if context_ns_filter is not None:
+                                    if not matches_namespace(namespace_name, context_ns_filter):
+                                        logger.debug(f"Skipping {namespace_name} due to per-context namespace filter for context '{context_name}': {context_ns_filter}")
+                                        continue
+                                elif kubernetes_explicit_namespace_names:
+                                    if not matches_namespace(namespace_name, kubernetes_explicit_namespace_names):
+                                        logger.debug(f"Skipping {namespace_name} due to explicit namespace setting in workspaceInfo cloudConfig.kubernetes.namespaces")
+                                        continue
                                 
                                 # Enhanced LOD determination for non-AKS clusters
                                 # Priority order:

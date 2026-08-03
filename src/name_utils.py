@@ -1,6 +1,39 @@
 import re
 import hashlib
 
+# Regex metacharacters that distinguish a regex pattern from a plain string.
+_REGEX_METACHARS = frozenset(".*+?^$[]{}()\\")
+
+
+def matches_namespace(namespace_name: str, patterns: list[str] | None) -> bool:
+    """
+    Check if a namespace name matches any pattern in the list.
+    Patterns without regex metacharacters are matched exactly.
+    Patterns with regex metacharacters are compiled as regex and matched.
+    An empty or None patterns list is treated as "allow all" (no filter).
+    :param namespace_name: The namespace name to check.
+    :param patterns: List of patterns (exact names or regex patterns).
+    :return: True if the namespace matches any pattern, or if patterns is empty/None.
+    """
+    if not patterns:
+        return True
+
+    for pattern in patterns:
+        if not pattern:
+            continue
+        if any(c in _REGEX_METACHARS for c in pattern):
+            try:
+                if re.fullmatch(pattern, namespace_name):
+                    return True
+            except re.error:
+                # If the regex is invalid, treat it as a literal string
+                if pattern == namespace_name:
+                    return True
+        else:
+            if pattern == namespace_name:
+                return True
+    return False
+
 def split_camel_cased_name(name: str) -> list[str]:
     """
     Splits a camel-cased name into its constituent parts.
