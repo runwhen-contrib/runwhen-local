@@ -405,6 +405,8 @@ def index(component_context: Context):
             kube_context_lod_settings = {}
             kube_context_namespace_lods = {}  # Store per-context namespaceLODs
             kube_context_namespaces = {}  # Per-context namespace discovery filters
+            managed_cluster_namespace_filters = {}  # Per-cluster namespace discovery filters
+            kubernetes_explicit_namespace_names: list[str] = []
 
 
             if kubernetes_settings:
