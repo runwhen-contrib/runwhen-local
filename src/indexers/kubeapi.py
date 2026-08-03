@@ -296,10 +296,11 @@ def build_cluster_lod_maps(cloud_config_settings: Optional[dict],
     into the global map for backward compatibility (matching the prior
     AKS-only behavior).
 
-    Returns ``(cluster_lod_settings, cluster_namespace_lods)``.
+    Returns ``(cluster_lod_settings, cluster_namespace_lods, cluster_namespace_filters)``.
     """
     cluster_lod_settings: Dict[str, Any] = {}
     cluster_namespace_lods: Dict[str, Any] = {}
+    cluster_namespace_filters: Dict[str, Any] = {}
 
     cloud_config_settings = cloud_config_settings or {}
 
@@ -315,6 +316,10 @@ def build_cluster_lod_maps(cloud_config_settings: Optional[dict],
                 # Also merge into global namespace_lods for backward compatibility
                 namespace_lods.update(ns_lods)
                 logger.info(f"Loaded namespaceLODs from {label} cluster '{cfg_name}': {ns_lods}")
+            ns_filter = cluster_cfg.get("namespaces", [])
+            if ns_filter:
+                cluster_namespace_filters[cfg_name] = ns_filter
+                logger.info(f"Loaded namespace discovery filter from {label} cluster '{cfg_name}': {ns_filter}")
 
     azure_settings = cloud_config_settings.get("azure", {}) or {}
     gcp_settings = cloud_config_settings.get("gcp", {}) or {}
@@ -350,7 +355,7 @@ def build_cluster_lod_maps(cloud_config_settings: Optional[dict],
                         logger.info(f"Found namespaceLODs for auto-discovered {cluster_type} cluster '{cluster_name}': {extension_namespace_lods}")
                     break
 
-    return cluster_lod_settings, cluster_namespace_lods
+    return cluster_lod_settings, cluster_namespace_lods, cluster_namespace_filters
 
 
 def index(component_context: Context):
@@ -473,13 +478,29 @@ def index(component_context: Context):
                 if custom_namespace_names is None:
                     custom_namespace_names = []
                 custom_namespace_names.extend(aks_settings.get("namespaces", []))
-                aks_explicit_namespace_names = aks_settings.get("namespaces", [])
                 exclude_annotations.update(aks_settings.get("excludeAnnotations", {}))
                 exclude_labels.update(aks_settings.get("excludeLabels", {}))
+            
+            # Collect platform-level (global) namespace lists for managed clusters.
+            # Per-cluster lists extracted by build_cluster_lod_maps take precedence.
+            managed_cluster_global_namespaces: Dict[str, list[str]] = {}
+            for platform_key, platform_path in [
+                ("azure", (("aksClusters", "AKS"),)),
+                ("gcp",   (("gkeClusters", "GKE"),)),
+                ("aws",   (("eksClusters", "EKS"),)),
+            ]:
+                platform_settings = (cloud_config_settings.get(platform_key) or {})
+                for cluster_key, label in platform_path:
+                    cluster_block = platform_settings.get(cluster_key) or {}
+                    ns_list = cluster_block.get("namespaces", [])
+                    if ns_list:
+                        managed_cluster_global_namespaces[label] = ns_list
+                        custom_namespace_names.extend(ns_list)
+                        logger.info(f"Loaded {label} global namespace list: {ns_list}")
 
         logger.info(f"Custom Namespace List: {custom_namespace_names}")
         logger.info(f"Kubernetes Namespace List: {kubernetes_explicit_namespace_names}")
-        logger.info(f"AKS Namespace List: {aks_explicit_namespace_names}")
+        logger.info(f"Managed Cluster Namespace Filters: {managed_cluster_namespace_filters}")
 
         # Hard-code values to be added
         exclude_annotations.update(HARDCODED_EXCLUDE_ANNOTATIONS)
@@ -565,7 +586,7 @@ def index(component_context: Context):
             # (via the injected workspace-builder kubeconfig extension) all feed
             # the same per-cluster maps so their defaultNamespaceLOD /
             # namespaceLODs are honored identically.
-            cluster_lod_settings, cluster_namespace_lods = build_cluster_lod_maps(
+            cluster_lod_settings, cluster_namespace_lods, managed_cluster_namespace_filters = build_cluster_lod_maps(
                 cloud_config_settings,
                 clusters,
                 default_lod,
@@ -901,9 +922,11 @@ def index(component_context: Context):
                             # config takes the per-cluster LOD path below.
                             is_managed_cluster = cluster_name in cluster_lod_settings
                             if is_managed_cluster:
-                                if aks_explicit_namespace_names and not matches_namespace(namespace_name, aks_explicit_namespace_names):
-                                    logger.debug(f"Skipping {namespace_name} due to explicit namespace setting in workspaceInfo cloudConfig.azure.aksClusters.namespaces")
-                                    continue 
+                                # Check per-cluster namespace filter if configured.
+                                cluster_ns_filter = managed_cluster_namespace_filters.get(cluster_name)
+                                if cluster_ns_filter is not None and not matches_namespace(namespace_name, cluster_ns_filter):
+                                    logger.debug(f"Skipping {namespace_name} due to per-cluster namespace filter for '{cluster_name}': {cluster_ns_filter}")
+                                    continue
                                 
                                 # Enhanced LOD determination for managed (AKS/GKE/EKS) clusters with namespaceLODs support
                                 # Priority order: 1) cluster-specific namespaceLODs, 2) global namespaceLODs, 3) cluster defaultNamespaceLOD, 4) global default
