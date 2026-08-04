@@ -3,6 +3,7 @@ import hashlib
 
 # Regex metacharacters that distinguish a regex pattern from a plain string.
 _REGEX_METACHARS = frozenset(".*+?^$[]{}()\\")
+MAX_SLX_NAME_LENGTH = 255
 
 
 def matches_namespace(namespace_name: str, patterns: list[str] | None) -> bool:
@@ -145,11 +146,6 @@ def _truncate_qualified_name(qualified_slx_name: str, excess_length: int) -> str
         return qualified_slx_name[:-excess_length]
 
 
-class SLXNameValidationError(Exception):
-    """Raised when an SLX name fails validation (e.g., exceeds max length)."""
-    pass
-
-
 def make_slx_name_and_qualified(workspace_name: str, qualified_slx_name: str) -> tuple[str, str]:
     """
     Create an SLX name and return both the full name and the (possibly truncated) qualified name.
@@ -159,31 +155,29 @@ def make_slx_name_and_qualified(workspace_name: str, qualified_slx_name: str) ->
     :return: A tuple of (full_slx_name, truncated_qualified_name) where:
              - full_slx_name is the combined and sanitized SLX name (workspace--qualified)
              - truncated_qualified_name is the (possibly truncated) qualified name for directory use
-    :raises SLXNameValidationError: If the final name exceeds 63 characters after all processing.
+    :raises ValueError: If the final name exceeds MAX_SLX_NAME_LENGTH characters after all processing.
     """
-    max_k8s_name_length = 63
     combined_length = len(workspace_name) + 2 + len(qualified_slx_name)  # 2 for the "--" separator
-    if combined_length > max_k8s_name_length:
-        excess_length = combined_length - max_k8s_name_length
+    if combined_length > MAX_SLX_NAME_LENGTH:
+        excess_length = combined_length - MAX_SLX_NAME_LENGTH
         qualified_slx_name = _truncate_qualified_name(qualified_slx_name, excess_length)
     safe_qualified_slx_name = sanitize_name(qualified_slx_name)
     full_slx_name = f"{workspace_name}--{safe_qualified_slx_name}"
-    
-    # CRITICAL VALIDATION: Ensure the final name does not exceed 63 characters
-    # This is a hard requirement for Kubernetes resource names and labels
-    if len(full_slx_name) > max_k8s_name_length:
-        raise SLXNameValidationError(
+
+    # CRITICAL VALIDATION: Ensure the final name does not exceed the maximum length
+    if len(full_slx_name) > MAX_SLX_NAME_LENGTH:
+        raise ValueError(
             f"SLX name '{full_slx_name}' is {len(full_slx_name)} characters, "
-            f"exceeding the Kubernetes limit of {max_k8s_name_length}. "
+            f"exceeding the limit of {MAX_SLX_NAME_LENGTH}. "
             f"Workspace: '{workspace_name}', Qualified name: '{safe_qualified_slx_name}'"
         )
-    
+
     return (full_slx_name, safe_qualified_slx_name)
 
 
 def make_slx_name(workspace_name: str, qualified_slx_name: str) -> str:
     """
-    Ensure the SLX name is safe for file naming and fits within the Kubernetes name limit.
+    Ensure the SLX name is safe for file naming.
     :param workspace_name: The workspace name.
     :param qualified_slx_name: The qualified SLX name.
     :return: The combined and sanitized SLX name.
@@ -195,19 +189,16 @@ def make_slx_name(workspace_name: str, qualified_slx_name: str) -> str:
     full_name, _ = make_slx_name_and_qualified(workspace_name, qualified_slx_name)
     return full_name
 
-def make_qualified_slx_name(base_name: str, qualifiers: list[str], max_length=23) -> str:
+def make_qualified_slx_name(base_name: str, qualifiers: list[str], max_length=None) -> str:
     """
     This returns the qualified (shortened) SLX name but doesn't include
     the workspace name prefix. This would be used for the name of the SLX
     directory in the workspace.
     Note: the default value for the max_length is derived from the way we encode
-    information into the resource name and the Kubernetes 64-character limit on
-    length of the name. Hopefully in the future we'll handle this differently
-    such that we don't need to do these name shortening tricks to fix into
-    64 characters.
+    information into the resource name and the platform's 255-character DB limit.
     :param base_name: The base name of the SLX.
     :param qualifiers: The list of qualifiers.
-    :param max_length: The maximum length of the qualified SLX name.
+    :param max_length: The maximum length of the qualified SLX name (defaults to 255).
     :return: The sanitized and shortened qualified SLX name.
     """
     if not max_length:

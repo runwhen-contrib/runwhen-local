@@ -124,15 +124,15 @@ class NameUtilsTest(TestCase):
     def test_qualifier_with_underscore(self):
         qualifiers = ["my_cl", "dev_ns"]
         qualified_slx_name = make_qualified_slx_name("test", qualifiers)
-        self.assertEqual("mc-dn-test-57e43d2d", qualified_slx_name)
+        self.assertEqual("my-cl-dev-ns-test-57e43d2d", qualified_slx_name)
         slx_name = make_slx_name("my-workspace", qualified_slx_name)
-        self.assertEqual("my-workspace--mc-dn-test-57e43d2d", slx_name)
+        self.assertEqual("my-workspace--my-cl-dev-ns-test-57e43d2d", slx_name)
         qualified_slx_name = make_qualified_slx_name("statefulset-health", ["argo-cd-argocd-application-controller"])
-        self.assertEqual("acaac-statefulset-health-5fb369e9", qualified_slx_name)
+        self.assertEqual("argo-cd-argocd-application-controller-statefulset-health-5fb369e9", qualified_slx_name)
         shortened_base_name = shorten_name("statefulset-health", 15)
         self.assertEqual("sttflst-hlth", shortened_base_name)
         qualified_slx_name = make_qualified_slx_name(shortened_base_name, ["argo-cd-argocd-application-controller"])
-        self.assertEqual("acaac-sttflst-hlth-5fb369e9", qualified_slx_name)
+        self.assertEqual("argo-cd-argocd-application-controller-sttflst-hlth-5fb369e9", qualified_slx_name)
 
     def test_slx_name_truncation_preserves_hash(self):
         """Test that truncation preserves the unique hash suffix to avoid collisions."""
@@ -152,11 +152,6 @@ class NameUtilsTest(TestCase):
         self.assertNotEqual(slx_name_1, slx_name_2, "SLX names should be unique")
         self.assertNotEqual(slx_name_2, slx_name_3, "SLX names should be unique")
         self.assertNotEqual(slx_name_1, slx_name_3, "SLX names should be unique")
-        
-        # All names should respect the 63 character limit
-        self.assertLessEqual(len(slx_name_1), 63, "SLX name should not exceed 63 chars")
-        self.assertLessEqual(len(slx_name_2), 63, "SLX name should not exceed 63 chars")
-        self.assertLessEqual(len(slx_name_3), 63, "SLX name should not exceed 63 chars")
         
         # The hash suffix should be preserved in each name
         self.assertTrue(slx_name_1.endswith("1cf48ae4"), f"Hash suffix missing: {slx_name_1}")
@@ -181,9 +176,6 @@ class NameUtilsTest(TestCase):
         # Both should preserve the hash suffix
         self.assertTrue(full_name.endswith("5d24bd46"), f"Hash suffix missing from SLX name: {full_name}")
         self.assertTrue(directory_name.endswith("5d24bd46"), f"Hash suffix missing from directory: {directory_name}")
-        
-        # SLX name must fit in 63 chars
-        self.assertLessEqual(len(full_name), 63, f"SLX name too long: {len(full_name)}")
         
         # Test multiple qualified names to ensure no collisions in directories
         qualified_names = [
@@ -215,9 +207,6 @@ class NameUtilsTest(TestCase):
         
         full_name, directory_name = make_slx_name_and_qualified(long_workspace, no_hash_name)
         
-        # Should still fit in 63 chars
-        self.assertLessEqual(len(full_name), 63, f"SLX name too long: {len(full_name)}")
-        
         # Directory should match qualified portion
         self.assertEqual(directory_name, full_name.split('--')[1])
         
@@ -226,6 +215,15 @@ class NameUtilsTest(TestCase):
         # For example, "without-any-hash" should NOT become "without--any-hash" 
         # (incorrectly preserving "-any-hash" as if it were a hash suffix)
         self.assertNotIn('--', directory_name, "Should not have double dashes from incorrect hash detection")
+
+    def test_long_names_no_longer_rejected(self):
+        """Names exceeding the legacy 63-char K8s limit must pass through untruncated."""
+        long_workspace = "wba-rpu-nprod-general"
+        long_qualified = "argo-cd-argocd-application-controller-statefulset-health-5fb369e9"
+        full_name, directory_name = make_slx_name_and_qualified(long_workspace, long_qualified)
+        self.assertGreater(len(full_name), 63)
+        self.assertEqual(directory_name, long_qualified)
+        self.assertTrue(full_name.endswith("5fb369e9"))
 
     def test_matches_namespace_exact(self):
         """Exact names match, non-matching names do not."""
