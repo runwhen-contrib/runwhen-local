@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 import tempfile
 import time
 import yaml
@@ -1702,10 +1703,19 @@ def has_excluded_tags(robot_content: str, exclusion_tags: list[str]) -> bool:
             temp_file.flush()
             
             try:
-                # Suppress Robot Framework deprecation warnings printed to
-                # stdout and stderr (e.g. "[Return] setting is deprecated").
-                with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                # Suppress Robot Framework console output during parsing.
+                # redirect_stdout/stderr alone are insufficient — RF's console
+                # highlighter captures sys.__stdout__ at import time, so we
+                # must also replace sys.__stdout__/__stderr__ directly.
+                saved_stdout = sys.stdout
+                saved_stderr = sys.stderr
+                sys.__stdout__ = sys.stdout = StringIO()
+                sys.__stderr__ = sys.stderr = StringIO()
+                try:
                     suite = TestSuite.from_file_system(temp_file.name)
+                finally:
+                    sys.stdout = sys.__stdout__ = saved_stdout
+                    sys.stderr = sys.__stderr__ = saved_stderr
                 
                 logger.debug(f"Parsing robot file with {len(suite.tests)} tasks")
                 
