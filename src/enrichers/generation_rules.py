@@ -4,7 +4,7 @@ import tempfile
 import time
 import yaml
 from abc import ABC, abstractmethod
-from contextlib import redirect_stderr
+from contextlib import redirect_stderr, redirect_stdout
 from dataclasses import dataclass
 from enum import Enum
 from io import StringIO
@@ -1702,9 +1702,9 @@ def has_excluded_tags(robot_content: str, exclusion_tags: list[str]) -> bool:
             temp_file.flush()
             
             try:
-                # Suppress Robot Framework deprecation warnings printed to stderr
-                # (e.g. "[Return] setting is deprecated. Use RETURN statement instead.")
-                with redirect_stderr(StringIO()):
+                # Suppress Robot Framework deprecation warnings printed to
+                # stdout and stderr (e.g. "[Return] setting is deprecated").
+                with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
                     suite = TestSuite.from_file_system(temp_file.name)
                 
                 logger.debug(f"Parsing robot file with {len(suite.tests)} tasks")
