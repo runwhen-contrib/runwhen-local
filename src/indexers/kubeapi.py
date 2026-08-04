@@ -749,6 +749,7 @@ def index(component_context: Context):
                             # to list the namespaces. Remove or comment out before committing!!!!
                             # raise ApiException()
                             ret = core_api_client.list_namespace()
+                            logger.info(f"Discovered {len(ret.items)} namespaces in cluster '{cluster_name}'")
                             logger.debug(f"kube API scan: {len(ret.items)} namespaces")
                             for raw_resource in ret.items:
                                 # Check inclusion criteria directly
