@@ -1096,9 +1096,13 @@ def index(component_context: Context):
                             namespaces[namespace_qualified_name] = namespace
                             logger.debug(f"Added namespace '{namespace_qualified_name}' to local namespaces dict for resource processing in context '{context_name}'")
                         logger.info(f"Context '{context_name}' will process {len(namespaces)} namespace(s) for resources: {list(namespaces.keys())}")
+                        ns_total = len(namespaces)
+                        ns_index = 0
                         for namespace in namespaces.values():
+                            ns_index += 1
                             namespace_qualified_name = namespace.qualified_name
                             namespace_name = namespace.name
+                            logger.info(f"Scanning namespace {ns_index}/{ns_total} in cluster '{cluster_name}': '{namespace_name}'")
                             logger.debug(f'Context "{context_name}" scanning for Kubernetes resources in namespace "{namespace_qualified_name}" with LOD:{namespace.lod}')
             
                             #

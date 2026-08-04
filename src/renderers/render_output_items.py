@@ -373,6 +373,8 @@ def render(context: Context):
 
     sorted_items = sorted(output_items.values(), key=_slx_first_sort_key)
     total_items = len(sorted_items)
+    last_progress_log = time.time()
+    render_progress_interval = 15  # seconds between progress logs
 
     for idx, output_item in enumerate(sorted_items):
         # Report progress to the health tracker so the liveness probe can see
@@ -387,6 +389,15 @@ def render(context: Context):
                 )
             except Exception:
                 pass
+
+        elapsed = time.time() - last_progress_log
+        if elapsed >= render_progress_interval:
+            pct = (idx + 1) * 100.0 / total_items
+            logger.info(
+                "Render progress: %d/%d (%d%%) in %.0fs",
+                idx + 1, total_items, int(pct), time.time() - render_stats['start_time'],
+            )
+            last_progress_log = time.time()
 
         slx_dir = os.path.dirname(output_item.path)
 
