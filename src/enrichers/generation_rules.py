@@ -968,23 +968,24 @@ def collect_emitted_slxs(generation_rule_info: GenerationRuleInfo,
                     # surfaced to templates (e.g., as tags).
                     if 'resource' not in slx.qualifiers:
                         existing_slx_info.add_child_resource_name(resource.name)
-                    # Nothing else to do – keep the originally stored SLXInfo so we don't
-                    # overwrite fields like level_of_detail that might have been resolved
-                    # on the first encounter.
-                    logger.warning(
-                        "SLX full_name collision detected for resource '%s': "
-                        "full_name='%s' already exists (base_name='%s'). "
-                        "Incoming SLX (base_name='%s') is NOT replacing the existing entry. "
-                        "If base_name is empty or identical across generation rules, only "
-                        "one SLX will survive per resource.",
-                        resource.name,
-                        slx_info.full_name,
-                        existing_slx_info.base_name,
-                        slx_info.base_name,
-                    )
-                    logger.debug(
-                        f"DEBUG: Collect Emitted SLXs: aggregated child resource '{resource.name}' into existing SLX {existing_slx_info.full_name}"
-                    )
+                        logger.debug(
+                            f"DEBUG: Collect Emitted SLXs: aggregated child resource '{resource.name}' into existing SLX {existing_slx_info.full_name}"
+                        )
+                    else:
+                        # "resource" is in qualifiers, so each resource should produce a
+                        # unique full_name. A collision here signals a real problem:
+                        # base_name may be empty or identical across generation rules.
+                        logger.warning(
+                            "SLX full_name collision detected for resource '%s': "
+                            "full_name='%s' already exists (base_name='%s'). "
+                            "Incoming SLX (base_name='%s') is NOT replacing the existing entry. "
+                            "If base_name is empty or identical across generation rules, only "
+                            "one SLX will survive per resource.",
+                            resource.name,
+                            slx_info.full_name,
+                            existing_slx_info.base_name,
+                            slx_info.base_name,
+                        )
                 else:
                     logger.debug(f"DEBUG: Collect Emitted SLXs: emit {slx_info}")
                     slxs[slx_info.full_name] = slx_info
