@@ -582,6 +582,12 @@ def index(component_context: Context):
             users = kubeconfig.get('users', [])
             contexts = kubeconfig.get('contexts', [])
             
+            # Track indexing stats for summary
+            kubeapi_total_clusters = 0
+            kubeapi_total_namespaces = 0
+            kubeapi_total_resources = 0
+            kubeapi_skipped_clusters = 0
+            
             # Extract per-cluster LOD settings for managed clusters (AKS/GKE/EKS).
             # This is cluster-type-agnostic: explicit cloudConfig clusters
             # (aksClusters/gkeClusters/eksClusters) and auto-discovered clusters
@@ -679,6 +685,7 @@ def index(component_context: Context):
                             version_api = client.VersionApi(api_client=api_client)
                             version_info = version_api.get_code()
                             logger.info(f"Successfully connected to cluster '{cluster_name}' (Kubernetes {version_info.git_version})")
+                            kubeapi_total_clusters += 1
                             
                         except ApiException as e:
                             if e.status == 401:
@@ -1402,6 +1409,7 @@ def index(component_context: Context):
                                                 f"error: {e}, group={group}, kind={plural_name}")
 
                         logger.info(f"Context '{context_name}' finished scanning resources across {len(namespaces)} namespace(s)")
+                        kubeapi_total_namespaces += len(namespaces)
 
                 except Exception as e:
                     # Handle cases where cluster_name or context_name might not be defined yet
@@ -1412,3 +1420,9 @@ def index(component_context: Context):
                     continue
 
     logger.info("Finished Kubernetes indexing")
+    logger.info(
+        "Kubernetes indexing complete: clusters=%d (skipped=%d), namespaces=%d",
+        kubeapi_total_clusters,
+        kubeapi_skipped_clusters,
+        kubeapi_total_namespaces,
+    )

@@ -1,11 +1,13 @@
 import os
 import re
+import tempfile
 import time
 import yaml
-import tempfile
 from abc import ABC, abstractmethod
+from contextlib import redirect_stderr
 from dataclasses import dataclass
 from enum import Enum
+from io import StringIO
 from typing import Any, Optional, Union, Sequence
 from jinja2 import Environment, BaseLoader, meta
 from robot.api import TestSuite
@@ -1700,7 +1702,10 @@ def has_excluded_tags(robot_content: str, exclusion_tags: list[str]) -> bool:
             temp_file.flush()
             
             try:
-                suite = TestSuite.from_file_system(temp_file.name)
+                # Suppress Robot Framework deprecation warnings printed to stderr
+                # (e.g. "[Return] setting is deprecated. Use RETURN statement instead.")
+                with redirect_stderr(StringIO()):
+                    suite = TestSuite.from_file_system(temp_file.name)
                 
                 logger.debug(f"Parsing robot file with {len(suite.tests)} tasks")
                 
