@@ -2,7 +2,7 @@
 
 Resource types indexed under `platform: runwhen`.
 
-_Generated 2026-08-03 from `scripts/runwhen/dump_runwhen_resource_catalog.py`._
+_Generated 2026-08-04 from `scripts/runwhen/dump_runwhen_resource_catalog.py`._
 
 | Resource type | Match names | Typed collector | Notes |
 |---|---|---|---|
