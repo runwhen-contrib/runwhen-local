@@ -86,8 +86,21 @@ class SLXInfo:
         self.qualifier_values = [self.qualifiers[q] for q in slx.qualifiers]
         self.full_name = make_qualified_slx_name(slx.base_name, self.qualifier_values, None)
         
+        # WARN when base_name is empty — this produces identical full_name for
+        # all SLXs targeting the same resource, causing silent dict-key collisions
+        # in collect_emitted_slxs() that reduce N SLXs to 1.
+        if not slx.base_name:
+            logger.warning(
+                "SLXInfo created with empty base_name for resource '%s': "
+                "full_name='%s' will collide with any other SLX targeting this "
+                "resource that also has an empty base_name. "
+                "qualifier_values=%s",
+                resource.name, self.full_name, self.qualifier_values
+            )
+        
         # DEBUG: Log full name generation
-        logger.debug("SLXInfo full name for resource '%s': qualifier_values=%s, full_name=%s", resource.name, self.qualifier_values, self.full_name)
+        logger.debug("SLXInfo full name for resource '%s': base_name='%s', qualifier_values=%s, full_name=%s",
+                     resource.name, slx.base_name, self.qualifier_values, self.full_name)
         
         self.resource = resource
         # Track the initial resource; additional names may be aggregated later.

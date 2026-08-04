@@ -180,7 +180,6 @@ class ConfigReloader:
         return changed
 
     def _watch_resource(self, kind: str, name: str) -> bool:
-        watcher = watch.Watch()
         list_fn = (
             self._core.list_namespaced_config_map
             if kind == "configmap"
@@ -191,6 +190,13 @@ class ConfigReloader:
 
         while True:
             try:
+                # Recreate watcher on each connection attempt.
+                # Without this, the Kubernetes watch library may carry a
+                # stale resourceVersion across retries, causing "Too large
+                # resource version" errors when the API server's watch
+                # cache has advanced past the reconnect point. This is
+                # especially common under Argo CD reconciliation.
+                watcher = watch.Watch()
                 for event in watcher.stream(
                     list_fn,
                     self.namespace,

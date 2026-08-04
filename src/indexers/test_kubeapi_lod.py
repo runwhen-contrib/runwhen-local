@@ -55,7 +55,7 @@ class BuildClusterLodMapsTest(TestCase):
             ]}},
         }
         ns_lods = {}
-        lod_settings, ns_cluster = build_cluster_lod_maps(cloud_config, [], "none", ns_lods)
+        lod_settings, ns_cluster, ns_filters = build_cluster_lod_maps(cloud_config, [], "none", ns_lods)
         self.assertEqual(lod_settings["aks-1"], "detailed")
 
     def test_explicit_gke_cluster_lod(self):
@@ -70,7 +70,7 @@ class BuildClusterLodMapsTest(TestCase):
             ]}},
         }
         ns_lods = {}
-        lod_settings, ns_cluster = build_cluster_lod_maps(cloud_config, [], "none", ns_lods)
+        lod_settings, ns_cluster, ns_filters = build_cluster_lod_maps(cloud_config, [], "none", ns_lods)
         self.assertIn("sandbox-cluster-1-cluster", lod_settings)
         self.assertEqual(lod_settings["sandbox-cluster-1-cluster"], "basic")
         # The cluster key must match what the kubeconfig context carries so the
@@ -84,7 +84,7 @@ class BuildClusterLodMapsTest(TestCase):
             ]}},
         }
         ns_lods = {}
-        lod_settings, ns_cluster = build_cluster_lod_maps(cloud_config, [], "none", ns_lods)
+        lod_settings, ns_cluster, ns_filters = build_cluster_lod_maps(cloud_config, [], "none", ns_lods)
         self.assertEqual(lod_settings["eks-1"], "detailed")
 
     def test_explicit_default_falls_back_to_global(self):
@@ -92,7 +92,7 @@ class BuildClusterLodMapsTest(TestCase):
         cloud_config = {
             "gcp": {"gkeClusters": {"clusters": [{"name": "gke-nolod"}]}},
         }
-        lod_settings, _ = build_cluster_lod_maps(cloud_config, [], "none", {})
+        lod_settings, _, _ = build_cluster_lod_maps(cloud_config, [], "none", {})
         self.assertEqual(lod_settings["gke-nolod"], "none")
 
     def test_explicit_namespace_lods_merge_global(self):
@@ -103,7 +103,7 @@ class BuildClusterLodMapsTest(TestCase):
             ]}},
         }
         ns_lods = {}
-        lod_settings, ns_cluster = build_cluster_lod_maps(cloud_config, [], "none", ns_lods)
+        lod_settings, ns_cluster, ns_filters = build_cluster_lod_maps(cloud_config, [], "none", ns_lods)
         self.assertEqual(ns_cluster["gke-1"], {"kube-system": "none", "prod": "detailed"})
         # Per-cluster namespaceLODs also merge into the global map (back-compat).
         self.assertEqual(ns_lods["prod"], "detailed")
@@ -115,12 +115,12 @@ class BuildClusterLodMapsTest(TestCase):
         """A kubeconfig cluster with a `cluster_type: gke` workspace-builder
         extension carrying defaultNamespaceLOD now resolves to that LOD."""
         clusters = [_wb_cluster("sandbox-cluster-1-cluster", "gke", default_lod="basic")]
-        lod_settings, _ = build_cluster_lod_maps({}, clusters, "none", {})
+        lod_settings, _, _ = build_cluster_lod_maps({}, clusters, "none", {})
         self.assertEqual(lod_settings["sandbox-cluster-1-cluster"], "basic")
 
     def test_extension_eks_cluster_lod(self):
         clusters = [_wb_cluster("eks-auto", "eks", default_lod="detailed")]
-        lod_settings, _ = build_cluster_lod_maps({}, clusters, "none", {})
+        lod_settings, _, _ = build_cluster_lod_maps({}, clusters, "none", {})
         self.assertEqual(lod_settings["eks-auto"], "detailed")
 
     def test_extension_aks_cluster_lod_unchanged(self):
@@ -128,7 +128,7 @@ class BuildClusterLodMapsTest(TestCase):
         clusters = [_wb_cluster("aks-auto", "aks", default_lod="basic",
                                 namespace_lods={"ns1": "detailed"})]
         ns_lods = {}
-        lod_settings, ns_cluster = build_cluster_lod_maps({}, clusters, "none", ns_lods)
+        lod_settings, ns_cluster, ns_filters = build_cluster_lod_maps({}, clusters, "none", ns_lods)
         self.assertEqual(lod_settings["aks-auto"], "basic")
         self.assertEqual(ns_cluster["aks-auto"], {"ns1": "detailed"})
         self.assertEqual(ns_lods["ns1"], "detailed")
@@ -137,14 +137,14 @@ class BuildClusterLodMapsTest(TestCase):
         """An unrecognized cluster_type does not populate the per-cluster map,
         so it falls through to the context/global LOD path downstream."""
         clusters = [_wb_cluster("plain", "something-else", default_lod="basic")]
-        lod_settings, _ = build_cluster_lod_maps({}, clusters, "none", {})
+        lod_settings, _, _ = build_cluster_lod_maps({}, clusters, "none", {})
         self.assertNotIn("plain", lod_settings)
 
     def test_extension_gke_namespace_lods(self):
         clusters = [_wb_cluster("gke-1", "gke", default_lod="basic",
                                 namespace_lods={"prod": "detailed"})]
         ns_lods = {}
-        lod_settings, ns_cluster = build_cluster_lod_maps({}, clusters, "none", ns_lods)
+        lod_settings, ns_cluster, ns_filters = build_cluster_lod_maps({}, clusters, "none", ns_lods)
         self.assertEqual(ns_cluster["gke-1"], {"prod": "detailed"})
         self.assertEqual(ns_lods["prod"], "detailed")
 
@@ -157,7 +157,7 @@ class BuildClusterLodMapsTest(TestCase):
             "gcp": {"gkeClusters": {"clusters": [{"name": "gke-1", "defaultNamespaceLOD": "basic"}]}},
             "aws": {"eksClusters": {"clusters": [{"name": "eks-1", "defaultNamespaceLOD": "none"}]}},
         }
-        lod_settings, _ = build_cluster_lod_maps(cloud_config, [], "none", {})
+        lod_settings, _, _ = build_cluster_lod_maps(cloud_config, [], "none", {})
         self.assertEqual(lod_settings, {"aks-1": "detailed", "gke-1": "basic", "eks-1": "none"})
 
     def test_extension_overrides_explicit_for_same_name(self):
@@ -167,11 +167,11 @@ class BuildClusterLodMapsTest(TestCase):
             "gcp": {"gkeClusters": {"clusters": [{"name": "gke-1", "defaultNamespaceLOD": "basic"}]}},
         }
         clusters = [_wb_cluster("gke-1", "gke", default_lod="detailed")]
-        lod_settings, _ = build_cluster_lod_maps(cloud_config, clusters, "none", {})
+        lod_settings, _, _ = build_cluster_lod_maps(cloud_config, clusters, "none", {})
         self.assertEqual(lod_settings["gke-1"], "detailed")
 
     def test_empty_inputs(self):
-        lod_settings, ns_cluster = build_cluster_lod_maps(None, None, "none", {})
+        lod_settings, ns_cluster, ns_filters = build_cluster_lod_maps(None, None, "none", {})
         self.assertEqual(lod_settings, {})
         self.assertEqual(ns_cluster, {})
 
