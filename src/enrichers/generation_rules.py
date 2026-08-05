@@ -25,7 +25,7 @@ from component import (
 )
 from exceptions import WorkspaceBuilderException, WorkspaceBuilderUserException
 from indexers.kubetypes import KUBERNETES_PLATFORM
-from name_utils import shorten_name, make_qualified_slx_name, make_slx_name, make_slx_name_and_qualified
+from name_utils import MAX_SLX_NAME_LENGTH, shorten_name, make_qualified_slx_name, make_slx_name, make_slx_name_and_qualified
 from .generation_rule_types import (
     PLATFORM_HANDLERS_PROPERTY_NAME,
     PlatformHandler,
@@ -1000,9 +1000,10 @@ def collect_emitted_slxs(generation_rule_info: GenerationRuleInfo,
 
 
 def assign_slx_names(slxs: dict[str, SLXInfo], workspace_name):
+    max_qualified_length = MAX_SLX_NAME_LENGTH - len(workspace_name) - 2  # 2 for "--"
     slxs_by_default_shortened_name: dict[str, list[SLXInfo]] = dict()
     for slx_info in slxs.values():
-        shortened_name = make_qualified_slx_name(slx_info.slx.shortened_base_name, slx_info.qualifier_values)
+        shortened_name = make_qualified_slx_name(slx_info.slx.shortened_base_name, slx_info.qualifier_values, max_qualified_length)
         slx_list = slxs_by_default_shortened_name.get(shortened_name)
         if not slx_list:
             slx_list = []
@@ -1030,13 +1031,32 @@ def assign_slx_names(slxs: dict[str, SLXInfo], workspace_name):
                 # IMPORTANT: Use shortened_base_name, not base_name, to keep qualified names short
                 # Using base_name here was a bug that caused qualified names to exceed expected length
                 indexed_base_name = f"{slx_info.slx.shortened_base_name}{i+1}"
-                initial_qualified_name = make_qualified_slx_name(indexed_base_name, slx_info.qualifier_values)
+                initial_qualified_name = make_qualified_slx_name(indexed_base_name, slx_info.qualifier_values, max_qualified_length)
                 # Use make_slx_name_and_qualified to ensure directory name matches SLX name
                 slx_info.name, slx_info.qualified_name = make_slx_name_and_qualified(workspace_name, initial_qualified_name)
         else:
             slx_info = slx_list[0]
             # Use make_slx_name_and_qualified to ensure directory name matches SLX name
             slx_info.name, slx_info.qualified_name = make_slx_name_and_qualified(workspace_name, shortened_name)
+
+    # Final-name collision detection: group by post-sanitization final name
+    # to catch collisions from sanitize_name() collapsing distinct qualified names
+    slxs_by_final_name: dict[str, list[SLXInfo]] = dict()
+    for slx_info in slxs.values():
+        slxs_by_final_name.setdefault(slx_info.name, []).append(slx_info)
+    for final_name, colliding in slxs_by_final_name.items():
+        if len(colliding) > 1:
+            logger.warning(
+                "SLX final-name collision detected after sanitization: %d SLXs share name '%s'. "
+                "Disambiguating by appending incrementing integers.",
+                len(colliding), final_name,
+            )
+            for i, slx_info in enumerate(colliding):
+                indexed_base_name = f"{slx_info.slx.shortened_base_name}{i+1}"
+                initial_qualified_name = make_qualified_slx_name(
+                    indexed_base_name, slx_info.qualifier_values, max_qualified_length)
+                slx_info.name, slx_info.qualified_name = make_slx_name_and_qualified(
+                    workspace_name, initial_qualified_name)
 
 
 class SLXRelationship:
