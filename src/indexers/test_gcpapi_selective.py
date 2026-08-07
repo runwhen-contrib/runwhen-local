@@ -384,36 +384,38 @@ class CaiPermissionDeniedTests(TestCase):
             mock.patch.object(gcpapi, "find_spec", side_effect=lambda n: by_name.get(n)), \
             mock.patch.object(gcpapi, "find_spec_by_cai_type", side_effect=lambda t: None), \
             mock.patch("enrichers.gcp.set_gcp_credentials"):
-            # CAI is an OPTIONAL accelerator: a 403 must be logged informationally
-            # (INFO), never raised, and never elevated to a warning/error. It must
+            # A denied CAI pass must be surfaced (the gen rules referenced a
+            # CAI-only type, so that type is now missing), never raised, and must
             # not abort discovery (the project anchor is still written).
             with self.assertLogs(gcpapi.logger, level="INFO") as captured:
                 gcpapi.index(FakeContext())
 
         joined_logs = "\n".join(captured.output)
 
-        # The stable, grep-able token is emitted at INFO (not ERROR).
+        # The stable, grep-able token is emitted at WARNING: the CAI pass only
+        # runs when gen rules reference CAI-only types, so reaching here always
+        # means those types are absent from the built workspace.
         self.assertTrue(
             any(
                 gcpapi.CAI_PERMISSION_DENIED_TOKEN in rec.getMessage()
-                and rec.levelname == "INFO"
+                and rec.levelname == "WARNING"
                 for rec in captured.records
             ),
-            f"expected an INFO {gcpapi.CAI_PERMISSION_DENIED_TOKEN} log; got {captured.output}",
+            f"expected a WARNING {gcpapi.CAI_PERMISSION_DENIED_TOKEN} log; got {captured.output}",
         )
-        # No ERROR severity for the CAI-denied path, and no "DEGRADED" framing.
+        # Still non-fatal: no ERROR severity, no "DEGRADED" framing.
         self.assertFalse(
             any(rec.levelno >= 40 for rec in captured.records),  # >= ERROR
             f"CAI-denied must not log at ERROR; got {captured.output}",
         )
         self.assertNotIn("DEGRADED", joined_logs)
-        # The message frames CAI as optional and reassures it is not an error.
-        self.assertIn("optional", joined_logs.lower())
+        # The message names the resource type that went missing.
+        self.assertIn("gcp_sql_instances", joined_logs)
 
-        # CAI's absence must NOT surface a user-facing warning (it is normal).
-        self.assertFalse(
+        # The operator gets a user-facing warning naming the gap.
+        self.assertTrue(
             any(gcpapi.CAI_PERMISSION_DENIED_TOKEN in w for w in warnings),
-            f"CAI-denied must not add a warning; got {warnings}",
+            f"CAI-denied must add a warning naming the missing types; got {warnings}",
         )
 
         # Discovery still completed: the project anchor was written.
