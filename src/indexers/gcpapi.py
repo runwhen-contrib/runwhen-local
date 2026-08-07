@@ -178,11 +178,40 @@ def _resolve_platform_handler(context: Context) -> PlatformHandler:
     return GCPPlatformHandler()
 
 
+# Markers of the process being unable to obtain credentials at all, as opposed
+# to a specific API refusing a specific caller. These surface as 403s whose text
+# also contains "permission", so without an explicit check the string fallback
+# in ``_is_permission_denied`` misfiles a total auth outage as an absent
+# optional accelerator.
+_CREDENTIALS_FAILURE_MARKERS = (
+    "unable to generate access token",
+    "iam.serviceaccounts.getaccesstoken",
+    "metadata.google.internal",
+    "compute engine metadata",
+    "could not automatically determine credentials",
+)
+
+
+def _is_credentials_failure(exc: Exception) -> bool:
+    """True when the workload could not mint a token for *any* Google API.
+
+    This is never a CAI-specific condition: if credentials cannot be obtained,
+    the typed SDK collectors are equally dead, so the failure must surface as a
+    real error rather than as the benign "optional accelerator unavailable"
+    note."""
+    text = str(exc).lower()
+    return any(marker in text for marker in _CREDENTIALS_FAILURE_MARKERS)
+
+
 def _is_permission_denied(exc: Exception) -> bool:
     """Best-effort detection of a GCP 403 / PermissionDenied without importing
     the google SDK exception types at module scope (keeps this module importable
     where the SDK is absent). Covers both the gRPC ``PermissionDenied`` and the
     REST ``Forbidden`` shapes, plus a string fallback."""
+    # Checked first: a credentials outage can arrive wrapped in any exception
+    # type, including a genuine PermissionDenied.
+    if _is_credentials_failure(exc):
+        return False
     if type(exc).__name__ in ("PermissionDenied", "Forbidden"):
         return True
     code = getattr(exc, "code", None)
@@ -201,27 +230,35 @@ def _is_permission_denied(exc: Exception) -> bool:
     return "403" in text and "permission" in text
 
 
-def _note_cai_unavailable(context: Context, project_id: str, exc: Exception) -> None:
-    """Note, informationally, that the OPTIONAL Cloud Asset Inventory generic
-    pass was not accessible for this project.
+def _note_cai_unavailable(
+    context: Context,
+    project_id: str,
+    exc: Exception,
+    missing_type_names: list[str],
+) -> None:
+    """Report that the Cloud Asset Inventory pass was denied for this project.
 
-    CAI is an accelerator that broadens coverage to resource types without a
-    typed collector; it is NOT required for native GCP discovery. The per-service
-    typed SDK collectors are the supported functional path and run independently
-    of CAI, so a 403 / disabled-API here is normal and non-fatal. This is logged
-    at INFO (no error, no banner, no warning) so CAI's absence never reads as a
-    failure or fails CI."""
+    CAI is an optional accelerator *in general*, but the CAI pass only runs at
+    all when the workspace's generation rules reference resource types that have
+    no typed SDK collector (see ``generic_cai_types`` in :func:`index`). So by
+    the time this is reached, those types are genuinely absent from the built
+    workspace. That is actionable, so it is reported as a warning naming exactly
+    what went missing rather than as a blanket "no action needed" note.
+
+    Resource types that do have a typed collector are unaffected and are not
+    listed."""
+    missing = ", ".join(sorted(missing_type_names))
     message = (
         f"{CAI_PERMISSION_DENIED_TOKEN}: Cloud Asset Inventory was not accessible "
-        f"for GCP project '{project_id}' ({exc}). This is informational, not an "
-        f"error: CAI is an OPTIONAL accelerator that broadens coverage to resource "
-        f"types lacking a typed collector. The per-service typed SDK collectors "
-        f"(compute, storage, GKE, Pub/Sub, IAM, ...) are the functional discovery "
-        f"path and continue to run normally. Enabling the Cloud Asset Inventory API "
-        f"with a CAI viewer role is optional and only increases coverage breadth; "
-        f"it is not required, so no action is needed."
+        f"for GCP project '{project_id}' ({exc}). {len(missing_type_names)} "
+        f"resource type(s) referenced by your generation rules have no typed SDK "
+        f"collector and were therefore NOT discovered in this run: {missing}. To "
+        f"discover them, enable the cloudasset.googleapis.com API on the project "
+        f"and grant roles/cloudasset.viewer to the discovery service account. "
+        f"Resource types served by a typed collector are unaffected."
     )
-    logger.info(message)
+    logger.warning(message)
+    context.add_warning(message)
 
 
 # ---------------------------------------------------------------------------
@@ -468,9 +505,18 @@ def index(context: Context) -> None:
                 assets = list(collect_assets_for_project(credentials, pid, cai_filter))
             except Exception as e:
                 if _is_permission_denied(e):
-                    # Optional accelerator unavailable: informational, not an error.
+                    # Accelerator denied: the CAI-only types the gen rules asked
+                    # for are missing from this run. Reported as a warning.
                     stats["cai_permission_denied"] += 1
-                    _note_cai_unavailable(context, pid, e)
+                    _note_cai_unavailable(
+                        context,
+                        pid,
+                        e,
+                        [
+                            spec.resource_type_name
+                            for spec in generic_cai_types.values()
+                        ],
+                    )
                 else:
                     stats["skipped_collector_error"] += 1
                     logger.error(
@@ -524,11 +570,15 @@ def index(context: Context) -> None:
         f"cai_permission_denied={stats['cai_permission_denied']}"
     )
 
-    if stats["cai_permission_denied"]:
+    # Only reassure about the CAI accelerator when the typed baseline actually
+    # delivered something. If it collected nothing, discovery did not "complete
+    # via the typed SDK collectors" and saying so hides the real failure.
+    if stats["cai_permission_denied"] and stats["added_typed"]:
         logger.info(
             "GCP discovery completed via the typed SDK collectors; the OPTIONAL "
             "Cloud Asset Inventory accelerator was not accessible this run (see %s "
-            "above). This is expected when CAI is not enabled and does not indicate "
-            "a failure -- the typed collectors are the functional discovery path.",
+            "above). The typed collectors are the functional discovery path and "
+            "did return resources; only the CAI-only types listed above are "
+            "missing.",
             CAI_PERMISSION_DENIED_TOKEN,
         )
