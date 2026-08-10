@@ -3,7 +3,7 @@
 # No --platform=$BUILDPLATFORM: the Go image must match the target arch so
 # the C compiler produces a native binary. CI builds each arch on native
 # runners (ubuntu-latest for amd64, ubuntu-24.04-arm for arm64) so this is fast.
-FROM golang:1.22-bookworm AS sqlite-builder
+FROM golang:1.26-bookworm AS sqlite-builder
 WORKDIR /build
 RUN git clone --depth 1 --branch plugins-destination-sqlite-v2.5.1 \
         https://github.com/cloudquery/cloudquery.git .
