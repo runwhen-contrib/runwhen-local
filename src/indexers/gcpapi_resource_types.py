@@ -184,35 +184,14 @@ def _collect_iam_service_accounts(credentials, project_id):
 
 
 # ---------------------------------------------------------------------------
-# Apigee typed collectors (REST API — no google-cloud SDK for management)
+# Apigee typed collectors
 # ---------------------------------------------------------------------------
-#
-# Apigee is NOT tracked by Cloud Asset Inventory. Discovery uses the public
-# REST API at ``apigee.googleapis.com`` authenticated via ``google.auth``.
-#
-# Architecture: Apigee is org-scoped, not project-scoped. The entry point is
-# ``list organizations``; every sub-resource is listed per-org. The org-to-
-# project mapping (``:getProjectMapping``) links back to GCP projects.
-#
-# All imports are lazy so the module stays importable without these deps.
 
 APIGEE_BASE_URL = "https://apigee.googleapis.com/v1"
 
 
-def _apigee_api_get(
-    credentials,
-    path: str,
-    *,
-    params: Optional[dict[str, str]] = None,
-) -> dict[str, Any]:
-    """Make an authenticated GET request to the Apigee REST API.
-
-    Uses ``google.auth.transport.requests.AuthorizedSession`` for automatic
-    access-token provisioning and refresh. Returns the parsed JSON response.
-    """
-    from google.auth.transport.requests import (  # noqa: WPS433
-        AuthorizedSession,
-    )
+def _apigee_api_get(credentials, path, *, params=None):
+    from google.auth.transport.requests import AuthorizedSession
 
     session = AuthorizedSession(credentials)
     url = f"{APIGEE_BASE_URL}/{path.lstrip('/')}"
@@ -221,154 +200,55 @@ def _apigee_api_get(
     return response.json()
 
 
-def _apigee_paginated_list(
-    credentials,
-    path: str,
-    *,
-    list_key: str,
-    page_size: int = 100,
-) -> Iterable[dict[str, Any]]:
-    """Iterate over a paginated Apigee list endpoint.
-
-    Apigee list endpoints use ``pageToken``/``pageSize`` pagination and wrap
-    results in a key like ``organizations``, ``environments``, or ``proxies``.
-    Iterates transparently across all pages.
-    """
-    params: dict[str, str] = {"pageSize": str(page_size)}
-    while True:
-        body = _apigee_api_get(credentials, path, params=params)
-        items = body.get(list_key, [])
-        yield from (items if isinstance(items, list) else [items])
-        page_token = body.get("nextPageToken")
-        if not page_token:
-            break
-        params["pageToken"] = page_token
-
-
 def _collect_apigee_organizations(credentials, _project_id):
-    """List all Apigee organizations accessible to ``credentials``.
-
-    Returns the JSON representations from
-    ``GET /v1/organizations`` (no project scoping).
-
-    Each response dict includes: ``name`` (e.g. ``organizations/my-org``),
-    ``displayName``, ``description``, ``createdAt``, ``lastModifiedAt``,
-    ``properties``, ``analyticsRegion``, and other org-level metadata.
-    """
-    return _apigee_paginated_list(
-        credentials,
-        "organizations",
-        list_key="organizations",
-    )
+    body = _apigee_api_get(credentials, "organizations")
+    items = body.get("organizations", [])
+    return items if isinstance(items, list) else [items]
 
 
 def _collect_apigee_environments(credentials, org_name):
-    """List environments for an Apigee organization.
-
-    ``GET /v1/organizations/{org}/environments``
-    """
-    return _apigee_paginated_list(
-        credentials,
-        f"organizations/{org_name}/environments",
-        list_key="environments",
-    )
+    body = _apigee_api_get(credentials, f"organizations/{org_name}/environments")
+    items = body.get("environments", [])
+    return items if isinstance(items, list) else [items]
 
 
 def _collect_apigee_api_proxies(credentials, org_name):
-    """List API proxies for an Apigee organization.
-
-    ``GET /v1/organizations/{org}/apis``
-    """
-    return _apigee_paginated_list(
-        credentials,
-        f"organizations/{org_name}/apis",
-        list_key="proxies",
-    )
+    body = _apigee_api_get(credentials, f"organizations/{org_name}/apis")
+    items = body.get("proxies", [])
+    return items if isinstance(items, list) else [items]
 
 
 def _collect_apigee_shared_flows(credentials, org_name):
-    """List shared flows for an Apigee organization.
-
-    ``GET /v1/organizations/{org}/sharedflows``
-    """
-    return _apigee_paginated_list(
-        credentials,
-        f"organizations/{org_name}/sharedflows",
-        list_key="sharedFlows",
-    )
+    body = _apigee_api_get(credentials, f"organizations/{org_name}/sharedflows")
+    items = body.get("sharedFlows", [])
+    return items if isinstance(items, list) else [items]
 
 
 def _collect_apigee_deployments(credentials, org_name):
-    """List deployments for an Apigee organization.
-
-    ``GET /v1/organizations/{org}/deployments``
-    """
-    return _apigee_paginated_list(
-        credentials,
-        f"organizations/{org_name}/deployments",
-        list_key="deployments",
-    )
+    body = _apigee_api_get(credentials, f"organizations/{org_name}/deployments")
+    items = body.get("deployments", [])
+    return items if isinstance(items, list) else [items]
 
 
 def _collect_apigee_developers(credentials, org_name):
-    """List developers for an Apigee organization.
-
-    ``GET /v1/organizations/{org}/developers``
-    """
-    return _apigee_paginated_list(
-        credentials,
-        f"organizations/{org_name}/developers",
-        list_key="developer",
-    )
+    body = _apigee_api_get(credentials, f"organizations/{org_name}/developers")
+    items = body.get("developer", [])
+    return items if isinstance(items, list) else [items]
 
 
 def _collect_apigee_apps(credentials, org_name):
-    """List developer apps for an Apigee organization.
-
-    ``GET /v1/organizations/{org}/apps``
-    """
-    return _apigee_paginated_list(
-        credentials,
-        f"organizations/{org_name}/apps",
-        list_key="app",
-    )
+    body = _apigee_api_get(credentials, f"organizations/{org_name}/apps")
+    items = body.get("app", [])
+    return items if isinstance(items, list) else [items]
 
 
 def _collect_apigee_instances(credentials, org_name):
-    """List runtime instances for an Apigee organization.
-
-    ``GET /v1/organizations/{org}/instances``
-    """
-    return _apigee_paginated_list(
-        credentials,
-        f"organizations/{org_name}/instances",
-        list_key="instances",
-    )
+    body = _apigee_api_get(credentials, f"organizations/{org_name}/instances")
+    items = body.get("instances", [])
+    return items if isinstance(items, list) else [items]
 
 
-def _apigee_get_project_mapping(credentials, org_name: str) -> Optional[str]:
-    """Get the GCP project ID that an Apigee org is provisioned in.
-
-    Calls ``GET /v1/organizations/{org}:getProjectMapping`` which returns
-    ``{projectIds: ["project-id"]}``.
-    """
-    try:
-        body = _apigee_api_get(
-            credentials,
-            f"organizations/{org_name}:getProjectMapping",
-        )
-        project_ids = body.get("projectIds", [])
-        return project_ids[0] if project_ids else None
-    except Exception:
-        # Project mapping is non-critical — the org can still be indexed
-        # without it; just won't link to a GCP project.
-        return None
-
-
-# Maps apigee_* collector names (CQ table names) to sub-resource collectors
-# that take (credentials, org_name). The org collector itself is special-cased
-# in gcpapi.py since it's the discovery root.
-_APIGEE_SUB_COLLECTORS: dict[str, GcpCollector] = {
+_APIGEE_SUB_COLLECTORS = {
     "apigee_environments": _collect_apigee_environments,
     "apigee_api_proxies": _collect_apigee_api_proxies,
     "apigee_shared_flows": _collect_apigee_shared_flows,

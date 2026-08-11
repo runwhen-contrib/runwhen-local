@@ -42,8 +42,6 @@ service_api_hosts:
   networkintelligencecenter: networkmanagement
   sourcerepo: sourcerepo
   videotranscoder: transcoder
-  # Apigee — not a GCP plugin table prefix, but the sync script's heuristic
-  # strip-prefix logic already handles bare "apigee_" tables correctly.
   apigee: apigee
 
 # ---------------------------------------------------------------------------
@@ -128,11 +126,7 @@ cai_type_overrides:
   gcp_resourcemanager_projects: cloudresourcemanager.googleapis.com/Project
   gcp_resourcemanager_folders: cloudresourcemanager.googleapis.com/Folder
 
-  # --- Apigee ---
-  # Apigee is NOT tracked by Cloud Asset Inventory. Every table relies on the
-  # typed collector in gcpapi_resource_types.py (REST API at apigee.googleapis.com).
-  # Set to null so generic discovery skips them and the typed collector runs
-  # independently of CAI availability.
+  # --- Apigee (not in CAI) ---
   apigee_organizations: null
   apigee_environments: null
   apigee_api_proxies: null
@@ -191,9 +185,7 @@ typed_collectors:
 - gcp_pubsub_topics
 - gcp_pubsub_subscriptions
 - gcp_iam_service_accounts
-# Apigee — REST API at apigee.googleapis.com (no google-cloud-* SDK).
-# The org anchor and its sub-resources are all typed collectors since CAI
-# does not track Apigee.
+# Apigee — REST API (apigee.googleapis.com), not CAI
 - apigee_organizations
 - apigee_environments
 - apigee_api_proxies
