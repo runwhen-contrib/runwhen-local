@@ -200,52 +200,64 @@ def _apigee_api_get(credentials, path, *, params=None):
     return response.json()
 
 
-def _collect_apigee_organizations(credentials, _project_id):
-    body = _apigee_api_get(credentials, "organizations")
-    items = body.get("organizations", [])
+def _apigee_list_items(body, key):
+    if isinstance(body, list):
+        return body
+    items = body.get(key, [])
     return items if isinstance(items, list) else [items]
+
+
+def _collect_apigee_organizations(credentials, _project_id):
+    return _apigee_list_items(
+        _apigee_api_get(credentials, "organizations"), "organizations"
+    )
 
 
 def _collect_apigee_environments(credentials, org_name):
-    body = _apigee_api_get(credentials, f"organizations/{org_name}/environments")
-    items = body.get("environments", [])
-    return items if isinstance(items, list) else [items]
+    return _apigee_list_items(
+        _apigee_api_get(credentials, f"organizations/{org_name}/environments"),
+        "environments",
+    )
 
 
 def _collect_apigee_api_proxies(credentials, org_name):
-    body = _apigee_api_get(credentials, f"organizations/{org_name}/apis")
-    items = body.get("proxies", [])
-    return items if isinstance(items, list) else [items]
+    return _apigee_list_items(
+        _apigee_api_get(credentials, f"organizations/{org_name}/apis"), "proxies"
+    )
 
 
 def _collect_apigee_shared_flows(credentials, org_name):
-    body = _apigee_api_get(credentials, f"organizations/{org_name}/sharedflows")
-    items = body.get("sharedFlows", [])
-    return items if isinstance(items, list) else [items]
+    return _apigee_list_items(
+        _apigee_api_get(credentials, f"organizations/{org_name}/sharedflows"),
+        "sharedFlows",
+    )
 
 
 def _collect_apigee_deployments(credentials, org_name):
-    body = _apigee_api_get(credentials, f"organizations/{org_name}/deployments")
-    items = body.get("deployments", [])
-    return items if isinstance(items, list) else [items]
+    return _apigee_list_items(
+        _apigee_api_get(credentials, f"organizations/{org_name}/deployments"),
+        "deployments",
+    )
 
 
 def _collect_apigee_developers(credentials, org_name):
-    body = _apigee_api_get(credentials, f"organizations/{org_name}/developers")
-    items = body.get("developer", [])
-    return items if isinstance(items, list) else [items]
+    return _apigee_list_items(
+        _apigee_api_get(credentials, f"organizations/{org_name}/developers"),
+        "developer",
+    )
 
 
 def _collect_apigee_apps(credentials, org_name):
-    body = _apigee_api_get(credentials, f"organizations/{org_name}/apps")
-    items = body.get("app", [])
-    return items if isinstance(items, list) else [items]
+    return _apigee_list_items(
+        _apigee_api_get(credentials, f"organizations/{org_name}/apps"), "app"
+    )
 
 
 def _collect_apigee_instances(credentials, org_name):
-    body = _apigee_api_get(credentials, f"organizations/{org_name}/instances")
-    items = body.get("instances", [])
-    return items if isinstance(items, list) else [items]
+    return _apigee_list_items(
+        _apigee_api_get(credentials, f"organizations/{org_name}/instances"),
+        "instances",
+    )
 
 
 _APIGEE_SUB_COLLECTORS = {
