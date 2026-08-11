@@ -57,11 +57,12 @@ def split_camel_cased_name(name: str) -> list[str]:
 def sanitize_name(name: str) -> str:
     """
     Remove or replace characters that are unsuitable for file names.
-    Also strips leading and trailing dashes to ensure RFC 1123 compliance.
+    Also strips leading and trailing dashes and collapses consecutive
+    dashes to a single dash to preserve the workspace--slx-name delimiter.
     :param name: The name to sanitize.
     :return: The sanitized name.
     """
-    return name.replace(':', '-').replace('/', '-').strip('-')
+    return re.sub(r'-{2,}', '-', name.replace(':', '-').replace('/', '-')).strip('-')
 
 def remove_vowels(name: str, keep_first_letter: bool) -> str:
     """
