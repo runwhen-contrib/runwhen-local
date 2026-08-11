@@ -270,7 +270,7 @@ def _discover_apigee(
 
     logger.info(f"Apigee: discovered {len(orgs)} organization(s).")
 
-    org_spec = find_spec("apigee_organizations")
+    org_spec = find_spec("gcp_apigee_organizations")
     if org_spec is None:
         logger.warning("Apigee: organizations spec not in registry.")
         return
@@ -280,8 +280,17 @@ def _discover_apigee(
         org_name = org_full_name.split("/")[-1] if org_full_name else ""
         if not org_name:
             continue
-        project_ids = org.get("projectIds", [])
-        project_id = project_ids[0] if project_ids else None
+        project_id = org.get("projectId") or (org.get("projectIds") or [None])[0]
+
+        if project_id and project_id not in in_scope_projects:
+            logger.info(
+                f"Apigee org {org_name}: project {project_id} not in scope; "
+                f"skipping."
+            )
+            stats["apigee_skipped_out_of_scope"] = (
+                stats.get("apigee_skipped_out_of_scope", 0) + 1
+            )
+            continue
 
         resource_data = {
             "name": org_name,
@@ -666,7 +675,7 @@ def index(context: Context) -> None:
                     continue
                 _process(spec, pid, resource_data, source="generic")
 
-    if any(a.startswith("apigee_") for a in accessed_names):
+    if any(a.startswith("gcp_apigee_") for a in accessed_names):
         _discover_apigee(
             credentials, platform_handler, writer, platform_cfg, context,
             auth_type, auth_secret, include_tags, exclude_tags,

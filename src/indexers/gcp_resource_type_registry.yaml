@@ -7,80 +7,6 @@ metadata:
   generator: scripts/gcp/sync_gcp_resource_type_registry.py
   notes: Generated file. To change the CAI asset type for a table, edit scripts/gcp/gcp_resource_type_overrides.yaml and re-run the sync script. Hand-edits to this file will be overwritten.
 types:
-  apigee_api_proxies:
-    cai_asset_type: null
-    cai_asset_type_source: override
-    category: null
-    aliases: []
-    match_names:
-    - apigee_api_proxies
-    typed_collector: true
-    mandatory: false
-  apigee_apps:
-    cai_asset_type: null
-    cai_asset_type_source: override
-    category: null
-    aliases: []
-    match_names:
-    - apigee_apps
-    typed_collector: true
-    mandatory: false
-  apigee_deployments:
-    cai_asset_type: null
-    cai_asset_type_source: override
-    category: null
-    aliases: []
-    match_names:
-    - apigee_deployments
-    typed_collector: true
-    mandatory: false
-  apigee_developers:
-    cai_asset_type: null
-    cai_asset_type_source: override
-    category: null
-    aliases: []
-    match_names:
-    - apigee_developers
-    typed_collector: true
-    mandatory: false
-  apigee_environments:
-    cai_asset_type: null
-    cai_asset_type_source: override
-    category: null
-    aliases: []
-    match_names:
-    - apigee_environments
-    typed_collector: true
-    mandatory: false
-  apigee_instances:
-    cai_asset_type: null
-    cai_asset_type_source: override
-    category: null
-    aliases: []
-    match_names:
-    - apigee_instances
-    typed_collector: true
-    mandatory: false
-  apigee_organizations:
-    cai_asset_type: null
-    cai_asset_type_source: override
-    category: null
-    aliases:
-    - apigee_organization
-    match_names:
-    - apigee_organizations
-    - apigee_organization
-    typed_collector: true
-    mandatory: false
-  apigee_shared_flows:
-    cai_asset_type: null
-    cai_asset_type_source: override
-    category: null
-    aliases: []
-    match_names:
-    - apigee_shared_flows
-    typed_collector: true
-    mandatory: false
   gcp_accessapproval_folder_approval_requests:
     cai_asset_type: accessapproval.googleapis.com/FolderApprovalRequest
     cai_asset_type_source: heuristic
@@ -458,6 +384,96 @@ types:
     match_names:
     - gcp_apigateway_gateways
     typed_collector: false
+    mandatory: false
+  gcp_apigee_api_proxies:
+    cai_asset_type: null
+    cai_asset_type_source: override
+    category: apigee
+    aliases:
+    - apigee_api_proxies
+    match_names:
+    - gcp_apigee_api_proxies
+    - apigee_api_proxies
+    typed_collector: true
+    mandatory: false
+  gcp_apigee_apps:
+    cai_asset_type: null
+    cai_asset_type_source: override
+    category: apigee
+    aliases:
+    - apigee_apps
+    match_names:
+    - gcp_apigee_apps
+    - apigee_apps
+    typed_collector: true
+    mandatory: false
+  gcp_apigee_deployments:
+    cai_asset_type: null
+    cai_asset_type_source: override
+    category: apigee
+    aliases:
+    - apigee_deployments
+    match_names:
+    - gcp_apigee_deployments
+    - apigee_deployments
+    typed_collector: true
+    mandatory: false
+  gcp_apigee_developers:
+    cai_asset_type: null
+    cai_asset_type_source: override
+    category: apigee
+    aliases:
+    - apigee_developers
+    match_names:
+    - gcp_apigee_developers
+    - apigee_developers
+    typed_collector: true
+    mandatory: false
+  gcp_apigee_environments:
+    cai_asset_type: null
+    cai_asset_type_source: override
+    category: apigee
+    aliases:
+    - apigee_environments
+    match_names:
+    - gcp_apigee_environments
+    - apigee_environments
+    typed_collector: true
+    mandatory: false
+  gcp_apigee_instances:
+    cai_asset_type: null
+    cai_asset_type_source: override
+    category: apigee
+    aliases:
+    - apigee_instances
+    match_names:
+    - gcp_apigee_instances
+    - apigee_instances
+    typed_collector: true
+    mandatory: false
+  gcp_apigee_organizations:
+    cai_asset_type: null
+    cai_asset_type_source: override
+    category: apigee
+    aliases:
+    - apigee_organization
+    - apigee_organizations
+    match_names:
+    - gcp_apigee_organizations
+    - apigee_organization
+    - apigee_organizations
+    typed_collector: true
+    mandatory: false
+  gcp_apigee_shared_flows:
+    cai_asset_type: null
+    cai_asset_type_source: override
+    category: apigee
+    aliases:
+    - apigee_shared_flows
+    match_names:
+    - gcp_apigee_shared_flows
+    - apigee_shared_flows
+    typed_collector: true
     mandatory: false
   gcp_apikeys_keys:
     cai_asset_type: apikeys.googleapis.com/Key

@@ -261,13 +261,13 @@ def _collect_apigee_instances(credentials, org_name):
 
 
 _APIGEE_SUB_COLLECTORS = {
-    "apigee_environments": _collect_apigee_environments,
-    "apigee_api_proxies": _collect_apigee_api_proxies,
-    "apigee_shared_flows": _collect_apigee_shared_flows,
-    "apigee_deployments": _collect_apigee_deployments,
-    "apigee_developers": _collect_apigee_developers,
-    "apigee_apps": _collect_apigee_apps,
-    "apigee_instances": _collect_apigee_instances,
+    "gcp_apigee_environments": _collect_apigee_environments,
+    "gcp_apigee_api_proxies": _collect_apigee_api_proxies,
+    "gcp_apigee_shared_flows": _collect_apigee_shared_flows,
+    "gcp_apigee_deployments": _collect_apigee_deployments,
+    "gcp_apigee_developers": _collect_apigee_developers,
+    "gcp_apigee_apps": _collect_apigee_apps,
+    "gcp_apigee_instances": _collect_apigee_instances,
 }
 
 
