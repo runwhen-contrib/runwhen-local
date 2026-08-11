@@ -16,14 +16,14 @@ Typed collectors (rich payloads) and any mandatory anchor — the resource types
 | Service | Resource type | Aliases | CAI asset type | Tier |
 | --- | --- | --- | --- | --- |
 | projects | `gcp_projects` | `project` | `cloudresourcemanager.googleapis.com/Project` | typed |
-| - | `apigee_api_proxies` | - | - | typed |
-| - | `apigee_apps` | - | - | typed |
-| - | `apigee_deployments` | - | - | typed |
-| - | `apigee_developers` | - | - | typed |
-| - | `apigee_environments` | - | - | typed |
-| - | `apigee_instances` | - | - | typed |
-| - | `apigee_organizations` | `apigee_organization` | - | typed |
-| - | `apigee_shared_flows` | - | - | typed |
+| apigee | `gcp_apigee_api_proxies` | `apigee_api_proxies` | - | typed |
+| apigee | `gcp_apigee_apps` | `apigee_apps` | - | typed |
+| apigee | `gcp_apigee_deployments` | `apigee_deployments` | - | typed |
+| apigee | `gcp_apigee_developers` | `apigee_developers` | - | typed |
+| apigee | `gcp_apigee_environments` | `apigee_environments` | - | typed |
+| apigee | `gcp_apigee_instances` | `apigee_instances` | - | typed |
+| apigee | `gcp_apigee_organizations` | `apigee_organization`, `apigee_organizations` | - | typed |
+| apigee | `gcp_apigee_shared_flows` | `apigee_shared_flows` | - | typed |
 | compute | `gcp_compute_addresses` | - | `compute.googleapis.com/Address` | typed |
 | compute | `gcp_compute_disks` | - | `compute.googleapis.com/Disk` | typed |
 | compute | `gcp_compute_firewalls` | - | `compute.googleapis.com/Firewall` | typed |
@@ -88,6 +88,14 @@ The complete set of 412 resource types, grouped by service. Expand to browse or 
 | alloydb | `gcp_alloydb_instances` | `alloydb.googleapis.com/Instance` | generic |
 | apigateway | `gcp_apigateway_apis` | `apigateway.googleapis.com/Api` | generic |
 | apigateway | `gcp_apigateway_gateways` | `apigateway.googleapis.com/Gateway` | generic |
+| apigee | `gcp_apigee_api_proxies` | - | typed |
+| apigee | `gcp_apigee_apps` | - | typed |
+| apigee | `gcp_apigee_deployments` | - | typed |
+| apigee | `gcp_apigee_developers` | - | typed |
+| apigee | `gcp_apigee_environments` | - | typed |
+| apigee | `gcp_apigee_instances` | - | typed |
+| apigee | `gcp_apigee_organizations` | - | typed |
+| apigee | `gcp_apigee_shared_flows` | - | typed |
 | apikeys | `gcp_apikeys_keys` | `apikeys.googleapis.com/Key` | generic |
 | appengine | `gcp_appengine_apps` | `appengine.googleapis.com/Application` | generic |
 | appengine | `gcp_appengine_authorized_certificates` | `appengine.googleapis.com/AuthorizedCertificate` | generic |
@@ -450,13 +458,5 @@ The complete set of 412 resource types, grouped by service. Expand to browse or 
 | websecurityscanner | `gcp_websecurityscanner_scan_config_scan_runs` | `websecurityscanner.googleapis.com/ScanConfigScanRun` | generic |
 | websecurityscanner | `gcp_websecurityscanner_scan_configs` | `websecurityscanner.googleapis.com/ScanConfig` | generic |
 | workflows | `gcp_workflows_workflows` | `workflows.googleapis.com/Workflow` | generic |
-| - | `apigee_api_proxies` | - | typed |
-| - | `apigee_apps` | - | typed |
-| - | `apigee_deployments` | - | typed |
-| - | `apigee_developers` | - | typed |
-| - | `apigee_environments` | - | typed |
-| - | `apigee_instances` | - | typed |
-| - | `apigee_organizations` | - | typed |
-| - | `apigee_shared_flows` | - | typed |
 
 </details>
