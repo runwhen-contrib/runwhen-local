@@ -1,12 +1,86 @@
 metadata:
   source: https://www.cloudquery.io/hub/plugins/source/cloudquery/gcp/latest/tables
-  snapshot_date: '2026-05-29'
-  total_tables: 404
-  typed_collectors: 13
+  snapshot_date: '2026-08-11'
+  total_tables: 412
+  typed_collectors: 21
   cai_types_assigned: 403
   generator: scripts/gcp/sync_gcp_resource_type_registry.py
   notes: Generated file. To change the CAI asset type for a table, edit scripts/gcp/gcp_resource_type_overrides.yaml and re-run the sync script. Hand-edits to this file will be overwritten.
 types:
+  apigee_api_proxies:
+    cai_asset_type: null
+    cai_asset_type_source: override
+    category: null
+    aliases: []
+    match_names:
+    - apigee_api_proxies
+    typed_collector: true
+    mandatory: false
+  apigee_apps:
+    cai_asset_type: null
+    cai_asset_type_source: override
+    category: null
+    aliases: []
+    match_names:
+    - apigee_apps
+    typed_collector: true
+    mandatory: false
+  apigee_deployments:
+    cai_asset_type: null
+    cai_asset_type_source: override
+    category: null
+    aliases: []
+    match_names:
+    - apigee_deployments
+    typed_collector: true
+    mandatory: false
+  apigee_developers:
+    cai_asset_type: null
+    cai_asset_type_source: override
+    category: null
+    aliases: []
+    match_names:
+    - apigee_developers
+    typed_collector: true
+    mandatory: false
+  apigee_environments:
+    cai_asset_type: null
+    cai_asset_type_source: override
+    category: null
+    aliases: []
+    match_names:
+    - apigee_environments
+    typed_collector: true
+    mandatory: false
+  apigee_instances:
+    cai_asset_type: null
+    cai_asset_type_source: override
+    category: null
+    aliases: []
+    match_names:
+    - apigee_instances
+    typed_collector: true
+    mandatory: false
+  apigee_organizations:
+    cai_asset_type: null
+    cai_asset_type_source: override
+    category: null
+    aliases:
+    - apigee_organization
+    match_names:
+    - apigee_organizations
+    - apigee_organization
+    typed_collector: true
+    mandatory: false
+  apigee_shared_flows:
+    cai_asset_type: null
+    cai_asset_type_source: override
+    category: null
+    aliases: []
+    match_names:
+    - apigee_shared_flows
+    typed_collector: true
+    mandatory: false
   gcp_accessapproval_folder_approval_requests:
     cai_asset_type: accessapproval.googleapis.com/FolderApprovalRequest
     cai_asset_type_source: heuristic

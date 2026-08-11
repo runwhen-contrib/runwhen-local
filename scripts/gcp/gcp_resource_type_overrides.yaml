@@ -42,6 +42,9 @@ service_api_hosts:
   networkintelligencecenter: networkmanagement
   sourcerepo: sourcerepo
   videotranscoder: transcoder
+  # Apigee — not a GCP plugin table prefix, but the sync script's heuristic
+  # strip-prefix logic already handles bare "apigee_" tables correctly.
+  apigee: apigee
 
 # ---------------------------------------------------------------------------
 # cai_type_overrides
@@ -125,6 +128,20 @@ cai_type_overrides:
   gcp_resourcemanager_projects: cloudresourcemanager.googleapis.com/Project
   gcp_resourcemanager_folders: cloudresourcemanager.googleapis.com/Folder
 
+  # --- Apigee ---
+  # Apigee is NOT tracked by Cloud Asset Inventory. Every table relies on the
+  # typed collector in gcpapi_resource_types.py (REST API at apigee.googleapis.com).
+  # Set to null so generic discovery skips them and the typed collector runs
+  # independently of CAI availability.
+  apigee_organizations: null
+  apigee_environments: null
+  apigee_api_proxies: null
+  apigee_shared_flows: null
+  apigee_deployments: null
+  apigee_developers: null
+  apigee_apps: null
+  apigee_instances: null
+
   # --- tables with no CAI asset-type equivalent ---
   # These are IAM policy bindings, billing rollups, metadata, etc. CAI does not
   # expose them as discrete assets, so generic discovery must skip them
@@ -143,6 +160,8 @@ aliases:
   - project
   gcp_compute_instances:
   - compute_instance
+  apigee_organizations:
+  - apigee_organization
 
 # ---------------------------------------------------------------------------
 # typed_collectors
@@ -172,6 +191,17 @@ typed_collectors:
 - gcp_pubsub_topics
 - gcp_pubsub_subscriptions
 - gcp_iam_service_accounts
+# Apigee — REST API at apigee.googleapis.com (no google-cloud-* SDK).
+# The org anchor and its sub-resources are all typed collectors since CAI
+# does not track Apigee.
+- apigee_organizations
+- apigee_environments
+- apigee_api_proxies
+- apigee_shared_flows
+- apigee_deployments
+- apigee_developers
+- apigee_apps
+- apigee_instances
 
 # ---------------------------------------------------------------------------
 # mandatory

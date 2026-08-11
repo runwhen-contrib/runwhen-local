@@ -1,6 +1,20 @@
 # CloudQuery GCP plugin table list (parity source)
 # Source: https://www.cloudquery.io/hub/plugins/source/cloudquery/gcp/latest/tables
 # Plugin version: v22.1.0  | tables: 404  | captured: 2026-05-29
+#
+# Apigee tables (separate CloudQuery plugin: cloudquery/apigee).
+# Added manually — these are NOT listed in the GCP plugin; they come from the
+# dedicated Apigee source plugin. CAI does not track Apigee, so every table
+# maps to cai_asset_type: null and relies on a typed collector.
+# See: https://www.cloudquery.io/hub/plugins/source/cloudquery/apigee/latest/tables
+apigee_organizations
+apigee_environments
+apigee_api_proxies
+apigee_shared_flows
+apigee_deployments
+apigee_developers
+apigee_apps
+apigee_instances
 gcp_accessapproval_folder_approval_requests
 gcp_accessapproval_folder_service_accounts
 gcp_accessapproval_folder_settings
