@@ -2,7 +2,7 @@
 
 Resource types the native `gcpapi` indexer can discover. Use the canonical CloudQuery table name (or any listed alias) as the `resourceTypes` value in a generation rule. This page is the companion catalog for [`gcp.md`](./gcp.md); see that page for how to enable the indexer and what data each row carries.
 
-_404 resource types - 13 typed (SDK collectors), 391 generic (Cloud Asset Inventory pass). Generated 2026-08-04 from `src/indexers/gcp_resource_type_registry.yaml`._
+_412 resource types - 21 typed (SDK collectors), 391 generic (Cloud Asset Inventory pass). Generated 2026-08-11 from `src/indexers/gcp_resource_type_registry.yaml`._
 
 _Regenerate with `python scripts/gcp/dump_gcp_resource_catalog.py` after touching the registry or overrides; do not hand-edit this file._
 
@@ -16,6 +16,14 @@ Typed collectors (rich payloads) and any mandatory anchor — the resource types
 | Service | Resource type | Aliases | CAI asset type | Tier |
 | --- | --- | --- | --- | --- |
 | projects | `gcp_projects` | `project` | `cloudresourcemanager.googleapis.com/Project` | typed |
+| - | `apigee_api_proxies` | - | - | typed |
+| - | `apigee_apps` | - | - | typed |
+| - | `apigee_deployments` | - | - | typed |
+| - | `apigee_developers` | - | - | typed |
+| - | `apigee_environments` | - | - | typed |
+| - | `apigee_instances` | - | - | typed |
+| - | `apigee_organizations` | `apigee_organization` | - | typed |
+| - | `apigee_shared_flows` | - | - | typed |
 | compute | `gcp_compute_addresses` | - | `compute.googleapis.com/Address` | typed |
 | compute | `gcp_compute_disks` | - | `compute.googleapis.com/Disk` | typed |
 | compute | `gcp_compute_firewalls` | - | `compute.googleapis.com/Firewall` | typed |
@@ -31,10 +39,10 @@ Typed collectors (rich payloads) and any mandatory anchor — the resource types
 
 ## All resource types
 
-The complete set of 404 resource types, grouped by service. Expand to browse or search (Ctrl/Cmd-F).
+The complete set of 412 resource types, grouped by service. Expand to browse or search (Ctrl/Cmd-F).
 
 <details>
-<summary>Show all 404 GCP resource types</summary>
+<summary>Show all 412 GCP resource types</summary>
 
 | Service | CloudQuery table name | CAI asset type | Tier |
 | --- | --- | --- | --- |
@@ -442,5 +450,13 @@ The complete set of 404 resource types, grouped by service. Expand to browse or 
 | websecurityscanner | `gcp_websecurityscanner_scan_config_scan_runs` | `websecurityscanner.googleapis.com/ScanConfigScanRun` | generic |
 | websecurityscanner | `gcp_websecurityscanner_scan_configs` | `websecurityscanner.googleapis.com/ScanConfig` | generic |
 | workflows | `gcp_workflows_workflows` | `workflows.googleapis.com/Workflow` | generic |
+| - | `apigee_api_proxies` | - | typed |
+| - | `apigee_apps` | - | typed |
+| - | `apigee_deployments` | - | typed |
+| - | `apigee_developers` | - | typed |
+| - | `apigee_environments` | - | typed |
+| - | `apigee_instances` | - | typed |
+| - | `apigee_organizations` | - | typed |
+| - | `apigee_shared_flows` | - | typed |
 
 </details>
