@@ -41,6 +41,7 @@ def _make_cluster(
     location: str = "us-west1",
     zone: Optional[str] = None,
     region: Optional[str] = None,
+    project_id: Optional[str] = "my-project",
 ) -> Resource:
     """Build a cluster ``Resource`` mirroring what ``kubeapi.py`` creates from
     the workspace-builder kubeconfig extension injected by
@@ -53,6 +54,8 @@ def _make_cluster(
     }
     if auth_secret is not None:
         attributes["auth_secret"] = auth_secret
+    if project_id is not None:
+        attributes["project_id"] = project_id
     if zone is not None:
         attributes["zone"] = zone
     if region is not None:
@@ -109,7 +112,7 @@ class KubernetesAuthGkeAdcTest(TestCase):
         custom = {"kubeconfig_secret_name": "k8s:file@secret/kubeconfig:kubeconfig"}
         rendered = _render_auth_template("kubernetes-auth.yaml", cluster=cluster, custom=custom)
         key = _extract_workspace_key(rendered)
-        self.assertEqual(key, "gcp:adc@kubeconfig:platform-cluster-01/us-west1")
+        self.assertEqual(key, "gcp:adc@kubeconfig:my-project/platform-cluster-01/us-west1")
 
     def test_gke_adc_does_not_fall_through_to_kubeconfig_secret(self):
         """The exact regression: Helm default kubeconfig_secret_name must NOT be used."""
@@ -124,7 +127,7 @@ class KubernetesAuthGkeAdcTest(TestCase):
         cluster = _make_cluster(auth_type="gcp_adc", location=None, zone="us-central1-a")
         rendered = _render_auth_template("kubernetes-auth.yaml", cluster=cluster)
         key = _extract_workspace_key(rendered)
-        self.assertEqual(key, "gcp:adc@kubeconfig:platform-cluster-01/us-central1-a")
+        self.assertEqual(key, "gcp:adc@kubeconfig:my-project/platform-cluster-01/us-central1-a")
 
 
 class KubernetesAuthGkeServiceAccountTest(TestCase):
@@ -137,13 +140,13 @@ class KubernetesAuthGkeServiceAccountTest(TestCase):
         cluster = _make_cluster(auth_type="gcp_service_account", location="us-east1")
         rendered = _render_auth_template("kubernetes-auth.yaml", cluster=cluster)
         key = _extract_workspace_key(rendered)
-        self.assertEqual(key, "gcp:sa@kubeconfig:platform-cluster-01/us-east1")
+        self.assertEqual(key, "gcp:sa@kubeconfig:my-project/platform-cluster-01/us-east1")
 
     def test_gke_service_account_file_renders_gcp_sa_workspacekey(self):
         cluster = _make_cluster(auth_type="gcp_service_account_file", location="us-east1")
         rendered = _render_auth_template("kubernetes-auth.yaml", cluster=cluster)
         key = _extract_workspace_key(rendered)
-        self.assertEqual(key, "gcp:sa@kubeconfig:platform-cluster-01/us-east1")
+        self.assertEqual(key, "gcp:sa@kubeconfig:my-project/platform-cluster-01/us-east1")
 
     def test_gke_service_account_secret_renders_sa_plus_secret_refs(self):
         cluster = _make_cluster(
@@ -153,7 +156,7 @@ class KubernetesAuthGkeServiceAccountTest(TestCase):
         )
         rendered = _render_auth_template("kubernetes-auth.yaml", cluster=cluster)
         kubeconfig_key = _extract_workspace_key(rendered, "kubeconfig")
-        self.assertEqual(kubeconfig_key, "gcp:sa@kubeconfig:platform-cluster-01/us-west1")
+        self.assertEqual(kubeconfig_key, "gcp:sa@kubeconfig:my-project/platform-cluster-01/us-west1")
         project_key = _extract_workspace_key(rendered, "gcp_projectId")
         self.assertEqual(project_key, "k8s:file@secret/gcp-prod-credentials:projectId")
         sa_key = _extract_workspace_key(rendered, "gcp_serviceAccountKey")
@@ -215,13 +218,13 @@ class GcpKubernetesAuthLocationTest(TestCase):
         cluster = _make_cluster(auth_type="gcp_adc", location="us-west1")
         rendered = _render_auth_template("gcp-kubernetes-auth.yaml", cluster=cluster)
         key = _extract_workspace_key(rendered)
-        self.assertEqual(key, "gcp:adc@kubeconfig:platform-cluster-01/us-west1")
+        self.assertEqual(key, "gcp:adc@kubeconfig:my-project/platform-cluster-01/us-west1")
 
     def test_gcp_sa_uses_location(self):
         cluster = _make_cluster(auth_type="gcp_service_account", location="us-east1")
         rendered = _render_auth_template("gcp-kubernetes-auth.yaml", cluster=cluster)
         key = _extract_workspace_key(rendered)
-        self.assertEqual(key, "gcp:sa@kubeconfig:platform-cluster-01/us-east1")
+        self.assertEqual(key, "gcp:sa@kubeconfig:my-project/platform-cluster-01/us-east1")
 
     def test_gcp_sa_secret_uses_location(self):
         cluster = _make_cluster(
@@ -231,10 +234,108 @@ class GcpKubernetesAuthLocationTest(TestCase):
         )
         rendered = _render_auth_template("gcp-kubernetes-auth.yaml", cluster=cluster)
         key = _extract_workspace_key(rendered, "kubeconfig")
-        self.assertEqual(key, "gcp:sa@kubeconfig:platform-cluster-01/us-central1")
+        self.assertEqual(key, "gcp:sa@kubeconfig:my-project/platform-cluster-01/us-central1")
 
     def test_gcp_adc_location_falls_back_to_zone(self):
         cluster = _make_cluster(auth_type="gcp_adc", location=None, zone="us-central1-a")
         rendered = _render_auth_template("gcp-kubernetes-auth.yaml", cluster=cluster)
         key = _extract_workspace_key(rendered)
-        self.assertEqual(key, "gcp:adc@kubeconfig:platform-cluster-01/us-central1-a")
+        self.assertEqual(key, "gcp:adc@kubeconfig:my-project/platform-cluster-01/us-central1-a")
+
+
+# ---------------------------------------------------------------------------
+# Multi-project workspaceKey uniqueness
+# ---------------------------------------------------------------------------
+
+class KubernetesAuthMultiProjectTest(TestCase):
+    """Same-named clusters in different projects must produce different workspaceKeys."""
+
+    def setUp(self):
+        os.chdir(_THIS_DIR)
+
+    def test_same_name_different_project_different_keys(self):
+        cluster_a = _make_cluster(
+            name="prod-cluster", project_id="project-alpha", auth_type="gcp_adc", location="us-west1"
+        )
+        cluster_b = _make_cluster(
+            name="prod-cluster", project_id="project-beta", auth_type="gcp_adc", location="us-west1"
+        )
+        rendered_a = _render_auth_template("kubernetes-auth.yaml", cluster=cluster_a)
+        rendered_b = _render_auth_template("kubernetes-auth.yaml", cluster=cluster_b)
+        key_a = _extract_workspace_key(rendered_a)
+        key_b = _extract_workspace_key(rendered_b)
+        self.assertEqual(key_a, "gcp:adc@kubeconfig:project-alpha/prod-cluster/us-west1")
+        self.assertEqual(key_b, "gcp:adc@kubeconfig:project-beta/prod-cluster/us-west1")
+        self.assertNotEqual(key_a, key_b)
+
+    def test_same_name_different_project_sa_secret_keys(self):
+        cluster_a = _make_cluster(
+            name="prod-cluster", project_id="project-alpha",
+            auth_type="gcp_service_account_secret",
+            auth_secret="gcp-creds", location="us-west1"
+        )
+        cluster_b = _make_cluster(
+            name="prod-cluster", project_id="project-beta",
+            auth_type="gcp_service_account_secret",
+            auth_secret="gcp-creds", location="us-west1"
+        )
+        rendered_a = _render_auth_template("kubernetes-auth.yaml", cluster=cluster_a)
+        rendered_b = _render_auth_template("kubernetes-auth.yaml", cluster=cluster_b)
+        key_a = _extract_workspace_key(rendered_a, "kubeconfig")
+        key_b = _extract_workspace_key(rendered_b, "kubeconfig")
+        self.assertEqual(key_a, "gcp:sa@kubeconfig:project-alpha/prod-cluster/us-west1")
+        self.assertEqual(key_b, "gcp:sa@kubeconfig:project-beta/prod-cluster/us-west1")
+        self.assertNotEqual(key_a, key_b)
+
+
+class KubernetesAuthProjectIdNoneTest(TestCase):
+    """When project_id is None, it should render as 'undefined'."""
+
+    def setUp(self):
+        os.chdir(_THIS_DIR)
+
+    def test_project_id_none_renders_undefined_in_kubernetes_auth(self):
+        cluster = _make_cluster(
+            name="my-cluster", project_id=None, auth_type="gcp_adc", location="us-east1"
+        )
+        rendered = _render_auth_template("kubernetes-auth.yaml", cluster=cluster)
+        key = _extract_workspace_key(rendered)
+        self.assertEqual(key, "gcp:adc@kubeconfig:undefined/my-cluster/us-east1")
+
+    def test_project_id_none_renders_undefined_in_gcp_kubernetes_auth(self):
+        cluster = _make_cluster(
+            name="my-cluster", project_id=None, auth_type="gcp_service_account", location="us-east1"
+        )
+        rendered = _render_auth_template("gcp-kubernetes-auth.yaml", cluster=cluster)
+        key = _extract_workspace_key(rendered)
+        self.assertEqual(key, "gcp:sa@kubeconfig:undefined/my-cluster/us-east1")
+
+    def test_project_id_default_undefined_in_gcp_adc_gcp_template(self):
+        cluster = _make_cluster(
+            name="my-cluster", project_id=None, auth_type="gcp_adc", location="us-central1"
+        )
+        rendered = _render_auth_template("gcp-kubernetes-auth.yaml", cluster=cluster)
+        key = _extract_workspace_key(rendered)
+        self.assertEqual(key, "gcp:adc@kubeconfig:undefined/my-cluster/us-central1")
+
+
+class GcpKubernetesAuthMultiProjectTest(TestCase):
+    """gcp-kubernetes-auth.yaml multi-project uniqueness."""
+
+    def setUp(self):
+        os.chdir(_THIS_DIR)
+
+    def test_same_name_different_project_different_keys(self):
+        cluster_a = _make_cluster(
+            name="prod-cluster", project_id="project-alpha", auth_type="gcp_adc", location="us-west1"
+        )
+        cluster_b = _make_cluster(
+            name="prod-cluster", project_id="project-beta", auth_type="gcp_adc", location="us-west1"
+        )
+        rendered_a = _render_auth_template("gcp-kubernetes-auth.yaml", cluster=cluster_a)
+        rendered_b = _render_auth_template("gcp-kubernetes-auth.yaml", cluster=cluster_b)
+        key_a = _extract_workspace_key(rendered_a)
+        key_b = _extract_workspace_key(rendered_b)
+        self.assertEqual(key_a, "gcp:adc@kubeconfig:project-alpha/prod-cluster/us-west1")
+        self.assertEqual(key_b, "gcp:adc@kubeconfig:project-beta/prod-cluster/us-west1")
+        self.assertNotEqual(key_a, key_b)
