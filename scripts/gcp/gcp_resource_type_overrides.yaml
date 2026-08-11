@@ -42,6 +42,7 @@ service_api_hosts:
   networkintelligencecenter: networkmanagement
   sourcerepo: sourcerepo
   videotranscoder: transcoder
+  apigee: apigee
 
 # ---------------------------------------------------------------------------
 # cai_type_overrides
@@ -125,6 +126,16 @@ cai_type_overrides:
   gcp_resourcemanager_projects: cloudresourcemanager.googleapis.com/Project
   gcp_resourcemanager_folders: cloudresourcemanager.googleapis.com/Folder
 
+  # --- Apigee (not in CAI) ---
+  gcp_apigee_organizations: null
+  gcp_apigee_environments: null
+  gcp_apigee_api_proxies: null
+  gcp_apigee_shared_flows: null
+  gcp_apigee_deployments: null
+  gcp_apigee_developers: null
+  gcp_apigee_apps: null
+  gcp_apigee_instances: null
+
   # --- tables with no CAI asset-type equivalent ---
   # These are IAM policy bindings, billing rollups, metadata, etc. CAI does not
   # expose them as discrete assets, so generic discovery must skip them
@@ -143,6 +154,23 @@ aliases:
   - project
   gcp_compute_instances:
   - compute_instance
+  gcp_apigee_organizations:
+  - apigee_organization
+  - apigee_organizations
+  gcp_apigee_environments:
+  - apigee_environments
+  gcp_apigee_api_proxies:
+  - apigee_api_proxies
+  gcp_apigee_shared_flows:
+  - apigee_shared_flows
+  gcp_apigee_deployments:
+  - apigee_deployments
+  gcp_apigee_developers:
+  - apigee_developers
+  gcp_apigee_apps:
+  - apigee_apps
+  gcp_apigee_instances:
+  - apigee_instances
 
 # ---------------------------------------------------------------------------
 # typed_collectors
@@ -172,6 +200,15 @@ typed_collectors:
 - gcp_pubsub_topics
 - gcp_pubsub_subscriptions
 - gcp_iam_service_accounts
+# Apigee — REST API (apigee.googleapis.com), not CAI
+- gcp_apigee_organizations
+- gcp_apigee_environments
+- gcp_apigee_api_proxies
+- gcp_apigee_shared_flows
+- gcp_apigee_deployments
+- gcp_apigee_developers
+- gcp_apigee_apps
+- gcp_apigee_instances
 
 # ---------------------------------------------------------------------------
 # mandatory

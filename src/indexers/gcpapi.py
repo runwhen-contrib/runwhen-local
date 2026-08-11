@@ -72,6 +72,8 @@ from .gcpapi_normalizers import (
 )
 from .gcpapi_resource_types import (
     PROJECTS_TABLE,
+    _APIGEE_SUB_COLLECTORS,
+    _collect_apigee_organizations,
     collect_assets_for_project,
     find_spec,
     find_spec_by_cai_type,
@@ -93,6 +95,8 @@ GCP_PLATFORM = "gcp"
 # never fail discovery or CI. Operators can still grep for the token to confirm
 # whether the CAI pass ran.
 CAI_PERMISSION_DENIED_TOKEN = "GCP_CAI_PERMISSION_DENIED"
+
+APIGEE_PERMISSION_DENIED_TOKEN = "GCP_APIGEE_PERMISSION_DENIED"
 
 DOCUMENTATION = "Index GCP resources using Cloud Asset Inventory and the google-cloud SDKs"
 
@@ -224,6 +228,164 @@ def _note_cai_unavailable(context: Context, project_id: str, exc: Exception) -> 
     logger.info(message)
 
 
+def _note_apigee_unavailable(context, exc):
+    message = (
+        f"{APIGEE_PERMISSION_DENIED_TOKEN}: Apigee API not accessible ({exc}). "
+        f"Apigee is OPTIONAL; most GCP projects do not use it. Discovery of "
+        f"compute, storage, GKE, Pub/Sub, IAM, and all other GCP resources "
+        f"proceeds normally. To enable Apigee discovery, enable the Apigee API "
+        f"and grant roles/apigee.viewer to the service account."
+    )
+    logger.info(message)
+
+
+def _discover_apigee(
+    credentials,
+    platform_handler,
+    writer,
+    platform_cfg,
+    context,
+    auth_type,
+    auth_secret,
+    include_tags,
+    exclude_tags,
+    in_scope_projects,
+    stats,
+):
+    try:
+        orgs = list(_collect_apigee_organizations(credentials, ""))
+    except Exception as exc:
+        if _is_permission_denied(exc):
+            stats["apigee_permission_denied"] = 1
+            _note_apigee_unavailable(context, exc)
+            return
+        stats["skipped_collector_error"] += 1
+        logger.error(f"Failed to list Apigee organizations: {exc}")
+        context.add_warning(f"Failed to list Apigee organizations: {exc}")
+        return
+
+    if not orgs:
+        logger.info("Apigee: no organizations found.")
+        return
+
+    logger.info(f"Apigee: discovered {len(orgs)} organization(s).")
+
+    org_spec = find_spec("gcp_apigee_organizations")
+    if org_spec is None:
+        logger.warning("Apigee: organizations spec not in registry.")
+        return
+
+    for org in orgs:
+        org_full_name = org.get("organization", "")
+        org_name = org_full_name.split("/")[-1] if org_full_name else ""
+        if not org_name:
+            continue
+        project_id = org.get("projectId") or (org.get("projectIds") or [None])[0]
+
+        if project_id and project_id not in in_scope_projects:
+            logger.info(
+                f"Apigee org {org_name}: project {project_id} not in scope; "
+                f"skipping."
+            )
+            stats["apigee_skipped_out_of_scope"] = (
+                stats.get("apigee_skipped_out_of_scope", 0) + 1
+            )
+            continue
+
+        resource_data = {
+            "name": org_name,
+            "id": org_full_name,
+            "project_id": project_id,
+            "tags": {},
+            "labels": {},
+        }
+
+        if exclude_tags and has_excluded_tags(resource_data, exclude_tags):
+            stats["skipped_tag_filter"] += 1
+            continue
+        if include_tags and not has_included_tags(resource_data, include_tags):
+            stats["skipped_tag_filter"] += 1
+            continue
+
+        try:
+            resource_name, qualified_name, resource_attributes = (
+                platform_handler.parse_resource_data(
+                    resource_data, org_spec.resource_type_name, platform_cfg, context
+                )
+            )
+        except Exception as e:
+            stats["skipped_parse_error"] += 1
+            logger.warning(f"parse_resource_data rejected apigee_organization {org_name}: {e}")
+            continue
+
+        resource_attributes["resource"] = resource_data
+        resource_attributes["auth_type"] = auth_type
+        resource_attributes["auth_secret"] = auth_secret
+
+        writer.add_resource(
+            GCP_PLATFORM, org_spec.resource_type_name,
+            resource_name, qualified_name, resource_attributes,
+        )
+        stats["added"] += 1
+        stats["added_apigee_org"] = stats.get("added_apigee_org", 0) + 1
+
+        for cq_name, collector in _APIGEE_SUB_COLLECTORS.items():
+            spec = find_spec(cq_name)
+            if spec is None:
+                continue
+            try:
+                items = list(collector(credentials, org_name))
+            except Exception as e:
+                stats["skipped_collector_error"] += 1
+                logger.error(f"Failed to collect Apigee {spec.resource_type_name} for org {org_name}: {e}")
+                context.add_warning(f"Failed to collect Apigee {spec.resource_type_name} for org {org_name}: {e}")
+                continue
+
+            logger.info(f"Apigee: {len(items)} {spec.resource_type_name} in org {org_name}")
+
+            for item in items:
+                item_name = item.get("name", "") if isinstance(item, dict) else ""
+                item_name = item_name.split("/")[-1] if "/" in str(item_name) else item_name
+
+                rd = dict(item) if isinstance(item, dict) else {}
+                rd["name"] = item_name
+                rd["id"] = item.get("name", "") if isinstance(item, dict) else ""
+                rd["organization_name"] = org_name
+                if project_id:
+                    rd["project_id"] = project_id
+                rd.setdefault("tags", {})
+                rd.setdefault("labels", {})
+
+                if exclude_tags and has_excluded_tags(rd, exclude_tags):
+                    stats["skipped_tag_filter"] += 1
+                    continue
+                if include_tags and not has_included_tags(rd, include_tags):
+                    stats["skipped_tag_filter"] += 1
+                    continue
+
+                try:
+                    rn, qn, ra = platform_handler.parse_resource_data(
+                        rd, spec.resource_type_name, platform_cfg, context
+                    )
+                except Exception as e:
+                    stats["skipped_parse_error"] += 1
+                    logger.warning(f"parse_resource_data rejected Apigee {spec.resource_type_name} {item_name}: {e}")
+                    continue
+
+                ra["resource"] = rd
+                ra["auth_type"] = auth_type
+                ra["auth_secret"] = auth_secret
+
+                writer.add_resource(GCP_PLATFORM, spec.resource_type_name, rn, qn, ra)
+                stats["added"] += 1
+                stats["added_apigee"] = stats.get("added_apigee", 0) + 1
+
+    logger.info(
+        f"Apigee discovery complete: orgs={stats.get('added_apigee_org', 0)}, "
+        f"sub_resources={stats.get('added_apigee', 0)}"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -344,11 +506,14 @@ def index(context: Context) -> None:
         "added_projects": 0,
         "added_typed": 0,
         "added_generic": 0,
+        "added_apigee": 0,
+        "added_apigee_org": 0,
         "generic_unmatched_cai_type": 0,
         "skipped_tag_filter": 0,
         "skipped_parse_error": 0,
         "skipped_collector_error": 0,
         "cai_permission_denied": 0,
+        "apigee_permission_denied": 0,
     }
 
     def _process(spec, project_id, resource_data, *, source: str) -> None:
@@ -510,18 +675,27 @@ def index(context: Context) -> None:
                     continue
                 _process(spec, pid, resource_data, source="generic")
 
+    if any(a.startswith("gcp_apigee_") for a in accessed_names):
+        _discover_apigee(
+            credentials, platform_handler, writer, platform_cfg, context,
+            auth_type, auth_secret, include_tags, exclude_tags,
+            in_scope_projects, stats,
+        )
+
     writer.finalize()
 
     logger.info(
         f"GCP indexing complete: "
         f"discovered={stats['discovered']}, added={stats['added']} "
         f"(projects={stats['added_projects']}, typed={stats['added_typed']}, "
-        f"generic={stats['added_generic']}), "
+        f"generic={stats['added_generic']}, "
+        f"apigee={stats.get('added_apigee', 0)}), "
         f"generic_unmatched_cai_type={stats['generic_unmatched_cai_type']}, "
         f"skipped_tag_filter={stats['skipped_tag_filter']}, "
         f"skipped_parse_error={stats['skipped_parse_error']}, "
         f"skipped_collector_error={stats['skipped_collector_error']}, "
-        f"cai_permission_denied={stats['cai_permission_denied']}"
+        f"cai_permission_denied={stats['cai_permission_denied']}, "
+        f"apigee_permission_denied={stats.get('apigee_permission_denied', 0)}"
     )
 
     if stats["cai_permission_denied"]:
@@ -531,4 +705,11 @@ def index(context: Context) -> None:
             "above). This is expected when CAI is not enabled and does not indicate "
             "a failure -- the typed collectors are the functional discovery path.",
             CAI_PERMISSION_DENIED_TOKEN,
+        )
+
+    if stats.get("apigee_permission_denied"):
+        logger.info(
+            "Apigee API not accessible (see %s above). Apigee is OPTIONAL; "
+            "most GCP projects do not use it.",
+            APIGEE_PERMISSION_DENIED_TOKEN,
         )

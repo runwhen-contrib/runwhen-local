@@ -2,7 +2,7 @@
 
 Resource types the native `gcpapi` indexer can discover. Use the canonical CloudQuery table name (or any listed alias) as the `resourceTypes` value in a generation rule. This page is the companion catalog for [`gcp.md`](./gcp.md); see that page for how to enable the indexer and what data each row carries.
 
-_404 resource types - 13 typed (SDK collectors), 391 generic (Cloud Asset Inventory pass). Generated 2026-08-04 from `src/indexers/gcp_resource_type_registry.yaml`._
+_412 resource types - 21 typed (SDK collectors), 391 generic (Cloud Asset Inventory pass). Generated 2026-08-11 from `src/indexers/gcp_resource_type_registry.yaml`._
 
 _Regenerate with `python scripts/gcp/dump_gcp_resource_catalog.py` after touching the registry or overrides; do not hand-edit this file._
 
@@ -16,6 +16,14 @@ Typed collectors (rich payloads) and any mandatory anchor — the resource types
 | Service | Resource type | Aliases | CAI asset type | Tier |
 | --- | --- | --- | --- | --- |
 | projects | `gcp_projects` | `project` | `cloudresourcemanager.googleapis.com/Project` | typed |
+| apigee | `gcp_apigee_api_proxies` | `apigee_api_proxies` | - | typed |
+| apigee | `gcp_apigee_apps` | `apigee_apps` | - | typed |
+| apigee | `gcp_apigee_deployments` | `apigee_deployments` | - | typed |
+| apigee | `gcp_apigee_developers` | `apigee_developers` | - | typed |
+| apigee | `gcp_apigee_environments` | `apigee_environments` | - | typed |
+| apigee | `gcp_apigee_instances` | `apigee_instances` | - | typed |
+| apigee | `gcp_apigee_organizations` | `apigee_organization`, `apigee_organizations` | - | typed |
+| apigee | `gcp_apigee_shared_flows` | `apigee_shared_flows` | - | typed |
 | compute | `gcp_compute_addresses` | - | `compute.googleapis.com/Address` | typed |
 | compute | `gcp_compute_disks` | - | `compute.googleapis.com/Disk` | typed |
 | compute | `gcp_compute_firewalls` | - | `compute.googleapis.com/Firewall` | typed |
@@ -31,10 +39,10 @@ Typed collectors (rich payloads) and any mandatory anchor — the resource types
 
 ## All resource types
 
-The complete set of 404 resource types, grouped by service. Expand to browse or search (Ctrl/Cmd-F).
+The complete set of 412 resource types, grouped by service. Expand to browse or search (Ctrl/Cmd-F).
 
 <details>
-<summary>Show all 404 GCP resource types</summary>
+<summary>Show all 412 GCP resource types</summary>
 
 | Service | CloudQuery table name | CAI asset type | Tier |
 | --- | --- | --- | --- |
@@ -80,6 +88,14 @@ The complete set of 404 resource types, grouped by service. Expand to browse or 
 | alloydb | `gcp_alloydb_instances` | `alloydb.googleapis.com/Instance` | generic |
 | apigateway | `gcp_apigateway_apis` | `apigateway.googleapis.com/Api` | generic |
 | apigateway | `gcp_apigateway_gateways` | `apigateway.googleapis.com/Gateway` | generic |
+| apigee | `gcp_apigee_api_proxies` | - | typed |
+| apigee | `gcp_apigee_apps` | - | typed |
+| apigee | `gcp_apigee_deployments` | - | typed |
+| apigee | `gcp_apigee_developers` | - | typed |
+| apigee | `gcp_apigee_environments` | - | typed |
+| apigee | `gcp_apigee_instances` | - | typed |
+| apigee | `gcp_apigee_organizations` | - | typed |
+| apigee | `gcp_apigee_shared_flows` | - | typed |
 | apikeys | `gcp_apikeys_keys` | `apikeys.googleapis.com/Key` | generic |
 | appengine | `gcp_appengine_apps` | `appengine.googleapis.com/Application` | generic |
 | appengine | `gcp_appengine_authorized_certificates` | `appengine.googleapis.com/AuthorizedCertificate` | generic |

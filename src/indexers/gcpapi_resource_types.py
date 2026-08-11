@@ -183,6 +183,94 @@ def _collect_iam_service_accounts(credentials, project_id):
     return client.list_service_accounts(request=request)
 
 
+# ---------------------------------------------------------------------------
+# Apigee typed collectors
+# ---------------------------------------------------------------------------
+
+APIGEE_BASE_URL = "https://apigee.googleapis.com/v1"
+
+
+def _apigee_api_get(credentials, path, *, params=None):
+    from google.auth.transport.requests import AuthorizedSession
+
+    session = AuthorizedSession(credentials)
+    url = f"{APIGEE_BASE_URL}/{path.lstrip('/')}"
+    response = session.get(url, params=params)
+    response.raise_for_status()
+    return response.json()
+
+
+def _apigee_list_items(body, key):
+    if isinstance(body, list):
+        return body
+    items = body.get(key, [])
+    return items if isinstance(items, list) else [items]
+
+
+def _collect_apigee_organizations(credentials, _project_id):
+    return _apigee_list_items(
+        _apigee_api_get(credentials, "organizations"), "organizations"
+    )
+
+
+def _collect_apigee_environments(credentials, org_name):
+    return _apigee_list_items(
+        _apigee_api_get(credentials, f"organizations/{org_name}/environments"),
+        "environments",
+    )
+
+
+def _collect_apigee_api_proxies(credentials, org_name):
+    return _apigee_list_items(
+        _apigee_api_get(credentials, f"organizations/{org_name}/apis"), "proxies"
+    )
+
+
+def _collect_apigee_shared_flows(credentials, org_name):
+    return _apigee_list_items(
+        _apigee_api_get(credentials, f"organizations/{org_name}/sharedflows"),
+        "sharedFlows",
+    )
+
+
+def _collect_apigee_deployments(credentials, org_name):
+    return _apigee_list_items(
+        _apigee_api_get(credentials, f"organizations/{org_name}/deployments"),
+        "deployments",
+    )
+
+
+def _collect_apigee_developers(credentials, org_name):
+    return _apigee_list_items(
+        _apigee_api_get(credentials, f"organizations/{org_name}/developers"),
+        "developer",
+    )
+
+
+def _collect_apigee_apps(credentials, org_name):
+    return _apigee_list_items(
+        _apigee_api_get(credentials, f"organizations/{org_name}/apps"), "app"
+    )
+
+
+def _collect_apigee_instances(credentials, org_name):
+    return _apigee_list_items(
+        _apigee_api_get(credentials, f"organizations/{org_name}/instances"),
+        "instances",
+    )
+
+
+_APIGEE_SUB_COLLECTORS = {
+    "gcp_apigee_environments": _collect_apigee_environments,
+    "gcp_apigee_api_proxies": _collect_apigee_api_proxies,
+    "gcp_apigee_shared_flows": _collect_apigee_shared_flows,
+    "gcp_apigee_deployments": _collect_apigee_deployments,
+    "gcp_apigee_developers": _collect_apigee_developers,
+    "gcp_apigee_apps": _collect_apigee_apps,
+    "gcp_apigee_instances": _collect_apigee_instances,
+}
+
+
 # Maps canonical CQ table name -> typed collector callable. Adding an entry here
 # automatically (a) flips the spec's ``typed`` flag and (b) excludes the type's
 # CAI asset type from the Cloud Asset Inventory generic filter in
