@@ -1,7 +1,7 @@
 from typing import Any, Optional, Dict
 from dataclasses import dataclass
 from azure.identity import DefaultAzureCredential, ClientSecretCredential
-from azure.mgmt.resource import SubscriptionClient
+from azure.mgmt.resource.subscriptions import SubscriptionClient
 import os
 
 from component import Context

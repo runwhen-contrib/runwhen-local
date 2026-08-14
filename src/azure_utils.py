@@ -1,7 +1,7 @@
 import subprocess
 from azure.identity import DefaultAzureCredential, ClientSecretCredential
 from azure.mgmt.containerservice import ContainerServiceClient
-from azure.mgmt.resource import SubscriptionClient
+from azure.mgmt.resource.subscriptions import SubscriptionClient
 from azure.core.exceptions import AzureError
 import os
 import yaml
