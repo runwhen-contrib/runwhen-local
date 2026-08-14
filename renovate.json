@@ -9,20 +9,11 @@
     ":automergeBranch"
   ],
   "timezone": "America/New_York",
-  "schedule": [
-    "before 10am on monday"
-  ],
   "labels": [
     "dependencies"
   ],
-  "assignees": [
-    "@runwhen-contrib/maintainers"
-  ],
-  "reviewers": [
-    "@runwhen-contrib/maintainers"
-  ],
-  "prConcurrentLimit": 5,
-  "prHourlyLimit": 2,
+  "prConcurrentLimit": 10,
+  "prHourlyLimit": 4,
   "packageRules": [
     {
       "description": "Group Python dependencies",
@@ -30,9 +21,6 @@
         "poetry"
       ],
       "groupName": "Python dependencies",
-      "schedule": [
-        "before 10am on monday"
-      ],
       "automerge": false,
       "reviewersFromCodeOwners": true
     },
@@ -99,9 +87,6 @@
         "major"
       ],
       "automerge": false,
-      "schedule": [
-        "before 10am on monday"
-      ],
       "labels": [
         "dependencies",
         "major-update"
@@ -146,9 +131,8 @@
       "matchStrings": [
         "ENV GCLOUD_CLI_VERSION=\"(?<currentValue>.*?)\"\\s"
       ],
-      "datasourceTemplate": "github-releases",
-      "depNameTemplate": "google-cloud-sdk",
-      "extractVersionTemplate": "^(?<version>.*)$"
+      "datasourceTemplate": "docker",
+      "depNameTemplate": "google/cloud-sdk"
     },
     {
       "customType": "regex",

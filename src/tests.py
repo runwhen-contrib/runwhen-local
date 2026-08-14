@@ -263,6 +263,34 @@ class NameUtilsTest(TestCase):
         """Escaped dot in pattern matches literal dot."""
         self.assertTrue(matches_namespace("prod.us", [r"prod\.us"]))
 
+    def test_double_dash_collapsed_in_qualified_name(self):
+        """Qualified SLX names with -- should have dashes collapsed to preserve the workspace--slx delimiter."""
+        # A qualifier value that contains a double dash
+        qualifiers = ["cluster--name", "namespace--dev"]
+        qualified_slx_name = make_qualified_slx_name("test", qualifiers)
+        # Should NOT contain any double dash
+        self.assertNotIn("--", qualified_slx_name, f"Qualified name should not contain '--': {qualified_slx_name}")
+        # Should not have dangling dashes from the collapse
+        self.assertFalse(qualified_slx_name.startswith("-"))
+        self.assertFalse(qualified_slx_name.endswith("-"))
+
+        slx_name = make_slx_name("my-workspace", qualified_slx_name)
+        # The FULL SLX name should contain exactly ONE "--" (the workspace separator)
+        self.assertEqual(1, slx_name.count("--"), f"SLX name should have exactly one '--' separator: {slx_name}")
+        # And splitting by -- should yield exactly 2 parts
+        self.assertEqual(2, len(slx_name.split("--")))
+
+    def test_double_dash_in_resource_name_collapsed(self):
+        """Resource names like 'some--resource--statefulset' should have consecutive dashes collapsed."""
+        # Simulate ArgoCD app name with double dash
+        qualifiers = ["argo-cd--argocd-application--controller"]
+        qualified_slx_name = make_qualified_slx_name("statefulset-health", qualifiers)
+        self.assertNotIn("--", qualified_slx_name)
+
+        slx_name = make_slx_name("my-workspace", qualified_slx_name)
+        self.assertEqual(1, slx_name.count("--"))
+        self.assertEqual(2, len(slx_name.split("--")))
+
 
 class RepoUtilsTest(TestCase):
 

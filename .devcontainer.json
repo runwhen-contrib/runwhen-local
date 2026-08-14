@@ -4,7 +4,7 @@
     "image": "ghcr.io/runwhen-contrib/runwhen-local-devcontainer:latest",
     "updateRemoteUserUID": false,
     "features": {
-        "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+        "ghcr.io/devcontainers/features/docker-in-docker:4": {},
         "ghcr.io/devcontainers/features/sshd:1": {
             "version": "latest"
         }
