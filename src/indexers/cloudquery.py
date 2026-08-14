@@ -1,5 +1,6 @@
 from azure.identity import DefaultAzureCredential, ClientSecretCredential
-from azure.mgmt.resource import ResourceManagementClient, SubscriptionClient
+from azure.mgmt.resource.resources import ResourceManagementClient
+from azure.mgmt.resource.subscriptions import SubscriptionClient
 import requests
 from kubernetes import client, config
 

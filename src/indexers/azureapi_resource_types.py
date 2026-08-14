@@ -101,7 +101,7 @@ class AzureResourceTypeSpec:
 # ---------------------------------------------------------------------------
 
 def _collect_resource_groups_all(credential, subscription_id):
-    from azure.mgmt.resource import ResourceManagementClient
+    from azure.mgmt.resource.resources import ResourceManagementClient
 
     client = ResourceManagementClient(credential, subscription_id)
     return client.resource_groups.list()
@@ -201,7 +201,7 @@ def _collect_subscriptions_all(credential, subscription_id):
     correct and yields exactly one ``azure_subscription_subscriptions``
     resource per workspaceInfo subscription.
     """
-    from azure.mgmt.resource import SubscriptionClient
+    from azure.mgmt.resource.subscriptions import SubscriptionClient
 
     client = SubscriptionClient(credential)
     return [client.subscriptions.get(subscription_id)]
@@ -569,14 +569,14 @@ def _collect_arc_sql_server_instances_in_rg(credential, subscription_id, rg_name
 # the typed result winning.
 
 def _collect_generic_resources_all(credential, subscription_id):
-    from azure.mgmt.resource import ResourceManagementClient
+    from azure.mgmt.resource.resources import ResourceManagementClient
 
     client = ResourceManagementClient(credential, subscription_id)
     return client.resources.list()
 
 
 def _collect_generic_resources_in_rg(credential, subscription_id, rg_name):
-    from azure.mgmt.resource import ResourceManagementClient
+    from azure.mgmt.resource.resources import ResourceManagementClient
 
     client = ResourceManagementClient(credential, subscription_id)
     return client.resources.list_by_resource_group(rg_name)

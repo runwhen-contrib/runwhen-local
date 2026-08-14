@@ -18,7 +18,8 @@ from typing import Any
 
 import requests
 from azure.identity import ClientSecretCredential, DefaultAzureCredential
-from azure.mgmt.resource import ResourceManagementClient, SubscriptionClient
+from azure.mgmt.resource.resources import ResourceManagementClient
+from azure.mgmt.resource.subscriptions import SubscriptionClient
 
 from exceptions import WorkspaceBuilderException
 from utils import mask_string
