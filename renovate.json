@@ -92,6 +92,16 @@
         "major-update"
       ],
       "reviewersFromCodeOwners": true
+    },
+    {
+      "description": "Auto-merge normal low-risk updates (patch, minor, pin, digest).",
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pin",
+        "digest"
+      ],
+      "automerge": true
     }
   ],
   "dockerfile": {
