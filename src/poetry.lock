@@ -442,14 +442,14 @@ typing-extensions = ">=4.6.0"
 
 [[package]]
 name = "azure-mgmt-network"
-version = "31.0.1"
+version = "32.0.0"
 description = "Microsoft Azure Network Management Client Library for Python"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "azure_mgmt_network-31.0.1-py3-none-any.whl", hash = "sha256:cb36bff1a08237211093b0c3b900cadfd344d08d4a437d526c1239fee3331d0c"},
-    {file = "azure_mgmt_network-31.0.1.tar.gz", hash = "sha256:2112f720eedca76173be4d47acb8bc58af16a90debc7b601bf11b37faaaed137"},
+    {file = "azure_mgmt_network-32.0.0-py3-none-any.whl", hash = "sha256:915a6465edfb3b5c30a44027ed92851173d07054682682d0b362fbe9e5c78697"},
+    {file = "azure_mgmt_network-32.0.0.tar.gz", hash = "sha256:cd5707de7bac945c5407047cd764e64cc4b4ce8f51d1f4fe32bfc204d9229093"},
 ]
 
 [package.dependencies]
@@ -3606,4 +3606,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.14,<3.15"
-content-hash = "28fc79dda24c04fb8cc0465ba604b037b215b3f6b47d2749898865e3098ba6f5"
+content-hash = "a385ccd184ec3adcafa0017e59d2ab9110d2edc300709eec09e95bf7bab27cc9"
