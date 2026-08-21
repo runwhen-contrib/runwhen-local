@@ -593,6 +593,7 @@ tasks:
         cd "$SRC_DIR" && python3 -m unittest \
           indexers.test_sqlite_resource_writer \
           indexers.test_azureapi_normalizers \
+          indexers.test_gcpapi_apigee \
           -v
     silent: false
 

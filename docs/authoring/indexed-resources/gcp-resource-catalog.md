@@ -2,7 +2,7 @@
 
 Resource types the native `gcpapi` indexer can discover. Use the canonical CloudQuery table name (or any listed alias) as the `resourceTypes` value in a generation rule. This page is the companion catalog for [`gcp.md`](./gcp.md); see that page for how to enable the indexer and what data each row carries.
 
-_412 resource types - 21 typed (SDK collectors), 391 generic (Cloud Asset Inventory pass). Generated 2026-08-14 from `src/indexers/gcp_resource_type_registry.yaml`._
+_412 resource types - 21 typed (SDK collectors), 391 generic (Cloud Asset Inventory pass). Generated 2026-08-21 from `src/indexers/gcp_resource_type_registry.yaml`._
 
 _Regenerate with `python scripts/gcp/dump_gcp_resource_catalog.py` after touching the registry or overrides; do not hand-edit this file._
 
