@@ -189,6 +189,15 @@ def _is_permission_denied(exc: Exception) -> bool:
     REST ``Forbidden`` shapes, plus a string fallback."""
     if type(exc).__name__ in ("PermissionDenied", "Forbidden"):
         return True
+    # The Apigee collectors call the REST API directly and surface failures as a
+    # ``requests`` HTTPError, whose only machine-readable status lives on
+    # ``.response.status_code`` -- its class name is ``HTTPError`` and its string
+    # form ("403 Client Error: Forbidden for url: ...") never contains the word
+    # "permission", so none of the checks below would catch it. Duck-typed for
+    # the same reason the google exception types are not imported here.
+    status = getattr(getattr(exc, "response", None), "status_code", None)
+    if status in (401, 403):
+        return True
     code = getattr(exc, "code", None)
     # google.api_core PermissionDenied exposes code==403; grpc status objects
     # expose a callable .code(). Handle both without hard-depending on either.
@@ -336,6 +345,25 @@ def _discover_apigee(
             try:
                 items = list(collector(credentials, org_name))
             except Exception as e:
+                if _is_permission_denied(e):
+                    # An org is routinely readable while a subset of its
+                    # sub-resources (developers, apps, ...) is not. Treat that
+                    # the same way as an inaccessible Apigee API: informational,
+                    # not an error, so a partially-scoped role does not produce a
+                    # burst of warnings. Counted separately from
+                    # ``apigee_permission_denied`` so the run summary's "Apigee
+                    # API not accessible" note still means exactly that.
+                    stats["apigee_sub_permission_denied"] = (
+                        stats.get("apigee_sub_permission_denied", 0) + 1
+                    )
+                    logger.info(
+                        f"{APIGEE_PERMISSION_DENIED_TOKEN}: Apigee "
+                        f"{spec.resource_type_name} not accessible for org "
+                        f"{org_name} ({e}). This is informational; the rest of "
+                        f"Apigee discovery proceeds normally. To include this "
+                        f"resource type, grant roles/apigee.viewer."
+                    )
+                    continue
                 stats["skipped_collector_error"] += 1
                 logger.error(f"Failed to collect Apigee {spec.resource_type_name} for org {org_name}: {e}")
                 context.add_warning(f"Failed to collect Apigee {spec.resource_type_name} for org {org_name}: {e}")
