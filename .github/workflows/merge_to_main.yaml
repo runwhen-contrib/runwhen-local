@@ -82,15 +82,26 @@ jobs:
       - name: Build & push linux/amd64
         run: |
           cd src
+          GAR="${{ env.SHARED_ARTIFACT_REPOSITORY_PATH }}/${{ env.IMAGE }}"
+          GHCR="ghcr.io/${{ env.GHCR_ORG }}/${{ env.IMAGE }}"
+          # Only main may claim the release tags. workflow_dispatch accepts any
+          # ref, so without this a test build from a feature branch overwrites
+          # the published ${VERSION} and latest images.
+          if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            TAGS=( --tag "${GAR}:${VERSION}-amd64" --tag "${GAR}:latest-amd64" \
+                   --tag "${GHCR}:${VERSION}-amd64" --tag "${GHCR}:latest-amd64" )
+          else
+            SAFE_REF=$(printf '%s' "$GITHUB_REF_NAME" | tr '/' '-' | tr -cd '[:alnum:]._-')
+            PRE="branch-${SAFE_REF}-${GITHUB_SHA::8}"
+            echo "::notice::Non-main ref: publishing ${PRE}-amd64 instead of ${VERSION}-amd64/latest-amd64"
+            TAGS=( --tag "${GAR}:${PRE}-amd64" --tag "${GHCR}:${PRE}-amd64" )
+          fi
           docker buildx create --use --name mybuilder || docker buildx use mybuilder
           docker buildx inspect --bootstrap
           docker buildx build \
             --platform linux/amd64 \
             --push \
-            --tag "${{ env.SHARED_ARTIFACT_REPOSITORY_PATH }}/${{ env.IMAGE }}:${VERSION}-amd64" \
-            --tag "${{ env.SHARED_ARTIFACT_REPOSITORY_PATH }}/${{ env.IMAGE }}:latest-amd64" \
-            --tag "ghcr.io/${{ env.GHCR_ORG }}/${{ env.IMAGE }}:${VERSION}-amd64" \
-            --tag "ghcr.io/${{ env.GHCR_ORG }}/${{ env.IMAGE }}:latest-amd64" \
+            "${TAGS[@]}" \
             --cache-from type=gha \
             --cache-to type=gha,mode=max \
             --build-arg GITHUB_SHA="$GITHUB_SHA" \
@@ -125,23 +136,35 @@ jobs:
       - name: Build & push linux/arm64
         run: |
           cd src
+          GAR="${{ env.SHARED_ARTIFACT_REPOSITORY_PATH }}/${{ env.IMAGE }}"
+          GHCR="ghcr.io/${{ env.GHCR_ORG }}/${{ env.IMAGE }}"
+          # See the amd64 job: only main may claim the release tags.
+          if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            TAGS=( --tag "${GAR}:${VERSION}-arm64" --tag "${GAR}:latest-arm64" \
+                   --tag "${GHCR}:${VERSION}-arm64" --tag "${GHCR}:latest-arm64" )
+          else
+            SAFE_REF=$(printf '%s' "$GITHUB_REF_NAME" | tr '/' '-' | tr -cd '[:alnum:]._-')
+            PRE="branch-${SAFE_REF}-${GITHUB_SHA::8}"
+            echo "::notice::Non-main ref: publishing ${PRE}-arm64 instead of ${VERSION}-arm64/latest-arm64"
+            TAGS=( --tag "${GAR}:${PRE}-arm64" --tag "${GHCR}:${PRE}-arm64" )
+          fi
           docker buildx create --use --name mybuilder || docker buildx use mybuilder
           docker buildx inspect --bootstrap
           docker buildx build \
             --platform linux/arm64 \
             --push \
-            --tag "${{ env.SHARED_ARTIFACT_REPOSITORY_PATH }}/${{ env.IMAGE }}:${VERSION}-arm64" \
-            --tag "${{ env.SHARED_ARTIFACT_REPOSITORY_PATH }}/${{ env.IMAGE }}:latest-arm64" \
-            --tag "ghcr.io/${{ env.GHCR_ORG }}/${{ env.IMAGE }}:${VERSION}-arm64" \
-            --tag "ghcr.io/${{ env.GHCR_ORG }}/${{ env.IMAGE }}:latest-arm64" \
+            "${TAGS[@]}" \
             --cache-from type=gha \
             --cache-to type=gha,mode=max \
             --build-arg GITHUB_SHA="$GITHUB_SHA" \
             --build-arg GITHUB_REF="$GITHUB_REF" \
             -f Dockerfile .
 
-  # Stitch the multi-arch tag when both are pushed
+  # Stitch the multi-arch tag when both are pushed.
+  # main only: this is the job that claims :${VERSION} and :latest, so a
+  # workflow_dispatch from a feature branch must never reach it.
   publish-manifest:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     needs: [build-amd64, build-arm64]
     permissions:
@@ -200,8 +223,12 @@ jobs:
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
 
-  # Deploy to sandbox after successful build
+  # Deploy to sandbox after successful build.
+  # main only. Redundant with publish-manifest's guard (a skipped `needs` skips
+  # this too), but stated explicitly so the constraint is visible on the job
+  # that actually mutates the sandbox.
   deploy-to-sandbox:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     needs: [publish-manifest]
     env:
