@@ -44,7 +44,7 @@ RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/aws
     rm -rf /tmp/awscliv2.zip /tmp/aws
 
 # Install Google Cloud CLI using tarball
-ENV GCLOUD_CLI_VERSION="580.0.0"
+ENV GCLOUD_CLI_VERSION="582.0.0"
 RUN curl -LO "https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-${GCLOUD_CLI_VERSION}-linux-x86_64.tar.gz" && \
     tar -xzf google-cloud-cli-${GCLOUD_CLI_VERSION}-linux-x86_64.tar.gz -C /usr/local && \
     /usr/local/google-cloud-sdk/install.sh --quiet && \
