@@ -189,11 +189,45 @@ def _collect_iam_service_accounts(credentials, project_id):
 
 APIGEE_BASE_URL = "https://apigee.googleapis.com/v1"
 
+# Memo for the ADC credentials resolved by ``_ensure_apigee_credentials``. A
+# discovery run makes one organizations call plus one call per sub-collector per
+# org, and ``google.auth.default()`` re-walks the entire ADC discovery chain
+# (env var -> gcloud config -> metadata server) on every call. The credentials
+# object refreshes its own access token, so a single instance is safe to reuse
+# for the life of the process. Only successful resolutions are memoized, so a
+# transient DefaultCredentialsError is still retried on the next run.
+_ADC_CREDENTIALS = None
+
+
+def _ensure_apigee_credentials(credentials):
+    """Resolve Application Default Credentials when none were supplied.
+
+    ``gcp_get_credentials_and_projects`` returns ``credentials=None`` by design
+    when the workspace authenticates via ADC, leaving resolution to the
+    downstream client. Every other GCP collector honours that contract for free
+    because the ``google-cloud-*`` clients resolve ADC internally when handed
+    ``None``. The Apigee collectors are the only ones on the raw-REST path, and
+    ``AuthorizedSession`` has no ADC fallback -- it stores the ``None`` and
+    dereferences it on the first request ('NoneType' object has no attribute
+    'before_request'). So ADC has to be resolved explicitly here.
+    """
+    if credentials is not None:
+        return credentials
+
+    global _ADC_CREDENTIALS
+    if _ADC_CREDENTIALS is None:
+        import google.auth  # noqa: WPS433 (lazy import)
+
+        _ADC_CREDENTIALS, _ = google.auth.default(
+            scopes=["https://www.googleapis.com/auth/cloud-platform"]
+        )
+    return _ADC_CREDENTIALS
+
 
 def _apigee_api_get(credentials, path, *, params=None):
     from google.auth.transport.requests import AuthorizedSession
 
-    session = AuthorizedSession(credentials)
+    session = AuthorizedSession(_ensure_apigee_credentials(credentials))
     url = f"{APIGEE_BASE_URL}/{path.lstrip('/')}"
     response = session.get(url, params=params)
     response.raise_for_status()
