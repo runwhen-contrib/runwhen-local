@@ -203,9 +203,8 @@ class WriterTests(TestCase):
                 },
             )
 
-            # 2) Bypass the writer to mimic kubeapi / cloudquery indexers
-            #    that still mutate the registry directly. Snapshot must
-            #    pick these up too.
+            # 2) Bypass the writer to mimic kubeapi indexer that still mutates
+            #    the registry directly. Snapshot must pick these up too.
             registry = ctx.get_property(REGISTRY_PROPERTY_NAME)
             registry.add_resource(
                 "kubernetes",

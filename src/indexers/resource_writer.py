@@ -9,10 +9,9 @@ every indexer to the in-memory registry implementation.
 The future direction for runwhen-local is a small local resource DB queried by
 a fast read-only REST API (extending the workspace-builder FastAPI service). To make that swap a
 plug-in instead of a rewrite, all *new* indexers funnel writes through the
-``ResourceWriter`` protocol declared here. The legacy ``cloudquery`` indexer is
-still wired directly to the registry (intentional - we don't want to perturb
-the existing path during the Azure SDK migration); it will migrate in a
-follow-up once the AWS / GCP indexers are also native.
+``ResourceWriter`` protocol declared here. All indexers funnel writes through
+this seam so the underlying store (in-memory registry, sqlite, or a future REST
+API) can be swapped without touching indexer logic.
 
 Shape of the contract
 ---------------------
@@ -20,9 +19,7 @@ Shape of the contract
 ``add_resource(platform, resource_type, name, qualified_name, attributes)`` is
 the canonical write. ``attributes`` is the dict produced by the platform
 handler's ``parse_resource_data`` (e.g. ``AzurePlatformHandler``) plus the
-indexer-supplied keys ``resource``, ``auth_type``, ``auth_secret``. This is
-exactly what ``cloudquery.py`` passes to ``registry.add_resource(...)`` today,
-so the contract is fixed by current behaviour.
+indexer-supplied keys ``resource``, ``auth_type``, ``auth_secret``.
 
 ``finalize()`` runs once after all resources have been written. For the
 in-memory implementation, that's where deferred RG resolution happens. Future
