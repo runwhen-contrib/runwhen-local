@@ -31,13 +31,6 @@ no resource-group dimension):
   if it is not enabled / not permitted, discovery proceeds on the typed
   collectors and the absence is logged informationally (never as an error).
 
-Coexists with the CloudQuery indexer behind the ``GCP_INDEXER_BACKEND`` setting:
-
-* ``"gcpapi"`` (default):     this indexer discovers GCP resources and the
-                              CloudQuery indexer skips the GCP block.
-* ``"cloudquery"``:           this indexer is a no-op; CloudQuery handles GCP
-                              (legacy/fallback opt-in).
-
 Component name: ``gcpapi``. Stage: ``INDEXER``.
 """
 
@@ -110,7 +103,7 @@ GCP_INDEXER_BACKEND_SETTING = Setting(
     Setting.Type.STRING,
     "Selects the backend used to discover GCP resources. "
     "'gcpapi' (default) uses the native Cloud Asset Inventory + google-cloud-* "
-    "indexer; 'cloudquery' opts back into the legacy CloudQuery-based path.",
+    "indexer.",
     "gcpapi",
 )
 
@@ -421,12 +414,10 @@ def _discover_apigee(
 def index(context: Context) -> None:
     backend = context.get_setting(GCP_INDEXER_BACKEND_SETTING)
     if backend != "gcpapi":
-        logger.info(
-            f"GCP indexer backend: '{backend}' (gcpIndexerBackend in "
-            f"workspaceInfo.yaml). Native gcpapi indexer is a no-op; the "
-            f"CloudQuery indexer will handle GCP."
+        raise WorkspaceBuilderException(
+            f"Unsupported GCP indexer backend: '{backend}'. "
+            f"Only 'gcpapi' is supported."
         )
-        return
 
     cloud_config = context.get_setting(CLOUD_CONFIG_SETTING) or {}
     platform_cfg = cloud_config.get(GCP_PLATFORM)
@@ -459,8 +450,8 @@ def index(context: Context) -> None:
         logger.warning("GCP indexer: no project IDs resolved; nothing to discover.")
         return
 
-    # Mirror cloudquery.py so enrichers.gcp (get_project_name etc.) and any other
-    # downstream code sees the same active project/auth we resolved here.
+    # Persist credentials so enrichers.gcp and downstream code sees the same
+    # active project/auth we resolved here.
     auth_type, auth_secret = get_gcp_auth_type(platform_cfg)
     try:
         from enrichers.gcp import set_gcp_credentials

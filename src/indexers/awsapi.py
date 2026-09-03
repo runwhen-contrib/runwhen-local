@@ -24,13 +24,6 @@ Discovery model (the AWS scope dimension is account + region(s)):
   clients for richer payloads; those CFN types are excluded from the Cloud
   Control pass so a resource is never written twice.
 
-Coexists with the CloudQuery indexer behind the ``AWS_INDEXER_BACKEND`` setting:
-
-* ``"awsapi"`` (default):     this indexer discovers AWS resources and the
-                              CloudQuery indexer skips the AWS block.
-* ``"cloudquery"``:           this indexer is a no-op; CloudQuery handles AWS
-                              (legacy/fallback opt-in).
-
 Component name: ``awsapi``. Stage: ``INDEXER``.
 """
 
@@ -88,8 +81,7 @@ AWS_INDEXER_BACKEND_SETTING = Setting(
     "awsIndexerBackend",
     Setting.Type.STRING,
     "Selects the backend used to discover AWS resources. "
-    "'awsapi' (default) uses the native Cloud Control API + boto3 indexer; "
-    "'cloudquery' opts back into the legacy CloudQuery-based path.",
+    "'awsapi' (default) uses the native Cloud Control API + boto3 indexer.",
     "awsapi",
 )
 
@@ -166,12 +158,10 @@ def _resolve_platform_handler(context: Context) -> PlatformHandler:
 def index(context: Context) -> None:
     backend = context.get_setting(AWS_INDEXER_BACKEND_SETTING)
     if backend != "awsapi":
-        logger.info(
-            f"AWS indexer backend: '{backend}' (awsIndexerBackend in "
-            f"workspaceInfo.yaml). Native awsapi indexer is a no-op; the "
-            f"CloudQuery indexer will handle AWS."
+        raise WorkspaceBuilderException(
+            f"Unsupported AWS indexer backend: '{backend}'. "
+            f"Only 'awsapi' is supported."
         )
-        return
 
     cloud_config = context.get_setting(CLOUD_CONFIG_SETTING) or {}
     platform_cfg = cloud_config.get(AWS_PLATFORM)
@@ -205,12 +195,11 @@ def index(context: Context) -> None:
         logger.warning("AWS indexer: no account id resolved; nothing to discover.")
         return
 
-    # The handler resolves account_name from this map; persist it on the config
-    # the same way the CloudQuery path does.
+    # Persist account_names on platform_cfg for handler access.
     platform_cfg["_account_names"] = scope["account_names"]
 
-    # Mirror cloudquery.py so enrichers.aws (cached auth/account) and any other
-    # downstream code sees the same active credentials we resolved here.
+# Persist account_names so enrichers.aws and downstream code see the same
+# active credentials we resolved here.
     try:
         from enrichers.aws import set_aws_credentials
 

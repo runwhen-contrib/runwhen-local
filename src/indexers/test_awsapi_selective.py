@@ -257,17 +257,13 @@ class DispatchTests(TestCase):
             ],
         )
 
-    def test_no_op_when_backend_not_awsapi(self):
-        # When the backend is not 'awsapi', index() returns immediately.
-        from enrichers.generation_rules import RESOURCE_TYPE_SPECS_PROPERTY
-        from enrichers.generation_rule_types import PLATFORM_HANDLERS_PROPERTY_NAME
-
-        writer = mock.MagicMock()
+    def test_raises_on_unsupported_backend(self):
+        from exceptions import WorkspaceBuilderException
 
         class FakeContext:
             def get_setting(self, setting):
                 name = getattr(setting, "name", setting)
-                return {"AWS_INDEXER_BACKEND": "cloudquery"}.get(name)
+                return {"AWS_INDEXER_BACKEND": "unsupported"}.get(name)
 
             def get_property(self, name):
                 return None
@@ -275,6 +271,5 @@ class DispatchTests(TestCase):
             def add_warning(self, msg):
                 pass
 
-        with mock.patch.object(awsapi, "get_resource_writer", return_value=writer):
+        with self.assertRaises(WorkspaceBuilderException):
             awsapi.index(FakeContext())
-        self.assertEqual(writer.add_resource.call_count, 0)

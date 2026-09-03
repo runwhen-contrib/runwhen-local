@@ -7,14 +7,6 @@ into the same flat dict shape ``AzurePlatformHandler.parse_resource_data``
 already accepts, and writes flow through the :class:`ResourceWriter` seam so
 the future local-DB / REST substrate is a drop-in swap.
 
-Coexists with the CloudQuery indexer behind the ``AZURE_INDEXER_BACKEND``
-setting:
-
-* ``"azureapi"`` (default):    this indexer discovers Azure resources and the
-                               CloudQuery indexer skips the Azure block.
-* ``"cloudquery"``:            this indexer is a no-op; CloudQuery handles
-                               Azure (legacy/fallback opt-in).
-
 Component name: ``azureapi``. Stage: ``INDEXER``.
 """
 
@@ -76,8 +68,7 @@ AZURE_INDEXER_BACKEND_SETTING = Setting(
     "azureIndexerBackend",
     Setting.Type.STRING,
     "Selects the backend used to discover Azure resources. "
-    "'azureapi' (default) uses the native azure-mgmt-* SDK indexer; "
-    "'cloudquery' opts back into the legacy CloudQuery-based path.",
+    "'azureapi' (default) uses the native azure-mgmt-* SDK indexer.",
     "azureapi",
 )
 
@@ -414,14 +405,10 @@ def _resolve_platform_handler(context: Context) -> PlatformHandler:
 def index(context: Context) -> None:
     backend = context.get_setting(AZURE_INDEXER_BACKEND_SETTING)
     if backend != "azureapi":
-        # Bumped from debug to info so a default-verbosity log makes it
-        # obvious which Azure backend will own discovery on this run.
-        logger.info(
-            f"Azure indexer backend: '{backend}' (azureIndexerBackend in "
-            f"workspaceInfo.yaml). Native azureapi indexer is a no-op; the "
-            f"CloudQuery indexer will handle Azure."
+        raise WorkspaceBuilderException(
+            f"Unsupported Azure indexer backend: '{backend}'. "
+            f"Only 'azureapi' is supported."
         )
-        return
 
     cloud_config = context.get_setting(CLOUD_CONFIG_SETTING) or {}
     platform_cfg = cloud_config.get(AZURE_PLATFORM)
@@ -450,9 +437,8 @@ def index(context: Context) -> None:
     credential = az["credential"]
     subscription_ids: list[str] = az["subscription_ids"]
 
-    # Mirror what cloudquery.py does so AzurePlatformHandler.parse_resource_data,
-    # get_subscription_name, and any other downstream code that reads global
-    # Azure credentials sees the same values we resolved here.
+    # Persist credentials so AzurePlatformHandler.parse_resource_data,
+    # get_subscription_name, and other downstream code sees the same values.
     try:
         from enrichers.azure import set_azure_credentials
 
