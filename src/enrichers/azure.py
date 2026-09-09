@@ -305,7 +305,7 @@ class AzurePlatformHandler(PlatformHandler):
             resource_attributes["lod"] = context.get_setting("DEFAULT_LOD")
             logger.debug(f"Set default LOD for subscription resource {name}")
         elif resource_type_name == "resource_group":
-                    # nested map built in init_cloudquery_config
+                    # nested LOD map built in _build_subscription_rg_lod_map
                     # BUG FIX: Check if subscription_id is None before using as dict key
                     if subscription_id:
                         sub_map = (

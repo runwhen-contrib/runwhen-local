@@ -139,7 +139,7 @@ class ProductionComponentTestCase(unittest.TestCase):
             print("WARNING: " + warning)
 
     def test_generation_rules_workspace_gen(self):
-        self.run_common("load_resources,kubeapi,cloudquery,generation_rules,render_output_items,dump_resources")
+        self.run_common("load_resources,kubeapi,generation_rules,render_output_items,dump_resources")
 
     def test_info(self):
         response = self.client.get("/info/")

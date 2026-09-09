@@ -1,15 +1,3 @@
-# Build CloudQuery SQLite destination plugin from source (provides native arm64 + amd64).
-# CGO is required because the mattn/go-sqlite3 driver is a C binding.
-# No --platform=$BUILDPLATFORM: the Go image must match the target arch so
-# the C compiler produces a native binary. CI builds each arch on native
-# runners (ubuntu-latest for amd64, ubuntu-24.04-arm for arm64) so this is fast.
-FROM golang:1.26-bookworm AS sqlite-builder
-WORKDIR /build
-RUN git clone --depth 1 --branch plugins-destination-sqlite-v2.5.1 \
-        https://github.com/cloudquery/cloudquery.git .
-WORKDIR /build/plugins/destination/sqlite
-RUN CGO_ENABLED=1 go build -o /sqlite-plugin .
-
 # renovate: datasource=docker depName=python
 FROM python:3.14-slim AS node-base
 
@@ -92,16 +80,13 @@ RUN apt-get update \
 WORKDIR $RUNWHEN_HOME
 
 ENV NODE_PATH="/var/lib/neo4j/node_modules"
-ENV CLOUDQUERY_PLUGINS_PREINSTALLED=true
 
-# Determine architecture and set variables
+# Determine architecture for kubectl download
 RUN ARCH=$(uname -m) && \
     if [ "$ARCH" = "x86_64" ]; then \
         export KUBE_ARCH="amd64"; \
-        export CQ_ARCH="amd64"; \
     elif [ "$ARCH" = "aarch64" ]; then \
         export KUBE_ARCH="arm64"; \
-        export CQ_ARCH="arm64"; \
     else \
         echo "Unsupported architecture"; \
         exit 1; \
@@ -118,32 +103,6 @@ RUN KUBE_ARCH=$(if [ "$(uname -m)" = "x86_64" ]; then echo "amd64"; else echo "a
     chmod +x kubectl && \
     mv kubectl /usr/local/bin/ && \
     kubectl version --client
-
-# Download CloudQuery CLI
-RUN CQ_ARCH=$(if [ "$(uname -m)" = "x86_64" ]; then echo "amd64"; else echo "arm64"; fi) && \
-    curl -L "https://github.com/stewartshea/cloudquery/releases/latest/download/cloudquery-linux-${CQ_ARCH}" -o /usr/local/bin/cloudquery \
-    && chmod a+x /usr/local/bin/cloudquery
-
-# Pre-install CloudQuery plugins for airgap support
-RUN CQ_ARCH=$(if [ "$(uname -m)" = "x86_64" ]; then echo "amd64"; else echo "arm64"; fi) && \
-    mkdir -p /opt/cloudquery/plugins && \
-    cd /opt/cloudquery/plugins && \
-    # Download Azure plugin (v10.3.0)
-    curl -L "https://github.com/cloudquery/cloudquery/releases/download/plugins-source-azure-v10.3.0/azure_linux_${CQ_ARCH}.zip" -o azure.zip && \
-    mkdir azure_temp && unzip azure.zip -d azure_temp && mv azure_temp/plugins/source/azure azure && rm azure.zip && rm -rf azure_temp && \
-    chmod +x azure && \
-    # Download AWS plugin (v22.19.2)
-    curl -L "https://github.com/cloudquery/cloudquery/releases/download/plugins-source-aws-v22.19.2/aws_linux_${CQ_ARCH}.zip" -o aws.zip && \
-    mkdir aws_temp && unzip aws.zip -d aws_temp && mv aws_temp/plugins/source/aws aws && rm aws.zip && rm -rf aws_temp && \
-    chmod +x aws && \
-    # Download GCP plugin (v9.9.2)
-    curl -L "https://github.com/cloudquery/cloudquery/releases/download/plugins-source-gcp-v9.9.2/gcp_linux_${CQ_ARCH}.zip" -o gcp.zip && \
-    mkdir gcp_temp && unzip gcp.zip -d gcp_temp && mv gcp_temp/plugins/source/gcp gcp && rm gcp.zip && rm -rf gcp_temp && \
-    chmod +x gcp
-
-# Copy SQLite destination plugin compiled from source (supports all architectures)
-COPY --from=sqlite-builder /sqlite-plugin /opt/cloudquery/plugins/sqlite
-RUN chmod +x /opt/cloudquery/plugins/sqlite
 
 # Install kubelogin for Azure
 RUN KL_ARCH=$(if [ "$(uname -m)" = "x86_64" ]; then echo "amd64"; else echo "arm64"; fi) && \

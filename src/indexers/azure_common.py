@@ -1,13 +1,12 @@
 """
-Shared Azure helper functions used by both the legacy CloudQuery-based Azure
-indexer (``cloudquery.py``) and the native Azure SDK indexer (``azureapi.py``).
+Shared Azure helper functions used by the native Azure SDK indexer
+(``azureapi.py``).
 
-These were originally defined inline in ``cloudquery.py``. They have been
-relocated here verbatim so both indexers can call them while the CloudQuery
-Azure path remains live behind the ``AZURE_INDEXER_BACKEND`` feature flag.
+These were originally defined in the legacy CloudQuery indexer and have been
+relocated here so the native SDK indexer can call them.
 
-Nothing in this module is supposed to know about CloudQuery internals -- it is
-the lowest layer of Azure-specific logic that both indexers share.
+Nothing in this module knows about CloudQuery internals -- it is
+the lowest layer of Azure-specific logic that the Azure SDK indexer uses.
 """
 
 import base64

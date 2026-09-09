@@ -12,7 +12,7 @@ from exceptions import WorkspaceBuilderException
 AWS_PLATFORM = "aws"
 logger = logging.getLogger(__name__)
 
-# Cache for AWS credentials (set by cloudquery indexer)
+# Cache for AWS credentials (set by awsapi indexer)
 _aws_credentials = {
     "session": None,
     "auth_type": None,
@@ -148,7 +148,7 @@ class AWSPlatformHandler(PlatformHandler):
             'is_public': policy_status.get('IsPublic', False),
         }
         
-        # Add auth type from cached credentials (set by cloudquery indexer)
+        # Add auth type from cached credentials (set by awsapi indexer)
         auth_type = get_aws_auth_type()
         if auth_type:
             resource_attributes['auth_type'] = auth_type

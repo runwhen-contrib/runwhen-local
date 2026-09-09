@@ -333,11 +333,6 @@ def main(argv: Optional[list[str]] = None) -> int:
         type=Path,
         help="Read the table list from a local file (one name per line, or YAML).",
     )
-    src.add_argument(
-        "--from-cloudquery",
-        action="store_true",
-        help=f"Fetch the table list from {CLOUDQUERY_TABLES_URL}",
-    )
     parser.add_argument(
         "--overrides",
         type=Path,
@@ -364,9 +359,6 @@ def main(argv: Optional[list[str]] = None) -> int:
     if args.from_file:
         tables = tables_from_file(args.from_file)
         source_label = f"file:{args.from_file}"
-    elif args.from_cloudquery:
-        tables = tables_from_cloudquery_hub()
-        source_label = "cloudquery hub"
     else:
         tables = tables_from_registry(args.out)
         source_label = "existing registry"

@@ -1,15 +1,11 @@
 """
-Shared GCP helper functions used by both the legacy CloudQuery-based GCP
-indexer (``cloudquery.py``) and the native GCP SDK indexer (``gcpapi.py``).
+Shared GCP helper functions used by the native GCP SDK indexer (``gcpapi.py``).
 
-This is the lowest layer of GCP-specific logic that both indexers share:
-credential / project resolution, label-based tag filtering, and per-project
-level-of-detail resolution. Nothing here knows about CloudQuery internals.
+This is the lowest layer of GCP-specific logic: credential / project resolution,
+label-based tag filtering, and per-project level-of-detail resolution.
 
-Authentication mirrors the resolution order CloudQuery already uses
-(``gcp_get_credentials_and_project_ids`` in ``cloudquery.py``) but returns a
-``google.auth`` credentials object suitable for the Cloud Asset Inventory and
-typed ``google-cloud-*`` clients instead of shelling out to ``gcloud``:
+Authentication resolves credentials suitable for the Cloud Asset Inventory and
+typed ``google-cloud-*`` clients:
 
   1. Kubernetes secret (``saSecretName`` -> ``serviceAccountKey`` base64) .
   2. Inline service-account key (``serviceAccountKey``) or an already-decoded

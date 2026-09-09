@@ -3,15 +3,13 @@
 # Path to the lock file
 TMPDIR=${TMPDIR:-/tmp}
 LOCK_FILE="$TMPDIR/.wb_lock"
-# Honor DISABLE_CLOUDQUERY from the environment (e.g. Helm extraEnv); --disable-cloudquery still sets it below
-DISABLE_CLOUDQUERY=${DISABLE_CLOUDQUERY:-0}
 
 # Parse arguments
 POSITIONAL_ARGS=()
 while [[ $# -gt 0 ]]; do
   case $1 in
     -h|--help)
-      echo """Usage: $(basename $0) [-w WORKSPACE_INFO_FILE] [-k KUBECONFIG_FILE] [-r CUSTOMIZATION_RULES_FILE] [-o OUTPUT_DIRECTORY] [--disable-cloudquery]
+      echo """Usage: $(basename $0) [-w WORKSPACE_INFO_FILE] [-k KUBECONFIG_FILE] [-r CUSTOMIZATION_RULES_FILE] [-o OUTPUT_DIRECTORY]
 Optional arguments:
   -h, --help
       Display help about running the command and exit
@@ -26,14 +24,8 @@ Optional arguments:
   --upload
       Upload the generated workspace content to the PAPI server specified in the workspace info file.
   -v, --verbose
-      Print more detailed output.
-  --disable-cloudquery
-      Disable the cloudquery component."""
+      Print more detailed output."""
       exit 0
-      ;;
-    --disable-cloudquery)
-      DISABLE_CLOUDQUERY=1
-      shift # past argument
       ;;
     *)    # unknown option
       POSITIONAL_ARGS+=("$1") # save it in an array for later
@@ -53,17 +45,7 @@ fi
 # Create the lock file
 touch "$LOCK_FILE"
 
-# Construct components string based on whether --disable-cloudquery is set
-# `azureapi` / `gcpapi` / `awsapi` are the native Azure / GCP / AWS SDK
-# indexers and are now the DEFAULT backend for each cloud. To opt back into the
-# legacy CloudQuery path for a cloud, set its backend explicitly in
-# workspaceInfo.yaml (azureIndexerBackend=cloudquery, gcpIndexerBackend=cloudquery,
-# awsIndexerBackend=cloudquery). CloudQuery is still included below so the
-# override keeps working; by default it is a no-op for all three clouds.
 COMPONENTS="load_resources,kubeapi,azureapi,gcpapi,awsapi,azure_devops,runwhen_platform,generation_rules,render_output_items,dump_resources"
-if [ $DISABLE_CLOUDQUERY -eq 0 ]; then
-    COMPONENTS="load_resources,kubeapi,azureapi,gcpapi,awsapi,cloudquery,azure_devops,runwhen_platform,generation_rules,render_output_items,dump_resources"
-fi
 
 # Run the Python script with your specified arguments
 python3 run.py run --components "$COMPONENTS" $@

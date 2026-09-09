@@ -21,7 +21,7 @@ The snapshot-at-finalize approach intentionally captures the *whole* registry,
 not just resources the writer itself recorded. That means the DB reflects
 state contributed by every indexer that happened to run before whichever
 indexer triggered ``finalize()`` (today only the ``azureapi`` path goes
-through ``ResourceWriter``; ``kubeapi`` and ``cloudquery`` still mutate the
+through ``ResourceWriter``; ``kubeapi`` still mutates the
 registry directly). The migration roadmap in
 ``docs/architecture/resource-writer.md`` covers how this becomes a complete
 picture once all indexers funnel writes through the seam.
