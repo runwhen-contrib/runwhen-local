@@ -13,7 +13,7 @@ fastapi = "^0.141.0"
 uvicorn = {version = "^0.53.0", extras = ["standard"]}
 httpx = "^0.28.0"
 kubernetes = "^36.0.0"
-robotframework = "==7.4.2"
+robotframework = "==7.5"
 GitPython = "^3.1.43"
 jinja2 = "^3.1"
 jsonschema = "^4.21"
