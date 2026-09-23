@@ -15,6 +15,10 @@ Coverage:
 * A 403 on the organizations call takes the informational
   ``apigee_permission_denied`` path rather than the hard-error path.
 * A 403 on a single sub-collector does not turn into a context warning.
+* Apigee sub-resources whose list endpoint returns no ``name`` -- deployments
+  (environment/proxy/revision), developers (``email``), apps (``appId``) --
+  and ``environments``, which comes back as a bare array of strings, still
+  get a usable name instead of being dropped by the enricher.
 
 Everything is driven through stubs, so no GCP SDK call or network access is
 needed.
@@ -315,3 +319,119 @@ class DiscoverApigeePermissionDeniedTests(TestCase):
 
         self.assertEqual(stats["skipped_collector_error"], 1)
         self.assertEqual(len(context.warnings), 1)
+
+
+class _RecordingHandler:
+    """Platform-handler stand-in that records the ``resource_data`` dicts the
+    indexer builds, and enforces the one contract
+    ``GCPPlatformHandler.parse_resource_data`` actually enforces: a resource
+    with no usable name is rejected (see ``enrichers/gcp.py``)."""
+
+    def __init__(self):
+        self.parsed: list[tuple[str, dict]] = []
+
+    def parse_resource_data(self, resource_data, resource_type_name, platform_cfg, context):
+        name = resource_data.get("name")
+        if not name:
+            raise ValueError(
+                "Resource missing required 'name' field and no alternative name "
+                f"found. Available fields: {list(resource_data.keys())}"
+            )
+        self.parsed.append((resource_type_name, resource_data))
+        return name, f"proj-a/{name}", {}
+
+
+class ApigeeSubResourceNamingTests(TestCase):
+    """The Apigee list endpoints do not all return a ``name`` field. Items that
+    identify themselves some other way (deployments by env/proxy/revision,
+    developers by email, apps by appId) and environments — which come back as a
+    bare JSON array of strings — must still get a usable name, or the enricher
+    drops them."""
+
+    ORG = {"organization": "organizations/org-a", "projectId": "proj-a"}
+
+    def _discover(self, sub_collectors):
+        handler = _RecordingHandler()
+        stats = _new_stats()
+        with ExitStack() as stack:
+            stack.enter_context(
+                mock.patch.object(gcpapi, "find_spec", side_effect=_spec)
+            )
+            stack.enter_context(mock.patch.object(
+                gcpapi, "_collect_apigee_organizations",
+                side_effect=lambda c, p: [self.ORG],
+            ))
+            stack.enter_context(mock.patch.object(
+                gcpapi, "_APIGEE_SUB_COLLECTORS", sub_collectors
+            ))
+            gcpapi._discover_apigee(
+                None, handler, mock.MagicMock(), {}, _RecordingContext(),
+                "gcp_adc", None, None, None, {"proj-a"}, stats,
+            )
+        return handler, stats
+
+    @staticmethod
+    def _collector(items):
+        return lambda credentials, org_name: list(items)
+
+    def _names_for(self, resource_type_name, items):
+        handler, stats = self._discover({resource_type_name: self._collector(items)})
+        names = [
+            rd["name"] for rtn, rd in handler.parsed if rtn == resource_type_name
+        ]
+        return names, stats
+
+    def test_deployment_named_from_environment_proxy_and_revision(self):
+        names, stats = self._names_for("gcp_apigee_deployments", [
+            {
+                "environment": "prod",
+                "apiProxy": "helloworld",
+                "revision": "3",
+                "deployStartTime": "1700000000000",
+                "proxyDeploymentType": "PROXY",
+            },
+        ])
+        self.assertEqual(names, ["prod-helloworld-3"])
+        self.assertEqual(stats["skipped_parse_error"], 0)
+
+    def test_developer_named_from_email(self):
+        names, stats = self._names_for("gcp_apigee_developers", [
+            {"email": "dev@example.com", "developerId": "abc-123"},
+        ])
+        self.assertEqual(names, ["dev@example.com"])
+        self.assertEqual(stats["skipped_parse_error"], 0)
+
+    def test_app_named_from_app_id(self):
+        names, stats = self._names_for("gcp_apigee_apps", [
+            {"appId": "11111111-2222-3333-4444-555555555555"},
+        ])
+        self.assertEqual(names, ["11111111-2222-3333-4444-555555555555"])
+        self.assertEqual(stats["skipped_parse_error"], 0)
+
+    def test_environment_returned_as_bare_string_is_indexed(self):
+        """``GET /organizations/{org}/environments`` returns ``["prod"]`` --
+        a list of strings, not objects."""
+        names, stats = self._names_for("gcp_apigee_environments", ["prod"])
+        self.assertEqual(names, ["prod"])
+        self.assertEqual(stats["skipped_parse_error"], 0)
+
+    def test_api_proxy_still_named_from_its_name_field(self):
+        """Regression guard: types that DO return ``name`` must be untouched."""
+        names, stats = self._names_for("gcp_apigee_api_proxies", [
+            {"name": "helloworld", "revision": ["1", "2"]},
+        ])
+        self.assertEqual(names, ["helloworld"])
+        self.assertEqual(stats["skipped_parse_error"], 0)
+
+    def test_path_qualified_name_is_reduced_to_its_last_segment(self):
+        """Regression guard for the existing ``split("/")[-1]`` behaviour."""
+        names, _ = self._names_for("gcp_apigee_instances", [
+            {"name": "organizations/org-a/instances/inst-1"},
+        ])
+        self.assertEqual(names, ["inst-1"])
+
+    def test_unidentifiable_item_is_still_rejected(self):
+        """The fix must not invent names for genuinely nameless payloads."""
+        names, stats = self._names_for("gcp_apigee_apps", [{"status": "approved"}])
+        self.assertEqual(names, [])
+        self.assertEqual(stats["skipped_parse_error"], 1)

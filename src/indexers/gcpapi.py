@@ -241,6 +241,44 @@ def _note_apigee_unavailable(context, exc):
     logger.info(message)
 
 
+def _apigee_item_id(item) -> str:
+    """Return the identifier an Apigee list item is keyed by.
+
+    Not every Apigee list endpoint returns a ``name``. ``environments`` comes
+    back as a bare JSON array of strings, ``deployments`` identify themselves by
+    environment/proxy/revision, ``developers`` by ``email`` and ``apps`` by
+    ``appId``. Without this, those items reach the enricher with ``name=""``
+    and ``enrichers.gcp.parse_resource_data`` rejects every one of them.
+
+    Returns ``""`` when the item carries no usable identifier, so genuinely
+    nameless payloads are still rejected rather than given an invented name.
+    """
+    if isinstance(item, str):
+        return item
+    if not isinstance(item, dict):
+        return ""
+
+    name = item.get("name")
+    if name:
+        return str(name)
+
+    # deployments: no name; keyed by the triple that makes one unique.
+    parts = [
+        str(item[key])
+        for key in ("environment", "apiProxy", "revision")
+        if item.get(key)
+    ]
+    if len(parts) > 1:
+        return "-".join(parts)
+
+    for key in ("email", "appId", "developerId", "displayName", "id", "uid"):
+        value = item.get(key)
+        if value:
+            return str(value)
+
+    return ""
+
+
 def _discover_apigee(
     credentials,
     platform_handler,
@@ -365,12 +403,12 @@ def _discover_apigee(
             logger.info(f"Apigee: {len(items)} {spec.resource_type_name} in org {org_name}")
 
             for item in items:
-                item_name = item.get("name", "") if isinstance(item, dict) else ""
-                item_name = item_name.split("/")[-1] if "/" in str(item_name) else item_name
+                raw_id = _apigee_item_id(item)
+                item_name = raw_id.split("/")[-1] if "/" in raw_id else raw_id
 
                 rd = dict(item) if isinstance(item, dict) else {}
                 rd["name"] = item_name
-                rd["id"] = item.get("name", "") if isinstance(item, dict) else ""
+                rd["id"] = raw_id
                 rd["organization_name"] = org_name
                 if project_id:
                     rd["project_id"] = project_id
