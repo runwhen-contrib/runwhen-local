@@ -50,10 +50,18 @@ class ArchiveRunResult(CommonRunResult):
     the output data as a single archive.
     """
     output: bytes
+    # The workspaceScope dict -- a summary of the Kubernetes clusters/namespaces
+    # this run covered, sent to the Platform alongside the upload so it can
+    # configure resource discovery automatically -- built from this run's
+    # Kubernetes indexing. None when it couldn't be built (e.g. no Kubernetes
+    # indexing this run); never fails the run itself.
+    workspace_scope: Optional[dict]
 
-    def __init__(self, message: str, warnings: list[str], output: bytes):
+    def __init__(self, message: str, warnings: list[str], output: bytes,
+                 workspace_scope: Optional[dict] = None):
         super().__init__(message, warnings, "archive")
         self.output = output
+        self.workspace_scope = workspace_scope
 
 
 class FileItemRunResult(CommonRunResult):

@@ -8,6 +8,7 @@ where possible.
 """
 
 import base64
+from dataclasses import dataclass, field
 from tempfile import TemporaryDirectory
 import logging
 import os
@@ -358,8 +359,49 @@ def build_cluster_lod_maps(cloud_config_settings: Optional[dict],
     return cluster_lod_settings, cluster_namespace_lods, cluster_namespace_filters
 
 
+@dataclass
+class ClusterScanResult:
+    """What ``index()`` learned about one kubeconfig cluster/context pair.
+
+    Namespaces excluded by an LOD-``none`` setting or by label/annotation
+    filters are never added to the resource registry -- they're simply
+    skipped -- so this is the only place that information survives past
+    indexing. ``workspace_scope.py`` reads it via
+    ``get_last_cluster_scan_results()`` to build the ``workspaceScope``
+    upload payload.
+    """
+    cluster_name: str
+    context_name: str
+    cluster_type: str = "kubernetes"
+    in_cluster_auth: bool = False
+    namespace_selection: str = "all"  # "explicit" | "all"
+    included_namespaces: set = field(default_factory=set)
+    excluded_namespaces: set = field(default_factory=set)
+    reachable: bool = True
+
+
+# Populated fresh by every index() call; read back by workspace_scope.py
+# after the run completes. Keyed by kubeconfig cluster name (matches
+# ClusterScanResult.cluster_name).
+_last_cluster_scan_results: Dict[str, "ClusterScanResult"] = {}
+
+
+def get_last_cluster_scan_results() -> Dict[str, "ClusterScanResult"]:
+    """Return the per-cluster scan results captured during the most recent
+    ``index()`` call, keyed by kubeconfig cluster name."""
+    return dict(_last_cluster_scan_results)
+
+
+def reset_cluster_scan_results() -> None:
+    """Forget the previous run's scan results. The workspace builder server is
+    long-lived, so a run that doesn't include this indexer must not report the
+    clusters an earlier run scanned."""
+    _last_cluster_scan_results.clear()
+
+
 def index(component_context: Context):
     logger.debug("Starting kube API scan")
+    _last_cluster_scan_results.clear()
 
     # Access the settings/properties that we need.
     # The preferred way of doing this is to use the top-level CLOUD_CONFIG
@@ -664,6 +706,27 @@ def index(component_context: Context):
                                                         cluster_name,
                                                         cluster_attributes)
 
+                    # Record this cluster/context in the workspaceScope scan results before
+                    # any reachability check below, so an unreachable cluster is still
+                    # reported (with reachable=False and empty namespace lists) rather than
+                    # silently dropped.
+                    is_managed_cluster_for_scope = cluster_name in cluster_lod_settings
+                    if is_managed_cluster_for_scope:
+                        namespace_selection = "explicit" if managed_cluster_namespace_filters.get(cluster_name) else "all"
+                    else:
+                        namespace_selection = "explicit" if (
+                            kube_context_namespaces.get(context_name) or kubernetes_explicit_namespace_names
+                        ) else "all"
+
+                    scan_result = ClusterScanResult(
+                        cluster_name=cluster_name,
+                        context_name=context_name,
+                        cluster_type=(extension_details or {}).get('cluster_type', 'kubernetes'),
+                        in_cluster_auth=bool((extension_details or {}).get('in_cluster_auth', False)),
+                        namespace_selection=namespace_selection,
+                    )
+                    _last_cluster_scan_results[cluster_name] = scan_result
+
                     logger.info(f"Scanning Kubernetes cluster {cluster_name} from context {context_name}")
 
                     # Try to create API client - if this fails, skip this cluster but continue with others
@@ -672,13 +735,14 @@ def index(component_context: Context):
                     except Exception as e:
                         logger.error(f"Failed to create API client for cluster '{cluster_name}' from context '{context_name}': {e}")
                         logger.info(f"Skipping cluster '{cluster_name}' due to API client creation failure and continuing with next cluster")
+                        scan_result.reachable = False
                         continue
 
                     with api_client:
                         # Pre-validate cluster connection and authentication
                         try:
                             logger.info(f"Testing connection and authentication for cluster '{cluster_name}'...")
-                            
+
                             # Test basic connectivity and authentication by making a simple API call
                             core_api_client = client.CoreV1Api(api_client=api_client)
                             # Try to get server version as a lightweight test of connectivity and auth
@@ -686,23 +750,27 @@ def index(component_context: Context):
                             version_info = version_api.get_code()
                             logger.info(f"Successfully connected to cluster '{cluster_name}' (Kubernetes {version_info.git_version})")
                             kubeapi_total_clusters += 1
-                            
+
                         except ApiException as e:
                             if e.status == 401:
                                 logger.error(f"Authentication failed for cluster '{cluster_name}': Invalid or expired credentials. Error: {e}")
                                 logger.info(f"Skipping cluster '{cluster_name}' due to authentication failure and continuing with next cluster")
+                                scan_result.reachable = False
                                 continue
                             elif e.status == 403:
                                 logger.error(f"Authorization failed for cluster '{cluster_name}': Insufficient permissions. Error: {e}")
                                 logger.info(f"Skipping cluster '{cluster_name}' due to authorization failure and continuing with next cluster")
+                                scan_result.reachable = False
                                 continue
                             else:
                                 logger.error(f"API error connecting to cluster '{cluster_name}': {e}")
                                 logger.info(f"Skipping cluster '{cluster_name}' due to API error and continuing with next cluster")
+                                scan_result.reachable = False
                                 continue
                         except Exception as e:
                             logger.error(f"Unexpected error connecting to cluster '{cluster_name}': {e}")
                             logger.info(f"Skipping cluster '{cluster_name}' due to connection error and continuing with next cluster")
+                            scan_result.reachable = False
                             continue
 
                         # Connection validation successful, proceed with cluster indexing
@@ -751,6 +819,11 @@ def index(component_context: Context):
                             # Don't continue here - we can still try to process basic resources
 
                         namespace_names = set()
+                        # All namespace names actually observed via the Kubernetes/OpenShift
+                        # APIs below, before any include/exclude filtering -- workspaceScope
+                        # needs this to report namespaces that were seen but excluded (see
+                        # ClusterScanResult above).
+                        all_seen_namespace_names: set = set()
                         try:
                             # FIXME: Following line is debugging code to simulate not having permissions
                             # to list the namespaces. Remove or comment out before committing!!!!
@@ -759,13 +832,14 @@ def index(component_context: Context):
                             logger.info(f"Discovered {len(ret.items)} namespaces in cluster '{cluster_name}'")
                             logger.debug(f"kube API scan: {len(ret.items)} namespaces")
                             for raw_resource in ret.items:
+                                namespace_name = raw_resource.metadata.name
+                                all_seen_namespace_names.add(namespace_name)
                                 # Check inclusion criteria directly
                                 if (include_annotations or include_labels) and not has_included_annotations_or_labels(raw_resource, include_annotations, include_labels):
                                     continue  # Skip this resource if it doesn't meet inclusion criteria
 
                                 if has_excluded_annotations_or_labels(raw_resource, exclude_annotations, exclude_labels):
                                     continue
-                                namespace_name = raw_resource.metadata.name
                                 namespace_names.add(namespace_name)
                         except ApiException as e:
                             # FIXME: Should catch narrower exception corresponding to permissions error
@@ -808,11 +882,12 @@ def index(component_context: Context):
                                         # If so, then that seems like a better way to infer the namespace name.
                                         # But for now we'll just map from the name of the project
                                         metadata = raw_resource['metadata']
+                                        project_name = metadata['name']
+                                        all_seen_namespace_names.add(project_name)
                                         if (include_annotations or include_labels) and not has_included_annotations_or_labels(raw_resource, include_annotations, include_labels):
                                             continue  # Skip this resource if it doesn't meet inclusion criteria
                                         if has_excluded_annotations_or_labels(raw_resource, exclude_annotations, exclude_labels):
                                             continue
-                                        project_name = metadata['name']
                                         namespace_names.add(project_name)
 
                         if len(namespace_names) == 0:
@@ -869,6 +944,10 @@ def index(component_context: Context):
                             continue
 
                         namespaces = dict()
+                        # In-scope namespace names for this cluster/context, populated as the
+                        # per-namespace LOD/filter gauntlet below is resolved; feeds the same
+                        # ClusterScanResult used for workspaceScope.
+                        included_namespace_names: set = set()
                         # Update namespace_names with custom_namespace_names only if custom_namespace_names is defined
                         # if custom_namespace_names:
                         #     namespace_names = namespace_names.intersection(custom_namespace_names)
@@ -1065,6 +1144,8 @@ def index(component_context: Context):
                                     'annotations': {},
                                     'resource': {},
                                 }
+
+                            included_namespace_names.add(namespace_name)
 
                             namespace_attributes['cluster'] = cluster
                             namespace_attributes['lod'] = namespace_lod
@@ -1411,6 +1492,10 @@ def index(component_context: Context):
                                     # Just log and continue, instead of raising a fatal exception.
                                     logger.debug(f"Error scanning for custom resource instances; skipping and continuing; "
                                                 f"error: {e}, group={group}, kind={plural_name}")
+
+                        scan_result.included_namespaces = set(included_namespace_names)
+                        if scan_result.namespace_selection == "all":
+                            scan_result.excluded_namespaces = all_seen_namespace_names - included_namespace_names
 
                         logger.info(f"Context '{context_name}' finished scanning resources across {len(namespaces)} namespace(s)")
                         kubeapi_total_namespaces += len(namespaces)
