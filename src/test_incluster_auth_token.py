@@ -15,6 +15,8 @@ from run import (
     _service_account_name_from_projected_token,
     _service_account_name_for_kubeconfig_secret,
     _resolve_kubeconfig_token,
+    _resource_prefix,
+    _kubeconfig_secret_name,
 )
 
 
@@ -186,6 +188,21 @@ class KubeconfigAuthTest(unittest.TestCase):
             _resolve_kubeconfig_token("runwhen-local", True),
             ("projected-token", False),
         )
+
+
+class ResourcePrefixTests(unittest.TestCase):
+    @patch.dict("os.environ", {"RUNNER_RESOURCE_PREFIX": "rel1-runwhen-local-"}, clear=False)
+    def test_kubeconfig_secret_name_is_release_scoped(self):
+        self.assertEqual(_kubeconfig_secret_name(), "rel1-runwhen-local-kubeconfig")
+
+    @patch.dict("os.environ", {}, clear=False)
+    def test_kubeconfig_secret_name_bare_without_prefix(self):
+        os.environ.pop("RUNNER_RESOURCE_PREFIX", None)
+        self.assertEqual(_kubeconfig_secret_name(), "kubeconfig")
+
+    @patch.dict("os.environ", {"RUNNER_RESOURCE_PREFIX": "  rel2-  "}, clear=False)
+    def test_resource_prefix_strips_whitespace(self):
+        self.assertEqual(_resource_prefix(), "rel2-")
 
 
 class PublishKubeconfigSecretTests(unittest.TestCase):
