@@ -450,6 +450,12 @@ def index(component_context: Context):
                 # rigorously about possible error cases and error handling.
 
                 encoded_kubeconfig_file = kubernetes_settings.get("kubeconfigFile")
+                if not encoded_kubeconfig_file:
+                    logger.info(
+                        "cloudConfig.kubernetes has no kubeconfigFile; "
+                        "skipping Kubernetes indexing."
+                    )
+                    return
                 kubeconfig_text = base64.b64decode(encoded_kubeconfig_file).decode('utf-8')
                 # FIXME: Ther scanning code is inconsistent about whether to parse the kubeconfig
                 # file directly as yaml or to use methods from the kubernetes python library. The original

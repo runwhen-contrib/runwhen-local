@@ -153,6 +153,20 @@ def _service_account_name_for_kubeconfig_secret() -> str:
     return _service_account_name_from_projected_token()
 
 
+def _resource_prefix() -> str:
+    """Release-derived prefix for k8s names this process creates.
+
+    The Helm chart sets ``RUNNER_RESOURCE_PREFIX`` so multiple releases can
+    share a namespace without colliding. Empty when unset (standalone/docker),
+    which preserves the legacy bare names exactly.
+    """
+    return os.environ.get("RUNNER_RESOURCE_PREFIX", "").strip()
+
+
+def _kubeconfig_secret_name() -> str:
+    return f"{_resource_prefix()}kubeconfig"
+
+
 def _long_lived_service_account_token(
     namespace: str,
     service_account_name: str,
@@ -319,7 +333,7 @@ def create_kubeconfig():
     }
 
     kubeconfig_yaml = yaml.dump(kubeconfig)
-    secret_name = f"kubeconfig"
+    secret_name = _kubeconfig_secret_name()
 
     if create_secret:
         # Check if the secret exists and update or create accordingly
