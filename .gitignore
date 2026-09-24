@@ -73,3 +73,4 @@ src/rw-cli-codecollection-cache
 *.py[cod]
 *.egg-info/
 .pytest_cache/
+.omo
