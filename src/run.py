@@ -11,7 +11,7 @@ import subprocess
 import tempfile
 from argparse import ArgumentParser
 from http import HTTPStatus
-from typing import Union
+from typing import Optional, Union
 
 import requests
 import yaml
@@ -45,6 +45,45 @@ REST_SERVICE_PORT_DEFAULT = 8000
 INFO_COMMAND = 'info'
 RUN_COMMAND = 'run'
 UPLOAD_COMMAND = 'upload'
+
+# Written to the output directory root (never under output/workspaces/<ws>/,
+# which is what gets tarred for upload) so users can inspect the workspaceScope
+# payload (the Kubernetes discovery-scope summary sent alongside the upload)
+# that a "run" produced.
+WORKSPACE_SCOPE_FILENAME = "workspace-scope.json"
+
+
+def _write_workspace_scope_file(output_path: str, workspace_scope: Optional[dict]) -> None:
+    scope_path = os.path.join(output_path, WORKSPACE_SCOPE_FILENAME)
+    if not workspace_scope:
+        # A run that produced no scope must not leave an earlier run's file
+        # behind for the next upload to send.
+        try:
+            os.remove(scope_path)
+        except FileNotFoundError:
+            pass
+        except Exception as e:
+            logger.warning("Could not remove stale %s: %s", WORKSPACE_SCOPE_FILENAME, e)
+        return
+    try:
+        with open(scope_path, "w") as f:
+            json.dump(workspace_scope, f, indent=2)
+    except Exception as e:
+        logger.warning("Could not write %s: %s", WORKSPACE_SCOPE_FILENAME, e)
+
+
+def _read_workspace_scope_file(output_path: str) -> Optional[dict]:
+    """Best-effort read of the workspaceScope file a prior `run` wrote to the
+    output directory root. Returns None (never raises) if it's missing or
+    unreadable -- an upload must never fail because of this."""
+    try:
+        with open(os.path.join(output_path, WORKSPACE_SCOPE_FILENAME), "r") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return None
+    except Exception as e:
+        logger.warning("Could not read %s: %s", WORKSPACE_SCOPE_FILENAME, e)
+        return None
 
 
 CUSTOMIZATION_RULES_DEFAULT = "map-customization-rules"
@@ -298,7 +337,19 @@ def create_kubeconfig():
             "name": cluster_name,
             "cluster": {
                 "certificate-authority-data": ca_cert,
-                "server": api_server
+                "server": api_server,
+                # Same "workspace-builder" extension shape the AKS/EKS/GKE
+                # kubeconfig generators inject, so kubeapi.py's extension-reading
+                # code (and workspace_scope.py, which reads its scan results)
+                # can tell this cluster used the pod's own service account.
+                "extensions": [{
+                    "name": "workspace-builder",
+                    "extension": {
+                        "cluster_type": "kubernetes",
+                        "cluster_name": cluster_name,
+                        "in_cluster_auth": True,
+                    },
+                }],
             }
         }],
         "contexts": [{
@@ -1040,6 +1091,12 @@ def main():
         archive = tarfile.open(fileobj=archive_file_obj, mode="r")
         archive.extractall(output_path)
 
+        # Write workspaceScope to the output directory root -- not under
+        # output/workspaces/<ws>/, which is what gets tarred above -- so users
+        # can inspect it and a later plain `upload` (a separate process
+        # invocation) can still pick it up.
+        _write_workspace_scope_file(output_path, response_data.get("workspaceScope"))
+
         message = response_data.get("message", "Workspace data generated successfully.")
         warnings = response_data.get("warnings", list())
         
@@ -1151,6 +1208,12 @@ def main():
             "message": "Updated workspace from map builder.",
             "finalizeAction": "mergeToMain",
         }
+        # Best-effort: this is the file a prior `run` (this process for
+        # `run --upload`, or an earlier one for a plain `upload`) wrote to the
+        # output directory root. Never fail an upload because of it.
+        workspace_scope = _read_workspace_scope_file(output_path)
+        if workspace_scope:
+            upload_request_data["workspaceScope"] = workspace_scope
         # We want the request body to be JSON, not form-encoded, so we need to
         # do the conversion to JSON ourselves.
         upload_request_text = json.dumps(upload_request_data)
