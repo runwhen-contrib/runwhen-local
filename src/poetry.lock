@@ -325,14 +325,14 @@ typing-extensions = ">=4.6.0"
 
 [[package]]
 name = "azure-mgmt-compute"
-version = "38.3.0"
+version = "38.4.0"
 description = "Microsoft Azure Compute Management Client Library for Python"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "azure_mgmt_compute-38.3.0-py3-none-any.whl", hash = "sha256:2349f0a88b2be9d77f1449db65dcdf7c3c11141c91bc355b29060531779396f6"},
-    {file = "azure_mgmt_compute-38.3.0.tar.gz", hash = "sha256:2310e608f78fb3a4d38be206ec25ff07d67b1c9236fd4568f857af674cb1773a"},
+    {file = "azure_mgmt_compute-38.4.0-py3-none-any.whl", hash = "sha256:1421fbdc73b0c7c0875eeec559eae6ca9009598f3c73ee792097a7145b407053"},
+    {file = "azure_mgmt_compute-38.4.0.tar.gz", hash = "sha256:7bf2f2b49e2b7cedf5f3eb2a71cf501b70e5898bd45d2421650029b95d589835"},
 ]
 
 [package.dependencies]
@@ -545,14 +545,14 @@ typing-extensions = ">=4.6.0"
 
 [[package]]
 name = "azure-mgmt-storage"
-version = "25.1.0"
+version = "25.2.0"
 description = "Microsoft Azure Storage Management Client Library for Python"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "azure_mgmt_storage-25.1.0-py3-none-any.whl", hash = "sha256:46b51cb0491f9aac303436c28bd18954d0c3aca39d4882e7d332e6ad0605b25e"},
-    {file = "azure_mgmt_storage-25.1.0.tar.gz", hash = "sha256:cc4bd2158fd0dd80639142af06dc70c119bbfd6f79d53da4482e0b2c849af7ca"},
+    {file = "azure_mgmt_storage-25.2.0-py3-none-any.whl", hash = "sha256:271cb98bcb2638f104de3447158fd994306925daf2a0f3c8396bfbcc9802e416"},
+    {file = "azure_mgmt_storage-25.2.0.tar.gz", hash = "sha256:49462eaf148d73332c4329fe646690354e441226fbe996e720e6683f021e986f"},
 ]
 
 [package.dependencies]
@@ -579,18 +579,18 @@ typing-extensions = ">=4.6.0"
 
 [[package]]
 name = "boto3"
-version = "1.43.100"
+version = "1.43.103"
 description = "The AWS SDK for Python (Boto3)"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "boto3-1.43.100-py3-none-any.whl", hash = "sha256:49785c310057c2c650d62ca3ba28e88ad87c3827b490312711e81968a9d21fd8"},
-    {file = "boto3-1.43.100.tar.gz", hash = "sha256:ae8d81e1f14699959eb38757c2e0044f4e3a303a57a0335d0be4cd3c07529763"},
+    {file = "boto3-1.43.103-py3-none-any.whl", hash = "sha256:574796187eb4e4fcaaf5c1b88c1724a1ba5a95bc27aeae5573676178666acc71"},
+    {file = "boto3-1.43.103.tar.gz", hash = "sha256:524821052527f6446d249bf710847b032d9b12135e346c9751777a0a2811cf04"},
 ]
 
 [package.dependencies]
-botocore = ">=1.43.100,<1.44.0"
+botocore = ">=1.43.103,<1.44.0"
 jmespath = ">=0.7.1,<2.0.0"
 s3transfer = ">=0.19.0,<0.20.0"
 
@@ -599,14 +599,14 @@ crt = ["botocore[crt] (>=1.21.0,<2.0a0)"]
 
 [[package]]
 name = "botocore"
-version = "1.43.100"
+version = "1.43.103"
 description = "Low-level, data-driven core of boto 3."
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "botocore-1.43.100-py3-none-any.whl", hash = "sha256:34c3232bc0f895091a15249903b3cab1148f5787f12389caa2d54a9175428d51"},
-    {file = "botocore-1.43.100.tar.gz", hash = "sha256:b6e64e38e3c03663a0c20d3d207afd97a0409dbc27e4e43384ac3f93cb61279f"},
+    {file = "botocore-1.43.103-py3-none-any.whl", hash = "sha256:6a6a561a6de43845ae42bc7ff7e2c798742bfa277f5215398f9c15ed9b1bd67c"},
+    {file = "botocore-1.43.103.tar.gz", hash = "sha256:8c7f220e09f3b7ec99c59c716aa66cf6f5b2b57fd8731544054f3778aa744c6a"},
 ]
 
 [package.dependencies]
@@ -1196,14 +1196,14 @@ grpc = ["grpcio (>=1.33.2,<2.0.0)", "grpcio (>=1.49.1,<2.0.0) ; python_version >
 
 [[package]]
 name = "google-auth"
-version = "2.58.0"
+version = "2.58.1"
 description = "Google Authentication Library"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "google_auth-2.58.0-py3-none-any.whl", hash = "sha256:8a9c4645bb4c8e91668fb1934b95ae6a8687084232753639220ba9bf04a1610d"},
-    {file = "google_auth-2.58.0.tar.gz", hash = "sha256:55e30cf15e737de92c5323d78cda8a83fcd57e7ffbaf900c4600039fd60a80fd"},
+    {file = "google_auth-2.58.1-py3-none-any.whl", hash = "sha256:66a63572d0ab629554768544df04018d79178c0bd7439ba31683ac576b79024d"},
+    {file = "google_auth-2.58.1.tar.gz", hash = "sha256:1480461d8b2347e679af758f4003700ea79a59b603c9134e18bfa95e8004ee70"},
 ]
 
 [package.dependencies]
@@ -1405,14 +1405,14 @@ libcst = ["libcst (>=0.3.10)"]
 
 [[package]]
 name = "google-cloud-storage"
-version = "3.14.1"
+version = "3.15.0"
 description = "Google Cloud Storage API client library"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "google_cloud_storage-3.14.1-py3-none-any.whl", hash = "sha256:8f0fe2b74bd80ddcbd67247a3b47b81035a0a4f448569ed358fa40a46c940118"},
-    {file = "google_cloud_storage-3.14.1.tar.gz", hash = "sha256:b24e74b493c60b19b83462933a83bb831e45b6ca4924b0d75eac8e176b58b3a7"},
+    {file = "google_cloud_storage-3.15.0-py3-none-any.whl", hash = "sha256:248905def997a300ad456c0696cf7fad04b8c38412c1103ebb2a60cc6341579f"},
+    {file = "google_cloud_storage-3.15.0.tar.gz", hash = "sha256:110041ee1cb566114015aa7c2492f1ff18c92af528588386663f4b41b6279989"},
 ]
 
 [package.dependencies]
@@ -3188,14 +3188,14 @@ zstd = ["zstandard (>=0.18.0)"]
 
 [[package]]
 name = "uvicorn"
-version = "0.53.0"
+version = "0.54.0"
 description = "The lightning-fast ASGI server."
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "uvicorn-0.53.0-py3-none-any.whl", hash = "sha256:e8dca71ec86dce5f04e333f0d56cdedf942446e6643b9cea1af0d6d3a02cb03e"},
-    {file = "uvicorn-0.53.0.tar.gz", hash = "sha256:a9356f0cb89b3b8621529c5d5eebd69bfe154f4c3f68b4cf2de47e45fa855c2e"},
+    {file = "uvicorn-0.54.0-py3-none-any.whl", hash = "sha256:505bdb0f318731d45f1f712071fc781a8981f6847a31c902c9f5e652d4f67faf"},
+    {file = "uvicorn-0.54.0.tar.gz", hash = "sha256:a2e33cbfaa0306f8e6b0c13e0cb89d7d7a2da3e62b90c66e18c33d9807b28620"},
 ]
 
 [package.dependencies]
@@ -3606,4 +3606,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.14,<3.15"
-content-hash = "91212351e922a3098646d5385a4a35861dd9608c8f1d230400a59f0563a65ac5"
+content-hash = "4ef0c6d977ebf3943ee8817184bf658b7ec358736e76271e8849af92c2810b69"
