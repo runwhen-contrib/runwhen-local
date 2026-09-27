@@ -104,9 +104,36 @@ def execute_run(request_data: dict[str, Any]) -> ArchiveRunResult:
         if overrides:
             context.set_property("overrides", overrides)
 
+        from indexers.kubeapi import reset_cluster_scan_results
+        reset_cluster_scan_results()
+
         run_components(context, components)
         outputter.close()
         archive_bytes = outputter.get_bytes()
+
+        # Build the workspaceScope payload (a summary of the Kubernetes
+        # clusters/namespaces this run covered, sent alongside the upload) from
+        # what indexers.kubeapi.index() just captured. Best-effort: a failure
+        # here (or no Kubernetes indexing this run) must never fail the run.
+        workspace_scope = None
+        try:
+            from enrichers.generation_rules import CUSTOM_DEFINITIONS_SETTING, SECRETS_SETTING
+            from indexers.kubeapi import get_last_cluster_scan_results
+            from utils import get_version_info
+            from workspace_scope import build_workspace_scope
+
+            cluster_scan_results = get_last_cluster_scan_results()
+            if cluster_scan_results:
+                workspace_scope = build_workspace_scope(
+                    cluster_scan_results,
+                    registry=context.get_property(REGISTRY_PROPERTY_NAME),
+                    custom=context.get_setting(CUSTOM_DEFINITIONS_SETTING) or {},
+                    secrets=context.get_setting(SECRETS_SETTING) or {},
+                    builder_version=get_version_info().get("version", ""),
+                )
+        except Exception as scope_error:
+            print(f"Warning: could not build workspaceScope: {scope_error}")
+            workspace_scope = None
 
         slx_count = None
         try:
@@ -126,6 +153,7 @@ def execute_run(request_data: dict[str, Any]) -> ArchiveRunResult:
             "Workspace builder completed successfully.",
             context.warnings,
             archive_bytes,
+            workspace_scope,
         )
 
     except Exception as exc:
