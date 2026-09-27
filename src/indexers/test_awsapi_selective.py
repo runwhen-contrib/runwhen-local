@@ -29,6 +29,8 @@ _SRC_DIR = os.path.dirname(_THIS_DIR)
 if _SRC_DIR not in sys.path:
     sys.path.insert(0, _SRC_DIR)
 
+import home_isolation  # noqa: E402,F401
+
 from enrichers.generation_rule_types import LevelOfDetail  # noqa: E402
 from indexers import awsapi  # noqa: E402
 from indexers.awsapi_resource_types import AwsResourceTypeSpec  # noqa: E402

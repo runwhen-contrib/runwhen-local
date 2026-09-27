@@ -13,6 +13,8 @@ from typing import Any
 import yaml
 from fastapi.testclient import TestClient
 
+import home_isolation  # noqa: E402,F401
+
 from exceptions import WorkspaceBuilderException
 from utils import read_file, transform_client_cloud_config
 from workspace_builder.api import app

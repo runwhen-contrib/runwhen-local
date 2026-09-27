@@ -11,6 +11,8 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
+import home_isolation  # noqa: E402,F401
+
 from indexers.sqlite_resource_writer import (
     _init_schema,
     open_database,
