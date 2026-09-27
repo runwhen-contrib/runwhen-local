@@ -361,7 +361,14 @@ def build_cluster_lod_maps(cloud_config_settings: Optional[dict],
 
 @dataclass
 class ClusterScanResult:
-    """What ``index()`` learned about one kubeconfig cluster/context pair.
+    """What ``index()`` learned about one kubeconfig cluster, merged across
+    every context that resolves to it (a kubeconfig can have several
+    contexts -- e.g. different users/auth -- pointing at the same cluster).
+    See the "MERGE" comments in ``index()`` for exactly how each field is
+    combined; in short: ``included_namespaces``/``excluded_namespaces`` are
+    unioned across contexts, ``namespace_selection`` stays "explicit" only
+    if every context is, and ``context_name``/``cluster_type``/
+    ``in_cluster_auth`` are taken from the first context seen.
 
     Namespaces excluded by an LOD-``none`` setting or by label/annotation
     filters are never added to the resource registry -- they're simply
@@ -718,14 +725,32 @@ def index(component_context: Context):
                             kube_context_namespaces.get(context_name) or kubernetes_explicit_namespace_names
                         ) else "all"
 
-                    scan_result = ClusterScanResult(
-                        cluster_name=cluster_name,
-                        context_name=context_name,
-                        cluster_type=(extension_details or {}).get('cluster_type', 'kubernetes'),
-                        in_cluster_auth=bool((extension_details or {}).get('in_cluster_auth', False)),
-                        namespace_selection=namespace_selection,
-                    )
-                    _last_cluster_scan_results[cluster_name] = scan_result
+                    # MERGE: several kubeconfig contexts can resolve to the same cluster
+                    # (e.g. different users/auth for the same server). Reuse the
+                    # ClusterScanResult an earlier context already created for this
+                    # cluster_name -- rather than replacing it -- so the namespace sets
+                    # accumulated below (`included_namespace_names`/`all_seen_namespace_names`)
+                    # get unioned into it instead of the last context clobbering the others.
+                    # Fields kept from the first context seen: context_name, cluster_type,
+                    # in_cluster_auth (every context for one cluster is expected to agree on
+                    # these). namespace_selection is the one field that can legitimately
+                    # differ per context; it's kept "explicit" only if every context seen so
+                    # far for this cluster is itself "explicit" -- one "all" context makes the
+                    # merged report "all" so it doesn't hide namespaces that context legitimately
+                    # saw (see the included/excluded union at the end of the scan below).
+                    scan_result = _last_cluster_scan_results.get(cluster_name)
+                    if scan_result is not None:
+                        if namespace_selection == "all":
+                            scan_result.namespace_selection = "all"
+                    else:
+                        scan_result = ClusterScanResult(
+                            cluster_name=cluster_name,
+                            context_name=context_name,
+                            cluster_type=(extension_details or {}).get('cluster_type', 'kubernetes'),
+                            in_cluster_auth=bool((extension_details or {}).get('in_cluster_auth', False)),
+                            namespace_selection=namespace_selection,
+                        )
+                        _last_cluster_scan_results[cluster_name] = scan_result
 
                     logger.info(f"Scanning Kubernetes cluster {cluster_name} from context {context_name}")
 
@@ -750,6 +775,11 @@ def index(component_context: Context):
                             version_info = version_api.get_code()
                             logger.info(f"Successfully connected to cluster '{cluster_name}' (Kubernetes {version_info.git_version})")
                             kubeapi_total_clusters += 1
+                            # Explicit, not just relying on the dataclass default: scan_result
+                            # may be a reused entry from an earlier failed context for the same
+                            # cluster_name (see MERGE note above), so this re-affirms reachable
+                            # rather than leaving a stale False from that earlier failure.
+                            scan_result.reachable = True
 
                         except ApiException as e:
                             if e.status == 401:
@@ -1493,9 +1523,23 @@ def index(component_context: Context):
                                     logger.debug(f"Error scanning for custom resource instances; skipping and continuing; "
                                                 f"error: {e}, group={group}, kind={plural_name}")
 
-                        scan_result.included_namespaces = set(included_namespace_names)
+                        # MERGE: union this context's namespaces into scan_result rather than
+                        # overwriting, so a cluster reached via several contexts (see MERGE
+                        # note above) reports every context's included namespaces, not just
+                        # this one's. `excluded_namespaces` is recomputed as (everything any
+                        # context has seen so far) minus (everything any context has included
+                        # so far); since scan_result.excluded_namespaces going into this already
+                        # equals "seen so far - included so far" for prior contexts, unioning in
+                        # this context's own seen names before subtracting the (now-updated)
+                        # included set gives exactly "seen across all contexts - included across
+                        # all contexts", which reduces to the original single-context formula
+                        # when there's only one context for this cluster.
+                        scan_result.included_namespaces |= included_namespace_names
                         if scan_result.namespace_selection == "all":
-                            scan_result.excluded_namespaces = all_seen_namespace_names - included_namespace_names
+                            scan_result.excluded_namespaces = (
+                                (scan_result.excluded_namespaces | all_seen_namespace_names)
+                                - scan_result.included_namespaces
+                            )
 
                         logger.info(f"Context '{context_name}' finished scanning resources across {len(namespaces)} namespace(s)")
                         kubeapi_total_namespaces += len(namespaces)

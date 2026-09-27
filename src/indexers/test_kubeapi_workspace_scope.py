@@ -246,6 +246,104 @@ class InClusterAuthExtensionTest(TestCase):
         self.assertEqual(scan.included_namespaces, {"app"})
 
 
+class MultiContextSameClusterMergeTest(TestCase):
+    """Two kubeconfig contexts that resolve to the *same* cluster (e.g. two
+    users/auth methods for one server) must have their scan results merged
+    (unioned), not have the second context's ``ClusterScanResult`` replace
+    the first's -- see the "MERGE" comments in ``kubeapi.index()``."""
+
+    def test_included_and_excluded_namespaces_are_unioned_across_contexts(self):
+        # Both contexts use "all" selection (global namespaceLODs only), so
+        # each one's un-included-but-seen namespaces land in excluded_namespaces.
+        clusters = [_cluster_entry("shared-cluster")]
+        contexts = [
+            _context_entry("ctx-a", "shared-cluster", user_name="user-a"),
+            _context_entry("ctx-b", "shared-cluster", user_name="user-b"),
+        ]
+        cloud_config_settings = {
+            "kubernetes": {
+                "kubeconfigFile": _kubeconfig_file_setting(clusters, contexts),
+                "namespaceLODs": {"kube-system": "none"},
+            },
+        }
+        namespaces_by_context = {
+            # ctx-a sees "payments" (included) and "kube-system" (LOD none -> excluded).
+            "ctx-a": [
+                ("payments", {}),
+                ("kube-system", {}),
+            ],
+            # ctx-b sees "orders" (included) and "internal-ns" (no filter here,
+            # but not seen by ctx-a, so it must still show up as excluded from
+            # ctx-b's own scan) plus "payments" again (already included by ctx-a).
+            "ctx-b": [
+                ("orders", {}),
+                ("payments", {}),
+            ],
+        }
+        results = _run_index(cloud_config_settings, namespaces_by_context=namespaces_by_context)
+        scan = results["shared-cluster"]
+
+        # First context seen wins for context_name.
+        self.assertEqual(scan.context_name, "ctx-a")
+        self.assertEqual(scan.namespace_selection, "all")
+        # Union of both contexts' included namespaces, not just ctx-b's (the
+        # last one processed).
+        self.assertEqual(scan.included_namespaces, {"payments", "orders"})
+        # kube-system was excluded by LOD in ctx-a; nothing from ctx-b was
+        # excluded (it only saw namespaces that ended up included).
+        self.assertEqual(scan.excluded_namespaces, {"kube-system"})
+        self.assertTrue(scan.reachable)
+
+    def test_namespace_selection_stays_explicit_only_if_every_context_is(self):
+        # ctx-a has an explicit per-context namespace filter; ctx-b has none,
+        # so it scans "all". The merged cluster must report "all" overall,
+        # since an "explicit" report would hide namespaces ctx-b legitimately saw.
+        clusters = [_cluster_entry("mixed-cluster")]
+        contexts = [
+            _context_entry("ctx-explicit", "mixed-cluster", user_name="user-a"),
+            _context_entry("ctx-all", "mixed-cluster", user_name="user-b"),
+        ]
+        cloud_config_settings = {
+            "kubernetes": {
+                "kubeconfigFile": _kubeconfig_file_setting(clusters, contexts),
+                "contexts": {
+                    "ctx-explicit": {"namespaces": ["payments"]},
+                },
+            },
+        }
+        namespaces_by_context = {
+            "ctx-explicit": [("payments", {}), ("orders", {})],
+            "ctx-all": [("orders", {})],
+        }
+        results = _run_index(cloud_config_settings, namespaces_by_context=namespaces_by_context)
+        scan = results["mixed-cluster"]
+
+        self.assertEqual(scan.context_name, "ctx-explicit")
+        self.assertEqual(scan.namespace_selection, "all")
+        self.assertEqual(scan.included_namespaces, {"payments", "orders"})
+
+    def test_reachable_true_if_any_context_succeeds(self):
+        # ctx-fails is processed first and fails the connectivity check;
+        # ctx-succeeds (same cluster) is processed after and succeeds. The
+        # merged cluster must end up reachable, not stuck False from ctx-fails.
+        clusters = [_cluster_entry("flaky-cluster")]
+        contexts = [
+            _context_entry("ctx-fails", "flaky-cluster", user_name="user-a"),
+            _context_entry("ctx-succeeds", "flaky-cluster", user_name="user-b"),
+        ]
+        cloud_config_settings = {
+            "kubernetes": {"kubeconfigFile": _kubeconfig_file_setting(clusters, contexts)},
+        }
+        results = _run_index(
+            cloud_config_settings,
+            namespaces_by_context={"ctx-succeeds": [("app", {})]},
+            unreachable_contexts={"ctx-fails"},
+        )
+        scan = results["flaky-cluster"]
+        self.assertTrue(scan.reachable)
+        self.assertEqual(scan.included_namespaces, {"app"})
+
+
 class UnreachableClusterTest(TestCase):
     """A cluster that fails the connectivity check is still reported, with
     reachable=False and empty namespace lists."""
