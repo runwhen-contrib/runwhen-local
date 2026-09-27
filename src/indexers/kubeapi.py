@@ -385,6 +385,10 @@ class ClusterScanResult:
     included_namespaces: set = field(default_factory=set)
     excluded_namespaces: set = field(default_factory=set)
     reachable: bool = True
+    # True once ANY context for this cluster connected. A later context that
+    # fails (different user/auth) must not mark a cluster another context
+    # already scanned as unreachable.
+    reached_by_any_context: bool = False
 
 
 # Populated fresh by every index() call; read back by workspace_scope.py
@@ -760,7 +764,7 @@ def index(component_context: Context):
                     except Exception as e:
                         logger.error(f"Failed to create API client for cluster '{cluster_name}' from context '{context_name}': {e}")
                         logger.info(f"Skipping cluster '{cluster_name}' due to API client creation failure and continuing with next cluster")
-                        scan_result.reachable = False
+                        scan_result.reachable = scan_result.reached_by_any_context
                         continue
 
                     with api_client:
@@ -780,27 +784,28 @@ def index(component_context: Context):
                             # cluster_name (see MERGE note above), so this re-affirms reachable
                             # rather than leaving a stale False from that earlier failure.
                             scan_result.reachable = True
+                            scan_result.reached_by_any_context = True
 
                         except ApiException as e:
                             if e.status == 401:
                                 logger.error(f"Authentication failed for cluster '{cluster_name}': Invalid or expired credentials. Error: {e}")
                                 logger.info(f"Skipping cluster '{cluster_name}' due to authentication failure and continuing with next cluster")
-                                scan_result.reachable = False
+                                scan_result.reachable = scan_result.reached_by_any_context
                                 continue
                             elif e.status == 403:
                                 logger.error(f"Authorization failed for cluster '{cluster_name}': Insufficient permissions. Error: {e}")
                                 logger.info(f"Skipping cluster '{cluster_name}' due to authorization failure and continuing with next cluster")
-                                scan_result.reachable = False
+                                scan_result.reachable = scan_result.reached_by_any_context
                                 continue
                             else:
                                 logger.error(f"API error connecting to cluster '{cluster_name}': {e}")
                                 logger.info(f"Skipping cluster '{cluster_name}' due to API error and continuing with next cluster")
-                                scan_result.reachable = False
+                                scan_result.reachable = scan_result.reached_by_any_context
                                 continue
                         except Exception as e:
                             logger.error(f"Unexpected error connecting to cluster '{cluster_name}': {e}")
                             logger.info(f"Skipping cluster '{cluster_name}' due to connection error and continuing with next cluster")
-                            scan_result.reachable = False
+                            scan_result.reachable = scan_result.reached_by_any_context
                             continue
 
                         # Connection validation successful, proceed with cluster indexing

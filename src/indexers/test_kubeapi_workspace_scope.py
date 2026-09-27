@@ -343,6 +343,27 @@ class MultiContextSameClusterMergeTest(TestCase):
         self.assertTrue(scan.reachable)
         self.assertEqual(scan.included_namespaces, {"app"})
 
+    def test_reachable_stays_true_when_a_later_context_fails(self):
+        # The reverse order: ctx-succeeds scans the cluster first, then
+        # ctx-fails (another user/auth for the same cluster) fails the
+        # connectivity check. The cluster was scanned, so it stays reachable.
+        clusters = [_cluster_entry("flaky-cluster")]
+        contexts = [
+            _context_entry("ctx-succeeds", "flaky-cluster", user_name="user-b"),
+            _context_entry("ctx-fails", "flaky-cluster", user_name="user-a"),
+        ]
+        cloud_config_settings = {
+            "kubernetes": {"kubeconfigFile": _kubeconfig_file_setting(clusters, contexts)},
+        }
+        results = _run_index(
+            cloud_config_settings,
+            namespaces_by_context={"ctx-succeeds": [("app", {})]},
+            unreachable_contexts={"ctx-fails"},
+        )
+        scan = results["flaky-cluster"]
+        self.assertTrue(scan.reachable)
+        self.assertEqual(scan.included_namespaces, {"app"})
+
 
 class UnreachableClusterTest(TestCase):
     """A cluster that fails the connectivity check is still reported, with
