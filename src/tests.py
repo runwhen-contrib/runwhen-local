@@ -6,6 +6,8 @@ import shutil
 import tarfile
 import yaml
 
+import home_isolation  # noqa: E402,F401
+
 from exceptions import (
     WorkspaceBuilderException,
     WorkspaceBuilderUserException,
