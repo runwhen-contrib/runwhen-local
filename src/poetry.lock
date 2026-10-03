@@ -271,20 +271,20 @@ msrest = ">=0.7.1,<0.8.0"
 
 [[package]]
 name = "azure-identity"
-version = "1.25.3"
+version = "1.26.0"
 description = "Microsoft Azure Identity Library for Python"
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "azure_identity-1.25.3-py3-none-any.whl", hash = "sha256:f4d0b956a8146f30333e071374171f3cfa7bdb8073adb8c3814b65567aa7447c"},
-    {file = "azure_identity-1.25.3.tar.gz", hash = "sha256:ab23c0d63015f50b630ef6c6cf395e7262f439ce06e5d07a64e874c724f8d9e6"},
+    {file = "azure_identity-1.26.0-py3-none-any.whl", hash = "sha256:3c60d9682b3ac01507388d474cb5a5ffbe54152a96b6cdcaa7013da9315cf186"},
+    {file = "azure_identity-1.26.0.tar.gz", hash = "sha256:61b4538b87df10d2d6d44b77cd5ea28a8929fd4929d58b45bf3f230f7daba02e"},
 ]
 
 [package.dependencies]
 azure-core = ">=1.31.0"
 cryptography = ">=2.5"
-msal = ">=1.35.1"
+msal = ">=1.39.0"
 msal-extensions = ">=1.2.0"
 typing-extensions = ">=4.0.0"
 
@@ -325,14 +325,14 @@ typing-extensions = ">=4.6.0"
 
 [[package]]
 name = "azure-mgmt-compute"
-version = "38.3.0"
+version = "38.4.0"
 description = "Microsoft Azure Compute Management Client Library for Python"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "azure_mgmt_compute-38.3.0-py3-none-any.whl", hash = "sha256:2349f0a88b2be9d77f1449db65dcdf7c3c11141c91bc355b29060531779396f6"},
-    {file = "azure_mgmt_compute-38.3.0.tar.gz", hash = "sha256:2310e608f78fb3a4d38be206ec25ff07d67b1c9236fd4568f857af674cb1773a"},
+    {file = "azure_mgmt_compute-38.4.0-py3-none-any.whl", hash = "sha256:1421fbdc73b0c7c0875eeec559eae6ca9009598f3c73ee792097a7145b407053"},
+    {file = "azure_mgmt_compute-38.4.0.tar.gz", hash = "sha256:7bf2f2b49e2b7cedf5f3eb2a71cf501b70e5898bd45d2421650029b95d589835"},
 ]
 
 [package.dependencies]
@@ -359,14 +359,14 @@ typing-extensions = ">=4.6.0"
 
 [[package]]
 name = "azure-mgmt-containerservice"
-version = "41.6.0"
+version = "41.7.0"
 description = "Microsoft Azure Containerservice Management Client Library for Python"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "azure_mgmt_containerservice-41.6.0-py3-none-any.whl", hash = "sha256:42aa7c6d3b7464ceb0bb5ef126ba4d354ad536a7019826a635e7795754228f71"},
-    {file = "azure_mgmt_containerservice-41.6.0.tar.gz", hash = "sha256:592c83288d9cb0822ea031d8815d1d30fe30727da6fa7552d1e825c450ecca6a"},
+    {file = "azure_mgmt_containerservice-41.7.0-py3-none-any.whl", hash = "sha256:cb66074e42bccefa45389f052a7fac78902ee97008aa290806d1342dceaa5be6"},
+    {file = "azure_mgmt_containerservice-41.7.0.tar.gz", hash = "sha256:d479f6b586120bc623c9e02eeea533bbb286bc028e2662e0bf6c89c99d62fd52"},
 ]
 
 [package.dependencies]
@@ -545,14 +545,14 @@ typing-extensions = ">=4.6.0"
 
 [[package]]
 name = "azure-mgmt-storage"
-version = "25.1.0"
+version = "25.2.0"
 description = "Microsoft Azure Storage Management Client Library for Python"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "azure_mgmt_storage-25.1.0-py3-none-any.whl", hash = "sha256:46b51cb0491f9aac303436c28bd18954d0c3aca39d4882e7d332e6ad0605b25e"},
-    {file = "azure_mgmt_storage-25.1.0.tar.gz", hash = "sha256:cc4bd2158fd0dd80639142af06dc70c119bbfd6f79d53da4482e0b2c849af7ca"},
+    {file = "azure_mgmt_storage-25.2.0-py3-none-any.whl", hash = "sha256:271cb98bcb2638f104de3447158fd994306925daf2a0f3c8396bfbcc9802e416"},
+    {file = "azure_mgmt_storage-25.2.0.tar.gz", hash = "sha256:49462eaf148d73332c4329fe646690354e441226fbe996e720e6683f021e986f"},
 ]
 
 [package.dependencies]
@@ -579,18 +579,18 @@ typing-extensions = ">=4.6.0"
 
 [[package]]
 name = "boto3"
-version = "1.43.100"
+version = "1.43.108"
 description = "The AWS SDK for Python (Boto3)"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "boto3-1.43.100-py3-none-any.whl", hash = "sha256:49785c310057c2c650d62ca3ba28e88ad87c3827b490312711e81968a9d21fd8"},
-    {file = "boto3-1.43.100.tar.gz", hash = "sha256:ae8d81e1f14699959eb38757c2e0044f4e3a303a57a0335d0be4cd3c07529763"},
+    {file = "boto3-1.43.108-py3-none-any.whl", hash = "sha256:19e9da95ef0c494e27052049a42137550e66730509bb613e76eaa30ddf9a7170"},
+    {file = "boto3-1.43.108.tar.gz", hash = "sha256:03341f089158368acf83e921aca98b706095322ca52bc4c039a616940aa5ad41"},
 ]
 
 [package.dependencies]
-botocore = ">=1.43.100,<1.44.0"
+botocore = ">=1.43.108,<1.44.0"
 jmespath = ">=0.7.1,<2.0.0"
 s3transfer = ">=0.19.0,<0.20.0"
 
@@ -599,14 +599,14 @@ crt = ["botocore[crt] (>=1.21.0,<2.0a0)"]
 
 [[package]]
 name = "botocore"
-version = "1.43.100"
+version = "1.43.108"
 description = "Low-level, data-driven core of boto 3."
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "botocore-1.43.100-py3-none-any.whl", hash = "sha256:34c3232bc0f895091a15249903b3cab1148f5787f12389caa2d54a9175428d51"},
-    {file = "botocore-1.43.100.tar.gz", hash = "sha256:b6e64e38e3c03663a0c20d3d207afd97a0409dbc27e4e43384ac3f93cb61279f"},
+    {file = "botocore-1.43.108-py3-none-any.whl", hash = "sha256:ab9d16c6b4350aaa54ed28202dfa2998b2d735fdbf3247eb60af469d8d48a5b8"},
+    {file = "botocore-1.43.108.tar.gz", hash = "sha256:ee4f75cf3bdbb0da7912e089950e8112f692016539d939312c771499958e6cfd"},
 ]
 
 [package.dependencies]
@@ -973,27 +973,29 @@ files = [
 
 [[package]]
 name = "fastapi"
-version = "0.141.1"
+version = "0.142.2"
 description = "FastAPI framework, high performance, easy to learn, fast to code, ready for production"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "fastapi-0.141.1-py3-none-any.whl", hash = "sha256:bfb91aa2d334c61cb35ba9a116fc123b3d3df31640b801cf57a7a78ec3f603b3"},
-    {file = "fastapi-0.141.1.tar.gz", hash = "sha256:e8822fc40db1e1858054d7a949a888695bc9bdce70139178e33bd2871a453ca1"},
+    {file = "fastapi-0.142.2-py3-none-any.whl", hash = "sha256:bd5f4d81f1e93a88bcd77caf4dfe3c2dbffc3805407a0007e9a114c18b3a670b"},
+    {file = "fastapi-0.142.2.tar.gz", hash = "sha256:06366626f2e70576367714d9ab2fe8472e6c8456dba69b399f9f797ab5e92570"},
 ]
 
 [package.dependencies]
 annotated-doc = ">=0.0.2"
+opentelemetry-api = ">=1.44.0"
 pydantic = ">=2.9.0"
 starlette = ">=0.46.0"
 typing-extensions = ">=4.8.0"
 typing-inspection = ">=0.4.2"
 
 [package.extras]
-all = ["email-validator (>=2.0.0)", "fastapi-cli[standard] (>=0.0.32)", "httpx (>=0.23.0,<1.0.0)", "itsdangerous (>=1.1.0)", "jinja2 (>=3.1.5)", "pydantic-extra-types (>=2.0.0)", "pydantic-settings (>=2.0.0)", "python-multipart (>=0.0.18)", "pyyaml (>=5.3.1)", "uvicorn[standard] (>=0.12.0)"]
-standard = ["email-validator (>=2.0.0)", "fastapi-cli[standard] (>=0.0.32)", "fastar (>=0.9.0)", "httpx (>=0.23.0,<1.0.0)", "jinja2 (>=3.1.5)", "pydantic-extra-types (>=2.0.0)", "pydantic-settings (>=2.0.0)", "python-multipart (>=0.0.18)", "uvicorn[standard] (>=0.12.0)"]
-standard-no-fastapi-cloud-cli = ["email-validator (>=2.0.0)", "fastapi-cli[standard-no-fastapi-cloud-cli] (>=0.0.32)", "httpx (>=0.23.0,<1.0.0)", "jinja2 (>=3.1.5)", "pydantic-extra-types (>=2.0.0)", "pydantic-settings (>=2.0.0)", "python-multipart (>=0.0.18)", "uvicorn[standard] (>=0.12.0)"]
+all = ["email-validator (>=2.0.0)", "fastapi-cli[standard] (>=0.0.32)", "httpx (>=0.23.0,<1.0.0)", "itsdangerous (>=1.1.0)", "jinja2 (>=3.1.5)", "opentelemetry-exporter-otlp-proto-http (>=1.44.0)", "opentelemetry-sdk (>=1.44.0)", "pydantic-extra-types (>=2.0.0)", "pydantic-settings (>=2.0.0)", "python-multipart (>=0.0.18)", "pyyaml (>=5.3.1)", "uvicorn[standard] (>=0.12.0)"]
+opentelemetry = ["opentelemetry-exporter-otlp-proto-http (>=1.44.0)", "opentelemetry-sdk (>=1.44.0)"]
+standard = ["email-validator (>=2.0.0)", "fastapi-cli[standard] (>=0.0.32)", "fastar (>=0.9.0)", "httpx (>=0.23.0,<1.0.0)", "jinja2 (>=3.1.5)", "opentelemetry-exporter-otlp-proto-http (>=1.44.0)", "opentelemetry-sdk (>=1.44.0)", "pydantic-extra-types (>=2.0.0)", "pydantic-settings (>=2.0.0)", "python-multipart (>=0.0.18)", "uvicorn[standard] (>=0.12.0)"]
+standard-no-fastapi-cloud-cli = ["email-validator (>=2.0.0)", "fastapi-cli[standard-no-fastapi-cloud-cli] (>=0.0.32)", "httpx (>=0.23.0,<1.0.0)", "jinja2 (>=3.1.5)", "opentelemetry-exporter-otlp-proto-http (>=1.44.0)", "opentelemetry-sdk (>=1.44.0)", "pydantic-extra-types (>=2.0.0)", "pydantic-settings (>=2.0.0)", "python-multipart (>=0.0.18)", "uvicorn[standard] (>=0.12.0)"]
 
 [[package]]
 name = "frozenlist"
@@ -1196,14 +1198,14 @@ grpc = ["grpcio (>=1.33.2,<2.0.0)", "grpcio (>=1.49.1,<2.0.0) ; python_version >
 
 [[package]]
 name = "google-auth"
-version = "2.58.0"
+version = "2.59.1"
 description = "Google Authentication Library"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "google_auth-2.58.0-py3-none-any.whl", hash = "sha256:8a9c4645bb4c8e91668fb1934b95ae6a8687084232753639220ba9bf04a1610d"},
-    {file = "google_auth-2.58.0.tar.gz", hash = "sha256:55e30cf15e737de92c5323d78cda8a83fcd57e7ffbaf900c4600039fd60a80fd"},
+    {file = "google_auth-2.59.1-py3-none-any.whl", hash = "sha256:89c3f931683a482ac97e61df7eb9da5e08a91703f3c752b2377d72cfb7d69e6a"},
+    {file = "google_auth-2.59.1.tar.gz", hash = "sha256:ce50fc533ac02f489a2b183a0c156672c376ecb2091b1127bc7efba2975fff27"},
 ]
 
 [package.dependencies]
@@ -1241,37 +1243,37 @@ protobuf = ">=4.25.8,<8.0.0"
 
 [[package]]
 name = "google-cloud-asset"
-version = "4.4.0"
+version = "4.5.0"
 description = "Google Cloud Asset API client library"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "google_cloud_asset-4.4.0-py3-none-any.whl", hash = "sha256:8b1c5916939995ad3e42210b189785056d80fa6fa3c2109fece3ba2b462ae49d"},
-    {file = "google_cloud_asset-4.4.0.tar.gz", hash = "sha256:350d564db6edb2d9521d4776fc44d559765fecd06bdb7284017cf24261039c8d"},
+    {file = "google_cloud_asset-4.5.0-py3-none-any.whl", hash = "sha256:c46142a4aeb8af098a7db4102944ada66f7948c06785546068b232c513d59805"},
+    {file = "google_cloud_asset-4.5.0.tar.gz", hash = "sha256:55ca670d06046d6e8cf80f5fcd680c10d31c7d8407659904975fbbd41b757c97"},
 ]
 
 [package.dependencies]
-google-api-core = {version = ">=2.17.1,<3.0.0", extras = ["grpc"]}
+google-api-core = {version = ">=2.28.0,<3.0.0", extras = ["grpc"]}
 google-auth = ">=2.14.1,<2.24.0 || >2.24.0,<2.25.0 || >2.25.0,<3.0.0"
-google-cloud-access-context-manager = ">=0.2.0,<1.0.0"
-google-cloud-org-policy = ">=1.11.1,<2.0.0"
-google-cloud-os-config = ">=1.13.0,<2.0.0"
-grpc-google-iam-v1 = ">=0.14.0,<1.0.0"
+google-cloud-access-context-manager = ">=0.2.2,<1.0.0"
+google-cloud-org-policy = ">=1.13.1,<2.0.0"
+google-cloud-os-config = ">=1.20.1,<2.0.0"
+grpc-google-iam-v1 = ">=0.14.2,<1.0.0"
 grpcio = {version = ">=1.75.1,<2.0.0", markers = "python_version >= \"3.14\""}
-proto-plus = {version = ">=1.25.0,<2.0.0", markers = "python_version >= \"3.13\""}
-protobuf = ">=4.25.8,<8.0.0"
+proto-plus = ">=1.26.1,<2.0.0"
+protobuf = ">=6.33.5,<8.0.0"
 
 [[package]]
 name = "google-cloud-compute"
-version = "1.54.0"
+version = "1.55.0"
 description = "Google Cloud Compute API client library"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "google_cloud_compute-1.54.0-py3-none-any.whl", hash = "sha256:e44c074ad77c1312a2fdac2f2aece36b80f98fe3dc6cdcf8fdfaabcee5c1cb0a"},
-    {file = "google_cloud_compute-1.54.0.tar.gz", hash = "sha256:75be7d3a9d58c286f7d0b567a2fc4fb3f451fa665338c731e61b12b331487be1"},
+    {file = "google_cloud_compute-1.55.0-py3-none-any.whl", hash = "sha256:1839d99a365a7e8c4c06d3078d164cc8e102de9a9b6a837d3e077c9bdec62fff"},
+    {file = "google_cloud_compute-1.55.0.tar.gz", hash = "sha256:dfdaacca812db42238f9ad33baa7f5f5e0e35917645cccf1b38e8637f0dab9f6"},
 ]
 
 [package.dependencies]
@@ -1283,14 +1285,14 @@ protobuf = ">=6.33.5,<8.0.0"
 
 [[package]]
 name = "google-cloud-container"
-version = "2.66.0"
+version = "2.67.0"
 description = "Google Cloud Container API client library"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "google_cloud_container-2.66.0-py3-none-any.whl", hash = "sha256:ba2f0a2f77156e4b12c07958104597a1553debf03a16033ea376488f994c920e"},
-    {file = "google_cloud_container-2.66.0.tar.gz", hash = "sha256:c022a2ed5371e1169ce2b947462eb8d51d4ccd3028c621ef699428b766be0cdc"},
+    {file = "google_cloud_container-2.67.0-py3-none-any.whl", hash = "sha256:9fbcb0ff85ee76cc1e0fd89503109cac944cec5640a2a76fac999adccb48afba"},
+    {file = "google_cloud_container-2.67.0.tar.gz", hash = "sha256:7277535fffd7fb4e97c7a94373c1b123d0c7fae678e108dec5d7ced72182c6a5"},
 ]
 
 [package.dependencies]
@@ -1321,18 +1323,18 @@ grpc = ["grpcio (>=1.47.0,<2.0.0) ; python_version < \"3.14\"", "grpcio (>=1.75.
 
 [[package]]
 name = "google-cloud-iam"
-version = "2.25.0"
+version = "2.26.0"
 description = "Google Cloud Iam API client library"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "google_cloud_iam-2.25.0-py3-none-any.whl", hash = "sha256:adaa7e9a44d48f521e5be7bce7d52f74f9f097885f641865d50caaacc79abf86"},
-    {file = "google_cloud_iam-2.25.0.tar.gz", hash = "sha256:af311f839cb7791e582093940ec114323fc6a92110e9807844026eb09704c479"},
+    {file = "google_cloud_iam-2.26.0-py3-none-any.whl", hash = "sha256:77bb8d9d8a9c94b1632196fd4d88c52c0f2ceb35075514eb91af25ed6857b300"},
+    {file = "google_cloud_iam-2.26.0.tar.gz", hash = "sha256:d44a86e5cb0bbc904c459b1367bd0124eef802fe0af72ac378f87f7f8e5b2d42"},
 ]
 
 [package.dependencies]
-google-api-core = {version = ">=2.25.0,<3.0.0", extras = ["grpc"]}
+google-api-core = {version = ">=2.28.0,<3.0.0", extras = ["grpc"]}
 google-auth = ">=2.14.1,<2.24.0 || >2.24.0,<2.25.0 || >2.25.0,<3.0.0"
 grpc-google-iam-v1 = ">=0.14.2,<1.0.0"
 grpcio = {version = ">=1.75.1,<2.0.0", markers = "python_version >= \"3.14\""}
@@ -1379,14 +1381,14 @@ protobuf = ">=4.25.8,<8.0.0"
 
 [[package]]
 name = "google-cloud-pubsub"
-version = "2.41.0"
+version = "2.42.0"
 description = "Google Cloud Pub/Sub API client library"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "google_cloud_pubsub-2.41.0-py3-none-any.whl", hash = "sha256:a71436ccc2ebe784d8c4d34c5e1395f6edaf4f560fa23a0b99f7ad846efd35aa"},
-    {file = "google_cloud_pubsub-2.41.0.tar.gz", hash = "sha256:4c7b42c23c1457543665ec162d75e0ba1b1d4c98adcc9c753f3517164f7937d7"},
+    {file = "google_cloud_pubsub-2.42.0-py3-none-any.whl", hash = "sha256:6eff5d2155b5f6967885b0e7f3da6fda91d2cfb15227fffeaef39b7339044a3d"},
+    {file = "google_cloud_pubsub-2.42.0.tar.gz", hash = "sha256:92ed998c41ce7d4f6b5b7c950df8291abd27c4d50116714e5c46fac47313e74d"},
 ]
 
 [package.dependencies]
@@ -1405,14 +1407,14 @@ libcst = ["libcst (>=0.3.10)"]
 
 [[package]]
 name = "google-cloud-storage"
-version = "3.14.1"
+version = "3.16.0"
 description = "Google Cloud Storage API client library"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "google_cloud_storage-3.14.1-py3-none-any.whl", hash = "sha256:8f0fe2b74bd80ddcbd67247a3b47b81035a0a4f448569ed358fa40a46c940118"},
-    {file = "google_cloud_storage-3.14.1.tar.gz", hash = "sha256:b24e74b493c60b19b83462933a83bb831e45b6ca4924b0d75eac8e176b58b3a7"},
+    {file = "google_cloud_storage-3.16.0-py3-none-any.whl", hash = "sha256:59e54ff1f7f8a7253c01f593f79d253728c122a8901b83f68fe7464a4131539f"},
+    {file = "google_cloud_storage-3.16.0.tar.gz", hash = "sha256:3f75cf8ad345d68ef33f0c69db8a8b3f34f160b1524e75d73890602b7b8a4d6e"},
 ]
 
 [package.dependencies]
@@ -2007,23 +2009,23 @@ ws = ["websockets (>=15.0.1)"]
 
 [[package]]
 name = "msal"
-version = "1.36.0"
+version = "1.39.0"
 description = "The Microsoft Authentication Library (MSAL) for Python library enables your app to access the Microsoft Cloud by supporting authentication of users with Microsoft Azure Active Directory accounts (AAD) and Microsoft Accounts (MSA) using industry standard OAuth2 and OpenID Connect."
 optional = false
-python-versions = ">=3.8"
+python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "msal-1.36.0-py3-none-any.whl", hash = "sha256:36ecac30e2ff4322d956029aabce3c82301c29f0acb1ad89b94edcabb0e58ec4"},
-    {file = "msal-1.36.0.tar.gz", hash = "sha256:3f6a4af2b036b476a4215111c4297b4e6e236ed186cd804faefba23e4990978b"},
+    {file = "msal-1.39.0-py3-none-any.whl", hash = "sha256:2d2577886906cd7293850dffa2da29119966c213bfc6ec0cecf8bf7621e1ca77"},
+    {file = "msal-1.39.0.tar.gz", hash = "sha256:6ab7de335e6d7f5717e2c7e1dbf86e4dda2f6acf3c56773b78dc53ebc6395b5f"},
 ]
 
 [package.dependencies]
-cryptography = ">=2.5,<49"
+cryptography = ">=2.5,<51"
 PyJWT = {version = ">=1.0.0,<3", extras = ["crypto"]}
 requests = ">=2.0.0,<3"
 
 [package.extras]
-broker = ["pymsalruntime (>=0.14,<0.21) ; python_version >= \"3.8\" and platform_system == \"Windows\"", "pymsalruntime (>=0.17,<0.21) ; python_version >= \"3.8\" and platform_system == \"Darwin\"", "pymsalruntime (>=0.18,<0.21) ; python_version >= \"3.8\" and platform_system == \"Linux\""]
+broker = ["pymsalruntime (>=0.20,<0.21) ; python_version >= \"3.9\" and platform_system == \"Darwin\"", "pymsalruntime (>=0.20,<0.21) ; python_version >= \"3.9\" and platform_system == \"Linux\"", "pymsalruntime (>=0.20,<0.21) ; python_version >= \"3.9\" and platform_system == \"Windows\""]
 
 [[package]]
 name = "msal-extensions"
@@ -2240,14 +2242,14 @@ signedtoken = ["cryptography (>=3.0.0)", "pyjwt (>=2.0.0,<3)"]
 
 [[package]]
 name = "opentelemetry-api"
-version = "1.42.1"
+version = "1.45.0"
 description = "OpenTelemetry Python API"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "opentelemetry_api-1.42.1-py3-none-any.whl", hash = "sha256:51a69edacadbc03a8950ace1c4c21099cacc538820ac2c9e36277e78cebba714"},
-    {file = "opentelemetry_api-1.42.1.tar.gz", hash = "sha256:56c63bea9f77b62856be8c47600474acad853b2924b99b1687c4cb6297166716"},
+    {file = "opentelemetry_api-1.45.0-py3-none-any.whl", hash = "sha256:80e068aba7cd56c8b58512d6a36f8d25cb1dfaa0c0a4cc1c938ccf9f362d9cb3"},
+    {file = "opentelemetry_api-1.45.0.tar.gz", hash = "sha256:711ede81773c8025c2c03dac0450bc89f3d30aea6eabcc815c570d4e35a963f7"},
 ]
 
 [package.dependencies]
@@ -2255,38 +2257,38 @@ typing-extensions = ">=4.5.0"
 
 [[package]]
 name = "opentelemetry-sdk"
-version = "1.42.1"
+version = "1.45.0"
 description = "OpenTelemetry Python SDK"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "opentelemetry_sdk-1.42.1-py3-none-any.whl", hash = "sha256:083cd4bbfaa5aa7b5a9e552430d9951219967cfb27aa61feb13a77aba1fc839d"},
-    {file = "opentelemetry_sdk-1.42.1.tar.gz", hash = "sha256:8c834e8f8c9ba4171d4ec843d0cb8a67e4c7394d3f9e9297e582cbd9456ddbf7"},
+    {file = "opentelemetry_sdk-1.45.0-py3-none-any.whl", hash = "sha256:5dc634c946546f61b757c5b1781f9fd1a10e96ffaf7357c797e508fe9c57e75e"},
+    {file = "opentelemetry_sdk-1.45.0.tar.gz", hash = "sha256:20caa5130505e386c67c3da1c76e446c842698ced54c76c6148679539aa97972"},
 ]
 
 [package.dependencies]
-opentelemetry-api = "1.42.1"
-opentelemetry-semantic-conventions = "0.63b1"
+opentelemetry-api = "1.45.0"
+opentelemetry-semantic-conventions = "0.66b0"
 typing-extensions = ">=4.5.0"
 
 [package.extras]
-file-configuration = ["jsonschema (>=4.0)", "pyyaml (>=6.0)"]
+file-configuration = ["opentelemetry-configuration (==0.66b0)"]
 
 [[package]]
 name = "opentelemetry-semantic-conventions"
-version = "0.63b1"
+version = "0.66b0"
 description = "OpenTelemetry Semantic Conventions"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "opentelemetry_semantic_conventions-0.63b1-py3-none-any.whl", hash = "sha256:dfe5ef4dee82586b746f522b818ceb298d00b3d59f660042bd79404bff8d0682"},
-    {file = "opentelemetry_semantic_conventions-0.63b1.tar.gz", hash = "sha256:3daf963611334b365e98a57438183eb012d3bfb40b2d931a9af613476b8701a9"},
+    {file = "opentelemetry_semantic_conventions-0.66b0-py3-none-any.whl", hash = "sha256:175b19dd98c4473f4f43a2b1df59186fd7b4a48cd3f77cbe03438b6d6fda230a"},
+    {file = "opentelemetry_semantic_conventions-0.66b0.tar.gz", hash = "sha256:97a77dce484c54861e7eeff7651fd8a806dd3c30e501dc316730215ec36890e6"},
 ]
 
 [package.dependencies]
-opentelemetry-api = "1.42.1"
+opentelemetry-api = "1.45.0"
 typing-extensions = ">=4.5.0"
 
 [[package]]
@@ -3188,14 +3190,14 @@ zstd = ["zstandard (>=0.18.0)"]
 
 [[package]]
 name = "uvicorn"
-version = "0.53.0"
+version = "0.54.0"
 description = "The lightning-fast ASGI server."
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "uvicorn-0.53.0-py3-none-any.whl", hash = "sha256:e8dca71ec86dce5f04e333f0d56cdedf942446e6643b9cea1af0d6d3a02cb03e"},
-    {file = "uvicorn-0.53.0.tar.gz", hash = "sha256:a9356f0cb89b3b8621529c5d5eebd69bfe154f4c3f68b4cf2de47e45fa855c2e"},
+    {file = "uvicorn-0.54.0-py3-none-any.whl", hash = "sha256:505bdb0f318731d45f1f712071fc781a8981f6847a31c902c9f5e652d4f67faf"},
+    {file = "uvicorn-0.54.0.tar.gz", hash = "sha256:a2e33cbfaa0306f8e6b0c13e0cb89d7d7a2da3e62b90c66e18c33d9807b28620"},
 ]
 
 [package.dependencies]
@@ -3606,4 +3608,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.14,<3.15"
-content-hash = "91212351e922a3098646d5385a4a35861dd9608c8f1d230400a59f0563a65ac5"
+content-hash = "673b30db3b7baeb602b53b212a8a6f0706c42415a5ffcdb5e9d2e8adf4a64907"
