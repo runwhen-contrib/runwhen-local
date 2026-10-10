@@ -10,6 +10,8 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
+import home_isolation  # noqa: E402,F401
+
 from workspace_builder.health import HealthTracker
 
 

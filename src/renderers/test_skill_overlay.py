@@ -6,6 +6,8 @@ import os
 import tempfile
 import unittest
 
+import home_isolation  # noqa: E402,F401
+
 from component import Context
 from outputter import FileSystemOutputter
 from renderers.rendered_artifacts import (

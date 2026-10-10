@@ -40,6 +40,8 @@ _SRC_DIR = os.path.dirname(_THIS_DIR)
 if _SRC_DIR not in sys.path:
     sys.path.insert(0, _SRC_DIR)
 
+import home_isolation  # noqa: E402,F401
+
 
 def _registered_indexer_module_names() -> list[str]:
     """Read the INDEXER-stage component list straight from component.py so this

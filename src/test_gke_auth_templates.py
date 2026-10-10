@@ -25,6 +25,8 @@ _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 if _THIS_DIR not in sys.path:
     sys.path.insert(0, _THIS_DIR)
 
+import home_isolation  # noqa: E402,F401
+
 from resources import Resource, ResourceType  # noqa: E402
 from template import render_template_file  # noqa: E402
 
