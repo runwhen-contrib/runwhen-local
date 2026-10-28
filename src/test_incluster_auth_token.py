@@ -9,6 +9,8 @@ _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 if _THIS_DIR not in sys.path:
     sys.path.insert(0, _THIS_DIR)
 
+import home_isolation  # noqa: E402,F401
+
 from run import (
     _long_lived_service_account_token,
     _publish_kubeconfig_secret,

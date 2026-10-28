@@ -15,6 +15,8 @@ _SRC_DIR = os.path.dirname(_THIS_DIR)
 if _SRC_DIR not in sys.path:
     sys.path.insert(0, _SRC_DIR)
 
+import home_isolation  # noqa: E402,F401
+
 from enrichers.generation_rules import DEFAULT_LOD_SETTING  # noqa: E402
 from indexers.common import CLOUD_CONFIG_SETTING  # noqa: E402
 from indexers.kubeapi import NAMESPACE_LODS_SETTING, index  # noqa: E402

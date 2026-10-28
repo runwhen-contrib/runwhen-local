@@ -23,6 +23,8 @@ _SRC_DIR = os.path.dirname(_THIS_DIR)
 if _SRC_DIR not in sys.path:
     sys.path.insert(0, _SRC_DIR)
 
+import home_isolation  # noqa: E402,F401
+
 from indexers.sqlite_resource_writer import persist_sqlite_store  # noqa: E402
 from indexers.workspace_artifacts_tar import (  # noqa: E402
     build_upload_tar_gz_from_db_file,

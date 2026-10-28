@@ -22,6 +22,8 @@ _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 if _THIS_DIR not in sys.path:
     sys.path.insert(0, _THIS_DIR)
 
+import home_isolation  # noqa: E402
+
 # gcp_utils -> utils -> kubernetes; stub the kubernetes module so the import
 # doesn't fail in environments without the kubernetes Python package.
 for _mod in ("kubernetes", "kubernetes.dynamic", "kubernetes.dynamic.resource"):
@@ -200,6 +202,11 @@ class MultiProjectAutoDiscoveryTest(TestCase):
         self.assertEqual(len(queried_parents), 2)
         self.assertIn("projects/proj-beta/locations/-", queried_parents)
         self.assertIn("projects/proj-staging/locations/-", queried_parents)
+
+        # The generator writes this fake-cluster kubeconfig to ~/.kube; that
+        # must be the per-test temp HOME, never the developer's real one.
+        self.assertNotIn(os.path.expanduser("~"), home_isolation.REAL_HOMES)
+        self.assertTrue(os.path.isfile(os.path.expanduser("~/.kube/gke-kubeconfig")))
 
     def test_discovery_config_project_id_filters_to_single_project(self):
         """When discoveryConfig.projectId is set, only that project is queried."""

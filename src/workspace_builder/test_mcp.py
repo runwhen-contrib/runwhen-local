@@ -7,6 +7,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
+import home_isolation  # noqa: E402,F401
+
 from indexers.sqlite_resource_writer import persist_sqlite_store
 from outputter import FileSystemOutputter
 from component import Context

@@ -33,6 +33,8 @@ _SRC_DIR = os.path.dirname(_THIS_DIR)
 if _SRC_DIR not in sys.path:
     sys.path.insert(0, _SRC_DIR)
 
+import home_isolation  # noqa: E402,F401
+
 from indexers.azureapi_normalizers import (  # noqa: E402
     _camel_to_snake,
     _sanitize,

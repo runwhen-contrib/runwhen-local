@@ -398,7 +398,15 @@ def clear_stale_kubeconfig_artifacts(cloud_config):
     We only remove files THIS tool generates -- never a user-supplied
     ``kubernetes.kubeconfigFile``, which lives at a different, user-pointed path
     (e.g. ``/shared/kubeconfig.secret``). Returns the list of paths removed.
+
+    Only acts when ``RW_CLEAR_STALE_KUBECONFIGS=true``, which the container
+    image sets (there ``$HOME`` is the tool's own ``/shared``). Outside the
+    image ``~/.kube`` is the user's, and ``config`` / ``gke-kubeconfig`` there
+    are not ours to delete.
     """
+    if os.environ.get("RW_CLEAR_STALE_KUBECONFIGS") != "true":
+        logger.info("Not clearing ~/.kube kubeconfig artifacts: RW_CLEAR_STALE_KUBECONFIGS is not 'true'.")
+        return []
     user_kubeconfig_file = (cloud_config.get('kubernetes') or {}).get('kubeconfigFile') if cloud_config else None
     kube_dir = os.path.expanduser("~/.kube")
     removed = []
@@ -719,6 +727,7 @@ def main():
 
     # Defensive stale-kubeconfig cleanup before any cluster kubeconfig is
     # generated, so a leftover file from a previous run can never leak in.
+    # No-op outside the container image (see the function's docstring).
     clear_stale_kubeconfig_artifacts(cloud_config)
 
     azure_config = None

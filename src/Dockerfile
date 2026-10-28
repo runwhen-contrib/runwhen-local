@@ -126,6 +126,9 @@ RUN ARCH=$(uname -m) && \
 
 # RunWhen customizations
 ENV HOME=$RUNWHEN_SHARED
+# $HOME/.kube belongs to this tool here, so run.py may clear the kubeconfigs it
+# generated on a previous run. Outside the image run.py leaves ~/.kube alone.
+ENV RW_CLEAR_STALE_KUBECONFIGS=true
 ADD . $RUNWHEN_HOME
 
 RUN mkdir -p ${RUNWHEN_SHARED} \
