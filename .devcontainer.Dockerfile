@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /usr/share/doc /usr/share/man /usr/share/info /var/cache/man
 
 # Install Terraform
-ENV TERRAFORM_VERSION=1.16.3
+ENV TERRAFORM_VERSION=1.16.5
 RUN wget https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip && \
     unzip terraform_${TERRAFORM_VERSION}_linux_amd64.zip terraform -d /usr/local/bin/ && \
     rm terraform_${TERRAFORM_VERSION}_linux_amd64.zip
@@ -44,7 +44,7 @@ RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/aws
     rm -rf /tmp/awscliv2.zip /tmp/aws
 
 # Install Google Cloud CLI using tarball
-ENV GCLOUD_CLI_VERSION="586.0.0"
+ENV GCLOUD_CLI_VERSION="591.0.0"
 RUN curl -LO "https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-${GCLOUD_CLI_VERSION}-linux-x86_64.tar.gz" && \
     tar -xzf google-cloud-cli-${GCLOUD_CLI_VERSION}-linux-x86_64.tar.gz -C /usr/local && \
     /usr/local/google-cloud-sdk/install.sh --quiet && \
