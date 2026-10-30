@@ -60,3 +60,13 @@ When the auto-run loop (`AUTORUN_WORKSPACE_BUILDER_INTERVAL` set) sees a non-zer
 
 The pod retry loop also keeps polling the Kubernetes config reloader during the backoff window, so a `workspaceInfo.yaml` change still triggers an immediate pod restart even mid-retry.
 
+### Kubernetes discovery scope (`workspaceScope`)
+
+Every upload also sends a small `workspaceScope` payload describing which Kubernetes clusters and namespaces this run of RunWhen Local covered, and which kubeconfig credential its Kubernetes tasks use for each one. The Platform uses this to automatically configure resource discovery for those clusters — no extra configuration needed on your end.
+
+`workspaceScope` contains, per Kubernetes cluster: its name and context, cluster type (`kubernetes`/`gke`/`aks`/`eks`/…), whether an explicit namespace list was configured or all namespaces were in scope, the effective in-scope (and, where relevant, excluded) namespace names, whether in-cluster auth was used, and a reference to the kubeconfig credential — never the credential itself.
+
+**No secret material is ever included.** Only names and credential *references* (the same reference your rendered SLXs already use for `kubeconfig`) are sent — never kubeconfig bytes, tokens, certificates, or cloud keys.
+
+The same payload is written to `workspace-scope.json` in the output directory (next to, but not inside, the `workspaces/` folder that gets uploaded) so you can inspect exactly what was sent. If it can't be built for some reason, the upload still proceeds without it.
+

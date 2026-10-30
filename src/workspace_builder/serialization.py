@@ -84,5 +84,6 @@ def serialize_run_result(result: ArchiveRunResult) -> dict[str, Any]:
             "warnings": result.warnings,
             "outputType": result.output_type,
             "output": b64encode(result.output).decode("utf-8"),
+            "workspaceScope": result.workspace_scope,
         }
     )
