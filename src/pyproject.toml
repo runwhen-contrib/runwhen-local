@@ -44,6 +44,10 @@ google-cloud-container = "^2.56.0"
 google-cloud-pubsub = "^2.21.0"
 google-cloud-iam = "^2.15.0"
 mcp = "^1.27.0"
+opentelemetry-api = "^1.45"
+opentelemetry-sdk = "^1.45"
+opentelemetry-exporter-otlp-proto-grpc = "^1.45"
+opentelemetry-exporter-otlp-proto-http = "^1.45"
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
