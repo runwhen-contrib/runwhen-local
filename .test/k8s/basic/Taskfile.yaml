@@ -32,7 +32,7 @@ tasks:
           kubernetes:             
             kubeconfigFile: /shared/kubeconfig.secret
             contexts:
-              sandbox-cluster-1: 
+              kind-rwl-ci: 
                 defaultNamespaceLOD: detailed
         codeCollections: []
         # codeCollections: 
@@ -60,7 +60,7 @@ tasks:
           kubernetes:             
             kubeconfigFile: /shared/kubeconfig.secret
             contexts:
-              sandbox-cluster-1: 
+              kind-rwl-ci: 
                 defaultNamespaceLOD: basic
         codeCollections: []
         # codeCollections: 
@@ -188,7 +188,7 @@ tasks:
             kubernetes:             
               kubeconfigFile: /shared/kubeconfig.secret
               contexts:
-                sandbox-cluster-1: 
+                kind-rwl-ci: 
                   defaultNamespaceLOD: basic
               
               namespaces:
@@ -225,7 +225,7 @@ tasks:
             kubernetes:             
               kubeconfigFile: /shared/kubeconfig.secret
               contexts:
-                sandbox-cluster-1: 
+                kind-rwl-ci: 
                   defaultNamespaceLOD: detailed
               namespaces:
                 - ci-verify-basic
@@ -286,7 +286,7 @@ tasks:
             kubernetes:             
               kubeconfigFile: /shared/kubeconfig.secret
               contexts:
-                sandbox-cluster-1: 
+                kind-rwl-ci: 
                   defaultNamespaceLOD: detailed
           codeCollections:
           - repoURL: https://github.com/runwhen-contrib/rw-public-codecollection.git
@@ -612,7 +612,7 @@ tasks:
           kubernetes:
             kubeconfigFile: /shared/kubeconfig.secret
             contexts:
-              sandbox-cluster-1:
+              kind-rwl-ci:
                 defaultNamespaceLOD: basic
         codeCollections: []
         custom:
@@ -704,7 +704,7 @@ tasks:
           kubernetes:
             kubeconfigFile: /shared/kubeconfig.secret
             contexts:
-              sandbox-cluster-1:
+              kind-rwl-ci:
                 defaultNamespaceLOD: basic
             namespaces:
               - ci-verify-basic

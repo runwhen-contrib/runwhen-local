@@ -3,6 +3,8 @@
 # Sourced by run-rwl-discovery / ci-run-rwl-discovery variants.
 #
 # Use CONTAINER_ENGINE env var to override the container engine (docker/podman).
+# Use RWL_CONTAINER_NETWORK env var to attach the RunWhen Local container to a
+# specific Docker network (e.g. "kind" so it can reach the CI Kind cluster API).
 
 set -euo pipefail
 
@@ -22,12 +24,20 @@ _rwl_start_container() {
   local container_name="$1"
   shift
   # Extra container run args (e.g. --add-host github.com:0.0.0.0) follow $container_name.
+  # RWL_CONTAINER_NETWORK attaches the container to a Docker network, which the
+  # Kind-backed CI tests use to reach the cluster API server.
+  local network_opt=""
+  if [ -n "${RWL_CONTAINER_NETWORK:-}" ]; then
+    network_opt="--network ${RWL_CONTAINER_NETWORK}"
+  fi
   echo "Starting new container $container_name..."
+  # shellcheck disable=SC2086
   $CONTAINER_ENGINE run -d \
     -e DEBUG_LOGGING="${DEBUG_LOGGING:-false}" \
     -e WB_WRITE_WORKSPACE_FILES_TO_DISK=true \
     --name "$container_name" \
     -p 8000:8000 \
+    $network_opt \
     -v "$(pwd):/shared" \
     "$@" \
     runwhen-local:test || { echo "Failed to start container"; exit 1; }

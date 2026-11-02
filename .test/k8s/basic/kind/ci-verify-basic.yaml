@@ -1,0 +1,83 @@
+# Fixture for the Kubernetes discovery CI tests.
+#
+# This mirrors the workloads that used to live in the shared SANDBOX cluster's
+# `ci-verify-basic` namespace (managed in runwhen/infra-flux-nonprod-sandbox),
+# but without Flux: a Namespace, a Deployment, its Service and an Ingress.
+#
+# The discovery indexer only reads the API objects (Deployments/Services/
+# Ingresses/Namespaces) -- it does not require the pods to be Running -- so the
+# container image is never a factor for SLX generation. We use the pause image
+# because kind nodes already have it, which keeps the fixture offline-friendly
+# and instant to become ready.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ci-verify-basic
+  labels:
+    service_id: "999999"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: podinfo
+  namespace: ci-verify-basic
+  labels:
+    app: podinfo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: podinfo
+  template:
+    metadata:
+      labels:
+        app: podinfo
+    spec:
+      containers:
+        - name: podinfo
+          image: registry.k8s.io/pause:3.9
+          ports:
+            - name: http
+              containerPort: 9898
+          resources:
+            limits:
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: podinfo
+  namespace: ci-verify-basic
+  labels:
+    app: podinfo
+spec:
+  selector:
+    app: podinfo
+  ports:
+    - name: http
+      port: 9898
+      targetPort: http
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ci-verify-basic
+  namespace: ci-verify-basic
+  labels:
+    service_id: "888888"
+spec:
+  ingressClassName: ingress-nginx
+  rules:
+    - host: ci-verify-basic.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: podinfo
+                port:
+                  number: 9898
