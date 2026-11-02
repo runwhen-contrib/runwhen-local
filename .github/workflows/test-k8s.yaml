@@ -1,4 +1,4 @@
-# Build source image and test against K8s
+# Build source image and test Kubernetes discovery against a KIND cluster
 name: Discovery K8s Tests
 
 on:
@@ -6,6 +6,7 @@ on:
   pull_request:
     paths:
       - "src/**"
+      - ".test/k8s/**"
       - ".github/workflows/test-k8s.yaml"
       - "!src/VERSION"
 
@@ -76,12 +77,16 @@ jobs:
         run: |
           docker load -i .test/k8s/basic/image.tar
 
+      - name: Create KIND cluster
+        run: ./.test/k8s/basic/kind-up.sh rwl-ci
+
       - name: Run Test - ${{ matrix.test }}
         env:
-          KUBECONFIG_SECRET: ${{ secrets.SANDBOX_KUBECONFIG }}
+          # Attach the RunWhen Local container to the kind Docker network so it
+          # can reach the API server (see kind-up.sh).
+          RWL_CONTAINER_NETWORK: kind
         run: |-
           cd .test/k8s/basic
-          echo "$KUBECONFIG_SECRET" > kubeconfig.secret
           echo ""
           echo "╔══════════════════════════════════════════════╗"
           echo "║  Test: ${{ matrix.test }}"
