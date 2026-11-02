@@ -9,6 +9,7 @@ import tempfile
 import traceback
 from typing import Any
 
+import telemetry
 from component import (
     Component,
     Context,
@@ -36,7 +37,32 @@ def _parse_component_names(components_data: Any) -> list[str]:
 
 
 def execute_run(request_data: dict[str, Any]) -> ArchiveRunResult:
-    """Run the workspace-builder pipeline for a JSON request body."""
+    """Run the workspace-builder pipeline for a JSON request body.
+
+    The run is wrapped in a single OTLP span when telemetry is enabled (off by
+    default -- see :mod:`telemetry`). Telemetry is best-effort and never changes
+    the run outcome.
+    """
+    with telemetry.span(
+        telemetry.RUN_SPAN_NAME, attributes=telemetry.run_attributes(request_data)
+    ) as run_span:
+        try:
+            result = _execute_run_pipeline(request_data, run_span)
+        except Exception as exc:
+            run_span.set_attribute("runwhen.status", "error")
+            run_span.record_exception(exc)
+            run_span.set_status_error()
+            raise
+        run_span.set_attribute("runwhen.status", "ok")
+        run_span.set_attribute("runwhen.warnings_count", len(result.warnings or []))
+        run_span.set_status_ok()
+        return result
+
+
+def _execute_run_pipeline(
+    request_data: dict[str, Any], run_span: telemetry.SpanHandle
+) -> ArchiveRunResult:
+    """The workspace-builder pipeline body (see :func:`execute_run`)."""
     try:
         from .health import get_health_tracker
 
@@ -142,6 +168,9 @@ def execute_run(request_data: dict[str, Any]) -> ArchiveRunResult:
                 slx_count = len(slxs)
         except Exception:
             pass
+
+        if slx_count is not None:
+            run_span.set_attribute("runwhen.slx_count", slx_count)
 
         if health_tracker:
             try:

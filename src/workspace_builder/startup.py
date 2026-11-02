@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 
 from component import init_components
 from enrichers.code_collection import init_code_collections
+from telemetry import init_telemetry
 from .access_log_filters import ProbeAccessLogFilter
 from .log_buffer import get_log_buffer, get_log_sink
 from .log_formatter import StructuredJsonFormatter
@@ -143,6 +144,7 @@ def bootstrap() -> None:
     if _BOOTSTRAPPED:
         return
     configure_logging()
+    init_telemetry()
     init_components()
     init_code_collections()
     _BOOTSTRAPPED = True
