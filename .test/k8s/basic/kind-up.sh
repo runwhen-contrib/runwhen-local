@@ -50,6 +50,11 @@ else
   kind create cluster --name "$NAME" --image "$KIND_NODE_IMAGE" --wait 120s
 fi
 
+echo "Applying CI cluster-scoped fixtures (CRDs)..."
+kubectl apply -f "$HERE/kind/crds/"
+kubectl wait --for=condition=Established --timeout=60s \
+  crd/helmreleases.helm.toolkit.fluxcd.io
+
 echo "Applying CI fixture '$(basename "$FIXTURE")'..."
 kubectl apply -f "$FIXTURE"
 kubectl -n ci-verify-basic wait --for=condition=Available \

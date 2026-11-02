@@ -2,13 +2,14 @@
 #
 # This mirrors the workloads that used to live in the shared SANDBOX cluster's
 # `ci-verify-basic` namespace (managed in runwhen/infra-flux-nonprod-sandbox),
-# but without Flux: a Namespace, a Deployment, its Service and an Ingress.
+# but without Flux: a Namespace, a Deployment, its Service, an Ingress and the
+# HelmRelease (the CRD it needs lives in ./crds/helmrelease.yaml).
 #
 # The discovery indexer only reads the API objects (Deployments/Services/
-# Ingresses/Namespaces) -- it does not require the pods to be Running -- so the
-# container image is never a factor for SLX generation. We use the pause image
-# because kind nodes already have it, which keeps the fixture offline-friendly
-# and instant to become ready.
+# Ingresses/Namespaces and, for HelmRelease, the custom resource) -- it does not
+# require the pods to be Running -- so the container image is never a factor for
+# SLX generation. We use the pause image because kind nodes already have it,
+# which keeps the fixture offline-friendly and instant to become ready.
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -81,3 +82,23 @@ spec:
                 name: podinfo
                 port:
                   number: 9898
+---
+# Mirrors apps/ci-verify-basic/helm.yaml. The detailed-only
+# k8s-fluxcd-helm-health generation rule matches this resource type, so its
+# presence is what keeps the detailed-LOD SLX count consistent with SANDBOX.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: podinfo
+  namespace: ci-verify-basic
+spec:
+  releaseName: podinfo
+  chart:
+    spec:
+      chart: podinfo
+      sourceRef:
+        kind: HelmRepository
+        name: podinfo
+        namespace: flux-system
+  interval: 5m
+

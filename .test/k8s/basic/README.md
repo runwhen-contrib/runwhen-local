@@ -23,9 +23,10 @@ cd .test/k8s/basic
 
 It also applies the `ci-verify-basic` fixture
 ([`kind/ci-verify-basic.yaml`](kind/ci-verify-basic.yaml)) — the Namespace, a
-`podinfo` Deployment, its Service and an Ingress. This mirrors the workloads
-that previously lived in the SANDBOX cluster's `ci-verify-basic` namespace,
-which is what the SLX-count assertions (>=5 basic, >=12 detailed) are based on.
+`podinfo` Deployment, its Service, an Ingress and a HelmRelease (via the
+minimal CRD in [`kind/crds/`](kind/crds/)). This mirrors the workloads that
+previously lived in the SANDBOX cluster's `ci-verify-basic` namespace, which is
+what the SLX-count assertions (>=5 basic, >=12 detailed) are based on.
 
 The exported kubeconfig points at the control-plane container over the kind
 Docker network. Run the tests with `RWL_CONTAINER_NETWORK=kind` so the RunWhen
