@@ -8,12 +8,12 @@ authors = ["Kyle Forster <kyle.forster@runwhen.com>",
 package-mode = false
 
 [tool.poetry.dependencies]
-python = ">=3.14,<3.15"
-fastapi = "^0.143.0"
+python = ">=3.15,<3.16"
+fastapi = "^0.162.0"
 uvicorn = {version = "^0.54.0", extras = ["standard"]}
 httpx = "^0.28.0"
 kubernetes = "^37.0.0"
-robotframework = "==7.5"
+robotframework = "==7.5.1"
 GitPython = "^3.1.43"
 jinja2 = "^3.1"
 jsonschema = "^4.21"
