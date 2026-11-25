@@ -16,7 +16,7 @@ The following container images prerequisites to perform health and troubleshooti
 | ----------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
 | RunWhen Local           | Performs discovery, automatic configuration, and uploads configuration to the RunWhen Platform | ghcr.io/runwhen-contrib/runwhen-local:latest                         |
 | Runner                  | an operator that connects to the RunWhen Platform and schedules/executes SLI and Tasks         | us-docker.pkg.dev/runwhen-nonprod-shared/public-images/runner:latest |
-| OpenTelemetry Collector | Scrapes SLI metrics from prometheus push gateway into RunWhen Platform                         | otel/opentelemetry-collector:latest                                  |
+| OpenTelemetry Collector | SLI metrics are exported over OTLP by the runner's collector.                                  | otel/opentelemetry-collector:latest                                  |
 | Prometheus Pushgateway  | Accepts metrics from the SLI and is scaped from Grafana Agent                                  | docker.io/prom/pushgateway:latest                                    |
 
 
