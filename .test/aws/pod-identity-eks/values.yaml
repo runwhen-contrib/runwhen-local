@@ -133,8 +133,6 @@ runner:
     repository: ""
     tag: ""
   controlAddr: "https://runner.test.runwhen.com"
-  metrics:
-    url: "https://runner-cortex-tenant.test.runwhen.com/push"
   securityContext: {}
   podSecurityContext: {}
   extraEnv: {}
@@ -220,14 +218,8 @@ opentelemetry-collector:
     create: false
     annotations: {}
     name: "otel-collector"
-  extraVolumes:
-    - name: tls-secret-volume
-      secret:
-        secretName: runner-metrics-tls
-  extraVolumeMounts:
-    - name: tls-secret-volume
-      mountPath: /tls
-      readOnly: true
+  extraVolumes: []
+  extraVolumeMounts: []
   resources:
     requests:
       cpu: "10m"
