@@ -340,14 +340,14 @@ typing-extensions = ">=4.6.0"
 
 [[package]]
 name = "azure-mgmt-compute"
-version = "38.4.0"
+version = "39.0.0"
 description = "Microsoft Azure Compute Management Client Library for Python"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "azure_mgmt_compute-38.4.0-py3-none-any.whl", hash = "sha256:1421fbdc73b0c7c0875eeec559eae6ca9009598f3c73ee792097a7145b407053"},
-    {file = "azure_mgmt_compute-38.4.0.tar.gz", hash = "sha256:7bf2f2b49e2b7cedf5f3eb2a71cf501b70e5898bd45d2421650029b95d589835"},
+    {file = "azure_mgmt_compute-39.0.0-py3-none-any.whl", hash = "sha256:6e59c5d37aafa4eaa97df765ac58bb8b97ac8f32dc9993a88bc167a136fb6d7c"},
+    {file = "azure_mgmt_compute-39.0.0.tar.gz", hash = "sha256:0187dd028afcbab87d435498cd169f9e54fbb57c08785bcd59008a9a012861fa"},
 ]
 
 [package.dependencies]
@@ -357,14 +357,14 @@ typing-extensions = ">=4.6.0"
 
 [[package]]
 name = "azure-mgmt-containerregistry"
-version = "15.0.0"
+version = "16.0.0"
 description = "Microsoft Azure Containerregistry Management Client Library for Python"
 optional = false
-python-versions = ">=3.9"
+python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "azure_mgmt_containerregistry-15.0.0-py3-none-any.whl", hash = "sha256:e7d6302e8b993b53c3167a255dd8fae75fc2f1dc0e39ae9fa97fb4b7ed5d25d1"},
-    {file = "azure_mgmt_containerregistry-15.0.0.tar.gz", hash = "sha256:a31a70b7b6811d343c26804a146f1e4c1b12f6660c6e381d2d5017b27bcab573"},
+    {file = "azure_mgmt_containerregistry-16.0.0-py3-none-any.whl", hash = "sha256:afad1d9a5b8fef2625fdbc1db45f354a6a981d23540b73c699cb883390462da5"},
+    {file = "azure_mgmt_containerregistry-16.0.0.tar.gz", hash = "sha256:529c04deb3ce3575daad1d0eb4381576a350c4c8125c42c177446ae7444063aa"},
 ]
 
 [package.dependencies]
@@ -3625,4 +3625,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.14,<3.15"
-content-hash = "23b1bd3481176b148556c8d31eb0337af166d9f6f229e79f24e4e273f64992cc"
+content-hash = "0681061b94ded6b58b5272aabb02c76e9c21aea1986b4cf5097698cd1f35f678"
